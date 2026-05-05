@@ -1,0 +1,81 @@
+# Castelino Capital — runtime configuration
+# Tunable knobs live here; structural decisions live in code.
+
+fund:
+  name: "Castelino Capital"
+  initial_nav: 1000000.0
+  base_currency: "USD"
+
+models:
+  # OpenAI model IDs by tier.
+  # - reasoning: gpt-5.5 (heavy) — Hypothesis, Asset Selection, Bull, Bear,
+  #   Debate, Guard soft, Portfolio, Curator. These nodes do real analysis;
+  #   the extra cost is justified.
+  # - fast: gpt-5.4-mini (light) — Current Event, Web, TA, Backtest, Risk.
+  #   These mostly summarize/frame deterministic numbers; cheap is fine.
+  # - significance: gpt-5.4-mini — runs in batches against every RSS pull.
+  reasoning: "gpt-5.5"
+  fast: "gpt-5.4-mini"
+  significance: "gpt-5.4-mini"
+
+openai:
+  request_timeout_s: 60
+  max_retries: 3
+  # Cap structured-output requests so a runaway agent can't burn the budget.
+  max_output_tokens: 2048
+
+triggers:
+  # 24h cron fallback — fire even if no news + no calendar event
+  cron_fallback_hours: 24
+  # News significance threshold (0-1). Anything ≥ this fires the pipeline.
+  news_significance_min: 0.7
+  # Threshold above which we *log* but don't fire.
+  news_log_min: 0.4
+  # RSS sources for v1. Calibrate then expand.
+  rss_feeds:
+    - "https://feeds.reuters.com/reuters/businessNews"
+    - "https://feeds.reuters.com/Reuters/worldNews"
+    - "https://www.federalreserve.gov/feeds/press_all.xml"
+    - "https://www.ecb.europa.eu/rss/press.html"
+
+risk:
+  position_max_pct_nav: 0.05         # 5% hard cap (per core_principles)
+  asset_class_max_pct_gross: 0.40    # 40% hard cap
+  drawdown_freeze_pct: 0.10          # No new positions if dd > 10%
+  vix_circuit_breaker: 40.0          # VIX > 40 caps gross at 50%
+  five_day_pnl_freeze_pct: -0.05     # 5d P&L < -5% freezes new positions
+  liquidity_min_adv_usd: 50000000.0  # 30d ADV minimum
+  liquidity_max_pct_adv: 0.01        # No position > 1% ADV
+
+research:
+  ta_lookback_days: 252        # 1y for TA
+  backtest_lookback_years: 10  # similarity search history
+  risk_correlation_window: 60  # 60d (per design Q3 — middle ground)
+
+curator:
+  cadence: "weekly"                  # rolling weekly consolidation
+  st_max_closed_trades: 20
+  st_max_hypothesis_days: 30
+  st_max_trigger_days: 30
+  st_max_warning_days: 90
+
+execution:
+  # Slippage in basis points by asset class (per design §8)
+  slippage_bps:
+    equity: 5
+    bond_etf: 5
+    commodity_etf: 10
+    futures: 15
+    fx: 8
+  # Commission per asset class (USD)
+  commission:
+    equity: 0.0
+    bond_etf: 0.0
+    commodity_etf: 0.0
+    futures: 2.0   # per contract
+    fx: 0.0
+
+paths:
+  data_dir: "data"
+  reports_dir: "reports"
+  cache_dir: "data/cache"
