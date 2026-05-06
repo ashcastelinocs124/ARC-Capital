@@ -6,15 +6,20 @@ with read access to the book). LLM frames the numbers in natural language.
 
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 import pandas as pd
 from pydantic import BaseModel
 
 from castelino.agents.base import StructuredAgent
 from castelino.config import get_settings
+from castelino.data.openbb_adapter import OpenBBError, get_adapter
 from castelino.execution.portfolio import Portfolio
 from castelino.execution.pricing import history
 from castelino.memory.schemas import RiskReport, TradeExpression
+
+log = logging.getLogger(__name__)
 
 
 class RiskFeatures(BaseModel):
@@ -23,6 +28,21 @@ class RiskFeatures(BaseModel):
     correlation_to_book: float
     marginal_var_pct_nav: float
     suggested_max_size_pct_nav: float
+
+
+def _correlation_openbb(symbols: list[str], lookback_days: int = 90) -> pd.DataFrame | None:
+    """Get correlation matrix via OpenBB. Returns None on failure."""
+    adapter = get_adapter()
+    if not adapter.available:
+        return None
+    try:
+        corr = adapter.correlation_matrix(symbols, lookback_days)
+        if corr.empty:
+            return None
+        return corr
+    except (OpenBBError, Exception) as e:
+        log.debug("OpenBB correlation failed, using pandas fallback: %s", e)
+        return None
 
 
 def _returns(instrument_id: str, n_days: int) -> pd.Series:
@@ -43,17 +63,32 @@ def compute_risk_features(expression: TradeExpression, portfolio: Portfolio) -> 
     # Correlation to current book — equal-weighted basket of open positions.
     book_corr = 0.0
     if portfolio.positions:
-        try:
-            book_returns = pd.DataFrame()
-            for p in portfolio.positions:
-                book_returns[p.instrument_id] = _returns(p.instrument_id, n_days=window)
-            book_returns = book_returns.dropna()
-            book_avg = book_returns.mean(axis=1)
-            joined = pd.concat([rets.rename("c"), book_avg.rename("b")], axis=1).dropna()
-            if len(joined) >= 5:
-                book_corr = float(joined["c"].corr(joined["b"]))
-        except Exception:
-            book_corr = 0.0
+        # Try OpenBB correlation first
+        book_symbols = [p.instrument_id for p in portfolio.positions]
+        all_symbols = [expression.instrument_id] + book_symbols
+        obb_corr = _correlation_openbb(all_symbols, lookback_days=window)
+        if obb_corr is not None and expression.instrument_id in obb_corr.index:
+            try:
+                row = obb_corr.loc[expression.instrument_id]
+                book_corrs = [float(row[s]) for s in book_symbols if s in row.index]
+                if book_corrs:
+                    book_corr = float(np.mean(book_corrs))
+            except Exception:
+                obb_corr = None  # fall through to pandas fallback
+
+        # Pandas fallback
+        if obb_corr is None:
+            try:
+                book_returns = pd.DataFrame()
+                for p in portfolio.positions:
+                    book_returns[p.instrument_id] = _returns(p.instrument_id, n_days=window)
+                book_returns = book_returns.dropna()
+                book_avg = book_returns.mean(axis=1)
+                joined = pd.concat([rets.rename("c"), book_avg.rename("b")], axis=1).dropna()
+                if len(joined) >= 5:
+                    book_corr = float(joined["c"].corr(joined["b"]))
+            except Exception:
+                book_corr = 0.0
 
     # Marginal VaR proxy: |corr| * vol * size = additional sigma added to book.
     target = expression.target_size_pct_nav
