@@ -47,6 +47,18 @@ from castelino.orchestrator.state import FundState
 
 
 @pytest.fixture(autouse=True)
+def auto_approve_gates(monkeypatch):
+    """Auto-approve all gates in tests so pipeline doesn't stall."""
+    from castelino.orchestrator.approval import ApprovalQueue
+
+    def instant_approve(self, entry_id, poll_interval=2.0):
+        self.approve(entry_id)
+        return self.get(entry_id)
+
+    monkeypatch.setattr(ApprovalQueue, "wait_for_resolution", instant_approve)
+
+
+@pytest.fixture(autouse=True)
 def _isolate_data(tmp_path, monkeypatch):
     """Redirect every journal + portfolio path into a tmp dir."""
 

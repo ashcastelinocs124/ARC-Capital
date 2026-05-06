@@ -11,6 +11,8 @@ import logging
 
 from langgraph.graph import END, StateGraph
 
+from castelino.orchestrator.approval import ApprovalQueue, ApprovalStatus, GateType
+
 from castelino.agents.asset_selection import AssetSelectionAgent
 from castelino.agents.bear import BearAgent
 from castelino.agents.bull import BullAgent
@@ -164,6 +166,60 @@ def _node_portfolio_and_execute(state: FundState) -> dict:
     }
 
 
+# ───────────────────────── HITL gate nodes ───────────────────────────────────
+
+
+def _node_gate_hypothesis(state: FundState) -> dict:
+    """HITL gate: stall until human approves/edits/rejects the hypothesis."""
+    log.info("⏸ GATE: awaiting hypothesis approval")
+    if state.hypothesis is None:
+        return {"aborted": True, "abort_reason": "no hypothesis to approve"}
+
+    queue = ApprovalQueue()
+    item = queue.submit(
+        gate=GateType.POST_HYPOTHESIS,
+        payload={
+            "thesis": state.hypothesis.thesis,
+            "regime": state.hypothesis.regime.value,
+            "conviction": state.hypothesis.conviction.value,
+            "horizon_days": state.hypothesis.horizon_days,
+            "kill_criteria": [c.description for c in state.hypothesis.kill_criteria],
+        },
+        entry_id=f"H-{state.hypothesis.entry_id}",
+    )
+    result = queue.wait_for_resolution(item.entry_id)
+
+    if result.status == ApprovalStatus.REJECTED:
+        return {"aborted": True, "abort_reason": f"hypothesis rejected: {result.rejection_reason}"}
+    return {}
+
+
+def _node_gate_debate(state: FundState) -> dict:
+    """HITL gate: stall until human approves/rejects debate verdicts."""
+    log.info("⏸ GATE: awaiting debate verdict approval")
+    if not state.verdicts:
+        return {"aborted": True, "abort_reason": "no verdicts to approve"}
+
+    queue = ApprovalQueue()
+    for exp, verdict in zip(state.expressions, state.verdicts, strict=True):
+        item = queue.submit(
+            gate=GateType.POST_DEBATE,
+            payload={
+                "instrument": exp.instrument_id,
+                "direction": exp.direction.value,
+                "decision": verdict.decision,
+                "size_multiplier": verdict.size_multiplier,
+                "decisive_factor": verdict.decisive_factor,
+                "dissent": verdict.dissent,
+            },
+            entry_id=f"V-{verdict.entry_id}",
+        )
+        result = queue.wait_for_resolution(item.entry_id)
+        if result.status == ApprovalStatus.REJECTED:
+            return {"aborted": True, "abort_reason": f"verdict rejected for {exp.instrument_id}: {result.rejection_reason}"}
+    return {}
+
+
 # ───────────────────────── edge logic ─────────────────────────────────────
 
 
@@ -187,9 +243,11 @@ def build_graph():
     g = StateGraph(FundState)
     g.add_node("current_event", _node_current_event)
     g.add_node("hypothesis", _node_hypothesis)
+    g.add_node("gate_hypothesis", _node_gate_hypothesis)
     g.add_node("asset_selection", _node_asset_selection)
     g.add_node("research", _node_research)
     g.add_node("debate", _node_debate)
+    g.add_node("gate_debate", _node_gate_debate)
     g.add_node("guard", _node_guard)
     g.add_node("portfolio", _node_portfolio_and_execute)
 
@@ -198,6 +256,11 @@ def build_graph():
     g.add_conditional_edges(
         "hypothesis",
         _route_after_hypothesis,
+        {"asset_selection": "gate_hypothesis", "abort": END},
+    )
+    g.add_conditional_edges(
+        "gate_hypothesis",
+        lambda s: "abort" if s.aborted else "asset_selection",
         {"asset_selection": "asset_selection", "abort": END},
     )
     g.add_conditional_edges(
@@ -206,7 +269,12 @@ def build_graph():
         {"research": "research", "abort": END},
     )
     g.add_edge("research", "debate")
-    g.add_edge("debate", "guard")
+    g.add_edge("debate", "gate_debate")
+    g.add_conditional_edges(
+        "gate_debate",
+        lambda s: "abort" if s.aborted else "guard",
+        {"guard": "guard", "abort": END},
+    )
     g.add_edge("guard", "portfolio")
     g.add_edge("portfolio", END)
     return g.compile()
