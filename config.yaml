@@ -107,6 +107,11 @@ fred:
       asset_classes: ["equity", "bond_etf"]
   cache_ttl_hours: 24
 
+openbb:
+  preferred_provider: yfinance
+  fallback_enabled: true
+  cache_ttl_minutes: 15
+
 paths:
   data_dir: "data"
   reports_dir: "reports"

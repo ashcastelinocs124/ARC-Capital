@@ -104,6 +104,12 @@ class FredCfg(BaseModel):
     cache_ttl_hours: int = 24
 
 
+class OpenBBCfg(BaseModel):
+    preferred_provider: str = "yfinance"
+    fallback_enabled: bool = True
+    cache_ttl_minutes: int = 15
+
+
 class Settings(BaseModel):
     fund: FundCfg
     models: ModelsCfg
@@ -114,6 +120,7 @@ class Settings(BaseModel):
     curator: CuratorCfg
     execution: ExecutionCfg
     fred: FredCfg
+    openbb: OpenBBCfg = OpenBBCfg()
     paths: PathsCfg
     root: Path
 
@@ -136,6 +143,12 @@ class Settings(BaseModel):
     def fred_api_key(self) -> str | None:
         """FRED API key. Optional — adapter falls back to keyless CSV if unset."""
         key = os.environ.get("FRED_API_KEY", "").strip()
+        return key or None
+
+    @property
+    def openbb_pat(self) -> str | None:
+        """OpenBB Personal Access Token. Optional — adapter disabled if unset."""
+        key = os.environ.get("OPENBB_PAT", "").strip()
         return key or None
 
 
