@@ -49,8 +49,8 @@ def test_merge_when_no_saved_forecast(monkeypatch):
 
 def test_macro_fields_from_forecast():
     g = GrowthForecast(
-        target_id="INDPRO",
-        target_name="Industrial Production",
+        target_id="ISM_MFG_PMI",
+        target_name="ISM Manufacturing PMI",
         feature_month="2026-03-01",
         target_month="2026-05-01",
         lead_months=2,

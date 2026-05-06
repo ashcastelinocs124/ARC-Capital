@@ -1,6 +1,6 @@
 """Hit-and-trial indicator search for the regime nowcaster.
 
-Given a target (`CPIAUCSL` for inflation, `INDPRO` for growth) and a candidate
+Given a target (`CPIAUCSL` for inflation, `ISM_MFG_PMI` / local ISM CSV for growth)
 pool of `IndicatorSpec`s, runs **greedy forward selection**:
 
 1. Start with target self-lags only.

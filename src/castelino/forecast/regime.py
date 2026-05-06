@@ -12,11 +12,12 @@ Each forecaster has its **own indicator list** and trains an **independent
 XGBoost classifier**. The two are then combined by a downstream regime mapper
 (authored separately) into a 4-quadrant label.
 
-Indicators may come from FRED **or** yfinance:
+Indicators may come from FRED, yfinance, or a repo-local CSV:
 
 - `source: fred`              → `fred_id` (e.g., `T10Y3M`, `BAMLH0A0HYM2`)
 - `source: yfinance_close`    → `symbol`  (e.g., `^BCOM`)
 - `source: yfinance_ratio`    → `numerator` / `denominator` (e.g., XLY/XLP)
+- `source: local_csv`         → `path` relative to repo root (e.g. ISM PMI after FRED dropped `NAPM`)
 
 Design rules
 ------------
@@ -72,6 +73,7 @@ INFLATION_INDICATORS_YAML = ROOT / "data" / "inflation_leading_indicators.yaml"
 SOURCE_FRED = "fred"
 SOURCE_YF_CLOSE = "yfinance_close"
 SOURCE_YF_RATIO = "yfinance_ratio"
+SOURCE_LOCAL_CSV = "local_csv"
 
 
 @dataclass(frozen=True)
@@ -89,6 +91,7 @@ class IndicatorSpec:
     yf_symbol: Optional[str] = None
     yf_numerator: Optional[str] = None
     yf_denominator: Optional[str] = None
+    csv_relpath: Optional[str] = None  # path relative to repo ROOT (for SOURCE_LOCAL_CSV)
 
     def validate(self) -> None:
         if self.source == SOURCE_FRED:
@@ -100,6 +103,9 @@ class IndicatorSpec:
         elif self.source == SOURCE_YF_RATIO:
             if not (self.yf_numerator and self.yf_denominator):
                 raise ValueError(f"{self.id}: yfinance_ratio requires numerator + denominator")
+        elif self.source == SOURCE_LOCAL_CSV:
+            if not self.csv_relpath:
+                raise ValueError(f"{self.id}: local_csv source requires path")
         else:
             raise ValueError(f"{self.id}: unknown source {self.source!r}")
 
@@ -121,16 +127,28 @@ class IndicatorListConfig:
         with p.open("r", encoding="utf-8") as f:
             doc = yaml.safe_load(f) or {}
         target_doc = dict(doc.get("target") or {})
-        if not target_doc.get("fred_id") and not target_doc.get("yf_symbol"):
-            raise ValueError(f"{p}: target must define fred_id or yf_symbol")
+        has_tgt = bool(
+            target_doc.get("fred_id")
+            or target_doc.get("yf_symbol")
+            or target_doc.get("symbol")
+            or target_doc.get("path"),
+        )
+        if not has_tgt:
+            raise ValueError(f"{p}: target must define fred_id, yfinance symbol, or local path")
+        if target_doc.get("path"):
+            tgt_src = SOURCE_LOCAL_CSV
+        elif target_doc.get("fred_id"):
+            tgt_src = SOURCE_FRED
+        else:
+            tgt_src = SOURCE_YF_CLOSE
         target_doc.setdefault(
             "id",
-            target_doc.get("fred_id") or target_doc.get("yf_symbol"),
+            target_doc.get("fred_id")
+            or target_doc.get("yf_symbol")
+            or target_doc.get("symbol")
+            or Path(str(target_doc.get("path", ""))).stem,
         )
-        target_spec = _row_to_spec(
-            row=target_doc,
-            default_source=SOURCE_FRED if target_doc.get("fred_id") else SOURCE_YF_CLOSE,
-        )
+        target_spec = _row_to_spec(row=target_doc, default_source=tgt_src)
         target_spec.validate()
 
         rows = doc.get("indicators") or []
@@ -156,12 +174,15 @@ def _row_to_spec(row: dict, default_source: str) -> IndicatorSpec:
     src = row.get("source") or default_source
     iid = row.get("id")
     if not iid:
-        # Fall back to FRED id, then yf_symbol, then ratio.
+        # Fall back to FRED id, then yf_symbol, then ratio stem, then CSV stem.
         iid = row.get("fred_id") or row.get("symbol") or row.get("yf_symbol")
         if not iid and row.get("numerator") and row.get("denominator"):
             iid = f"{row['numerator']}_div_{row['denominator']}"
+        if not iid and row.get("path"):
+            iid = Path(str(row["path"])).stem
     if not iid:
         raise ValueError(f"Indicator row missing id and identifier: {row}")
+    csv_path = row.get("path") or row.get("csv_path")
     return IndicatorSpec(
         id=str(iid),
         source=str(src),
@@ -170,6 +191,7 @@ def _row_to_spec(row: dict, default_source: str) -> IndicatorSpec:
         yf_symbol=row.get("symbol") or row.get("yf_symbol"),
         yf_numerator=row.get("numerator") or row.get("yf_numerator"),
         yf_denominator=row.get("denominator") or row.get("yf_denominator"),
+        csv_relpath=str(csv_path) if csv_path else None,
     )
 
 
@@ -275,6 +297,45 @@ def _fetch_fred_series(series_id: str) -> pd.Series:
     return df[val_col].dropna().astype(float).rename(series_id)
 
 
+def _fetch_local_csv(rel_path: str) -> pd.Series:
+    """Load a monthly series from CSV under repo `ROOT`.
+
+    File may begin with `#` comment lines. Expected columns: `date` (or
+    `observation_date`) and `value`, or a two-column CSV with header.
+    """
+    p = (ROOT / rel_path).resolve()
+    if not p.is_file():
+        raise FileNotFoundError(f"local_csv: file not found: {p} (from {rel_path!r})")
+    lines: list[str] = []
+    with p.open(encoding="utf-8") as f:
+        for line in f:
+            s = line.strip()
+            if not s or s.startswith("#"):
+                continue
+            lines.append(line)
+    body = "".join(lines)
+    if not body.strip():
+        raise ValueError(f"local_csv: no data rows in {p}")
+    df = pd.read_csv(StringIO(body))
+    cols_lower = [str(c).strip().lower() for c in df.columns]
+    df.columns = cols_lower
+    if "observation_date" in df.columns:
+        dcol = "observation_date"
+    elif "date" in df.columns:
+        dcol = "date"
+    else:
+        dcol = cols_lower[0]
+    if "value" in df.columns:
+        vcol = "value"
+    else:
+        vcol = cols_lower[1]
+    df[dcol] = pd.to_datetime(df[dcol])
+    df = df.set_index(dcol).sort_index()
+    s = pd.to_numeric(df[vcol], errors="coerce").dropna().astype(float)
+    s = s[~s.index.duplicated(keep="last")]
+    return s
+
+
 def _fetch_yf_close(symbol: str) -> pd.Series:
     """Daily close series from yfinance (full available history)."""
     import yfinance as yf
@@ -309,6 +370,9 @@ def _resolve_spec(spec: IndicatorSpec) -> pd.Series:
     if spec.source == SOURCE_FRED:
         assert spec.fred_id is not None
         return _fetch_fred_series(spec.fred_id).rename(spec.id)
+    if spec.source == SOURCE_LOCAL_CSV:
+        assert spec.csv_relpath is not None
+        return _fetch_local_csv(spec.csv_relpath).rename(spec.id)
     if spec.source == SOURCE_YF_CLOSE:
         assert spec.yf_symbol is not None
         return _fetch_yf_close(spec.yf_symbol).rename(spec.id)

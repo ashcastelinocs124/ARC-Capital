@@ -17,6 +17,7 @@ import pytest
 
 from castelino.forecast.regime import (
     SOURCE_FRED,
+    SOURCE_LOCAL_CSV,
     SOURCE_YF_CLOSE,
     SOURCE_YF_RATIO,
     GrowthForecast,
@@ -231,7 +232,53 @@ def test_serialisation_roundtrip():
     assert pytest.approx(restored.inflation.prob_up) == bundle.inflation.prob_up
 
 
+def test_yaml_loader_accepts_local_csv_target(tmp_path, monkeypatch):
+    import castelino.forecast.regime as regime_mod
+
+    root = tmp_path
+    (root / "data").mkdir(parents=True)
+    (root / "data" / "ism_manufacturing_pmi.csv").write_text(
+        "date,value\n2000-01-31,50.0\n2000-02-29,51.0\n", encoding="utf-8"
+    )
+    yml = root / "growth.yaml"
+    yml.write_text(
+        """
+target:
+  id: ISM_MFG_PMI
+  source: local_csv
+  path: data/ism_manufacturing_pmi.csv
+  name: "ISM Manufacturing PMI"
+indicators: []
+""".strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(regime_mod, "ROOT", root)
+    cfg = IndicatorListConfig.from_yaml(yml)
+    assert cfg.target.id == "ISM_MFG_PMI"
+    assert cfg.target.source == SOURCE_LOCAL_CSV
+    assert cfg.target.csv_relpath == "data/ism_manufacturing_pmi.csv"
+
+
+def test_fetch_local_csv_parses_comments(monkeypatch, tmp_path):
+    import castelino.forecast.regime as regime_mod
+
+    p = tmp_path / "series.csv"
+    p.write_text(
+        "# note\n# another\ndate,value\n2000-01-31,48.2\n2000-02-29,49.1\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(regime_mod, "ROOT", tmp_path)
+    s = regime_mod._fetch_local_csv("series.csv")
+    assert len(s) == 2
+    assert float(s.iloc[-1]) == pytest.approx(49.1)
+
+
 def test_indicator_spec_validates_requirements():
+    IndicatorSpec(
+        id="ok", source=SOURCE_LOCAL_CSV, csv_relpath="data/ism_manufacturing_pmi.csv",
+    ).validate()
+    with pytest.raises(ValueError):
+        IndicatorSpec(id="x", source=SOURCE_LOCAL_CSV).validate()  # missing path
     with pytest.raises(ValueError):
         IndicatorSpec(id="x", source=SOURCE_FRED).validate()  # missing fred_id
     with pytest.raises(ValueError):

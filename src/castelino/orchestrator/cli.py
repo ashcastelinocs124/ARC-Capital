@@ -254,7 +254,9 @@ def _run_indicator_search(
 ):
     """Shared core for the growth / inflation search commands."""
     from castelino.forecast.regime import (
+        GROWTH_INDICATORS_YAML,
         SOURCE_FRED,
+        IndicatorListConfig,
         IndicatorSpec,
         TrainingConfig,
     )
@@ -266,10 +268,7 @@ def _run_indicator_search(
     )
 
     if target_kind == "growth":
-        target = IndicatorSpec(
-            id="INDPRO", source=SOURCE_FRED, fred_id="INDPRO",
-            name="Industrial Production: total (ISM PMI proxy)",
-        )
+        target = IndicatorListConfig.from_yaml(GROWTH_INDICATORS_YAML).target
         pool = growth_candidate_pool()
     elif target_kind == "inflation":
         target = IndicatorSpec(
@@ -346,7 +345,7 @@ def growth_search(
         "precision_up | recall_down | f1_down | precision_down | accuracy | brier",
     ),
 ):
-    """Greedy forward selection of growth indicators (target: INDPRO).
+    """Greedy forward selection of growth indicators (target from growth YAML: ISM PMI CSV).
 
     Uses only `growth_candidate_pool()` — **does not touch** inflation YAML.
     """
