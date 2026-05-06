@@ -198,6 +198,95 @@ def reset(
     print("[green]Wiped journals + portfolio.[/green]")
 
 
+@app.command()
+def queue(
+    state_dir: str = typer.Option(None, help="Override state directory (testing)."),
+):
+    """List pending approval items."""
+    from castelino.orchestrator.approval import ApprovalQueue
+
+    sd = Path(state_dir) if state_dir else None
+    q = ApprovalQueue(state_dir=sd)
+    pending = q.pending()
+    if not pending:
+        print("[green]No pending approvals.[/green]")
+        return
+    table = Table(title="Pending Approvals")
+    table.add_column("ID")
+    table.add_column("Gate")
+    table.add_column("Submitted")
+    table.add_column("Details")
+    for item in pending:
+        details = ""
+        if "thesis" in item.payload:
+            details = item.payload["thesis"][:80]
+        elif "instrument" in item.payload:
+            details = f"{item.payload.get('instrument')} → {item.payload.get('decision')}"
+        table.add_row(item.entry_id, item.gate, item.submitted_at[:19], details)
+    print(table)
+
+
+@app.command(name="approve")
+def approve_cmd(
+    entry_id: str = typer.Argument(..., help="Approval item ID (e.g. H-abc123, V-def456)."),
+    state_dir: str = typer.Option(None, help="Override state directory."),
+):
+    """Approve a pending hypothesis or verdict."""
+    from castelino.orchestrator.approval import ApprovalQueue
+
+    sd = Path(state_dir) if state_dir else None
+    q = ApprovalQueue(state_dir=sd)
+    try:
+        item = q.approve(entry_id)
+        print(f"[green]Approved:[/green] {item.entry_id} ({item.gate})")
+    except KeyError:
+        print(f"[red]Not found:[/red] {entry_id}")
+        raise typer.Exit(1)
+
+
+@app.command(name="reject")
+def reject_cmd(
+    entry_id: str = typer.Argument(..., help="Approval item ID."),
+    reason: str = typer.Option("", help="Reason for rejection."),
+    state_dir: str = typer.Option(None, help="Override state directory."),
+):
+    """Reject a pending hypothesis or verdict."""
+    from castelino.orchestrator.approval import ApprovalQueue
+
+    sd = Path(state_dir) if state_dir else None
+    q = ApprovalQueue(state_dir=sd)
+    try:
+        item = q.reject(entry_id, reason=reason)
+        print(f"[red]Rejected:[/red] {item.entry_id} — {reason or '(no reason)'}")
+    except KeyError:
+        print(f"[red]Not found:[/red] {entry_id}")
+        raise typer.Exit(1)
+
+
+@app.command(name="edit")
+def edit_cmd(
+    entry_id: str = typer.Argument(..., help="Approval item ID."),
+    thesis: str = typer.Option(None, help="Revised thesis text."),
+    state_dir: str = typer.Option(None, help="Override state directory."),
+):
+    """Edit and approve a pending hypothesis."""
+    from castelino.orchestrator.approval import ApprovalQueue
+
+    sd = Path(state_dir) if state_dir else None
+    q = ApprovalQueue(state_dir=sd)
+    try:
+        current = q.get(entry_id)
+        payload = current.payload.copy()
+        if thesis:
+            payload["thesis"] = thesis
+        item = q.edit(entry_id, updated_payload=payload)
+        print(f"[green]Edited + Approved:[/green] {item.entry_id}")
+        print(f"  thesis: {payload.get('thesis', '(unchanged)')}")
+    except KeyError:
+        print(f"[red]Not found:[/red] {entry_id}")
+        raise typer.Exit(1)
+
+
 # ───────────────────────── helpers ─────────────────────────────────────────
 
 
