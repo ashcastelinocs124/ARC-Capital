@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 import pandas as pd
 from pydantic import BaseModel
 
 from castelino.agents.base import StructuredAgent
 from castelino.config import get_settings
+from castelino.data.openbb_adapter import OpenBBError, get_adapter
 from castelino.execution.pricing import PricingError, history
 from castelino.memory.schemas import TAReport, TradeExpression
+
+log = logging.getLogger(__name__)
 
 
 # ────────────────────── deterministic compute ──────────────────────
@@ -26,7 +31,74 @@ class TAFeatures(BaseModel):
     key_resistance: float
 
 
+def _compute_ta_openbb(instrument_id: str) -> TAFeatures | None:
+    """Try to compute TA features via OpenBB. Returns None on failure."""
+    adapter = get_adapter()
+    if not adapter.available:
+        return None
+    try:
+        hist = adapter.history(instrument_id, lookback_days=260)
+        if hist.empty or len(hist) < 50:
+            return None
+
+        closes: pd.Series = hist["close"].astype(float).dropna()
+        if len(closes) < 50:
+            return None
+
+        last = float(closes.iloc[-1])
+        sma_50 = float(closes.tail(50).mean())
+        sma_200 = float(closes.tail(min(200, len(closes))).mean())
+
+        # RSI via OpenBB technical indicators
+        rsi = 50.0
+        try:
+            indicators = adapter.technical_indicators(instrument_id, ["rsi"])
+            rsi_data = indicators.get("rsi")
+            if rsi_data and isinstance(rsi_data, list) and len(rsi_data) > 0:
+                last_record = rsi_data[-1]
+                rsi_val = next(
+                    (v for k, v in last_record.items() if "rsi" in k.lower() and v is not None),
+                    None,
+                )
+                if rsi_val is not None:
+                    rsi = float(rsi_val)
+        except (OpenBBError, Exception):
+            # Fall back to manual RSI from closes
+            delta = closes.diff().dropna()
+            up = delta.clip(lower=0)
+            down = -delta.clip(upper=0)
+            avg_up = up.ewm(alpha=1 / 14, min_periods=14, adjust=False).mean()
+            avg_down = down.ewm(alpha=1 / 14, min_periods=14, adjust=False).mean()
+            rs = avg_up / avg_down.replace(0, np.nan)
+            rsi_series = 100 - (100 / (1 + rs))
+            if not np.isnan(rsi_series.iloc[-1]):
+                rsi = float(rsi_series.iloc[-1])
+
+        log_rets = np.log(closes / closes.shift(1)).dropna()
+        realized_vol = float(log_rets.tail(30).std() * np.sqrt(252)) if len(log_rets) >= 30 else 0.0
+
+        window = closes.tail(60)
+        return TAFeatures(
+            instrument_id=instrument_id,
+            last_close=last,
+            sma_50=sma_50,
+            sma_200=sma_200,
+            rsi_14=rsi,
+            realized_vol_30d=realized_vol,
+            key_support=float(window.min()),
+            key_resistance=float(window.max()),
+        )
+    except (OpenBBError, Exception) as e:
+        log.debug("OpenBB TA failed for %s, using pandas fallback: %s", instrument_id, e)
+        return None
+
+
 def compute_ta_features(instrument_id: str, lookback_days: int | None = None) -> TAFeatures:
+    # Try OpenBB first
+    obb_result = _compute_ta_openbb(instrument_id)
+    if obb_result is not None:
+        return obb_result
+
     cfg = get_settings()
     n = lookback_days or cfg.research.ta_lookback_days
     df = history(instrument_id, lookback_days=max(n, 252))
