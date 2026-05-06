@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /c/Users/smart/.cursor/CKM-Capital log --oneline -10)"
+    ]
+  }
+}
