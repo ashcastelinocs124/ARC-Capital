@@ -1,0 +1,80 @@
+[
+  {
+    "name": "Castelino Capital",
+    "description": "Multi-agent macro fund dashboard",
+    "img": "",
+    "img_dark": "",
+    "img_light": "",
+    "allowCustomization": true,
+    "tabs": {
+      "portfolio": {
+        "id": "portfolio",
+        "name": "Portfolio",
+        "layout": [
+          {"i": "nav_metrics", "x": 0, "y": 0, "w": 40, "h": 5},
+          {"i": "positions_table", "x": 0, "y": 5, "w": 40, "h": 14},
+          {"i": "equity_curve", "x": 0, "y": 19, "w": 20, "h": 12},
+          {"i": "recent_fills", "x": 20, "y": 19, "w": 20, "h": 12}
+        ]
+      },
+      "macro": {
+        "id": "macro",
+        "name": "Macro & Signals",
+        "layout": [
+          {"i": "macro_indicators", "x": 0, "y": 0, "w": 20, "h": 12},
+          {"i": "yield_curve_chart", "x": 20, "y": 0, "w": 20, "h": 12},
+          {"i": "triggers_table", "x": 0, "y": 12, "w": 20, "h": 10},
+          {"i": "hypotheses_table", "x": 20, "y": 12, "w": 20, "h": 10},
+          {"i": "news_feed", "x": 0, "y": 22, "w": 20, "h": 14},
+          {"i": "econ_calendar", "x": 20, "y": 22, "w": 20, "h": 14}
+        ]
+      },
+      "research": {
+        "id": "research",
+        "name": "Research & Technicals",
+        "layout": [
+          {"i": "ta_chart", "x": 0, "y": 0, "w": 26, "h": 14, "groups": ["Group 1"]},
+          {"i": "screener", "x": 26, "y": 0, "w": 14, "h": 14},
+          {"i": "correlation_heatmap", "x": 0, "y": 14, "w": 20, "h": 14},
+          {"i": "sector_perf", "x": 20, "y": 14, "w": 20, "h": 14}
+        ]
+      },
+      "risk": {
+        "id": "risk",
+        "name": "Risk & Attribution",
+        "layout": [
+          {"i": "exposure_class_chart", "x": 0, "y": 0, "w": 20, "h": 14},
+          {"i": "exposure_instrument_chart", "x": 20, "y": 0, "w": 20, "h": 14},
+          {"i": "warnings_table", "x": 0, "y": 14, "w": 40, "h": 12}
+        ]
+      },
+      "agents": {
+        "id": "agents",
+        "name": "Agent Decisions",
+        "layout": [
+          {"i": "verdicts_table", "x": 0, "y": 0, "w": 20, "h": 14},
+          {"i": "guard_decisions_table", "x": 20, "y": 0, "w": 20, "h": 14}
+        ]
+      },
+      "approvals": {
+        "id": "approvals",
+        "name": "Approval Queue",
+        "layout": [
+          {"i": "approval_count", "x": 0, "y": 0, "w": 40, "h": 5},
+          {"i": "approval_queue_table", "x": 0, "y": 5, "w": 40, "h": 14},
+          {"i": "approval_history_table", "x": 0, "y": 19, "w": 40, "h": 12}
+        ]
+      }
+    },
+    "groups": [
+      {
+        "name": "Group 1",
+        "type": "param",
+        "paramName": "symbol",
+        "widgetIds": ["ta_chart", "screener"],
+        "defaultValue": "SPY"
+      }
+    ],
+    "prompts": []
+  }
+]
