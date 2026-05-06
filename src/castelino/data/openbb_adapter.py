@@ -71,21 +71,16 @@ class OpenBBAdapter:
 
     @property
     def available(self) -> bool:
-        """True if the OpenBB SDK is importable and a PAT is configured."""
+        """True if the OpenBB SDK is importable."""
         if self._available is None:
             self._available = self._try_init()
         return self._available
 
     def _try_init(self) -> bool:
-        """Attempt to import and authenticate with OpenBB. Returns success."""
-        pat = os.environ.get("OPENBB_PAT", "").strip()
-        if not pat:
-            log.info("OpenBB adapter disabled: OPENBB_PAT not set")
-            return False
+        """Attempt to import OpenBB. Credentials come from ~/.openbb_platform/user_settings.json."""
         try:
             from openbb import obb  # type: ignore[import-untyped]
 
-            obb.account.login(pat=pat)  # type: ignore[attr-defined]
             self._sdk = obb
             log.info("OpenBB adapter initialized successfully")
             return True
@@ -360,20 +355,18 @@ class OpenBBAdapter:
     # ------------------------------------------------------------------
 
     def economic_indicators(self, series_ids: list[str]) -> pd.DataFrame:
-        """Fetch economic indicator series (e.g., GDP, CPI, unemployment)."""
+        """Fetch economic indicator series via FRED (e.g., GDP, CPIAUCSL, UNRATE)."""
         obb = self._ensure_available()
         try:
             frames: list[pd.DataFrame] = []
             for sid in series_ids:
-                result = obb.economy.indicators(symbol=sid)
-                data = self._extract_results(result)
-                if data:
-                    df = pd.DataFrame(data)
+                result = obb.economy.fred_series(symbol=sid, provider="fred")
+                df = result.to_dataframe()
+                if not df.empty:
                     if "date" in df.columns:
-                        df["date"] = pd.to_datetime(df["date"])
                         df = df.set_index("date")
-                    df = df.rename(columns={"value": sid})
-                    frames.append(df[[sid]] if sid in df.columns else df)
+                    df = df.rename(columns={df.columns[0]: sid})
+                    frames.append(df[[sid]])
             if not frames:
                 raise OpenBBError(f"No data for series: {series_ids}")
             return pd.concat(frames, axis=1)
@@ -406,14 +399,21 @@ class OpenBBAdapter:
             raise OpenBBError(f"Failed to fetch economic calendar: {exc}") from exc
 
     def yield_curve(self) -> pd.DataFrame:
-        """Fetch the current US Treasury yield curve."""
+        """Fetch the current US Treasury yield curve via FRED series."""
         obb = self._ensure_available()
         try:
-            result = obb.fixedincome.rate.treasury(provider="federal_reserve")
-            data = self._extract_results(result)
+            tenors = {"1M": "DGS1MO", "3M": "DGS3MO", "6M": "DGS6MO",
+                      "1Y": "DGS1", "2Y": "DGS2", "5Y": "DGS5",
+                      "10Y": "DGS10", "30Y": "DGS30"}
+            data = {}
+            for label, symbol in tenors.items():
+                result = obb.economy.fred_series(symbol=symbol, provider="fred")
+                df = result.to_dataframe()
+                if not df.empty:
+                    data[label] = float(df.iloc[-1, 0])
             if not data:
                 raise OpenBBError("No yield curve data returned")
-            return pd.DataFrame(data)
+            return pd.DataFrame([data])
         except OpenBBError:
             raise
         except Exception as exc:

@@ -16,7 +16,12 @@ def macro_indicators():
         return []
     try:
         df = adapter.economic_indicators(["GDP", "CPIAUCSL", "UNRATE"])
-        return df.reset_index().to_dict("records")
+        df = df.fillna(0).tail(24)
+        records = df.reset_index().to_dict("records")
+        for r in records:
+            if "date" in r:
+                r["date"] = str(r["date"])[:10]
+        return records
     except OpenBBError:
         return []
 
