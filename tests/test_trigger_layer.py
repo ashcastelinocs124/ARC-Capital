@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+import requests
 
 from castelino.triggers import calendar as calmod
 from castelino.triggers import news as newsmod
@@ -16,34 +17,105 @@ from castelino.triggers.news import NewsHeadline
 
 @pytest.fixture(autouse=True)
 def _isolate_paths(tmp_path, monkeypatch):
-    monkeypatch.setattr(calmod, "_calendar_path", lambda: tmp_path / "calendar.json")
+    monkeypatch.setattr(calmod, "_fred_cache_path", lambda: tmp_path / "fred_cache.json")
     monkeypatch.setattr(newsmod, "_news_cache_path", lambda: tmp_path / "news.json")
     monkeypatch.setattr(runner, "_system_state_path", lambda: tmp_path / "system_state.json")
+    monkeypatch.setenv("FRED_API_KEY", "test-key-fake")
 
 
-def test_calendar_bootstraps_with_defaults(tmp_path):
-    events = calmod.pull_calendar(window_days=365)
-    assert isinstance(events, list)
-    # Default seed has plausible content
-    if events:
-        assert all(e.impact in ("high", "medium", "low") for e in events)
+def test_calendar_returns_events_from_fred_cache(tmp_path):
+    """FRED cache with valid entries returns CalendarEvents."""
+    near_date = (datetime.now(UTC) + timedelta(days=3)).strftime("%Y-%m-%d")
+    cached = {"release_dates": [
+        {"release_id": 10, "date": near_date},
+        {"release_id": 50, "date": near_date},
+    ]}
+    (tmp_path / "fred_cache.json").write_text(json.dumps(cached))
+    events = calmod.pull_calendar(window_days=30)
+    us_events = [e for e in events if e.region == "US"]
+    assert len(us_events) == 2
+    assert all(e.impact in ("high", "medium", "low") for e in events)
 
 
-def test_calendar_filters_to_window():
-    far_future = (datetime.now(UTC) + timedelta(days=400)).date().isoformat()
-    near = (datetime.now(UTC) + timedelta(days=2)).date().isoformat()
-    raw = [
-        {"date": far_future, "name": "x", "region": "US", "impact": "low",
-         "asset_classes": []},
-        {"date": near, "name": "near event", "region": "US", "impact": "high",
-         "asset_classes": ["equity"]},
-    ]
-    p = calmod._calendar_path()
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(raw))
+def test_calendar_filters_to_window(tmp_path):
+    far_future = (datetime.now(UTC) + timedelta(days=400)).strftime("%Y-%m-%d")
+    near = (datetime.now(UTC) + timedelta(days=2)).strftime("%Y-%m-%d")
+    cached = {"release_dates": [
+        {"release_id": 10, "date": far_future},
+        {"release_id": 10, "date": near},
+    ]}
+    (tmp_path / "fred_cache.json").write_text(json.dumps(cached))
     out = calmod.pull_calendar(window_days=7)
-    assert len(out) == 1
-    assert out[0].name == "near event"
+    us_events = [e for e in out if e.region == "US"]
+    assert len(us_events) == 1
+    assert us_events[0].name == "US CPI YoY"
+
+
+def test_fred_fetch_parses_releases(tmp_path, monkeypatch):
+    """FRED API response is parsed into CalendarEvents."""
+    near_date = (datetime.now(UTC) + timedelta(days=3)).strftime("%Y-%m-%d")
+    fake_response = {
+        "release_dates": [
+            {"release_id": 10, "date": near_date},
+            {"release_id": 50, "date": near_date},
+            {"release_id": 999, "date": near_date},
+        ]
+    }
+
+    class FakeResp:
+        status_code = 200
+        def json(self):
+            return fake_response
+        def raise_for_status(self):
+            pass
+
+    monkeypatch.setattr("requests.get", lambda *a, **kw: FakeResp())
+
+    events = calmod._fetch_fred_releases()
+    assert len(events) == 2
+    names = {e.name for e in events}
+    assert "US CPI YoY" in names
+    assert "US Non-Farm Payrolls" in names
+    assert all(e.region == "US" for e in events)
+
+
+def test_fred_cache_avoids_network_when_fresh(tmp_path, monkeypatch):
+    """When cache exists and is fresh, no network call is made."""
+    near_date = (datetime.now(UTC) + timedelta(days=3)).strftime("%Y-%m-%d")
+    cached = {"release_dates": [{"release_id": 10, "date": near_date}]}
+    (tmp_path / "fred_cache.json").write_text(json.dumps(cached))
+
+    def boom(*a, **kw):
+        raise AssertionError("Network should not be hit when cache is fresh")
+
+    monkeypatch.setattr("requests.get", boom)
+
+    events = calmod._fetch_fred_releases()
+    assert len(events) == 1
+    assert events[0].name == "US CPI YoY"
+
+
+def test_fred_api_failure_uses_stale_cache(tmp_path, monkeypatch):
+    """If FRED API is down but stale cache exists, use stale data."""
+    import os as os_mod
+
+    near_date = (datetime.now(UTC) + timedelta(days=3)).strftime("%Y-%m-%d")
+    cached = {"release_dates": [{"release_id": 10, "date": near_date}]}
+    cache_path = tmp_path / "fred_cache.json"
+    cache_path.write_text(json.dumps(cached))
+
+    # Make cache stale
+    old_time = (datetime.now(UTC) - timedelta(hours=48)).timestamp()
+    os_mod.utime(cache_path, (old_time, old_time))
+
+    def fail(*a, **kw):
+        raise requests.RequestException("timeout")
+
+    monkeypatch.setattr("requests.get", fail)
+
+    events = calmod._fetch_fred_releases()
+    assert len(events) == 1
+    assert events[0].name == "US CPI YoY"
 
 
 def test_news_dedupes_seen_headlines(monkeypatch):
