@@ -1,0 +1,175 @@
+{
+  "nav_metrics": {
+    "name": "Portfolio Metrics",
+    "description": "NAV, cash, exposure",
+    "category": "Portfolio",
+    "type": "metric",
+    "endpoint": "portfolio_metrics"
+  },
+  "positions_table": {
+    "name": "Open Positions",
+    "description": "Current positions with live P&L",
+    "category": "Portfolio",
+    "type": "table",
+    "endpoint": "positions",
+    "data": {
+      "table": {
+        "columnsDefs": [
+          {"field": "instrument_id", "headerName": "Instrument", "cellDataType": "text", "pinned": "left"},
+          {"field": "side", "headerName": "Side", "cellDataType": "text"},
+          {"field": "asset_class", "headerName": "Class", "cellDataType": "text"},
+          {"field": "quantity", "headerName": "Qty", "cellDataType": "number", "formatterFn": "none"},
+          {"field": "entry_price", "headerName": "Entry", "cellDataType": "number", "formatterFn": "none"},
+          {"field": "mark_price", "headerName": "Mark", "cellDataType": "number", "formatterFn": "none"},
+          {"field": "market_value", "headerName": "Mkt Value", "cellDataType": "number", "formatterFn": "none"},
+          {"field": "pct_nav", "headerName": "% NAV", "cellDataType": "number", "formatterFn": "percent"},
+          {"field": "unrealized_pnl", "headerName": "Unrealized", "cellDataType": "number", "formatterFn": "none", "renderFn": "greenRed"},
+          {"field": "unrealized_pct", "headerName": "Unreal %", "cellDataType": "number", "formatterFn": "percent", "renderFn": "greenRed"}
+        ]
+      }
+    }
+  },
+  "recent_fills": {
+    "name": "Recent Fills",
+    "description": "Latest trade executions",
+    "category": "Portfolio",
+    "type": "table",
+    "endpoint": "recent_fills"
+  },
+  "equity_curve": {
+    "name": "Equity Curve",
+    "description": "NAV over time",
+    "category": "Portfolio",
+    "type": "chart",
+    "endpoint": "equity_curve_chart"
+  },
+  "macro_indicators": {
+    "name": "Macro Indicators",
+    "description": "Key economic indicators",
+    "category": "Macro",
+    "type": "table",
+    "endpoint": "macro_indicators"
+  },
+  "yield_curve_chart": {
+    "name": "Yield Curve",
+    "description": "US Treasury yield curve",
+    "category": "Macro",
+    "type": "chart",
+    "endpoint": "yield_curve"
+  },
+  "triggers_table": {
+    "name": "Recent Triggers",
+    "description": "Pipeline trigger events",
+    "category": "Macro",
+    "type": "table",
+    "endpoint": "triggers"
+  },
+  "hypotheses_table": {
+    "name": "Active Hypotheses",
+    "description": "Current macro theses",
+    "category": "Macro",
+    "type": "table",
+    "endpoint": "hypotheses"
+  },
+  "news_feed": {
+    "name": "Market News",
+    "description": "Latest financial news",
+    "category": "Macro",
+    "type": "newsfeed",
+    "endpoint": "news"
+  },
+  "econ_calendar": {
+    "name": "Economic Calendar",
+    "description": "Upcoming events",
+    "category": "Macro",
+    "type": "table",
+    "endpoint": "economic_calendar"
+  },
+  "ta_chart": {
+    "name": "Technical Analysis",
+    "description": "Price chart with indicators",
+    "category": "Research",
+    "type": "chart",
+    "endpoint": "ta_chart",
+    "params": [
+      {"paramName": "symbol", "type": "text", "label": "Symbol", "value": "SPY"}
+    ]
+  },
+  "screener": {
+    "name": "Screener",
+    "description": "Equity screener",
+    "category": "Research",
+    "type": "table",
+    "endpoint": "screener"
+  },
+  "correlation_heatmap": {
+    "name": "Correlations",
+    "description": "Cross-asset correlation matrix",
+    "category": "Research",
+    "type": "chart",
+    "endpoint": "correlations"
+  },
+  "sector_perf": {
+    "name": "Sector Performance",
+    "description": "Sector returns",
+    "category": "Research",
+    "type": "table",
+    "endpoint": "sector_performance"
+  },
+  "exposure_class_chart": {
+    "name": "Exposure by Class",
+    "description": "Gross exposure by asset class",
+    "category": "Risk",
+    "type": "chart",
+    "endpoint": "exposure_by_class"
+  },
+  "exposure_instrument_chart": {
+    "name": "Exposure by Instrument",
+    "description": "Position-level exposure",
+    "category": "Risk",
+    "type": "chart",
+    "endpoint": "exposure_by_instrument"
+  },
+  "warnings_table": {
+    "name": "Principle Warnings",
+    "description": "Guard warnings",
+    "category": "Risk",
+    "type": "table",
+    "endpoint": "warnings"
+  },
+  "verdicts_table": {
+    "name": "Bull vs Bear Verdicts",
+    "description": "Debate outcomes",
+    "category": "Agents",
+    "type": "table",
+    "endpoint": "verdicts"
+  },
+  "guard_decisions_table": {
+    "name": "Guard Decisions",
+    "description": "Principles guard outcomes",
+    "category": "Agents",
+    "type": "table",
+    "endpoint": "guard_decisions"
+  },
+  "approval_count": {
+    "name": "Pending Approvals",
+    "description": "Items awaiting decision",
+    "category": "Approvals",
+    "type": "metric",
+    "endpoint": "approval_metrics"
+  },
+  "approval_queue_table": {
+    "name": "Approval Queue",
+    "description": "Pending items",
+    "category": "Approvals",
+    "type": "table",
+    "endpoint": "approval_queue"
+  },
+  "approval_history_table": {
+    "name": "Decision History",
+    "description": "Past decisions",
+    "category": "Approvals",
+    "type": "table",
+    "endpoint": "approval_history"
+  }
+}
