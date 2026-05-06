@@ -26,6 +26,7 @@ from castelino.data.instruments import (
     PriceSource,
     get_instrument,
 )
+from castelino.data.openbb_adapter import OpenBBError, get_adapter
 
 log = logging.getLogger(__name__)
 
@@ -51,8 +52,32 @@ MIN_HISTORY_FOR_SIGMA = 30          # not enough bars → skip the check
 # ───────────────────────────── public API ─────────────────────────────────
 
 
+def _try_openbb(instrument_id: str) -> Price | None:
+    """Attempt OpenBB for latest price. Returns None on any failure."""
+    adapter = get_adapter()
+    if not adapter.available:
+        return None
+    try:
+        obb_price = adapter.latest_price(instrument_id)
+        return Price(
+            instrument_id=instrument_id,
+            price=obb_price.price,
+            asof=obb_price.asof,
+            source=PriceSource.OPENBB,
+        )
+    except OpenBBError as e:
+        log.debug("OpenBB price failed for %s: %s — falling back", instrument_id, e)
+        return None
+
+
 def latest(instrument_id: str) -> Price:
-    """Most recent price for `instrument_id`. Raises `PricingError` on bad data."""
+    """Most recent price for `instrument_id`. Tries OpenBB first, falls back to yfinance/FRED."""
+    # Primary: try OpenBB
+    obb_price = _try_openbb(instrument_id)
+    if obb_price is not None:
+        return obb_price
+
+    # Fallback: existing yfinance/FRED path
     inst = get_instrument(instrument_id)
     df = history(instrument_id, lookback_days=10)
     if df.empty:

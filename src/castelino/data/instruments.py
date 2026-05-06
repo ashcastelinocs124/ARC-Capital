@@ -22,6 +22,7 @@ class AssetClass(str, Enum):
 class PriceSource(str, Enum):
     YFINANCE = "yfinance"
     FRED = "fred"
+    OPENBB = "openbb"
 
 
 class Instrument(BaseModel):
