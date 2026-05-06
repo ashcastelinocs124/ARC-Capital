@@ -93,6 +93,17 @@ class ResolvedPaths(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
 
 
+class FredReleaseCfg(BaseModel):
+    name: str
+    impact: str
+    asset_classes: list[str]
+
+
+class FredCfg(BaseModel):
+    releases: dict[int, FredReleaseCfg]
+    cache_ttl_hours: int = 24
+
+
 class Settings(BaseModel):
     fund: FundCfg
     models: ModelsCfg
@@ -102,6 +113,7 @@ class Settings(BaseModel):
     research: ResearchCfg
     curator: CuratorCfg
     execution: ExecutionCfg
+    fred: FredCfg
     paths: PathsCfg
     root: Path
 

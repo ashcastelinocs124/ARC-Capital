@@ -75,6 +75,38 @@ execution:
     futures: 2.0   # per contract
     fx: 0.0
 
+fred:
+  releases:
+    10:
+      name: "US CPI YoY"
+      impact: "high"
+      asset_classes: ["equity", "bond_etf", "fx"]
+    13:
+      name: "US Retail Sales"
+      impact: "medium"
+      asset_classes: ["equity"]
+    14:
+      name: "FOMC Rate Decision"
+      impact: "high"
+      asset_classes: ["equity", "bond_etf", "fx", "commodity_etf"]
+    21:
+      name: "US PCE YoY"
+      impact: "high"
+      asset_classes: ["equity", "bond_etf"]
+    50:
+      name: "US Non-Farm Payrolls"
+      impact: "high"
+      asset_classes: ["equity", "bond_etf", "fx"]
+    53:
+      name: "US GDP"
+      impact: "high"
+      asset_classes: ["equity", "bond_etf", "fx"]
+    46:
+      name: "US PPI"
+      impact: "medium"
+      asset_classes: ["equity", "bond_etf"]
+  cache_ttl_hours: 24
+
 paths:
   data_dir: "data"
   reports_dir: "reports"
