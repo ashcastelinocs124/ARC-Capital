@@ -18,6 +18,7 @@ from pathlib import Path
 
 from castelino.config import get_settings
 from castelino.execution.portfolio import Portfolio
+from castelino.forecast.regime_sectors import merge_forecast_into_state_kwargs
 from castelino.memory import io as memio
 from castelino.memory.io import WriterIdentity
 from castelino.memory.schemas import TriggerRecord, TriggerSource
@@ -135,7 +136,10 @@ def fire_pipeline(trigger: TriggerRecord, recent_headlines: list[str]) -> dict:
 
     pf = Portfolio.load()
     state = FundState(
-        trigger=trigger, recent_headlines=recent_headlines, portfolio=pf,
+        trigger=trigger,
+        recent_headlines=recent_headlines,
+        portfolio=pf,
+        **merge_forecast_into_state_kwargs(),
     )
     graph = build_graph()
     result = graph.invoke(state)

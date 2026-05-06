@@ -58,6 +58,29 @@ class TriggerSource(str, Enum):
 # ────────────────────────── trigger / world-state ────────────────────────────
 
 
+class LeadingIndicatorRead(BaseModel):
+    """Maps headline evidence to one catalog row from `data/macro_leading_indicators.yaml`."""
+
+    indicator_key: str = Field(
+        ...,
+        description=(
+            "Must match a `key` from the macro leading-indicator catalog "
+            "(system prompt)."
+        ),
+    )
+    read: str = Field(
+        ...,
+        max_length=500,
+        description="What the cited headlines imply for this indicator; stay factual.",
+    )
+    supporting_headline: str = Field(
+        ...,
+        description=(
+            "Verbatim copy of one headline from the user message (same spelling/punctuation)."
+        ),
+    )
+
+
 class TriggerRecord(BaseModel):
     kind: Literal["TriggerRecord"] = "TriggerRecord"
     entry_id: str = Field(default_factory=lambda: _new_id("trg"))
@@ -85,6 +108,14 @@ class WorldStateBrief(BaseModel):
     headlines: list[str]
     macro_signals: list[str] = Field(default_factory=list)
     surprises: list[str] = Field(default_factory=list)
+    leading_indicator_reads: list[LeadingIndicatorRead] = Field(
+        default_factory=list,
+        max_length=12,
+        description=(
+            "Optional structured pass over the team's leading-indicator catalog; "
+            "only include rows backed by supplied headlines."
+        ),
+    )
     summary: str
 
 

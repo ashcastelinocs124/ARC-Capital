@@ -1,0 +1,45 @@
+# Leading indicators for the GROWTH forecaster only (target: industrial production).
+# **Independent file** — changing inflation variables is done only in
+# `inflation_leading_indicators.yaml`.
+#
+# Target: FRED INDPRO (ISM PMI `NAPM` is not on public FRED). Direction:
+# two-month-ahead MoM level change (`lead_months` in TrainingConfig / CLI).
+#
+# Indicators below were chosen by greedy forward selection on walk-forward CV
+# to maximize **recall_up** (detecting month-ahead increases in IP) at
+# lead=2 months. Self-lags of INDPRO are always included automatically.
+
+version: 1
+
+target:
+  id: INDPRO
+  source: fred
+  fred_id: INDPRO
+  name: "Industrial Production: total (ISM PMI proxy)"
+
+indicators:
+  - id: DGS10
+    source: fred
+    fred_id: DGS10
+    name: "10-year Treasury yield"
+
+  - id: ICSA
+    source: fred
+    fred_id: ICSA
+    name: "Initial jobless claims"
+
+  - id: USSLIND
+    source: fred
+    fred_id: USSLIND
+    name: "Leading Index for the United States (Phila Fed; discontinued 2020 — XGBoost tolerates NaN lags)"
+
+  - id: cyclicals_defensives
+    source: yfinance_ratio
+    numerator: XLY
+    denominator: XLP
+    name: "Cyclicals (XLY) vs. defensives (XLP)"
+
+  - id: DSPIC96
+    source: fred
+    fred_id: DSPIC96
+    name: "Real disposable personal income"

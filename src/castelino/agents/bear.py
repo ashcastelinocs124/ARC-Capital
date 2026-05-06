@@ -23,6 +23,8 @@ Rules:
 - Be honest about confidence: 'high' requires the counter-evidence to be hard,
   not "could happen."
 - Do not argue for the trade. That is the Bull's job.
+- When MACRO REGIME CONTEXT is provided, you may argue **regime mismatch** if
+  the vehicle clearly fights the quadrant playbook (still ground in research).
 """
 
 
@@ -40,10 +42,12 @@ class BearAgent(StructuredAgent[BearCase]):
         expression: TradeExpression,
         hypothesis: Hypothesis,
         research: ResearchBundle,
+        macro_context: str = "",
     ) -> str:
         recent_warnings = memio.latest_n(kind="PrincipleWarning", n=5)
         warnings = "\n".join(f"- {w.rule_id}: {w.description}" for w in recent_warnings) or "- (none)"
         return (
+            f"MACRO REGIME CONTEXT:\n{macro_context}\n\n"
             f"Trade: {expression.direction.value} {expression.instrument_id}, "
             f"size {expression.target_size_pct_nav * 100:.2f}% NAV, "
             f"horizon {expression.expected_holding_days}d.\n\n"

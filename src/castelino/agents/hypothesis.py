@@ -24,6 +24,16 @@ Non-negotiable rules:
    your conviction must be 'low'.
 5. Read the long-term journal lessons; if a recurring lesson contradicts your
    thesis, address it explicitly in `rationale` or downgrade conviction.
+6. When `leading_indicator_reads` from the Current Event Agent is non-empty,
+   ground your thesis in at least one of those reads (reference it in
+   `rationale` or `thesis`). If the list is empty, state that leading indicators
+   were not clearly triggered by headlines, and lean on qualitative macro
+   signals conservatively.
+7. When MACRO REGIME CONTEXT is present in the user message, incorporate that
+   quadrant (growth × inflation nowcast) into your regime framing if it is
+   consistent with headlines and leading-indicator reads. If the news flow
+   strongly contradicts that quadrant, say so explicitly and explain which
+   signal you are prioritizing.
 
 This is a TOP-DOWN macro thesis, not a stock pick. Frame it in regime terms
 ("disinflation continues", "USD top is in", "energy supply shock"), not company
@@ -39,7 +49,7 @@ class HypothesisAgent(StructuredAgent[Hypothesis]):
     def system_prompt(self) -> str:
         return SYSTEM
 
-    def user_prompt(self, *, world_state: WorldStateBrief) -> str:
+    def user_prompt(self, *, world_state: WorldStateBrief, macro_context: str = "") -> str:
         principles = memio.read_principles()
         recent_hypotheses = [
             f"- {e.thesis} (regime={e.regime.value}, conviction={e.conviction.value})"
@@ -50,10 +60,20 @@ class HypothesisAgent(StructuredAgent[Hypothesis]):
             for e in memio.read_long_term()[-10:]
         ]
         return (
+            f"MACRO REGIME CONTEXT:\n{macro_context}\n\n"
             f"World-state brief:\n{world_state.summary}\n\n"
             f"Headlines: {world_state.headlines}\n"
             f"Surprises: {world_state.surprises}\n"
-            f"Macro signals: {world_state.macro_signals}\n\n"
+            f"Macro signals: {world_state.macro_signals}\n"
+            f"Leading indicator reads (from catalog-aligned scan):\n"
+            + (
+                "\n".join(
+                    f"  - [{r.indicator_key}] {r.read} (via: {r.supporting_headline!r})"
+                    for r in world_state.leading_indicator_reads
+                )
+                or "  - (none)"
+            )
+            + "\n\n"
             f"Recent hypotheses (last 5):\n"
             + ("\n".join(recent_hypotheses) or "- (none)")
             + "\n\nLong-term lessons:\n"

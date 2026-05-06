@@ -37,6 +37,10 @@ Rules:
 - Each expression must include direction (long/short), expected holding days,
   target size as % of NAV (max 5%), and an initial stop as a % from entry.
 - Prefer ETFs over single names when the thesis is regime-level.
+- When MACRO REGIME CONTEXT is given in the user message, **prioritize**
+  instruments from the preferred ETF / sector hints when they fit the
+  hypothesis. You may pick other universe names only if the thesis clearly
+  requires a different expression (explain in `rationale_overall`).
 - Set `parent_hypothesis_id` on every TradeExpression.
 """
 
@@ -49,7 +53,13 @@ class AssetSelectionAgent(StructuredAgent[AssetSelectionOutput]):
     def system_prompt(self) -> str:
         return SYSTEM
 
-    def user_prompt(self, *, hypothesis: Hypothesis, portfolio: Portfolio) -> str:
+    def user_prompt(
+        self,
+        *,
+        hypothesis: Hypothesis,
+        portfolio: Portfolio,
+        macro_context: str = "",
+    ) -> str:
         universe = "\n".join(
             f"- {i.instrument_id} ({i.asset_class.value}): {i.description}"
             for i in tradable_universe()
@@ -68,6 +78,7 @@ class AssetSelectionAgent(StructuredAgent[AssetSelectionOutput]):
             if e.category == "vehicle_preference"
         ) or "- (none)"
         return (
+            f"MACRO REGIME CONTEXT:\n{macro_context}\n\n"
             f"Hypothesis (regime={hypothesis.regime.value}, conviction={hypothesis.conviction.value}):\n"
             f"{hypothesis.thesis}\n\n"
             f"Kill criteria:\n"

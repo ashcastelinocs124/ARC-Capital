@@ -27,6 +27,7 @@ from castelino.execution.portfolio import Portfolio
 from castelino.memory import io as memio
 from castelino.memory.io import WriterIdentity
 from castelino.memory.schemas import TriggerRecord, TriggerSource
+from castelino.forecast.regime_sectors import merge_forecast_into_state_kwargs
 from castelino.orchestrator.graph import build_graph
 from castelino.orchestrator.state import FundState
 
@@ -56,6 +57,7 @@ def run(
         trigger=trg,
         recent_headlines=[headline],
         portfolio=Portfolio.load(),
+        **merge_forecast_into_state_kwargs(),
     )
     graph = build_graph()
     result = graph.invoke(state)
@@ -176,6 +178,207 @@ def seed():
         return
     pf.save()
     print(f"[green]Seeded portfolio at ${pf.nav:,.2f} NAV.[/green]")
+
+
+@app.command("forecast-regime")
+def forecast_regime(
+    history_start: str = typer.Option("2000-01-01", help="History start date for training."),
+    n_lags: int = typer.Option(6, help="Number of monthly lags per series."),
+    cv_splits: int = typer.Option(5, help="TimeSeriesSplit folds for walk-forward CV."),
+    lead_months: int = typer.Option(
+        1, help="Forecast horizon in months. Use 2 when current month's data hasn't been published."
+    ),
+    save: bool = typer.Option(True, "--save/--no-save", help="Persist to data/regime_forecast.json."),
+):
+    """Train **two independent** XGBoost classifiers (growth + inflation) and print
+    next-month MoM direction. Each reads its own indicator list YAML in `data/`."""
+    from castelino.forecast.regime import (
+        GROWTH_INDICATORS_YAML,
+        INFLATION_INDICATORS_YAML,
+        IndicatorListConfig,
+        TrainingConfig,
+        train_and_forecast,
+        write_forecast,
+    )
+
+    growth_cfg = IndicatorListConfig.from_yaml(GROWTH_INDICATORS_YAML)
+    inflation_cfg = IndicatorListConfig.from_yaml(INFLATION_INDICATORS_YAML)
+    training = TrainingConfig(
+        history_start=history_start,
+        n_lags=n_lags,
+        cv_splits=cv_splits,
+        lead_months=lead_months,
+    )
+
+    bundle = train_and_forecast(
+        growth_cfg=growth_cfg,
+        inflation_cfg=inflation_cfg,
+        training_cfg=training,
+    )
+
+    def _render(title: str, fc, indicator_yaml) -> Table:
+        t = Table(title=title)
+        t.add_column("Field"); t.add_column("Value", justify="right")
+        t.add_row("target", f"{fc.target_name}  ({fc.target_id})")
+        t.add_row("lead horizon", f"{fc.lead_months} month(s) ahead")
+        t.add_row("indicators (incl. target)", ", ".join(fc.indicators_used) or "—")
+        t.add_row("indicator list", str(indicator_yaml))
+        t.add_row("feature month (last obs)", fc.feature_month)
+        t.add_row("target month", fc.target_month)
+        t.add_row("history start", fc.history_start)
+        t.add_row("training observations", str(fc.n_obs))
+        t.add_row("up", f"{fc.up}  (P_up = {fc.prob_up:.2%})")
+        if fc.train_metrics is not None:
+            m = fc.train_metrics
+            t.add_row("OOS accuracy / Brier", f"{m.accuracy:.3f} / {m.brier:.3f}")
+        return t
+
+    print(_render("Growth nowcaster (next-month MoM)", bundle.growth, GROWTH_INDICATORS_YAML))
+    print()
+    print(_render("Inflation nowcaster (next-month MoM)", bundle.inflation, INFLATION_INDICATORS_YAML))
+
+    if save:
+        out = write_forecast(bundle)
+        print(f"[green]Saved:[/green] {out}")
+
+
+def _run_indicator_search(
+    *,
+    target_kind: str,
+    history_start: str,
+    n_lags: int,
+    cv_splits: int,
+    lead_months: int,
+    max_indicators: int,
+    metric: str,
+):
+    """Shared core for the growth / inflation search commands."""
+    from castelino.forecast.regime import (
+        SOURCE_FRED,
+        IndicatorSpec,
+        TrainingConfig,
+    )
+    from castelino.forecast.search import (
+        SearchStep,
+        greedy_forward_search,
+        growth_candidate_pool,
+        inflation_candidate_pool,
+    )
+
+    if target_kind == "growth":
+        target = IndicatorSpec(
+            id="INDPRO", source=SOURCE_FRED, fred_id="INDPRO",
+            name="Industrial Production: total (ISM PMI proxy)",
+        )
+        pool = growth_candidate_pool()
+    elif target_kind == "inflation":
+        target = IndicatorSpec(
+            id="CPIAUCSL", source=SOURCE_FRED, fred_id="CPIAUCSL",
+            name="CPI All Items (SA, level)",
+        )
+        pool = inflation_candidate_pool()
+    else:
+        raise typer.BadParameter(f"target_kind must be growth|inflation, got {target_kind!r}")
+
+    training = TrainingConfig(
+        history_start=history_start, n_lags=n_lags, cv_splits=cv_splits,
+        lead_months=lead_months,
+    )
+    print(
+        f"[bold]Searching {target_kind} indicators[/bold] — pool size {len(pool)}, "
+        f"metric={metric}, lead={lead_months}m, history from {history_start}"
+    )
+
+    table = Table(title=f"{target_kind.capitalize()} forward-selection log")
+    for col in ("step", "added", "selected", "balanced_acc", "f1_up",
+                "recall_up", "f1_dn", "recall_dn", "precision_up", "accuracy", "brier", "n_test"):
+        table.add_column(col)
+
+    def _on_step(step: SearchStep) -> None:
+        table.add_row(
+            str(step.step),
+            step.added or "(self-lags only)",
+            ", ".join(step.selected) or "—",
+            f"{step.balanced_accuracy:.3f}",
+            f"{step.f1_up:.3f}",
+            f"{step.recall_up:.3f}",
+            f"{step.f1_down:.3f}",
+            f"{step.recall_down:.3f}",
+            f"{step.precision_up:.3f}",
+            f"{step.accuracy:.3f}",
+            f"{step.brier:.3f}",
+            str(step.n_test),
+        )
+
+    result = greedy_forward_search(
+        target=target,
+        candidates=pool,
+        training_cfg=training,
+        max_indicators=max_indicators,
+        metric=metric,
+        on_step=_on_step,
+    )
+    print(table)
+
+    best = result.best_step
+    print(
+        f"\n[bold green]Best {target_kind} subset (by {result.metric}):[/bold green]\n"
+        f"  step={best.step}\n"
+        f"  indicators={best.selected or '— (only self-lags)'}\n"
+        f"  balanced_acc={best.balanced_accuracy:.3f}, "
+        f"f1_up={best.f1_up:.3f}, recall_up={best.recall_up:.3f}, "
+        f"f1_down={best.f1_down:.3f}, recall_down={best.recall_down:.3f}, "
+        f"precision_up={best.precision_up:.3f}, accuracy={best.accuracy:.3f}, "
+        f"brier={best.brier:.3f}"
+    )
+
+
+@app.command("growth-search")
+def growth_search(
+    history_start: str = typer.Option("2000-01-01"),
+    n_lags: int = typer.Option(6),
+    cv_splits: int = typer.Option(5),
+    lead_months: int = typer.Option(2),
+    max_indicators: int = typer.Option(6),
+    metric: str = typer.Option(
+        "recall_up",
+        help="Growth: recall_up (detect MoM rise) | balanced_accuracy | f1_up | "
+        "precision_up | recall_down | f1_down | precision_down | accuracy | brier",
+    ),
+):
+    """Greedy forward selection of growth indicators (target: INDPRO).
+
+    Uses only `growth_candidate_pool()` — **does not touch** inflation YAML.
+    """
+    _run_indicator_search(
+        target_kind="growth", history_start=history_start, n_lags=n_lags,
+        cv_splits=cv_splits, lead_months=lead_months,
+        max_indicators=max_indicators, metric=metric,
+    )
+
+
+@app.command("inflation-search")
+def inflation_search(
+    history_start: str = typer.Option("2000-01-01"),
+    n_lags: int = typer.Option(6),
+    cv_splits: int = typer.Option(5),
+    lead_months: int = typer.Option(2),
+    max_indicators: int = typer.Option(6),
+    metric: str = typer.Option(
+        "balanced_accuracy",
+        help="Inflation: balanced_accuracy (default) | f1_down | recall_down | "
+        "precision_down | f1_up | recall_up | accuracy | brier",
+    ),
+):
+    """Greedy forward selection of inflation indicators (target: CPIAUCSL).
+
+    Uses only `inflation_candidate_pool()` — **does not touch** growth YAML.
+    """
+    _run_indicator_search(
+        target_kind="inflation", history_start=history_start, n_lags=n_lags,
+        cv_splits=cv_splits, lead_months=lead_months,
+        max_indicators=max_indicators, metric=metric,
+    )
 
 
 @app.command()

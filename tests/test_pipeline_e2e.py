@@ -32,6 +32,7 @@ from castelino.memory.schemas import (
     GuardDecision,
     Hypothesis,
     KillCriterion,
+    LeadingIndicatorRead,
     Regime,
     RiskReport,
     TAReport,
@@ -131,6 +132,19 @@ def fake_llm():
             headlines=["FOMC pauses rate hikes", "10y yield drops 8 bps"],
             macro_signals=["short-end rally", "DXY softens"],
             surprises=["dot plot more dovish than expected"],
+            leading_indicator_reads=[
+                LeadingIndicatorRead(
+                    indicator_key="real_policy_rate",
+                    read="Hold combined with softer inflation prints implies less negative "
+                    "real policy on the margin.",
+                    supporting_headline="FOMC pauses rate hikes",
+                ),
+                LeadingIndicatorRead(
+                    indicator_key="yield_curve_10y_2y",
+                    read="Long-end yields fell on the session, moving curve dynamics.",
+                    supporting_headline="10y yield drops 8 bps",
+                ),
+            ],
             summary="The Fed paused; rates pricing eased materially.",
         )
 

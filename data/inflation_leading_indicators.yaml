@@ -1,0 +1,70 @@
+# Leading indicators for the INFLATION forecaster only (target: headline CPI).
+# **Independent from** `growth_leading_indicators.yaml` — edit each file separately.
+#
+# Forward-selection note: at lead=2m, optimising **recall_down** on CPI MoM
+# typically adds no series beyond CPI self-lags; your macro list below still
+# helps **Brier / accuracy** vs a naive baseline in many samples.
+
+version: 1
+
+target:
+  id: CPIAUCSL
+  source: fred
+  fred_id: CPIAUCSL
+  name: "CPI All Items (SA, level)"
+
+indicators:
+  - id: PPIACO
+    source: fred
+    fred_id: PPIACO
+    name: "PPI All Commodities (proxy for ISM Prices Paid)"
+
+  - id: DCOILWTICO
+    source: fred
+    fred_id: DCOILWTICO
+    name: "WTI crude oil spot"
+
+  - id: BCOM
+    source: yfinance_close
+    symbol: "^BCOM"
+    name: "Bloomberg Commodity Index TR (CRB substitute)"
+
+  - id: T5YIE
+    source: fred
+    fred_id: T5YIE
+    name: "5Y breakeven inflation"
+
+  - id: DTWEXBGS
+    source: fred
+    fred_id: DTWEXBGS
+    name: "Trade-weighted USD (broad)"
+
+  - id: MICH
+    source: fred
+    fred_id: MICH
+    name: "UMich 1Y inflation expectations"
+
+  - id: CUSR0000SEHA
+    source: fred
+    fred_id: CUSR0000SEHA
+    name: "CPI: Rent of primary residence (Zillow proxy)"
+
+  - id: AHETPI
+    source: fred
+    fred_id: AHETPI
+    name: "Avg hourly earnings (production & nonsupervisory)"
+
+  - id: T10YIE
+    source: fred
+    fred_id: T10YIE
+    name: "10Y breakeven inflation"
+
+  - id: DCOILBRENTEU
+    source: fred
+    fred_id: DCOILBRENTEU
+    name: "Brent crude oil spot"
+
+  - id: CSUSHPISA
+    source: fred
+    fred_id: CSUSHPISA
+    name: "Case-Shiller 20-city home price index"

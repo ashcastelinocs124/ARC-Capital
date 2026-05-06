@@ -24,6 +24,7 @@ from castelino.agents.research.risk import run_risk
 from castelino.agents.research.technical import run_ta
 from castelino.agents.research.web import run_web
 from castelino.execution.broker import execute, trade_event_from_fill
+from castelino.forecast.regime_sectors import format_macro_block_for_prompt
 from castelino.memory import io as memio
 from castelino.memory.io import WriterIdentity
 from castelino.memory.schemas import ResearchBundle
@@ -49,7 +50,8 @@ def _node_hypothesis(state: FundState) -> dict:
     log.info("→ hypothesis")
     if state.world_state is None:
         return {"aborted": True, "abort_reason": "no world_state"}
-    h = HypothesisAgent()(world_state=state.world_state)
+    macro_ctx = format_macro_block_for_prompt(state)
+    h = HypothesisAgent()(world_state=state.world_state, macro_context=macro_ctx)
     memio.append_short_term(h, WriterIdentity.HYPOTHESIS_AGENT)
     return {"hypothesis": h}
 
@@ -58,7 +60,12 @@ def _node_asset_selection(state: FundState) -> dict:
     log.info("→ asset_selection")
     if state.hypothesis is None:
         return {"aborted": True, "abort_reason": "no hypothesis"}
-    out = AssetSelectionAgent()(hypothesis=state.hypothesis, portfolio=state.portfolio)
+    macro_ctx = format_macro_block_for_prompt(state)
+    out = AssetSelectionAgent()(
+        hypothesis=state.hypothesis,
+        portfolio=state.portfolio,
+        macro_context=macro_ctx,
+    )
     for exp in out.expressions:
         memio.append_short_term(exp, WriterIdentity.ASSET_SELECTION_AGENT)
     return {"expressions": out.expressions}
@@ -87,13 +94,29 @@ def _node_debate(state: FundState) -> dict:
     log.info("→ debate (n=%d)", len(state.expressions))
     if state.hypothesis is None:
         return {"aborted": True, "abort_reason": "no hypothesis"}
+    macro_ctx = format_macro_block_for_prompt(state)
     bull_cases, bear_cases, verdicts = [], [], []
     for exp, bundle in zip(state.expressions, state.research_bundles, strict=True):
-        bull = BullAgent()(expression=exp, hypothesis=state.hypothesis, research=bundle)
-        bear = BearAgent()(expression=exp, hypothesis=state.hypothesis, research=bundle)
+        bull = BullAgent()(
+            expression=exp,
+            hypothesis=state.hypothesis,
+            research=bundle,
+            macro_context=macro_ctx,
+        )
+        bear = BearAgent()(
+            expression=exp,
+            hypothesis=state.hypothesis,
+            research=bundle,
+            macro_context=macro_ctx,
+        )
         memio.append_short_term(bull, WriterIdentity.BULL_AGENT)
         memio.append_short_term(bear, WriterIdentity.BEAR_AGENT)
-        verdict = DebateAgent()(bull=bull, bear=bear, hypothesis=state.hypothesis)
+        verdict = DebateAgent()(
+            bull=bull,
+            bear=bear,
+            hypothesis=state.hypothesis,
+            macro_context=macro_ctx,
+        )
         memio.append_short_term(verdict, WriterIdentity.DEBATE_AGENT)
         bull_cases.append(bull)
         bear_cases.append(bear)

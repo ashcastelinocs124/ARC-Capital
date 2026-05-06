@@ -52,6 +52,20 @@ class FundState(BaseModel):
 
     portfolio: Portfolio  # snapshot at start; overwritten after fills
 
+    # From `data/regime_forecast.json` + `regime_sector_cheat_sheet.yaml` (optional)
+    macro_regime_key: str = ""
+    macro_regime_label: str = ""
+    preferred_sectors: list[str] = Field(default_factory=list)
+    preferred_instrument_ids: list[str] = Field(default_factory=list)
+    macro_regime_blurb: str = ""
+    growth_forecast_up: Optional[bool] = None
+    inflation_forecast_up: Optional[bool] = None
+    growth_prob_up: Optional[float] = None
+    inflation_prob_up: Optional[float] = None
+    regime_feature_month: str = ""
+    regime_target_month: str = ""
+    regime_lead_months: int = 0
+
     aborted: bool = False
     abort_reason: str = ""
 
