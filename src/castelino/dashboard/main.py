@@ -39,3 +39,13 @@ def get_widgets():
 @app.get("/apps.json")
 def get_apps():
     return APPS
+
+
+from castelino.dashboard.endpoints import agents, approvals, macro, portfolio, research, risk  # noqa: E402
+
+app.include_router(portfolio.router)
+app.include_router(macro.router)
+app.include_router(research.router)
+app.include_router(risk.router)
+app.include_router(agents.router)
+app.include_router(approvals.router)

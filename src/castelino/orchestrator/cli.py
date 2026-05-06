@@ -158,6 +158,19 @@ def dashboard(
 
 
 @app.command()
+def serve(
+    port: int = typer.Option(7779, help="Port for the OpenBB backend."),
+    reload: bool = typer.Option(False, help="Enable auto-reload for development."),
+):
+    """Start the OpenBB Workspace dashboard backend."""
+    import uvicorn
+    print(f"[green]Starting Castelino dashboard on port {port}[/green]")
+    print("[blue]Connect in OpenBB Workspace: Settings → Data Connectors → Add http://localhost:"
+          f"{port}[/blue]")
+    uvicorn.run("castelino.dashboard.main:app", host="0.0.0.0", port=port, reload=reload)
+
+
+@app.command()
 def replay(
     days: int = typer.Option(30, help="Number of days of history to replay."),
 ):
