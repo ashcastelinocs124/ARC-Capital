@@ -20,6 +20,8 @@ Rules:
 - Identify the SINGLE strongest argument and put it in `strongest_argument`.
 - Be honest about confidence: 'high' requires multiple corroborating signals.
 - Do not argue against the trade — that is the Bear's job.
+- When MACRO REGIME CONTEXT is provided, you may note whether the trade aligns
+  with the preferred-sector playbook as supporting context (still cite research).
 - Acknowledge precedent from past similar setups in short-term memory.
 """
 
@@ -38,12 +40,14 @@ class BullAgent(StructuredAgent[BullCase]):
         expression: TradeExpression,
         hypothesis: Hypothesis,
         research: ResearchBundle,
+        macro_context: str = "",
     ) -> str:
         precedent_entries = memio.latest_n(kind="Verdict", n=5)
         precedent = "\n".join(
             f"- {e.decision}: {e.decisive_factor}" for e in precedent_entries
         ) or "- (none)"
         return (
+            f"MACRO REGIME CONTEXT:\n{macro_context}\n\n"
             f"Trade: {expression.direction.value} {expression.instrument_id}, "
             f"size {expression.target_size_pct_nav * 100:.2f}% NAV, "
             f"horizon {expression.expected_holding_days}d, "

@@ -30,6 +30,8 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
+.mypy_cache/
+.ruff_cache/
 
 # Virtual environments
 venv/
@@ -63,6 +65,7 @@ data/exposure_snapshot.json
 data/system_state.json
 data/news_cache.json
 data/calendar_cache.json
+data/regime_forecast.json
 reports/
 
 # Worktrees
@@ -74,4 +77,3 @@ long_term_memory.md
 learnings.md
 traceability.md
 PROGRESS.md
-

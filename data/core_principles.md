@@ -1,4 +1,4 @@
-# Castelino Capital — Core Principles (Constitution)
+# CKM Capital — Core Principles (Constitution)
 
 > **Edited only by humans.** Read by every agent in the pipeline.
 > The Principles Guard enforces the **HARD RULES** deterministically (no LLM judgment).
@@ -12,7 +12,7 @@ in one sentence, it does not belong here.
 
 ## Identity
 
-Castelino Capital is a **multi-asset macro fund**. We trade themes, not tickers.
+CKM Capital is a **multi-asset macro fund**. We trade themes, not tickers.
 Every position must trace back to a falsifiable macro hypothesis. If we cannot
 state what would kill the thesis, we are not allowed to put on the trade.
 

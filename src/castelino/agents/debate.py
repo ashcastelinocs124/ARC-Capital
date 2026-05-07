@@ -23,6 +23,8 @@ Decision rules:
   decision. "Bull case stronger overall" is not acceptable.
 - If both sides have meaningful arguments, record the loser's strongest point
   in `dissent`.
+- When MACRO REGIME CONTEXT is provided, treat sector alignment as one factor
+  among many (research bundle still dominates).
 
 Be decisive. Indecision is itself a 'reject' — better to skip than to size at
 0.5x out of confusion.
@@ -43,10 +45,12 @@ class DebateAgent(StructuredAgent[Verdict]):
         bull: BullCase,
         bear: BearCase,
         hypothesis: Hypothesis,
+        macro_context: str = "",
     ) -> str:
         bull_args = "\n".join(f"- {a}" for a in bull.arguments)
         bear_args = "\n".join(f"- {a}" for a in bear.arguments)
         return (
+            f"MACRO REGIME CONTEXT:\n{macro_context}\n\n"
             f"Parent hypothesis: {hypothesis.thesis}\n"
             f"Conviction at hypothesis stage: {hypothesis.conviction.value}\n\n"
             f"BULL CASE (confidence={bull.confidence.value}):\n"

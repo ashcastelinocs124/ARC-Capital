@@ -9,9 +9,10 @@ layer: agents below this point never see un-curated text.
 from __future__ import annotations
 
 from castelino.agents.base import StructuredAgent
+from castelino.data.leading_indicators import format_catalog_for_prompt
 from castelino.memory.schemas import TriggerRecord, WorldStateBrief
 
-SYSTEM = """\
+SYSTEM_BASE = """\
 You are the Current Event Agent for a multi-asset macro hedge fund.
 
 Your only job is to compress the most recent macro-relevant news into a
@@ -23,6 +24,15 @@ Hard requirements:
 - Identify any genuine "surprises" — events that would shift consensus.
 - Do NOT propose trades, theses, or directional views. That is downstream.
 - Keep `summary` to ≤ 4 sentences.
+
+Leading-indicator reads:
+- Consult the CANONICAL INDICATOR CATALOG below.
+- For each `leading_indicator_read` you output, `indicator_key` MUST match a
+  catalog key exactly (backtick id).
+- `supporting_headline` MUST be a verbatim copy of one headline line you were
+  given (same text as in the bullet list), with no paraphrase.
+- Include at most 12 reads; only add a read when the headline evidence clearly
+  touches that indicator. If nothing maps, use an empty list.
 """
 
 
@@ -32,7 +42,7 @@ class CurrentEventAgent(StructuredAgent[WorldStateBrief]):
     tier = "fast"
 
     def system_prompt(self) -> str:
-        return SYSTEM
+        return f"{SYSTEM_BASE}\n{format_catalog_for_prompt()}"
 
     def user_prompt(self, *, trigger: TriggerRecord, recent_headlines: list[str]) -> str:
         bullets = "\n".join(f"- {h}" for h in recent_headlines[:30]) or "- (none)"

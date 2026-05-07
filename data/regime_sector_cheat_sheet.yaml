@@ -1,0 +1,71 @@
+# Growth × inflation quadrants → macro label + sector playbook for downstream agents.
+# `preferred_instrument_ids` must exist in `instruments.py` and be tradable.
+#
+# Interpretation: combine `growth.up` and `inflation.up` from `regime_forecast.json`
+# (month-ahead directional nowcasts) to pick a quadrant.
+
+quadrants:
+  growth_up_inflation_up:
+    label: "Reflation"
+    blurb: >
+      Rising activity with rising inflation pressure. Cyclicals and real assets
+      often outperform; long duration can lag if yields rise with activity.
+    sectors:
+      - Energy
+      - Industrials
+      - Consumer discretionary
+      - Commodities
+      - Financials
+    preferred_instrument_ids:
+      - XLE
+      - XLI
+      - XLY
+      - XLF
+      - USO
+      - GLD
+
+  growth_up_inflation_down:
+    label: "Goldilocks"
+    blurb: >
+      Growth with cooling inflation. Growth and momentum factors often work;
+      long duration tends to be better supported than in reflation.
+    sectors:
+      - Technology
+      - Consumer discretionary
+      - Broad equities
+    preferred_instrument_ids:
+      - XLK
+      - QQQ
+      - XLY
+      - SPY
+
+  growth_down_inflation_up:
+    label: "Stagflation risk"
+    blurb: >
+      Weak growth with sticky inflation. Real assets and defensives often
+      outperform; cyclicals and high-duration growth can lag.
+    sectors:
+      - Energy
+      - Commodities
+      - Health care
+    preferred_instrument_ids:
+      - XLE
+      - GLD
+      - USO
+      - XLV
+
+  growth_down_inflation_down:
+    label: "Disinflation / slowdown"
+    blurb: >
+      Falling growth and easing inflation. Duration and quality defensives
+      often lead until activity stabilizes.
+    sectors:
+      - Long-duration Treasuries
+      - Investment-grade credit
+      - Health care
+    preferred_instrument_ids:
+      - TLT
+      - IEF
+      - LQD
+      - XLV
+      - SHY

@@ -1,0 +1,47 @@
+# Leading indicators for the GROWTH forecaster (target: ISM Manufacturing PMI composite).
+#
+# FRED discontinued the ISM series (`NAPM`) in June 2024. This project keeps the
+# official **ISM Manufacturing PMI** as the modeling target via `local_csv`:
+#   `data/ism_manufacturing_pmi.csv`
+# That file is checked in as an **INDPRO-based proxy** so training works without
+# ISM redistribution rights. Replace it with the true ISM headline index from
+# ISM releases when you have a licensed / permitted series (same CSV schema:
+# `date,value`). Regenerate proxy: `python scripts/build_ism_pmi_proxy.py`
+#
+# Direction: month-ahead level change (`lead_months` in TrainingConfig / CLI).
+# Self-lags of the target series are always included automatically.
+
+version: 1
+
+target:
+  id: ISM_MFG_PMI
+  source: local_csv
+  path: data/ism_manufacturing_pmi.csv
+  name: "ISM Manufacturing PMI (composite index; see CSV header for data source)"
+
+indicators:
+  - id: DGS10
+    source: fred
+    fred_id: DGS10
+    name: "10-year Treasury yield"
+
+  - id: ICSA
+    source: fred
+    fred_id: ICSA
+    name: "Initial jobless claims"
+
+  - id: USSLIND
+    source: fred
+    fred_id: USSLIND
+    name: "Leading Index for the United States (Phila Fed; discontinued 2020 — XGBoost tolerates NaN lags)"
+
+  - id: cyclicals_defensives
+    source: yfinance_ratio
+    numerator: XLY
+    denominator: XLP
+    name: "Cyclicals (XLY) vs. defensives (XLP)"
+
+  - id: DSPIC96
+    source: fred
+    fred_id: DSPIC96
+    name: "Real disposable personal income"

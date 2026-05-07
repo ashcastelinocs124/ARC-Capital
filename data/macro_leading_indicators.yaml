@@ -1,0 +1,99 @@
+# Canonical leading (and closely related) macro indicators the fund monitors.
+# Keys are stable API surface for `WorldStateBrief.leading_indicator_reads[].indicator_key`.
+#
+# "Leading" here follows common practice: tend to inflect before the real economy
+# or broad risk assets. Coincident items are included only when they anchor
+# near-term growth/inflation momentum for validation.
+
+version: 1
+
+indicators:
+  - key: ism_mfg_pmi
+    name: "ISM Manufacturing PMI"
+    timing: leading
+    typical_cadence: "Monthly (1st business day)"
+    what_it_signals: "Manufacturing cycle; <50 contraction. New orders & inventories subcomponents lead the headline."
+
+  - key: ism_services_pmi
+    name: "ISM Services PMI"
+    timing: leading
+    typical_cadence: "Monthly (3rd business day)"
+    what_it_signals: "Services activity (~US GDP majority); breadth of domestic demand."
+
+  - key: jobless_claims
+    name: "Initial jobless claims (level & 4-week average)"
+    timing: leading
+    typical_cadence: "Weekly (Thurs)"
+    what_it_signals: "Labor market turning points; rises often precede payroll weakness."
+
+  - key: continuing_claims
+    name: "Continuing jobless claims"
+    timing: leading
+    typical_cadence: "Weekly"
+    what_it_signals: "Duration of unemployment spell; confirms claims inflections."
+
+  - key: housing_permits_starts
+    name: "Building permits & housing starts"
+    timing: leading
+    typical_cadence: "Monthly"
+    what_it_signals: "Residential investment cycle; rates-sensitive early cycle lever."
+
+  - key: durable_goods_ex_air
+    name: "Durable goods orders (ex-transport / core cap goods where cited)"
+    timing: leading
+    typical_cadence: "Monthly"
+    what_it_signals: "Business capex intentions & manufacturing forward demand."
+
+  - key: ceo_capex_surveys
+    name: "CEO / capex & small-business optimism surveys"
+    timing: leading
+    typical_cadence: "Quarterly / monthly (series-dependent)"
+    what_it_signals: "Forward private investment & hiring propensity."
+
+  - key: consumer_confidence
+    name: "Conference Board Consumer Confidence"
+    timing: leading
+    typical_cadence: "Monthly"
+    what_it_signals: "Household labor & big-ticket spending intentions."
+
+  - key: umich_sentiment
+    name: "University of Michigan consumer sentiment (incl. inflation expectations)"
+    timing: leading
+    typical_cadence: "Monthly (prelim & final)"
+    what_it_signals: "Real spending propensity; 5–10y inflation expectations watched by policymakers."
+
+  - key: yield_curve_10y_2y
+    name: "Treasury 10y–2y spread"
+    timing: leading
+    typical_cadence: "Market (continuous)"
+    what_it_signals: "Growth & policy path expectations; persistent inversion often precedes recessions with long lags."
+
+  - key: yield_curve_10y_3m
+    name: "Treasury 10y–3m spread"
+    timing: leading
+    typical_cadence: "Market (continuous)"
+    what_it_signals: "Bank funding vs term risk premium; NY Fed recession-probability literature tie-in."
+
+  - key: real_policy_rate
+    name: "Real Fed funds gap (policy rate vs inflation)"
+    timing: leading
+    typical_cadence: "Derived (daily after prints)"
+    what_it_signals: "Restrictiveness of stance; tight real rates brake demand with a lag."
+
+  - key: financial_conditions
+    name: "Broad financial conditions (FCI-type composites, high-yield spreads, MOVE)"
+    timing: leading
+    typical_cadence: "Market (continuous)"
+    what_it_signals: "Ease/tightness beyond policy rate; credit availability for households & corporates."
+
+  - key: credit_spreads_hy
+    name: "US high-yield OAS / risk appetite"
+    timing: leading
+    typical_cadence: "Market (continuous)"
+    what_it_signals: "Default cycle & liquidity stress; widening often leads equities & PMIs."
+
+  - key: global_liquidity_proxy
+    name: "Global liquidity / cross-border USD (reserve growth, major central-bank BS, USD liquidity shocks)"
+    timing: leading
+    typical_cadence: "Weekly to monthly"
+    what_it_signals: "Risk-asset carry capacity; abrupt tightening precedes volatility clusters."

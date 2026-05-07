@@ -60,12 +60,17 @@ class WebResearchAgent(StructuredAgent[WebResearch]):
         world_state: WorldStateBrief,
     ) -> str:
         bullets = "\n".join(f"- {h}" for h in world_state.headlines) or "- (none)"
+        li = "\n".join(
+            f"- [{r.indicator_key}] {r.read} (headline: {r.supporting_headline})"
+            for r in world_state.leading_indicator_reads
+        ) or "- (none)"
         return (
             f"Proposed trade: {expression.direction.value} {expression.instrument_id}\n\n"
             f"World-state summary: {world_state.summary}\n\n"
             f"Headlines available:\n{bullets}\n\n"
             f"Macro signals: {world_state.macro_signals}\n"
-            f"Surprises: {world_state.surprises}\n\n"
+            f"Surprises: {world_state.surprises}\n"
+            f"Leading indicator reads:\n{li}\n\n"
             "Produce a WebResearch report scoped to the proposed instrument."
         )
 
