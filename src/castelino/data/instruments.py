@@ -205,6 +205,12 @@ INSTRUMENTS: dict[str, Instrument] = {
         instrument_id="USDCAD", symbol="USDCAD=X", asset_class=AssetClass.FX,
         source=PriceSource.YFINANCE, description="US Dollar / Canadian Dollar",
     ),
+    # ── Digital assets (ETF wrapper — Reflation regime only) ──────────────
+    "IBIT": Instrument(
+        instrument_id="IBIT", symbol="IBIT", asset_class=AssetClass.EQUITY,
+        source=PriceSource.YFINANCE, description="iShares Bitcoin Trust ETF",
+        avg_daily_volume_usd=2_000_000_000,
+    ),
     # VIX — context only (Principles Guard reads for circuit breaker)
     "VIX": Instrument(
         instrument_id="VIX", symbol="^VIX", asset_class=AssetClass.EQUITY,

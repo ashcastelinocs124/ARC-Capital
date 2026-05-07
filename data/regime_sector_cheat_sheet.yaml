@@ -16,6 +16,7 @@ quadrants:
       - Consumer discretionary
       - Commodities
       - Financials
+      - Digital assets
     preferred_instrument_ids:
       - XLE
       - XLI
@@ -23,6 +24,7 @@ quadrants:
       - XLF
       - USO
       - GLD
+      - IBIT
 
   growth_up_inflation_down:
     label: "Goldilocks"
