@@ -1,0 +1,77 @@
+# Environment
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Claude local settings (per-machine, not shared)
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project-specific (per design doc Section 9)
+data/cache/
+data/short_term_journal.md
+data/short_term_index.json
+data/long_term_journal.md
+data/portfolio.json
+data/exposure_snapshot.json
+data/system_state.json
+data/news_cache.json
+data/calendar_cache.json
+reports/
+
+# Worktrees
+.worktrees/
+
+# Internal AI memory (per CLAUDE.md global rules)
+short_term_memory.md
+long_term_memory.md
+learnings.md
+traceability.md
+PROGRESS.md
+
