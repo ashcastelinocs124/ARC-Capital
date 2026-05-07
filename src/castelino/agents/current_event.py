@@ -19,11 +19,14 @@ Your only job is to compress the most recent macro-relevant news into a
 structured brief. You are a SUMMARIZER, not an analyst.
 
 Hard requirements:
-- Cite only headlines provided in the user message. Do not speculate.
+- Cite only headlines and context provided in the user message. Do not speculate.
 - List 3–8 headlines, in order of macro materiality.
 - Identify any genuine "surprises" — events that would shift consensus.
+- Use the detailed source context (when provided) to write a richer, more
+  specific summary than the headline alone would allow.
+- Populate `source_summaries` with the context blocks (1:1 with headlines) so
+  downstream agents can reference the source material.
 - Do NOT propose trades, theses, or directional views. That is downstream.
-- Keep `summary` to ≤ 4 sentences.
 
 Leading-indicator reads:
 - Consult the CANONICAL INDICATOR CATALOG below.
@@ -44,8 +47,22 @@ class CurrentEventAgent(StructuredAgent[WorldStateBrief]):
     def system_prompt(self) -> str:
         return f"{SYSTEM_BASE}\n{format_catalog_for_prompt()}"
 
-    def user_prompt(self, *, trigger: TriggerRecord, recent_headlines: list[str]) -> str:
-        bullets = "\n".join(f"- {h}" for h in recent_headlines[:30]) or "- (none)"
+    def user_prompt(
+        self,
+        *,
+        trigger: TriggerRecord,
+        recent_headlines: list[str],
+        source_summaries: list[str] | None = None,
+    ) -> str:
+        source_summaries = source_summaries or []
+
+        lines: list[str] = []
+        for i, h in enumerate(recent_headlines[:30]):
+            lines.append(f"{i + 1}. {h}")
+            if i < len(source_summaries) and source_summaries[i]:
+                lines.append(f"   Context: {source_summaries[i]}")
+        headlines_block = "\n".join(lines) or "- (none)"
+
         return (
             f"Trigger that fired the pipeline:\n"
             f"- source: {trigger.source.value}\n"
@@ -53,7 +70,7 @@ class CurrentEventAgent(StructuredAgent[WorldStateBrief]):
             f"- significance: {trigger.significance}\n"
             f"- one-sentence reason: {trigger.one_sentence_reason}\n"
             f"- asset_classes_affected: {trigger.asset_classes_affected}\n\n"
-            f"Recent headlines (last 24h):\n{bullets}\n\n"
+            f"Recent headlines with context (last 24h):\n{headlines_block}\n\n"
             f"Set parent_trigger_id = {trigger.entry_id!r}.\n"
             f"Produce a WorldStateBrief."
         )

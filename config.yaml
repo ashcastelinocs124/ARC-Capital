@@ -107,10 +107,23 @@ fred:
       asset_classes: ["equity", "bond_etf"]
   cache_ttl_hours: 24
 
+conviction:
+  half_life_hours: 12.0
+  fire_threshold: 2.5
+  spread_threshold: 2.0
+  cooldown_hours: 4.0
+  black_swan_min: 0.9
+  ledger_ttl_hours: 72.0
+
 openbb:
   preferred_provider: yfinance
   fallback_enabled: true
   cache_ttl_minutes: 15
+
+sonar:
+  cache_ttl_hours: 12
+  model: "sonar"
+  regions: ["EU", "UK", "JP", "CN", "GLOBAL"]
 
 paths:
   data_dir: "data"

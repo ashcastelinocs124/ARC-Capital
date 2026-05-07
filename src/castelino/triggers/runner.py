@@ -1,11 +1,13 @@
 """Trigger runner — `castelino watch`.
 
-Polling loop:
-1. Read `data/system_state.json`. If `trading_enabled = False`, run dry but
-   skip writing to portfolio.json (would-have-trades only).
-2. Pull calendar events; if any high-impact within poll window → fire.
-3. Pull RSS, classify with significance batch; if any score ≥ threshold → fire.
-4. If neither and last_fire > 24h ago → cron fallback fires with sig=0.3.
+Polling loop with four trigger paths (priority order):
+1. Black swan — single headline materiality ≥ 0.9 → instant fire.
+2. Regime shift — XGBoost nowcaster label flips → fire.
+3. Accumulated conviction — directional decayed sums cross threshold → fire.
+4. Cron fallback — nothing fired for 24h → fire with low significance.
+
+All headlines ≥ 0.3 are appended to the conviction ledger every tick,
+regardless of whether the pipeline fires.
 """
 
 from __future__ import annotations
@@ -25,8 +27,9 @@ from castelino.memory.schemas import TriggerRecord, TriggerSource
 from castelino.orchestrator.graph import build_graph
 from castelino.orchestrator.state import FundState
 from castelino.triggers import calendar as calmod
-from castelino.triggers.news import NewsHeadline, fetch_recent
-from castelino.triggers.significance import score_batch
+from castelino.triggers import conviction as conv
+from castelino.triggers.news import NewsHeadline, enrich_significant_headlines, fetch_recent
+from castelino.triggers.significance import HeadlineScore, score_batch
 
 log = logging.getLogger(__name__)
 
@@ -71,39 +74,98 @@ def _trigger_from_calendar(events: list[calmod.CalendarEvent]) -> TriggerRecord 
     )
 
 
-def _trigger_from_news(headlines: list[NewsHeadline]) -> TriggerRecord | None:
-    """Score the batch; fire if any meets the news threshold."""
-    if not headlines:
+def _check_black_swan(scores: list[HeadlineScore]) -> TriggerRecord | None:
+    """Path 1: any single headline ≥ black_swan_min fires instantly."""
+    cfg = get_settings().conviction
+    for s in scores:
+        if s.materiality >= cfg.black_swan_min:
+            return TriggerRecord(
+                source=TriggerSource.NEWS,
+                headline=s.title,
+                significance=s.materiality,
+                asset_classes_affected=s.asset_classes_affected,
+                raw_event_data={
+                    "trigger_path": "black_swan",
+                    "headline_id": s.headline_id,
+                    "growth_direction": s.growth_direction,
+                    "inflation_direction": s.inflation_direction,
+                },
+                one_sentence_reason=s.one_sentence_reason,
+            )
+    return None
+
+
+def _check_regime_shift(state: dict) -> TriggerRecord | None:
+    """Path 2: regime nowcaster label changed since last fire.
+
+    Always persists the current regime key so the *next* tick can detect a shift.
+    """
+    try:
+        forecast_kwargs = merge_forecast_into_state_kwargs()
+    except Exception as e:
+        log.debug("regime forecast unavailable: %s", e)
         return None
-    cfg = get_settings()
-    scores = score_batch(headlines[:30])
-    if not scores:
+
+    current_key = forecast_kwargs.get("macro_regime_key", "")
+    if not current_key:
         return None
-    by_id = {h.id: h for h in headlines}
-    top = max(scores, key=lambda s: s.materiality)
-    if top.materiality < cfg.triggers.news_significance_min:
-        # Log near-fires to ST (significance < threshold but ≥ log_min)
-        for s in scores:
-            if s.materiality >= cfg.triggers.news_log_min:
-                rec = TriggerRecord(
-                    source=TriggerSource.NEWS,
-                    headline=s.title,
-                    significance=s.materiality,
-                    asset_classes_affected=s.asset_classes_affected,
-                    raw_event_data={"headline_id": s.headline_id, "logged_only": True},
-                    one_sentence_reason=s.one_sentence_reason,
-                )
-                memio.append_short_term(rec, WriterIdentity.TRIGGER_RUNNER)
-        return None
-    h = by_id.get(top.headline_id)
-    return TriggerRecord(
-        source=TriggerSource.NEWS,
-        headline=top.title,
-        significance=top.materiality,
-        asset_classes_affected=top.asset_classes_affected,
-        raw_event_data={"headline_id": top.headline_id, "link": (h.link if h else "")},
-        one_sentence_reason=top.one_sentence_reason,
+
+    last_regime = state.get("last_regime_key", "")
+    _save_regime_key(current_key)
+
+    if last_regime and current_key != last_regime:
+        return TriggerRecord(
+            source=TriggerSource.REGIME_SHIFT,
+            headline=f"Regime shift: {last_regime} → {current_key}",
+            significance=0.80,
+            asset_classes_affected=[],
+            raw_event_data={
+                "trigger_path": "regime_shift",
+                "old_regime": last_regime,
+                "new_regime": current_key,
+                "growth_prob_up": forecast_kwargs.get("growth_prob_up"),
+                "inflation_prob_up": forecast_kwargs.get("inflation_prob_up"),
+            },
+            one_sentence_reason=f"Regime shifted from {last_regime} to {current_key}.",
+        )
+    return None
+
+
+def _check_conviction(last_fire: datetime | None) -> tuple[TriggerRecord | None, list[str]]:
+    """Path 3: accumulated directional conviction crosses threshold.
+
+    Returns (trigger_or_None, contributing_headlines).
+    Subject to cooldown — skipped if last fire was too recent.
+    """
+    cfg = get_settings().conviction
+    if last_fire:
+        cooldown_elapsed = (datetime.now(UTC) - last_fire).total_seconds() / 3600
+        if cooldown_elapsed < cfg.cooldown_hours:
+            return None, []
+
+    result = conv.check_fire()
+    if not result.should_fire:
+        log.debug("conviction check: %s", result.reason)
+        return None, []
+
+    snap = result.snapshot
+    trg = TriggerRecord(
+        source=TriggerSource.CONVICTION,
+        headline=f"Accumulated conviction: {result.reason}",
+        significance=0.70,
+        asset_classes_affected=[],
+        raw_event_data={
+            "trigger_path": "conviction",
+            "growth_bullish": round(snap.growth_bullish, 3),
+            "growth_bearish": round(snap.growth_bearish, 3),
+            "inflation_bullish": round(snap.inflation_bullish, 3),
+            "inflation_bearish": round(snap.inflation_bearish, 3),
+            "dominant_dimension": snap.dominant_dimension,
+            "contributing_headlines": result.contributing_headlines[:10],
+        },
+        one_sentence_reason=result.reason,
     )
+    return trg, result.contributing_headlines
 
 
 def _trigger_cron_fallback(last_fire: datetime | None) -> TriggerRecord | None:
@@ -126,7 +188,11 @@ def _trigger_cron_fallback(last_fire: datetime | None) -> TriggerRecord | None:
 # ─────────────────────────── public entry points ───────────────────────────
 
 
-def fire_pipeline(trigger: TriggerRecord, recent_headlines: list[str]) -> dict:
+def fire_pipeline(
+    trigger: TriggerRecord,
+    recent_headlines: list[str],
+    source_summaries: list[str] | None = None,
+) -> dict:
     """Run one pipeline pass. Returns the final state."""
     state_data = _load_system_state()
     memio.append_short_term(trigger, WriterIdentity.TRIGGER_RUNNER)
@@ -138,6 +204,7 @@ def fire_pipeline(trigger: TriggerRecord, recent_headlines: list[str]) -> dict:
     state = FundState(
         trigger=trigger,
         recent_headlines=recent_headlines,
+        source_summaries=source_summaries or [],
         portfolio=pf,
         **merge_forecast_into_state_kwargs(),
     )
@@ -164,7 +231,11 @@ def watch_loop(poll_minutes: int = 15, once: bool = False) -> None:
 
 
 def tick() -> str | None:
-    """One polling cycle. Returns the trigger source that fired (or None)."""
+    """One polling cycle. Four trigger paths in priority order.
+
+    Every tick: score headlines, append to conviction ledger, then check
+    black swan → regime shift → accumulated conviction → cron fallback.
+    """
     state = _load_system_state()
     last_fire = (
         datetime.fromisoformat(state["last_fire_utc"])
@@ -172,7 +243,13 @@ def tick() -> str | None:
         else None
     )
 
-    # 1. Calendar
+    # ── Always: pull news + score + feed the conviction ledger ──
+    news = fetch_recent(max_per_feed=20)
+    scores = score_batch(news[:30]) if news else []
+    if scores:
+        conv.append(scores)
+
+    # ── Path 0: Calendar (unchanged — high-impact event imminent) ──
     cal_events = calmod.events_due()
     trg = _trigger_from_calendar(cal_events)
     if trg:
@@ -180,23 +257,60 @@ def tick() -> str | None:
         fire_pipeline(trg, recent_headlines=[trg.headline])
         return "calendar"
 
-    # 2. News
-    news = fetch_recent(max_per_feed=20)
-    trg = _trigger_from_news(news)
+    # ── Path 1: Black swan — single headline ≥ 0.9 ──
+    trg = _check_black_swan(scores)
     if trg:
-        log.info("news trigger sig=%.2f: %s", trg.significance, trg.headline)
-        fire_pipeline(trg, recent_headlines=[h.title for h in news[:20]])
-        return "news"
+        log.info("BLACK SWAN trigger: %s", trg.headline)
+        enriched = enrich_significant_headlines(news[:20])
+        fire_pipeline(
+            trg,
+            recent_headlines=[h.title for h in enriched],
+            source_summaries=[h.deep_summary for h in enriched],
+        )
+        return "black_swan"
 
-    # 3. Cron fallback
+    # ── Path 2: Regime shift — nowcaster label flipped ──
+    trg = _check_regime_shift(state)
+    if trg:
+        log.info("REGIME SHIFT trigger: %s", trg.headline)
+        headlines = [h.title for h in news[:20]] if news else []
+        fire_pipeline(trg, recent_headlines=headlines)
+        return "regime_shift"
+
+    # ── Path 3: Accumulated conviction — directional sum crossed threshold ──
+    trg, contrib = _check_conviction(last_fire)
+    if trg:
+        log.info("CONVICTION trigger: %s", trg.headline)
+        enriched = enrich_significant_headlines(news[:20])
+        fire_pipeline(
+            trg,
+            recent_headlines=[h.title for h in enriched],
+            source_summaries=[h.deep_summary for h in enriched],
+        )
+        return "conviction"
+
+    # ── Path 4: Cron fallback — nothing fired for 24h ──
     trg = _trigger_cron_fallback(last_fire)
     if trg:
         log.info("cron fallback fired (last fire %s)", last_fire)
-        fire_pipeline(trg, recent_headlines=[h.title for h in news[:20]])
+        headlines = [h.title for h in news[:20]] if news else []
+        fire_pipeline(trg, recent_headlines=headlines)
         return "cron"
 
-    log.info("tick: no trigger.")
+    snap = conv.compute()
+    log.info(
+        "tick: no trigger. conviction: gb=%.2f gd=%.2f ib=%.2f id=%.2f",
+        snap.growth_bullish, snap.growth_bearish,
+        snap.inflation_bullish, snap.inflation_bearish,
+    )
     return None
+
+
+def _save_regime_key(key: str) -> None:
+    """Persist the current regime key so we can detect shifts next tick."""
+    state = _load_system_state()
+    state["last_regime_key"] = key
+    _save_system_state(state)
 
 
 def replay_historical(days: int = 30) -> None:

@@ -43,6 +43,7 @@ def _node_current_event(state: FundState) -> dict:
     brief = CurrentEventAgent()(
         trigger=state.trigger,
         recent_headlines=state.recent_headlines,
+        source_summaries=state.source_summaries,
     )
     memio.append_short_term(brief, WriterIdentity.CURRENT_EVENT_AGENT)
     return {"world_state": brief}

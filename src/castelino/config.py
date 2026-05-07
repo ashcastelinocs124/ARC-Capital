@@ -104,6 +104,23 @@ class FredCfg(BaseModel):
     cache_ttl_hours: int = 24
 
 
+class SonarCfg(BaseModel):
+    cache_ttl_hours: int = 12
+    model: str = "sonar"
+    regions: list[str] = Field(
+        default_factory=lambda: ["EU", "UK", "JP", "CN", "GLOBAL"],
+    )
+
+
+class ConvictionCfg(BaseModel):
+    half_life_hours: float = 12.0
+    fire_threshold: float = 2.5
+    spread_threshold: float = 2.0
+    cooldown_hours: float = 4.0
+    black_swan_min: float = 0.9
+    ledger_ttl_hours: float = 72.0
+
+
 class OpenBBCfg(BaseModel):
     preferred_provider: str = "yfinance"
     fallback_enabled: bool = True
@@ -120,7 +137,9 @@ class Settings(BaseModel):
     curator: CuratorCfg
     execution: ExecutionCfg
     fred: FredCfg
+    conviction: ConvictionCfg = ConvictionCfg()
     openbb: OpenBBCfg = OpenBBCfg()
+    sonar: SonarCfg = SonarCfg()
     paths: PathsCfg
     root: Path
 
@@ -149,6 +168,12 @@ class Settings(BaseModel):
     def openbb_pat(self) -> str | None:
         """OpenBB Personal Access Token. Optional — adapter disabled if unset."""
         key = os.environ.get("OPENBB_PAT", "").strip()
+        return key or None
+
+    @property
+    def perplexity_api_key(self) -> str | None:
+        """Perplexity Sonar API key. Optional — falls back to static calendar."""
+        key = os.environ.get("PERPLEXITY_API_KEY", "").strip()
         return key or None
 
 

@@ -36,6 +36,7 @@ class FundState(BaseModel):
 
     trigger: TriggerRecord
     recent_headlines: list[str] = Field(default_factory=list)
+    source_summaries: list[str] = Field(default_factory=list)
 
     # Filled by nodes
     world_state: Optional[WorldStateBrief] = None

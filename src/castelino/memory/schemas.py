@@ -53,6 +53,8 @@ class TriggerSource(str, Enum):
     NEWS = "news"
     CRON_FALLBACK = "cron_fallback"
     MANUAL = "manual"
+    REGIME_SHIFT = "regime_shift"
+    CONVICTION = "conviction"
 
 
 # ────────────────────────── trigger / world-state ────────────────────────────
@@ -106,6 +108,7 @@ class WorldStateBrief(BaseModel):
     timestamp: datetime = Field(default_factory=_now)
     parent_trigger_id: str
     headlines: list[str]
+    source_summaries: list[str] = Field(default_factory=list)
     macro_signals: list[str] = Field(default_factory=list)
     surprises: list[str] = Field(default_factory=list)
     leading_indicator_reads: list[LeadingIndicatorRead] = Field(

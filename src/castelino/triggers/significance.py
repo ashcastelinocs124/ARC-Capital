@@ -1,13 +1,13 @@
 """News significance classifier — single fast LLM call, batched.
 
-Headlines come in with a free-form title; out comes a 0-1 materiality score, a
-list of asset classes affected, and a one-sentence reason. Threshold checks
-live in `runner.py`.
+Headlines come in with a free-form title; out comes a 0-1 materiality score,
+directional growth/inflation signals, a list of asset classes affected, and a
+one-sentence reason. Threshold checks live in `runner.py`.
 """
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Literal
 
 from pydantic import BaseModel, Field
 
@@ -21,6 +21,8 @@ class HeadlineScore(BaseModel):
     materiality: float = Field(ge=0.0, le=1.0)
     asset_classes_affected: List[str] = Field(default_factory=list)
     one_sentence_reason: str
+    growth_direction: Literal["up", "down", "neutral"] = "neutral"
+    inflation_direction: Literal["up", "down", "neutral"] = "neutral"
 
 
 class SignificanceBatch(BaseModel):
@@ -47,6 +49,13 @@ For each headline:
 - `headline_id` and `title` MUST match the input verbatim.
 - `asset_classes_affected` from {equity, bond_etf, commodity_etf, fx, futures}.
 - `one_sentence_reason` ≤ 120 chars.
+- `growth_direction`: does this headline push GROWTH expectations up, down, or
+  neutral? "up" = expansionary (strong data, stimulus, hiring). "down" =
+  contractionary (weak data, layoffs, tightening). Most headlines are neutral
+  on at least one dimension.
+- `inflation_direction`: does this headline push INFLATION expectations up,
+  down, or neutral? "up" = price pressures rising (tariffs, supply shock, wage
+  growth). "down" = disinflationary (weak demand, rate hikes, commodity crash).
 
 Process headlines independently — do not cross-reference them.
 """

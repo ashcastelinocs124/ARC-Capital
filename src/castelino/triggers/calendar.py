@@ -1,8 +1,9 @@
 """Economic calendar — high-impact macro events.
 
 US events are sourced from the FRED API (/releases/dates endpoint) with a
-configurable TTL cache. Non-US events (ECB, BoJ, OPEC) remain a curated static
-list until a reliable free API is available.
+configurable TTL cache. Non-US events (ECB, BoJ, BoE, OPEC, etc.) are fetched
+via the Perplexity Sonar API (search-grounded LLM) and cached locally; a static
+fallback list is used when the API key is missing or the call fails.
 
 `pull_calendar()` returns the next N days of high-impact events, merging both
 sources and sorting chronologically.
@@ -17,6 +18,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 
 import requests
+from openai import OpenAI
 
 from castelino.config import get_settings
 
@@ -115,10 +117,10 @@ def _fetch_fred_releases() -> list[CalendarEvent]:
 
 
 # ---------------------------------------------------------------------------
-# Non-US static events
+# Non-US events via Perplexity Sonar API (with static fallback)
 # ---------------------------------------------------------------------------
 
-_NON_US_EVENTS: list[dict] = [
+_STATIC_NON_US_EVENTS: list[dict] = [
     {"date": "2026-06-04", "name": "ECB Rate Decision", "region": "EU", "impact": "high",
      "asset_classes": ["fx", "bond_etf"]},
     {"date": "2026-07-02", "name": "OPEC+ Meeting", "region": "GLOBAL", "impact": "high",
@@ -127,27 +129,132 @@ _NON_US_EVENTS: list[dict] = [
      "asset_classes": ["fx", "bond_etf"]},
 ]
 
+_SONAR_PROMPT = """\
+Return ONLY a JSON array of upcoming high-impact non-US macroeconomic events \
+within the next {window_days} days (from {today}). Include central bank rate \
+decisions, GDP/CPI releases, OPEC meetings, and major policy announcements \
+for regions: {regions}.
 
-def _load_non_us_events(window_days: int = 30) -> list[CalendarEvent]:
+Each element must have exactly these keys:
+  "date": "YYYY-MM-DD",
+  "name": "<event name>",
+  "region": "<one of: EU, UK, JP, CN, GLOBAL>",
+  "impact": "<high or medium>",
+  "asset_classes": [<subset of: "equity", "bond_etf", "fx", "commodity_etf", "futures">]
+
+Return ONLY the JSON array, no markdown fences, no commentary.\
+"""
+
+
+def _sonar_cache_path() -> Path:
+    return get_settings().resolved_paths.cache / "sonar_non_us_calendar.json"
+
+
+def _sonar_cache_is_fresh() -> bool:
+    p = _sonar_cache_path()
+    if not p.exists():
+        return False
+    mtime = datetime.fromtimestamp(p.stat().st_mtime, tz=UTC)
+    ttl = timedelta(hours=get_settings().sonar.cache_ttl_hours)
+    return (datetime.now(UTC) - mtime) < ttl
+
+
+def _parse_sonar_response(raw_text: str) -> list[dict]:
+    text = raw_text.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+    return json.loads(text)
+
+
+def _fetch_sonar_events(window_days: int) -> list[CalendarEvent]:
+    cfg = get_settings()
+    api_key = cfg.perplexity_api_key
+    if not api_key:
+        log.debug("PERPLEXITY_API_KEY not set — skipping Sonar calendar fetch")
+        return []
+
+    cache_path = _sonar_cache_path()
+    if _sonar_cache_is_fresh():
+        try:
+            raw = json.loads(cache_path.read_text())
+            return _dicts_to_events(raw, window_days)
+        except (json.JSONDecodeError, KeyError):
+            log.warning("sonar cache corrupt — refetching")
+
+    sonar_cfg = cfg.sonar
+    today = date.today()
+    prompt = _SONAR_PROMPT.format(
+        window_days=window_days,
+        today=today.isoformat(),
+        regions=", ".join(sonar_cfg.regions),
+    )
+
+    try:
+        client = OpenAI(
+            api_key=api_key,
+            base_url="https://api.perplexity.ai",
+        )
+        resp = client.chat.completions.create(
+            model=sonar_cfg.model,
+            messages=[
+                {"role": "system", "content": "You are a macro-economic calendar data provider. Return only valid JSON."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.0,
+        )
+        content = resp.choices[0].message.content or ""
+        parsed = _parse_sonar_response(content)
+
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(json.dumps(parsed, indent=2))
+        return _dicts_to_events(parsed, window_days)
+    except Exception as e:
+        log.warning("Sonar API call failed: %s — falling back to cache/static", e)
+        if cache_path.exists():
+            try:
+                raw = json.loads(cache_path.read_text())
+                return _dicts_to_events(raw, window_days)
+            except (json.JSONDecodeError, KeyError):
+                pass
+        return []
+
+
+def _dicts_to_events(raw: list[dict], window_days: int) -> list[CalendarEvent]:
     today = date.today()
     horizon = today + timedelta(days=window_days)
     events: list[CalendarEvent] = []
-    for r in _NON_US_EVENTS:
-        d = date.fromisoformat(r["date"])
+    for r in raw:
+        try:
+            d = date.fromisoformat(r["date"])
+        except (KeyError, ValueError):
+            continue
         if d < today or d > horizon:
             continue
+        region = r.get("region", "GLOBAL")
         rt = time(12, 0, tzinfo=UTC)
         ts = datetime.combine(d, rt, tzinfo=UTC)
         events.append(
             CalendarEvent(
                 timestamp=ts,
-                name=r["name"],
-                region=r["region"],
-                impact=r["impact"],
-                asset_classes_affected=list(r["asset_classes"]),
+                name=r.get("name", "Unknown Event"),
+                region=region,
+                impact=r.get("impact", "medium"),
+                asset_classes_affected=r.get("asset_classes", ["fx"]),
             )
         )
     return events
+
+
+def _load_static_non_us(window_days: int) -> list[CalendarEvent]:
+    return _dicts_to_events(_STATIC_NON_US_EVENTS, window_days)
+
+
+def _load_non_us_events(window_days: int = 30) -> list[CalendarEvent]:
+    events = _fetch_sonar_events(window_days)
+    if events:
+        return events
+    log.info("sonar returned no events — using static non-US fallback")
+    return _load_static_non_us(window_days)
 
 
 # ---------------------------------------------------------------------------
