@@ -573,5 +573,45 @@ def _print_run_summary(result) -> None:
         print(f"\n[bold]Post-pipeline NAV:[/bold] ${pf.nav:,.2f}  cash=${pf.cash:,.2f}  positions={len(pf.positions)}")
 
 
+@app.command("persona-refresh")
+def persona_refresh(
+    speaker: str = typer.Option("powell", help="Speaker id (e.g. powell)."),
+    year: int = typer.Option(None, help="Year to scrape; default current."),
+):
+    """Scrape Fed website and rebuild the rolling-window persona."""
+    import asyncio
+    import httpx
+    from castelino.triggers.speech.persona import (
+        build_persona_from_speeches, save_persona,
+    )
+    from castelino.triggers.speech.scrapers.fed import fetch_speeches_for_speaker
+
+    cfg = get_settings()
+    sp = next((s for s in cfg.speech.speakers if s.id == speaker), None)
+    if not sp:
+        print(f"[red]Unknown speaker:[/red] {speaker}")
+        raise typer.Exit(1)
+    yr = year or datetime.now(UTC).year
+
+    async def _run():
+        async with httpx.AsyncClient(base_url="https://www.federalreserve.gov", timeout=30) as c:
+            speeches = await fetch_speeches_for_speaker(
+                speaker_match=sp.full_name.split()[-1], year=yr, client=c,
+            )
+        persona = build_persona_from_speeches(
+            speaker_id=sp.id, full_name=sp.full_name, role=sp.role,
+            speeches=speeches, lexicon_version=cfg.speech.lexicon_version,
+            baseline_window_days=cfg.speech.baseline_window_days,
+            half_life_months=cfg.speech.half_life_months,
+        )
+        path = save_persona(persona)
+        print(f"[green]Persona saved:[/green] {path}")
+        print(f"  speeches: {len(persona.speeches_in_window)}  "
+              f"mean: {persona.baseline_vector.hawkish_dovish_mean:+.3f}  "
+              f"std: {persona.baseline_vector.hawkish_dovish_std:.3f}")
+
+    asyncio.run(_run())
+
+
 if __name__ == "__main__":
     app()
