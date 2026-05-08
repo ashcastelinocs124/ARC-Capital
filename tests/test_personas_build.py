@@ -11,7 +11,12 @@ from castelino.agents.personas.models import PersonaCard
 
 def test_build_persona_writes_card_yaml(tmp_path, monkeypatch):
     pytest.importorskip("chromadb")
+    # Buffett scraper kept as a reference impl but no longer in the default
+    # registry (he's a value investor, not macro). Register him explicitly
+    # for this test to exercise the build pipeline end-to-end.
+    from castelino.agents.personas.build import register_scraper
     from castelino.agents.personas.scrapers.buffett import BuffettScraper
+    register_scraper("buffett", BuffettScraper)
 
     async def _fake_fetch(self):
         return [CorpusDoc(
@@ -56,6 +61,10 @@ def test_build_persona_writes_card_yaml(tmp_path, monkeypatch):
 
 
 def test_build_persona_unknown_id_raises():
+    # Default registry is empty (macro-only roster, scrapers register
+    # themselves as added). Any persona_id raises KeyError until wired.
+    from castelino.agents.personas.build import SCRAPERS_REGISTRY
+    SCRAPERS_REGISTRY.clear()
     fake = FakeLLMClient()
     with pytest.raises(KeyError):
         asyncio.run(build_persona(

@@ -52,7 +52,7 @@ This is a starting point. The brainstorming session is exploring variations.
 
 ### 2026-05-08 — Persona Agents (HITL consultation chat)
 - New module `src/castelino/agents/personas/` lets the human consult RAG-backed simulated economists & investors during approval gates
-- v1 roster (config-driven): Krugman, El-Erian, Summers, Buffett, Druckenmiller, Dalio, Tudor Jones. Buffett scraper shipped end-to-end as the validation persona; the other six scrapers are deferred follow-ups
+- v1 roster (config-driven, macro-only): Krugman, El-Erian, Summers, Druckenmiller, Dalio, Tudor Jones. Buffett (value investor) intentionally excluded from the macro fund's roster, but his scraper at `personas/scrapers/buffett.py` is kept as a reference template for the six macro scrapers (deferred follow-ups)
 - Per-persona corpus: scrape primary sources → token-window chunker → Chroma collection (one per persona, persistent on disk) → auto-generated `PersonaCard` (belief summary, decision framework, signature phrases, voice notes)
 - Per-turn chat: query embedded → top-k chunks → system prompt with profile card + chunks → `PersonaResponse` (text + cited_sources mapped back to `Citation` objects with snippet + score)
 - Panel mode: parallel `asyncio.gather` across N personas (no peer visibility, preserves diversity) → synthesis pass returning `PanelSynthesis` (consensus, disagreements, strongest objection, recommended modifications)
