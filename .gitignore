@@ -77,3 +77,8 @@ long_term_memory.md
 learnings.md
 traceability.md
 PROGRESS.md
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/

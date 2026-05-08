@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "openbb-app-builder": {
+      "source": "openbb-finance/backends-for-openbb",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/openbb-app-builder/SKILL.md",
+      "computedHash": "2c2b86df5e053610fa0103b64e139bf92677bd11f616430f208cb3326765863c"
+    }
+  }
+}
