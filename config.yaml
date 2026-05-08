@@ -154,6 +154,23 @@ speech:
       full_name: Jerome H. Powell
       role: Chair, Federal Reserve
 
+personas:
+  enabled: true
+  chat_model: gpt-4o-mini
+  synthesis_model: gpt-4o
+  embedding_model: text-embedding-3-small
+  retrieval_top_k: 6
+  chunk_max_tokens: 400
+  chunk_overlap_tokens: 50
+  chroma_path: data/personas/chroma
+  active_roster:
+    - krugman
+    - el_erian
+    - summers
+    - druckenmiller
+    - dalio
+    - tudor_jones
+
 paths:
   data_dir: "data"
   reports_dir: "reports"

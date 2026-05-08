@@ -49,6 +49,7 @@ def get_apps():
 
 
 from castelino.dashboard.endpoints import agents, approvals, macro, portfolio, research, risk  # noqa: E402
+from castelino.dashboard.endpoints import personas as personas_router  # noqa: E402
 
 app.include_router(portfolio.router)
 app.include_router(macro.router)
@@ -56,6 +57,7 @@ app.include_router(research.router)
 app.include_router(risk.router)
 app.include_router(agents.router)
 app.include_router(approvals.router)
+app.include_router(personas_router.router)
 
 
 # ── Frontend static files ──────────────────────────────────────────────────

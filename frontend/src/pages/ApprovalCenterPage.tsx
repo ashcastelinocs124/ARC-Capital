@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { CheckCircle2, History, Inbox } from "lucide-react";
 import { ApprovalCard } from "@/components/ApprovalCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -81,7 +82,17 @@ export default function ApprovalCenterPage() {
         ) : (
           <div className="space-y-4">
             {filteredQueue.map((item) => (
-              <ApprovalCard key={item.entry_id} item={item} />
+              <div key={item.entry_id} className="space-y-1">
+                <div className="flex justify-end">
+                  <Link
+                    to={`/approvals/${item.entry_id}/consult`}
+                    className="text-sm text-blue-600 hover:underline"
+                  >
+                    Consult →
+                  </Link>
+                </div>
+                <ApprovalCard item={item} />
+              </div>
             ))}
           </div>
         )}

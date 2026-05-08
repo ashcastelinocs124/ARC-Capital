@@ -10,6 +10,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from castelino.agents.personas.models import PanelDiscussion, PersonaConversation
 from castelino.config import get_settings
 
 log = logging.getLogger(__name__)
@@ -35,6 +36,8 @@ class ApprovalItem(BaseModel):
     resolved_at: str | None = None
     rejection_reason: str | None = None
     notes: str = ""  # human reasoning for approve/reject decision
+    conversations: list[PersonaConversation] = Field(default_factory=list)
+    panel_discussions: list[PanelDiscussion] = Field(default_factory=list)
 
     model_config = {"use_enum_values": True}
 

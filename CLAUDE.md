@@ -50,6 +50,20 @@ This is a starting point. The brainstorming session is exploring variations.
 - Research agents (TA, risk, web) now pull data from OpenBB with pandas fallback
 - Design doc: `docs/plans/2026-05-05-openbb-integration-design.md`
 
+### 2026-05-08 — Persona Agents (HITL consultation chat)
+- New module `src/castelino/agents/personas/` lets the human consult RAG-backed simulated economists & investors during approval gates
+- v1 roster (config-driven, macro-only): Krugman, El-Erian, Summers, Druckenmiller, Dalio, Tudor Jones. Buffett (value investor) intentionally excluded from the macro fund's roster, but his scraper at `personas/scrapers/buffett.py` is kept as a reference template for the six macro scrapers (deferred follow-ups)
+- Per-persona corpus: scrape primary sources → token-window chunker → Chroma collection (one per persona, persistent on disk) → auto-generated `PersonaCard` (belief summary, decision framework, signature phrases, voice notes)
+- Per-turn chat: query embedded → top-k chunks → system prompt with profile card + chunks → `PersonaResponse` (text + cited_sources mapped back to `Citation` objects with snippet + score)
+- Panel mode: parallel `asyncio.gather` across N personas (no peer visibility, preserves diversity) → synthesis pass returning `PanelSynthesis` (consensus, disagreements, strongest objection, recommended modifications)
+- Conversations attach to `ApprovalItem.conversations[]`; panel discussions attach to `ApprovalItem.panel_discussions[]`. Full audit trail preserved with each approval
+- New CLI: `castelino persona-build --persona buffett --full-name "Warren Buffett" --role "Value investor"`
+- Dashboard: new `/approvals/:entryId/consult` route with three-column layout (pending-item summary + decision notes / persona picker + "Run Panel" button / chat thread); `Apply Synthesis` button copies the synthesis into the decision-notes field
+- 5 new dashboard endpoints: list/send conversation messages, run panel, list personas, get persona
+- Personas DO NOT participate in the agent pipeline — they're advisors, invoked only from the dashboard
+- Design doc: `docs/plans/2026-05-08-persona-agents-design.md`
+- Implementation plan: `docs/plans/2026-05-08-persona-agents-plan.md` (20 bite-sized TDD tasks across 9 waves)
+
 ### 2026-05-08 — Fed Speech Listener (`SPEECH_DEVIATION` trigger source)
 - New trigger source: streams live Fed speech audio through Deepgram STT, scores each sentence on a versioned hawkish/dovish lexicon, fires the pipeline when a 5-sentence rolling window deviates >1.5σ from the speaker's own 12-month rhetorical baseline
 - Three layers under `src/castelino/triggers/speech/`: persona builder (offline scrape→score→time-weighted baseline), live listener (async STT events → SpeechSegment per sentence), deviation scorer (Stage A z-score + Stage B `gpt-4o-mini` confirmation gate)

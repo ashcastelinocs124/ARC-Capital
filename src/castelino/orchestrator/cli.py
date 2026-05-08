@@ -695,5 +695,24 @@ def speech_test(
         print(f"[green]Pushed {len(em.triggers)} trigger(s) onto pipeline queue.[/green]")
 
 
+@app.command("persona-build")
+def persona_build(
+    persona_id: str = typer.Option(..., help="Persona id (e.g. buffett)."),
+    full_name: str = typer.Option(..., help="Display name."),
+    role: str = typer.Option(..., help="Short role label."),
+):
+    """Scrape primary sources, chunk, embed into Chroma, generate profile card."""
+    import asyncio
+
+    from castelino.agents.base import get_llm_client
+    from castelino.agents.personas.build import build_persona
+
+    asyncio.run(build_persona(
+        persona_id=persona_id, full_name=full_name, role=role,
+        client=get_llm_client(),
+    ))
+    print(f"[green]Persona built:[/green] {persona_id}")
+
+
 if __name__ == "__main__":
     app()

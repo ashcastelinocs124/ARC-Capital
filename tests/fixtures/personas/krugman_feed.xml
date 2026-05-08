@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Paul Krugman | Project Syndicate</title>
+    <link>https://www.project-syndicate.org/columnist/paul-krugman</link>
+    <item>
+      <title>The Stagflation Mirage</title>
+      <link>https://www.project-syndicate.org/commentary/stagflation-mirage-2024</link>
+      <pubDate>Mon, 14 Oct 2024 12:00:00 +0000</pubDate>
+      <description>Why current price dynamics differ from the 1970s.</description>
+    </item>
+    <item>
+      <title>Inflation Cooled, Now What</title>
+      <link>https://www.project-syndicate.org/commentary/inflation-cooled-2024</link>
+      <pubDate>Mon, 16 Sep 2024 12:00:00 +0000</pubDate>
+      <description>Disinflation has been remarkably smooth.</description>
+    </item>
+  </channel>
+</rss>

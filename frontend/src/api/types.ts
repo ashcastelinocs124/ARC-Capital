@@ -107,3 +107,52 @@ export interface VerdictPayload {
   decisive_factor: string;
   dissent: string;
 }
+
+export interface Citation { source: string; snippet: string; score: number; }
+
+export interface PersonaMessage {
+  role: "user" | "assistant";
+  text: string;
+  timestamp: string;
+  citations: Citation[];
+}
+
+export interface PersonaConversation {
+  entry_id: string;
+  persona_id: string;
+  started_at: string;
+  messages: PersonaMessage[];
+}
+
+export interface FamousCall { date: string; description: string; }
+
+export interface PersonaCard {
+  persona_id: string;
+  full_name: string;
+  role: string;
+  tenure: string;
+  belief_summary: string;
+  decision_framework: string[];
+  signature_phrases: string[];
+  famous_calls: FamousCall[];
+  voice_notes: string;
+}
+
+export interface PanelResponse { persona_id: string; text: string; citations: Citation[]; }
+
+export interface Disagreement { axis: string; positions: Record<string, string>; }
+
+export interface PanelSynthesis {
+  consensus: string[];
+  disagreements: Disagreement[];
+  strongest_objection: string;
+  recommended_modifications: string[];
+}
+
+export interface PanelDiscussion {
+  entry_id: string;
+  question: string;
+  responses: PanelResponse[];
+  synthesis: PanelSynthesis;
+  created_at: string;
+}
