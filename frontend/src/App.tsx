@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
 import ApprovalCenterPage from "./pages/ApprovalCenterPage";
+import { ApprovalConsultPage } from "./pages/ApprovalConsultPage";
 import PortfolioPage from "./pages/PortfolioPage";
 import MacroPage from "./pages/MacroPage";
 import ResearchPage from "./pages/ResearchPage";
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="/risk" element={<RiskPage />} />
         <Route path="/agents" element={<AgentsPage />} />
         <Route path="/approvals" element={<ApprovalCenterPage />} />
+        <Route path="/approvals/:entryId/consult" element={<ApprovalConsultPage />} />
       </Routes>
     </AppShell>
   );
