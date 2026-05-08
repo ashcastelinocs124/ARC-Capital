@@ -162,6 +162,18 @@ class SpeechCfg(BaseModel):
     speakers: list[SpeechSpeakerCfg] = Field(default_factory=list)
 
 
+class PersonaCfg(BaseModel):
+    enabled: bool = True
+    chat_model: str = "gpt-4o-mini"
+    synthesis_model: str = "gpt-4o"
+    embedding_model: str = "text-embedding-3-small"
+    retrieval_top_k: int = 6
+    chunk_max_tokens: int = 400
+    chunk_overlap_tokens: int = 50
+    chroma_path: str = "data/personas/chroma"
+    active_roster: list[str] = Field(default_factory=list)
+
+
 class Settings(BaseModel):
     fund: FundCfg
     models: ModelsCfg
@@ -178,6 +190,7 @@ class Settings(BaseModel):
     openbb: OpenBBCfg = OpenBBCfg()
     sonar: SonarCfg = SonarCfg()
     speech: SpeechCfg = SpeechCfg()
+    personas: PersonaCfg = PersonaCfg()
     paths: PathsCfg
     root: Path
 
