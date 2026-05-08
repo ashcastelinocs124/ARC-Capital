@@ -49,3 +49,14 @@ This is a starting point. The brainstorming session is exploring variations.
 - Dashboard tabs: Portfolio, Macro & Signals, Research & Technicals, Risk & Attribution, Agent Decisions, Approval Queue
 - Research agents (TA, risk, web) now pull data from OpenBB with pandas fallback
 - Design doc: `docs/plans/2026-05-05-openbb-integration-design.md`
+
+### 2026-05-08 — Fed Speech Listener (`SPEECH_DEVIATION` trigger source)
+- New trigger source: streams live Fed speech audio through Deepgram STT, scores each sentence on a versioned hawkish/dovish lexicon, fires the pipeline when a 5-sentence rolling window deviates >1.5σ from the speaker's own 12-month rhetorical baseline
+- Three layers under `src/castelino/triggers/speech/`: persona builder (offline scrape→score→time-weighted baseline), live listener (async STT events → SpeechSegment per sentence), deviation scorer (Stage A z-score + Stage B `gpt-4o-mini` confirmation gate)
+- Persona-relative deviation is the signal — a dovish Powell turning hawkish carries far more information than a hawkish Powell staying hawkish
+- Same `score_sentence()` used for both baseline construction and live scoring (load-bearing invariant; lexicon is versioned `hawkish_dovish_v1.yaml` and corpus rescored on bumps)
+- Structural enforcement of hard rules: threshold check before LLM call, cooldown caps emissions at one per `event_id`
+- New CLI commands: `castelino persona-refresh --speaker powell`, `castelino speech-test --transcript-file path --dry-run`
+- Speakers and v2 sources extensible via `config.yaml::speech.speakers`; orchestrator graph unchanged (new `TriggerSource.SPEECH_DEVIATION` flows in at `current_event` like any other trigger)
+- Design doc: `docs/plans/2026-05-07-fed-speech-listener-design.md`
+- Implementation plan: `docs/plans/2026-05-07-fed-speech-listener-plan.md` (24 bite-sized TDD tasks across 8 waves)
