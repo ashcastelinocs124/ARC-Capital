@@ -8,14 +8,16 @@ This is a portfolio piece — a working simulation, not connected to a real brok
 
 ## What it does
 
-The system monitors macro news, economic data, and prediction markets through a **multi-layered trigger system** that fires the pipeline based on accumulated conviction — not just single headlines. When triggered, a **9-stage agent pipeline** produces 0–3 sized trades:
+The system monitors macro news, economic data, prediction markets, and **live policy speech audio** through a **multi-layered trigger system** that fires the pipeline based on accumulated conviction — not just single headlines. When triggered, a **9-stage agent pipeline** produces 0–3 sized trades:
 
-### Trigger Layer (4 paths)
+### Trigger Layer (6 paths)
 
 1. **Black swan override** — single headline with materiality ≥ 0.9 fires instantly (war, unscheduled FOMC, sovereign default).
 2. **Regime shift** — XGBoost nowcaster detects growth/inflation quadrant flip (Reflation → Stagflation, etc.).
 3. **Accumulated conviction** — a directional conviction ledger tracks headlines with exponential decay (12h half-life). Fires when growth or inflation signals accumulate past threshold. This catches the slow-burn "five headlines all pointing to Eurozone weakness" that no single headline triggers.
-4. **Cron fallback** — nothing fired for 24h, low-significance reassessment.
+4. **Calendar** — high-impact macro releases due within the polling window (FOMC, CPI, NFP, ECB, BoJ).
+5. **Speech deviation** — live Fed/ECB audio streamed through Deepgram STT, scored sentence-by-sentence on a hawkish/dovish lexicon, fires when a 5-sentence rolling window deviates >1.5σ from the speaker's own 12-month rhetorical baseline. A dovish Powell turning hawkish carries far more information than the words themselves.
+6. **Cron fallback** — nothing fired for 24h, low-significance reassessment.
 
 ### Significance Scoring (two-pass)
 
@@ -59,53 +61,54 @@ The system is split into three layers — **trigger detection** (when does the p
                           TRIGGER LAYER (deterministic + LLM scorer)
 ══════════════════════════════════════════════════════════════════════════
 
-   FRED + yfinance        RSS feeds        Sonar non-US cal
-        │                     │                   │
-        ▼                     ▼                   ▼
-  ┌─────────────┐       ┌──────────┐       ┌────────────┐
-  │ Calendar    │       │ News +   │       │ Calendar   │
-  │ events      │       │ headlines│       │ events     │
-  └─────┬───────┘       └─────┬────┘       └─────┬──────┘
-        │                     │                   │
-        │              ┌──────▼─────────┐         │
-        │              │ SIGNIFICANCE   │         │
-        │              │ SCORER (LLM)   │ Pass 1  │
-        │              │ → 0–1 + growth │         │
-        │              │   /inflation   │         │
-        │              │   direction    │         │
-        │              └──────┬─────────┘         │
-        │                     │                   │
-        │           ┌─────────▼──────────┐        │
-        │           │ TECHNICAL          │        │
-        │           │ READINESS  ×0.7-1.5│ RSI/MACD/OBV
-        │           │ MULTIPLIER         │        │
-        │           └─────────┬──────────┘        │
-        │                     │                   │
-        │           ┌─────────▼──────────────┐    │
-        │           │ TWO-PASS ENRICHMENT    │    │
-        │           │ (only borderlines      │ Pass 2
-        │           │  0.4 ≤ score ≤ 0.8)    │    │
-        │           │ + Polymarket prices    │    │
-        │           │ + X sentiment (Sonar)  │    │
-        │           └─────────┬──────────────┘    │
-        │                     │                   │
-        │           ┌─────────▼──────────────┐    │
-        │           │ CONVICTION LEDGER      │    │
-        │           │ growth↑/↓ inflation↑/↓ │    │
-        │           │ (12h half-life decay)  │    │
-        │           └─────────┬──────────────┘    │
-        │                     │                   │
-        └─────────┬───────────┼───────────────────┘
-                  │           │
-                  ▼           ▼
-         ╔═══════════════════════════════╗
-         ║  4 PARALLEL TRIGGER PATHS     ║
-         ║  ① Black swan (≥ 0.9)         ║
-         ║  ② Regime shift (XGBoost flip)║
-         ║  ③ Accumulated conviction     ║
-         ║  ④ Cron fallback (24h)        ║
-         ╚════════════╤══════════════════╝
-                      │
+   FRED + yfinance     RSS feeds      Sonar non-US     LIVE AUDIO
+   (calendar)          (headlines)    (calendar)       (FOMC/ECB pressers)
+        │                  │                │                │
+        ▼                  ▼                ▼                ▼
+  ┌──────────┐       ┌──────────┐    ┌────────────┐  ┌──────────────┐
+  │ Calendar │       │ ~20 head-│    │ Calendar   │  │ Deepgram STT │
+  │ events   │       │ lines    │    │ events     │  │ nova-2-finance
+  └────┬─────┘       └─────┬────┘    └─────┬──────┘  └──────┬───────┘
+       │                   │               │                │
+       │           ┌───────▼─────────┐     │       ┌────────▼────────────┐
+       │           │ SIGNIFICANCE    │ P1  │       │ Sentence segmenter  │
+       │           │ SCORER (LLM)    │     │       │ (resp. abbreviations)
+       │           │ → 0–1 + growth  │     │       └────────┬────────────┘
+       │           │   /inflation    │     │                │
+       │           │   direction     │     │       ┌────────▼─────────────┐
+       │           └───────┬─────────┘     │       │ HAWKISH/DOVISH SCORER│
+       │                   │               │       │ (versioned lexicon)   │
+       │           ┌───────▼──────────┐    │       └────────┬─────────────┘
+       │           │ TECHNICAL        │    │                │
+       │           │ READINESS x0.7-1.5│   │       ┌────────▼─────────────┐
+       │           │ (RSI/MACD/OBV)   │    │       │ DEVIATION DETECTOR   │
+       │           └───────┬──────────┘    │       │ z-score vs persona   │
+       │                   │               │       │ baseline (>1.5σ)     │
+       │           ┌───────▼──────────┐    │       └────────┬─────────────┘
+       │           │ TWO-PASS ENRICH  │ P2 │                │
+       │           │ Polymarket + X   │    │       ┌────────▼─────────────┐
+       │           │ (borderlines)    │    │       │ LLM GATE             │
+       │           └───────┬──────────┘    │       │ (structural shift?)  │
+       │                   │               │       └────────┬─────────────┘
+       │           ┌───────▼──────────┐    │                │
+       │           │ CONVICTION       │    │                │
+       │           │ LEDGER           │    │                │
+       │           │ (12h decay)      │    │                │
+       │           └───────┬──────────┘    │                │
+       │                   │               │                │
+       └────────┬──────────┼───────────────┘                │
+                │          │                                │
+                ▼          ▼                                ▼
+       ╔══════════════════════════════════════════════════════╗
+       ║  6 PARALLEL TRIGGER PATHS                            ║
+       ║  ① Black swan        single ≥ 0.9                   ║
+       ║  ② Regime shift      XGBoost label flip             ║
+       ║  ③ Conviction        decayed sum ≥ 2.5              ║
+       ║  ④ Calendar          high-impact event imminent     ║
+       ║  ⑤ Speech deviation  >1.5σ + LLM confirms shift     ║
+       ║  ⑥ Cron fallback     24h since last fire            ║
+       ╚════════════════╤═════════════════════════════════════╝
+                        │
 ══════════════════════│════════════════════════════════════════════════════
                       │     AGENT REASONING (LangGraph DAG)
 ══════════════════════│════════════════════════════════════════════════════
@@ -223,6 +226,28 @@ Plus three deterministic gates with no LLM:
 - **Risk-Off Gate** — XGBoost drawdown classifier; outputs size multiplier per trade
 - **Technical Readiness** — RSI/MACD/OBV alignment; outputs materiality multiplier on headlines
 
+### Live Speech Sub-Pipeline (auto-spawned per calendar event)
+
+Wakes up before scheduled FOMC pressers, ECB rate decisions, and Powell speeches. Six-stage flow runs in a background thread per event:
+
+| Stage | Purpose |
+|-------|---------|
+| **Orchestrator** | Polls calendar; if event has `has_live_stream` and is within 5 min, spawns a daemon thread |
+| **Deepgram STT** | Streams audio → text events (`nova-2-finance` model, financial-vocab tuned) |
+| **Sentence segmenter** | Stream of partials → complete sentences (respects "Mr.", "U.S.", abbrevs) |
+| **Lexicon scorer** | Each sentence → hawkish/dovish scalar score using `data/lexicons/hawkish_dovish_v1.yaml`. Same scorer used for offline persona baseline (load-bearing invariant) |
+| **Deviation detector** | Rolling 5-sentence window → z-score vs the speaker's 12-month rhetorical baseline (half-life 6 months). Threshold: 1.5σ |
+| **LLM gate (Stage B)** | `gpt-4o-mini` confirms the deviation is a structural policy shift, not a quote/hypothetical/aside |
+| **Emitter** | Constructs `TriggerRecord(source=SPEECH_DEVIATION)` with cooldown (one fire per `event_id`) |
+
+The downstream pipeline (Hypothesis → Asset Selection → Research → Bull/Bear → Debate → Guard → Risk-Off Gate → Portfolio) is unchanged — speech is just a sixth way the trigger fires, with a richer `raw_event_data` payload (speaker, deviation magnitude, deviating sentences).
+
+**Why this matters:** text headlines are already priced by the time they hit RSS. Live tone shifts on policy speeches are not. A dovish Powell turning hawkish carries more information than the words themselves — the system reacts within seconds of the words being spoken.
+
+CLI:
+- `castelino persona-refresh --speaker powell` — rebuild speaker baseline from historical corpus
+- `castelino speech-test --transcript-file path --dry-run` — replay a transcript through the listener
+
 ### Schemas enforce safety
 
 Every agent's output is a **Pydantic model with hard constraints**. Examples:
@@ -237,6 +262,7 @@ Every agent's output is a **Pydantic model with hard constraints**. Examples:
 ## Highlights
 
 - **Conviction-based triggers** — accumulated directional signals, not single-event reactions. Medium-significance headlines that individually wouldn't fire the pipeline can collectively trigger it when they all point the same direction.
+- **Live speech listener** — Deepgram STT streams Fed/ECB pressers in real time, scored against per-speaker hawkish/dovish baselines. Fires when tone deviates >1.5σ AND an LLM confirms a structural shift.
 - **Two-pass significance scoring** — borderline headlines get re-scored with Polymarket prediction market data and X/Twitter sentiment to separate real signals from noise.
 - **Perplexity Sonar integration** — headlines enriched with ~200-word search-grounded summaries. Non-US calendar events (ECB, BoJ, OPEC) fetched in real-time.
 - **Regime-aware pipeline** — XGBoost nowcasters (growth + inflation) label the macro environment. Agents receive regime context; asset selection prioritizes regime-aligned instruments.
@@ -293,9 +319,22 @@ CKM-Capital/
 │   │   ├── calendar.py             # FRED US + Sonar non-US calendar
 │   │   ├── news.py                 # RSS + Sonar deep-reads + X sentiment
 │   │   ├── significance.py         # two-pass scorer (directional + enriched)
-│   │   ├── conviction.py           # directional conviction ledger
+│   │   ├── conviction.py           # directional conviction ledger (12h decay)
+│   │   ├── readiness.py            # technical readiness multiplier (RSI/MACD/OBV)
 │   │   ├── polymarket.py           # Polymarket CLOB API integration
-│   │   └── runner.py               # `castelino watch` — 4 trigger paths
+│   │   ├── risk_gate.py            # 4-tier risk-off enforcement gate
+│   │   ├── speech/                 # NEW: live Fed/ECB speech listener
+│   │   │   ├── orchestrator.py     #   spawns listener thread per event
+│   │   │   ├── listener.py         #   stream → SpeechSegment per sentence
+│   │   │   ├── stt_deepgram.py     #   Deepgram nova-2-finance integration
+│   │   │   ├── scorer.py           #   hawkish/dovish lexicon scorer
+│   │   │   ├── persona.py          #   per-speaker baseline distribution
+│   │   │   ├── baseline.py         #   z-score vs persona
+│   │   │   ├── deviation.py        #   >1.5σ threshold + cooldown
+│   │   │   ├── llm_gate.py         #   Stage B: confirms structural shift
+│   │   │   ├── emitter.py          #   constructs SPEECH_DEVIATION trigger
+│   │   │   └── queue.py            #   hand-off to runner.tick()
+│   │   └── runner.py               # `castelino watch` — 6 trigger paths
 │   ├── forecast/
 │   │   ├── regime.py               # XGBoost growth + inflation nowcasters
 │   │   ├── regime_sectors.py       # quadrant → sector/ETF mapping
@@ -346,6 +385,7 @@ cat > .env <<EOF
 OPENAI_API_KEY=sk-...
 PERPLEXITY_API_KEY=pplx-...
 FRED_API_KEY=...             # optional
+DEEPGRAM_API_KEY=...         # optional — for the live speech listener
 EOF
 chmod 600 .env
 
@@ -388,10 +428,13 @@ castelino mark                    # daily mark-to-market + stop-losses
 castelino dashboard               # live HTML dashboard
 castelino status                  # NAV + positions + journal counts
 castelino report                  # regenerate charts + trade cards
-castelino serve                   # OpenBB Workspace backend (port 7779)
+castelino serve                   # FastAPI backend + React frontend (port 7779)
 castelino forecast-regime         # run XGBoost regime nowcaster
+castelino forecast-risk           # run XGBoost risk-off classifier
 castelino growth-search           # explore growth leading indicators
 castelino inflation-search        # explore inflation leading indicators
+castelino persona-refresh --speaker powell   # rebuild speaker baseline from corpus
+castelino speech-test --transcript-file PATH --dry-run    # replay transcript
 ```
 
 ---
@@ -417,6 +460,28 @@ conviction:
   spread_threshold: 2.0         # |bullish - bearish| to fire
   cooldown_hours: 4.0           # min between conviction fires
   black_swan_min: 0.9           # instant-fire threshold
+
+speech:
+  enabled: true
+  stt_provider: deepgram
+  deepgram_model: nova-2-finance
+  lexicon_version: hawkish_dovish_v1
+  window_size: 5                # rolling sentence window
+  deviation_threshold_sigma: 1.5
+  half_life_months: 6.0         # baseline decay
+  baseline_window_days: 365
+  llm_model: gpt-4o-mini        # Stage B structural-shift gate
+  speakers:
+    - id: powell
+      full_name: Jerome H. Powell
+      role: Chair, Federal Reserve
+
+risk_gate:
+  caution_min: 0.3              # P(risk-off) above which to start downsizing
+  caution_size_mult: 0.5        # 0.3-0.6: half-size risk-on trades
+  danger_min: 0.6               # 0.6-0.85: veto risk-on equity
+  capitulation_min: 0.85        # ≥0.85: contrarian flip
+  capitulation_amplify: 1.3
 
 risk:
   position_max_pct_nav: 0.05    # constitutional 5% cap
