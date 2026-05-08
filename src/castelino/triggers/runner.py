@@ -170,6 +170,39 @@ def _check_conviction(last_fire: datetime | None) -> tuple[TriggerRecord | None,
     return trg, result.contributing_headlines
 
 
+def _maybe_spawn_speech_listeners(cal_events: list) -> None:
+    """For each upcoming calendar event flagged has_live_stream, spawn a
+    background listener thread. No-op if speech is disabled or none qualify.
+
+    Failures are logged and swallowed — the watcher must never crash on a
+    bad listener. The next tick will retry the spawn.
+    """
+    cfg = get_settings()
+    if not cfg.speech.enabled:
+        return
+    try:
+        from castelino.triggers.speech.orchestrator import (
+            default_llm_client_factory,
+            default_provider_factory,
+            default_stream_resolver,
+            spawn_listener_threaded,
+        )
+    except Exception as e:
+        log.debug("speech orchestrator unavailable: %s", e)
+        return
+
+    for ev in cal_events:
+        try:
+            spawn_listener_threaded(
+                ev,
+                provider_factory=default_provider_factory,
+                llm_client_factory=default_llm_client_factory,
+                stream_resolver=default_stream_resolver,
+            )
+        except Exception as e:
+            log.warning("speech listener spawn failed for %s: %s", getattr(ev, "name", "?"), e)
+
+
 def _trigger_cron_fallback(last_fire: datetime | None) -> TriggerRecord | None:
     cfg = get_settings()
     if last_fire is None:
@@ -285,11 +318,27 @@ def tick() -> str | None:
 
     # ── Path 0: Calendar (unchanged — high-impact event imminent) ──
     cal_events = calmod.events_due()
+
+    # Speech listener spawning: side-effect, runs alongside other paths.
+    # For any calendar event with a live stream within the lookahead window,
+    # fire off a daemon thread to listen + score + push triggers onto the
+    # speech queue. The next tick's Path 0.5 picks them up.
+    _maybe_spawn_speech_listeners(cal_events)
+
     trg = _trigger_from_calendar(cal_events)
     if trg:
         log.info("calendar trigger: %s", trg.headline)
         fire_pipeline(trg, recent_headlines=[trg.headline])
         return "calendar"
+
+    # ── Path 0.5: Speech deviation triggers from live listener ──
+    from castelino.triggers.speech.queue import speech_trigger_queue
+    pending = speech_trigger_queue.drain()
+    if pending:
+        trg = pending[0]
+        log.info("SPEECH trigger: %s", trg.headline)
+        fire_pipeline(trg, recent_headlines=[trg.headline])
+        return "speech"
 
     # ── Path 1: Black swan — single headline ≥ 0.9 ──
     trg = _check_black_swan(scores)

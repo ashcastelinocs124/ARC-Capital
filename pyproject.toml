@@ -20,6 +20,8 @@ dependencies = [
     "pyarrow>=15",
     "requests>=2.31",
     "feedparser>=6.0",
+    "beautifulsoup4>=4.12,<5",
+    "httpx>=0.27,<1",
     "openbb-platform-api",
     # LLM + DAG
     "openai>=1.40",
@@ -35,6 +37,8 @@ dependencies = [
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
     "plotly>=5.18",
+    # Speech-to-text (Fed speech listener)
+    "deepgram-sdk>=3,<4",
 ]
 
 [project.optional-dependencies]

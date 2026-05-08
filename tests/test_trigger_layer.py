@@ -155,3 +155,8 @@ def test_off_switch_persists():
     runner.set_trading_enabled(True)
     state = runner._load_system_state()
     assert state["trading_enabled"] is True
+
+
+def test_speech_deviation_trigger_source_exists():
+    from castelino.memory.schemas import TriggerSource
+    assert TriggerSource.SPEECH_DEVIATION.value == "speech_deviation"
