@@ -37,6 +37,8 @@ dependencies = [
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
     "plotly>=5.18",
+    # Speech-to-text (Fed speech listener)
+    "deepgram-sdk>=3,<4",
 ]
 
 [project.optional-dependencies]
