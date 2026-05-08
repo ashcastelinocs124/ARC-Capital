@@ -32,6 +32,8 @@ class CalendarEvent:
     region: str            # US, EU, JP, UK, GLOBAL
     impact: str            # high | medium | low
     asset_classes_affected: list[str]
+    has_live_stream: bool = False
+    speaker_id: str | None = None
 
 
 # ---------------------------------------------------------------------------
