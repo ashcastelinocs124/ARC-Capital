@@ -50,48 +50,187 @@ A **mark loop** runs daily to re-price and trigger stop-losses. A **memory curat
 
 ## Architecture
 
+The system is split into three layers — **trigger detection** (when does the pipeline fire?), **agent reasoning** (what trade?), and **enforcement** (is the trade allowed?). Color-coded below by layer.
+
+### Full pipeline
+
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                          TRIGGER LAYER                           │
-│  RSS news / FRED calendar / Sonar non-US cal / cron fallback     │
-└──────────────────────────┬───────────────────────────────────────┘
-                           │
-                    ┌──────▼──────┐
-                    │ SIGNIFICANCE │  LLM scores 0-1 + growth/inflation
-                    │   SCORER     │  direction per headline
-                    └──────┬──────┘
-                           │
-                 ┌─────────▼──────────┐
-                 │  TWO-PASS ENRICHMENT│  Borderlines (0.4-0.8) re-scored
-                 │  Polymarket prices  │  with prediction market + X
-                 │  X/Twitter via Sonar│  sentiment context
-                 └─────────┬──────────┘
-                           │
-              ┌────────────▼──────────────┐
-              │  CONVICTION LEDGER         │  Decaying directional sums
-              │  growth ↑↓ / inflation ↑↓  │  (12h half-life)
-              └────────────┬──────────────┘
-                           │ 4 trigger paths: black swan / regime
-                           │ shift / accumulated conviction / cron
-                           ▼
-              ┌─────────────────────────┐
-              │  SONAR DEEP-READS       │  ~200 word enriched summaries
-              └────────────┬────────────┘
-                           ▼
-              ┌─────────────────────────┐
-              │  REGIME NOWCASTER       │  XGBoost growth + inflation
-              │  → Sector Resolution    │  → preferred instruments
-              └────────────┬────────────┘
-                           ▼
-              ┌─────────────────────────┐
-              │  CURRENT EVENT AGENT    │  + leading indicator catalog
-              └────────────┬────────────┘
-                           ▼
-              │  HYPOTHESIS → ⏸ HITL GATE → ASSET SELECTION  │
-              │  RESEARCH → BULL/BEAR → DEBATE → ⏸ HITL GATE │
-              │  GUARD → PORTFOLIO → BROKER                   │
-              └───────────────────────────────────────────────┘
+══════════════════════════════════════════════════════════════════════════
+                          TRIGGER LAYER (deterministic + LLM scorer)
+══════════════════════════════════════════════════════════════════════════
+
+   FRED + yfinance        RSS feeds        Sonar non-US cal
+        │                     │                   │
+        ▼                     ▼                   ▼
+  ┌─────────────┐       ┌──────────┐       ┌────────────┐
+  │ Calendar    │       │ News +   │       │ Calendar   │
+  │ events      │       │ headlines│       │ events     │
+  └─────┬───────┘       └─────┬────┘       └─────┬──────┘
+        │                     │                   │
+        │              ┌──────▼─────────┐         │
+        │              │ SIGNIFICANCE   │         │
+        │              │ SCORER (LLM)   │ Pass 1  │
+        │              │ → 0–1 + growth │         │
+        │              │   /inflation   │         │
+        │              │   direction    │         │
+        │              └──────┬─────────┘         │
+        │                     │                   │
+        │           ┌─────────▼──────────┐        │
+        │           │ TECHNICAL          │        │
+        │           │ READINESS  ×0.7-1.5│ RSI/MACD/OBV
+        │           │ MULTIPLIER         │        │
+        │           └─────────┬──────────┘        │
+        │                     │                   │
+        │           ┌─────────▼──────────────┐    │
+        │           │ TWO-PASS ENRICHMENT    │    │
+        │           │ (only borderlines      │ Pass 2
+        │           │  0.4 ≤ score ≤ 0.8)    │    │
+        │           │ + Polymarket prices    │    │
+        │           │ + X sentiment (Sonar)  │    │
+        │           └─────────┬──────────────┘    │
+        │                     │                   │
+        │           ┌─────────▼──────────────┐    │
+        │           │ CONVICTION LEDGER      │    │
+        │           │ growth↑/↓ inflation↑/↓ │    │
+        │           │ (12h half-life decay)  │    │
+        │           └─────────┬──────────────┘    │
+        │                     │                   │
+        └─────────┬───────────┼───────────────────┘
+                  │           │
+                  ▼           ▼
+         ╔═══════════════════════════════╗
+         ║  4 PARALLEL TRIGGER PATHS     ║
+         ║  ① Black swan (≥ 0.9)         ║
+         ║  ② Regime shift (XGBoost flip)║
+         ║  ③ Accumulated conviction     ║
+         ║  ④ Cron fallback (24h)        ║
+         ╚════════════╤══════════════════╝
+                      │
+══════════════════════│════════════════════════════════════════════════════
+                      │     AGENT REASONING (LangGraph DAG)
+══════════════════════│════════════════════════════════════════════════════
+                      │
+        ┌─────────────▼─────────────┐
+        │ SONAR DEEP-READS          │  ~200 word search-grounded
+        │ (significant headlines)   │  summaries per headline
+        └─────────────┬─────────────┘
+                      │
+        ┌─────────────▼─────────────┐
+        │ REGIME NOWCASTER          │  XGBoost: growth × inflation
+        │ → Sector Resolution       │  → 4 quadrants → preferred ETFs
+        └─────────────┬─────────────┘
+                      │
+        ┌─────────────▼─────────────┐
+        │ CURRENT EVENT AGENT       │  fast LLM
+        │ (only LLM that sees       │  → WorldStateBrief
+        │  uncurated text)          │     + leading indicator reads
+        └─────────────┬─────────────┘
+                      ▼
+        ┌─────────────────────────┐
+        │ HYPOTHESIS AGENT        │  reasoning LLM
+        │ (mandatory kill criteria│  → falsifiable thesis
+        │  enforced by schema)    │     + regime + conviction
+        └─────────────┬───────────┘
+                      ▼
+        ┌─────────────────────────┐
+        │ ⏸ HITL GATE — HYPOTHESIS│  pipeline blocks until human
+        │ (CLI or Dashboard)      │  approves / rejects with notes
+        └─────────────┬───────────┘
+                      ▼
+        ┌─────────────────────────┐
+        │ ASSET SELECTION AGENT   │  reasoning LLM
+        │ (regime-aware: prefers  │  → 1–3 TradeExpressions
+        │  regime ETFs)           │
+        └─────────────┬───────────┘
+                      ▼  for each expression:
+        ┌─────────────────────────────────────┐
+        │ RESEARCH DESK (4 parallel agents)   │  hybrid:
+        │ Web · Technical · Backtest · Risk   │  Python computes,
+        │ → sealed ResearchBundle             │  LLM interprets
+        └─────────────┬───────────────────────┘
+                      ▼
+        ┌─────────────────────────┐
+        │ BULL  ↔  BEAR           │  reasoning LLMs
+        │ adversarial debate      │  argue opposing reads
+        └─────────────┬───────────┘
+                      ▼
+        ┌─────────────────────────┐
+        │ DEBATE AGENT            │  reasoning LLM
+        │ proceed | reject |      │  cites the decisive
+        │ modify (size mult)      │  argument
+        └─────────────┬───────────┘
+                      ▼
+        ┌─────────────────────────┐
+        │ ⏸ HITL GATE — DEBATE    │  human reviews verdict
+        │                         │  before execution
+        └─────────────┬───────────┘
+                      │
+══════════════════════│════════════════════════════════════════════════════
+                      │     ENFORCEMENT LAYER (deterministic)
+══════════════════════│════════════════════════════════════════════════════
+                      ▼
+        ┌─────────────────────────┐
+        │ PRINCIPLES GUARD        │  hybrid
+        │ ─────────────────────── │  HARD rules: Python (veto)
+        │ H1–H5 hard rules        │  SOFT rules: LLM (warn/amend)
+        │ S1–S6 soft rules        │
+        └─────────────┬───────────┘
+                      ▼
+        ┌─────────────────────────┐
+        │ RISK-OFF GATE           │  XGBoost classifier
+        │ ─────────────────────── │  P(SPY drawdown >5% next month)
+        │ 4 tiers: pass/downsize/ │  → size_multiplier per trade
+        │ veto/contrarian-amplify │
+        └─────────────┬───────────┘
+                      ▼
+        ┌─────────────────────────┐
+        │ PORTFOLIO AGENT         │  reasoning LLM
+        │ (must cite kill crit;   │  → TradeOrder
+        │  defense-in-depth veto) │
+        └─────────────┬───────────┘
+                      ▼
+        ┌─────────────────────────┐
+        │ BROKER (pure function)  │  deterministic
+        │ fill + slippage + comm  │  → portfolio.json
+        │ NAV invariant enforced  │
+        └─────────────────────────┘
+
+  out-of-band ─ MARK LOOP (daily)        re-prices, snapshots NAV, fires stops
+  out-of-band ─ MEMORY CURATOR (weekly)  distills lessons → long_term_journal.md
 ```
+
+### The 10 named agents
+
+| # | Agent | Tier | Output | Role |
+|---|-------|------|--------|------|
+| 1 | **Significance Scorer** | fast | `HeadlineScore[]` | Score every headline 0–1 + growth/inflation direction |
+| 2 | **Current Event** | fast | `WorldStateBrief` | Compress news to structured brief; only place LLM sees uncurated text |
+| 3 | **Hypothesis** | reasoning | `Hypothesis` | Form one falsifiable thesis with mandatory kill criteria |
+| 4 | **Asset Selection** | reasoning | `TradeExpression[]` | Pick 1–3 instruments that express the thesis |
+| 5 | **Web Research** | fast | `WebResearch` | Per-instrument news/sentiment summary |
+| 6 | **Technical Analysis** | fast | `TAReport` | RSI/MACD/SMA/vol — Python computes, LLM interprets |
+| 7 | **Backtest** | fast | `BacktestReport` | Similar-setup hit rate over 10y history |
+| 8 | **Risk** | fast | `RiskReport` | Realized vol, correlation to book, marginal VaR |
+| 9 | **Bull** | reasoning | `BullCase` | Argues for the trade with research evidence |
+| 10 | **Bear** | reasoning | `BearCase` | Argues against the trade with research evidence |
+| 11 | **Debate** | reasoning | `Verdict` | Adjudicates Bull vs Bear; cites decisive argument |
+| 12 | **Principles Guard** | reasoning + Python | `GuardDecision` | Hard rules deterministic; soft rules LLM-judged |
+| 13 | **Portfolio** | reasoning | `PortfolioDecision` + `TradeOrder` | Translates verdict to order; cites kill criterion |
+| 14 | **Memory Curator** | reasoning | `LongTermLesson[]` | Weekly: distills patterns from short-term journal |
+
+Plus three deterministic gates with no LLM:
+- **Regime Nowcaster** — XGBoost growth + inflation classifiers; outputs quadrant + probabilities
+- **Risk-Off Gate** — XGBoost drawdown classifier; outputs size multiplier per trade
+- **Technical Readiness** — RSI/MACD/OBV alignment; outputs materiality multiplier on headlines
+
+### Schemas enforce safety
+
+Every agent's output is a **Pydantic model with hard constraints**. Examples:
+
+- `Hypothesis.kill_criteria` → `min_length=1` — the LLM literally cannot emit a thesis without falsification conditions
+- `TradeExpression.target_size_pct_nav` → `gt=0.0, le=0.05` — schema rejects > 5% NAV before Guard ever sees it
+- `Verdict.size_multiplier` → `ge=0.0, le=2.0` — bounded
+- `WriterIdentity` enum + R/W matrix — memory I/O refuses out-of-matrix writes
 
 ---
 
