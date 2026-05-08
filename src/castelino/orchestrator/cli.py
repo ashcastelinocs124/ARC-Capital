@@ -5,7 +5,6 @@ Subcommands (M1 through M6):
 - `mark`     Run the daily mark loop.
 - `watch`    Continuous trigger watcher (M5).
 - `report`   Regenerate static reports (M6).
-- `replay`   Backfill from historical news / calendar (M6).
 - `status`   Print portfolio.json + ST journal counts.
 - `seed`     Seed a starter book (scripts/seed_book.py wrapper).
 - `reset`    Wipe ST/LT journals + portfolio (demo only).
@@ -171,15 +170,6 @@ def serve(
           f"{port}[/blue]")
     uvicorn.run("castelino.dashboard.main:app", host="0.0.0.0", port=port, reload=reload)
 
-
-@app.command()
-def replay(
-    days: int = typer.Option(30, help="Number of days of history to replay."),
-):
-    """Replay historical triggers to seed memory (M6)."""
-    from castelino.triggers.runner import replay_historical
-
-    replay_historical(days=days)
 
 
 @app.command()
