@@ -613,5 +613,87 @@ def persona_refresh(
     asyncio.run(_run())
 
 
+@app.command("speech-test")
+def speech_test(
+    speaker: str = typer.Option("powell", help="Speaker id."),
+    transcript_file: str = typer.Option(
+        None, help="Path to a transcript .txt file to replay (skip live audio).",
+    ),
+    dry_run: bool = typer.Option(
+        True, "--dry-run/--live",
+        help="Dry-run (default) — print would-be triggers, don't enqueue.",
+    ),
+):
+    """Smoke-test the speech listener: replay a transcript or stub audio,
+    score sentences, log any triggers that would have fired (dry-run)
+    or push them onto the speech queue (--live)."""
+    import asyncio
+    from datetime import datetime, UTC
+    from pathlib import Path
+
+    from castelino.config import get_settings
+    from castelino.triggers.speech.emitter import SpeechTriggerEmitter
+    from castelino.triggers.speech.persona import load_persona
+    from castelino.triggers.speech.scorer import split_sentences
+    from castelino.triggers.speech.models import SpeechSegment
+
+    cfg = get_settings()
+    sp_cfg = next((s for s in cfg.speech.speakers if s.id == speaker), None)
+    if not sp_cfg:
+        print(f"[red]Unknown speaker:[/red] {speaker}")
+        raise typer.Exit(1)
+
+    try:
+        persona = load_persona(speaker)
+    except FileNotFoundError:
+        print(f"[red]No persona found for {speaker}.[/red] Run `castelino persona-refresh --speaker {speaker}` first.")
+        raise typer.Exit(1)
+
+    if transcript_file is None:
+        print("[yellow]No --transcript-file given; nothing to replay.[/yellow]")
+        raise typer.Exit(0)
+
+    text = Path(transcript_file).read_text()
+    sentences = split_sentences(text)
+    print(f"[green]Replaying {len(sentences)} sentences for {sp_cfg.full_name}[/green]")
+
+    # Stage A only (no LLM calls in dry-run if no client available — keep it offline-friendly)
+    from castelino.agents.base import FakeLLMClient
+    from castelino.triggers.speech.llm_gate import SpeechShiftClassification
+    fake = FakeLLMClient()
+    fake.register(
+        "SpeechShiftClassification",
+        lambda system, user: SpeechShiftClassification(
+            is_shift=True, direction="hawkish", magnitude=0.7,
+            decisive_phrase="(dry-run stub)", rationale="dry-run"),
+    )
+    em = SpeechTriggerEmitter(
+        speaker_id=sp_cfg.id, full_name=sp_cfg.full_name,
+        baseline=persona.baseline_vector,
+        threshold_sigma=cfg.speech.deviation_threshold_sigma,
+        llm_client=fake,
+        lexicon_version=cfg.speech.lexicon_version,
+        window_size=cfg.speech.window_size,
+    )
+    for s in sentences:
+        em.ingest(SpeechSegment(
+            speaker_id=sp_cfg.id, text=s,
+            timestamp=datetime.now(UTC), event_id=f"speech-test-{speaker}",
+        ))
+
+    if not em.triggers:
+        print("[blue]No triggers fired during replay.[/blue]")
+        return
+    print(f"[green]Triggers fired: {len(em.triggers)}[/green]")
+    for trg in em.triggers:
+        print(f"  - {trg.headline} (significance={trg.significance:.2f})")
+        print(f"    reason: {trg.one_sentence_reason}")
+    if not dry_run:
+        from castelino.triggers.speech.queue import speech_trigger_queue
+        for trg in em.triggers:
+            speech_trigger_queue.offer(trg)
+        print(f"[green]Pushed {len(em.triggers)} trigger(s) onto pipeline queue.[/green]")
+
+
 if __name__ == "__main__":
     app()
