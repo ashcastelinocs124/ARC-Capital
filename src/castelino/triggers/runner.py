@@ -313,22 +313,6 @@ def _save_regime_key(key: str) -> None:
     _save_system_state(state)
 
 
-def replay_historical(days: int = 30) -> None:
-    """Backfill from cached news + calendar over `days`. Used by `castelino replay`."""
-    log.info("replay_historical: %d days requested", days)
-    # v1: walk the headline cache and fire each significant one.
-    headlines = fetch_recent(max_per_feed=50, dedupe=False)
-    headlines = [h for h in headlines if h.published > datetime.now(UTC) - timedelta(days=days)]
-    if not headlines:
-        log.info("no headlines to replay.")
-        return
-    trg = _trigger_from_news(headlines)
-    if trg is None:
-        log.info("no replay-worthy headlines.")
-        return
-    log.info("firing replay pipeline on %s", trg.headline)
-    fire_pipeline(trg, recent_headlines=[h.title for h in headlines[:30]])
-
 
 def set_trading_enabled(enabled: bool) -> None:
     state = _load_system_state()

@@ -1,0 +1,896 @@
+{
+  "H-hyp-10df57e45046": {
+    "entry_id": "H-hyp-10df57e45046",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-07T23:35:24.006579+00:00",
+    "resolved_at": "2026-05-07T23:35:24.006579+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-1e8c54f2382e": {
+    "entry_id": "V-vdc-1e8c54f2382e",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 1.0,
+      "decisive_factor": "Strong cohort hit rate aligned with macro dovish surprise.",
+      "dissent": "CPI risk acknowledged but not active."
+    },
+    "submitted_at": "2026-05-07T23:35:25.570445+00:00",
+    "resolved_at": "2026-05-07T23:35:25.571446+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-f9ae88e1bdc0": {
+    "entry_id": "H-hyp-f9ae88e1bdc0",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-07T23:35:25.634460+00:00",
+    "resolved_at": "2026-05-07T23:35:25.635460+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-80aa7e1aa41f": {
+    "entry_id": "V-vdc-80aa7e1aa41f",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 1.0,
+      "decisive_factor": "Strong cohort hit rate aligned with macro dovish surprise.",
+      "dissent": "CPI risk acknowledged but not active."
+    },
+    "submitted_at": "2026-05-07T23:35:25.893519+00:00",
+    "resolved_at": "2026-05-07T23:35:25.893519+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-cb7bbc806c77": {
+    "entry_id": "H-hyp-cb7bbc806c77",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-07T23:35:25.961534+00:00",
+    "resolved_at": "2026-05-07T23:35:25.962534+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-990a30f6f823": {
+    "entry_id": "V-vdc-990a30f6f823",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 1.5,
+      "decisive_factor": "big size on conviction",
+      "dissent": ""
+    },
+    "submitted_at": "2026-05-07T23:35:26.220592+00:00",
+    "resolved_at": "2026-05-07T23:35:26.221592+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-49c6fccc928b": {
+    "entry_id": "H-hyp-49c6fccc928b",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-07T23:35:26.276605+00:00",
+    "resolved_at": "2026-05-07T23:35:26.277605+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-559c753310f0": {
+    "entry_id": "V-vdc-559c753310f0",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 2.0,
+      "decisive_factor": "big",
+      "dissent": ""
+    },
+    "submitted_at": "2026-05-07T23:35:26.531662+00:00",
+    "resolved_at": "2026-05-07T23:35:26.531662+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-3879c4145dad": {
+    "entry_id": "H-hyp-3879c4145dad",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-07T23:35:26.587675+00:00",
+    "resolved_at": "2026-05-07T23:35:26.587675+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-162c9230a601": {
+    "entry_id": "H-hyp-162c9230a601",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-07T23:45:05.116785+00:00",
+    "resolved_at": "2026-05-07T23:45:05.117786+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-050b7e1e1805": {
+    "entry_id": "V-vdc-050b7e1e1805",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 1.0,
+      "decisive_factor": "Strong cohort hit rate aligned with macro dovish surprise.",
+      "dissent": "CPI risk acknowledged but not active."
+    },
+    "submitted_at": "2026-05-07T23:45:05.929969+00:00",
+    "resolved_at": "2026-05-07T23:45:05.929969+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-622314707f77": {
+    "entry_id": "H-hyp-622314707f77",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-07T23:45:05.993983+00:00",
+    "resolved_at": "2026-05-07T23:45:05.994983+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-b3f062f5c56a": {
+    "entry_id": "V-vdc-b3f062f5c56a",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 1.0,
+      "decisive_factor": "Strong cohort hit rate aligned with macro dovish surprise.",
+      "dissent": "CPI risk acknowledged but not active."
+    },
+    "submitted_at": "2026-05-07T23:45:06.263044+00:00",
+    "resolved_at": "2026-05-07T23:45:06.264044+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-8252abc9a25e": {
+    "entry_id": "H-hyp-8252abc9a25e",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-07T23:45:06.333060+00:00",
+    "resolved_at": "2026-05-07T23:45:06.334060+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-1f3580853c35": {
+    "entry_id": "V-vdc-1f3580853c35",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 1.5,
+      "decisive_factor": "big size on conviction",
+      "dissent": ""
+    },
+    "submitted_at": "2026-05-07T23:45:06.596119+00:00",
+    "resolved_at": "2026-05-07T23:45:06.597119+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-d312528f71c5": {
+    "entry_id": "H-hyp-d312528f71c5",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-07T23:45:06.652131+00:00",
+    "resolved_at": "2026-05-07T23:45:06.653132+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-332444d31b04": {
+    "entry_id": "V-vdc-332444d31b04",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 2.0,
+      "decisive_factor": "big",
+      "dissent": ""
+    },
+    "submitted_at": "2026-05-07T23:45:06.918192+00:00",
+    "resolved_at": "2026-05-07T23:45:06.918192+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-6168fdda8500": {
+    "entry_id": "H-hyp-6168fdda8500",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-07T23:45:06.980205+00:00",
+    "resolved_at": "2026-05-07T23:45:06.981206+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-4a24048b3cbe": {
+    "entry_id": "H-hyp-4a24048b3cbe",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-07T23:46:24.453888+00:00",
+    "resolved_at": "2026-05-07T23:46:24.454888+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-3c4059f2aeff": {
+    "entry_id": "V-vdc-3c4059f2aeff",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 1.0,
+      "decisive_factor": "Strong cohort hit rate aligned with macro dovish surprise.",
+      "dissent": "CPI risk acknowledged but not active."
+    },
+    "submitted_at": "2026-05-07T23:46:25.234064+00:00",
+    "resolved_at": "2026-05-07T23:46:25.234064+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-7d6c9ec2b328": {
+    "entry_id": "H-hyp-7d6c9ec2b328",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-07T23:46:25.298078+00:00",
+    "resolved_at": "2026-05-07T23:46:25.299078+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-418537ae18ea": {
+    "entry_id": "V-vdc-418537ae18ea",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 1.0,
+      "decisive_factor": "Strong cohort hit rate aligned with macro dovish surprise.",
+      "dissent": "CPI risk acknowledged but not active."
+    },
+    "submitted_at": "2026-05-07T23:46:25.564138+00:00",
+    "resolved_at": "2026-05-07T23:46:25.565138+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-b641a4a9b23b": {
+    "entry_id": "H-hyp-b641a4a9b23b",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-07T23:46:25.632153+00:00",
+    "resolved_at": "2026-05-07T23:46:25.633154+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-993de5472933": {
+    "entry_id": "V-vdc-993de5472933",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 1.5,
+      "decisive_factor": "big size on conviction",
+      "dissent": ""
+    },
+    "submitted_at": "2026-05-07T23:46:25.898213+00:00",
+    "resolved_at": "2026-05-07T23:46:25.898213+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-bcac3e46f14d": {
+    "entry_id": "H-hyp-bcac3e46f14d",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-07T23:46:25.954226+00:00",
+    "resolved_at": "2026-05-07T23:46:25.955226+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-18ce6374b4e6": {
+    "entry_id": "V-vdc-18ce6374b4e6",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 2.0,
+      "decisive_factor": "big",
+      "dissent": ""
+    },
+    "submitted_at": "2026-05-07T23:46:26.217285+00:00",
+    "resolved_at": "2026-05-07T23:46:26.218286+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-67aa9885e483": {
+    "entry_id": "H-hyp-67aa9885e483",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-07T23:46:26.276299+00:00",
+    "resolved_at": "2026-05-07T23:46:26.277299+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-1ca83765b5ea": {
+    "entry_id": "H-hyp-1ca83765b5ea",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-08T00:10:55.243221+00:00",
+    "resolved_at": "2026-05-08T00:10:55.244221+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-ccd93bbb440b": {
+    "entry_id": "V-vdc-ccd93bbb440b",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 1.0,
+      "decisive_factor": "Strong cohort hit rate aligned with macro dovish surprise.",
+      "dissent": "CPI risk acknowledged but not active."
+    },
+    "submitted_at": "2026-05-08T00:10:56.064406+00:00",
+    "resolved_at": "2026-05-08T00:10:56.065407+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-38fa4eec8cb8": {
+    "entry_id": "H-hyp-38fa4eec8cb8",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-08T00:10:56.144424+00:00",
+    "resolved_at": "2026-05-08T00:10:56.145425+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-a8247204d585": {
+    "entry_id": "V-vdc-a8247204d585",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 1.0,
+      "decisive_factor": "Strong cohort hit rate aligned with macro dovish surprise.",
+      "dissent": "CPI risk acknowledged but not active."
+    },
+    "submitted_at": "2026-05-08T00:10:56.418486+00:00",
+    "resolved_at": "2026-05-08T00:10:56.419487+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-e46acc1afc02": {
+    "entry_id": "H-hyp-e46acc1afc02",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-08T00:10:56.488502+00:00",
+    "resolved_at": "2026-05-08T00:10:56.489502+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-ebaf6301ebb1": {
+    "entry_id": "V-vdc-ebaf6301ebb1",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 1.5,
+      "decisive_factor": "big size on conviction",
+      "dissent": ""
+    },
+    "submitted_at": "2026-05-08T00:10:56.758563+00:00",
+    "resolved_at": "2026-05-08T00:10:56.759563+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-e1c474debcd2": {
+    "entry_id": "H-hyp-e1c474debcd2",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-08T00:10:56.817576+00:00",
+    "resolved_at": "2026-05-08T00:10:56.818577+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-55680a605908": {
+    "entry_id": "V-vdc-55680a605908",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 2.0,
+      "decisive_factor": "big",
+      "dissent": ""
+    },
+    "submitted_at": "2026-05-08T00:10:57.081636+00:00",
+    "resolved_at": "2026-05-08T00:10:57.082636+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-80206517179b": {
+    "entry_id": "H-hyp-80206517179b",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-08T00:10:57.138649+00:00",
+    "resolved_at": "2026-05-08T00:10:57.140649+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-70cf998ed2f9": {
+    "entry_id": "H-hyp-70cf998ed2f9",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-08T00:13:04.287243+00:00",
+    "resolved_at": "2026-05-08T00:13:04.288243+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-d49d32944b8b": {
+    "entry_id": "V-vdc-d49d32944b8b",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 1.0,
+      "decisive_factor": "Strong cohort hit rate aligned with macro dovish surprise.",
+      "dissent": "CPI risk acknowledged but not active."
+    },
+    "submitted_at": "2026-05-08T00:13:04.945392+00:00",
+    "resolved_at": "2026-05-08T00:13:04.946393+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-6445bd3c4de3": {
+    "entry_id": "H-hyp-6445bd3c4de3",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-08T00:13:05.011407+00:00",
+    "resolved_at": "2026-05-08T00:13:05.012407+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-96cc513aabae": {
+    "entry_id": "V-vdc-96cc513aabae",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 1.0,
+      "decisive_factor": "Strong cohort hit rate aligned with macro dovish surprise.",
+      "dissent": "CPI risk acknowledged but not active."
+    },
+    "submitted_at": "2026-05-08T00:13:05.272466+00:00",
+    "resolved_at": "2026-05-08T00:13:05.273466+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-47962f89bda4": {
+    "entry_id": "H-hyp-47962f89bda4",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-08T00:13:05.342481+00:00",
+    "resolved_at": "2026-05-08T00:13:05.344482+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-1b44dff2cb22": {
+    "entry_id": "V-vdc-1b44dff2cb22",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 1.5,
+      "decisive_factor": "big size on conviction",
+      "dissent": ""
+    },
+    "submitted_at": "2026-05-08T00:13:05.600539+00:00",
+    "resolved_at": "2026-05-08T00:13:05.602540+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-4323a359af58": {
+    "entry_id": "H-hyp-4323a359af58",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-08T00:13:05.658552+00:00",
+    "resolved_at": "2026-05-08T00:13:05.659553+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-075a133e4ae0": {
+    "entry_id": "V-vdc-075a133e4ae0",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 2.0,
+      "decisive_factor": "big",
+      "dissent": ""
+    },
+    "submitted_at": "2026-05-08T00:13:05.916611+00:00",
+    "resolved_at": "2026-05-08T00:13:05.917611+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-e69d3fb965a2": {
+    "entry_id": "H-hyp-e69d3fb965a2",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-08T00:13:05.973624+00:00",
+    "resolved_at": "2026-05-08T00:13:05.975625+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-266dae920ffd": {
+    "entry_id": "H-hyp-266dae920ffd",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-08T00:13:23.074033+00:00",
+    "resolved_at": "2026-05-08T00:13:23.076033+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-d930e22eedca": {
+    "entry_id": "V-vdc-d930e22eedca",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 1.0,
+      "decisive_factor": "Strong cohort hit rate aligned with macro dovish surprise.",
+      "dissent": "CPI risk acknowledged but not active."
+    },
+    "submitted_at": "2026-05-08T00:13:23.725180+00:00",
+    "resolved_at": "2026-05-08T00:13:23.726180+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-ed21a17b75f7": {
+    "entry_id": "H-hyp-ed21a17b75f7",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-08T00:13:23.790718+00:00",
+    "resolved_at": "2026-05-08T00:13:23.791718+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-c24cd24f9b63": {
+    "entry_id": "V-vdc-c24cd24f9b63",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 1.0,
+      "decisive_factor": "Strong cohort hit rate aligned with macro dovish surprise.",
+      "dissent": "CPI risk acknowledged but not active."
+    },
+    "submitted_at": "2026-05-08T00:13:24.050777+00:00",
+    "resolved_at": "2026-05-08T00:13:24.052776+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-c21df1462fad": {
+    "entry_id": "H-hyp-c21df1462fad",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-08T00:13:24.121793+00:00",
+    "resolved_at": "2026-05-08T00:13:24.122793+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-1bbd5c364f3b": {
+    "entry_id": "V-vdc-1bbd5c364f3b",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 1.5,
+      "decisive_factor": "big size on conviction",
+      "dissent": ""
+    },
+    "submitted_at": "2026-05-08T00:13:24.398855+00:00",
+    "resolved_at": "2026-05-08T00:13:24.399855+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-4bba6b0fef81": {
+    "entry_id": "H-hyp-4bba6b0fef81",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-08T00:13:24.458868+00:00",
+    "resolved_at": "2026-05-08T00:13:24.460870+00:00",
+    "rejection_reason": null
+  },
+  "V-vdc-3fc634f29055": {
+    "entry_id": "V-vdc-3fc634f29055",
+    "gate": "post_debate",
+    "status": "approved",
+    "payload": {
+      "instrument": "TLT",
+      "direction": "long",
+      "decision": "proceed",
+      "size_multiplier": 2.0,
+      "decisive_factor": "big",
+      "dissent": ""
+    },
+    "submitted_at": "2026-05-08T00:13:24.721928+00:00",
+    "resolved_at": "2026-05-08T00:13:24.722928+00:00",
+    "rejection_reason": null
+  },
+  "H-hyp-5f5ecdd12501": {
+    "entry_id": "H-hyp-5f5ecdd12501",
+    "gate": "post_hypothesis",
+    "status": "approved",
+    "payload": {
+      "thesis": "Disinflation extends; long duration outperforms.",
+      "regime": "disinflation",
+      "conviction": "medium",
+      "horizon_days": 21,
+      "kill_criteria": [
+        "10y yield > 4.7%"
+      ]
+    },
+    "submitted_at": "2026-05-08T00:13:24.778941+00:00",
+    "resolved_at": "2026-05-08T00:13:24.780941+00:00",
+    "rejection_reason": null
+  }
+}
