@@ -41,8 +41,12 @@ dependencies = [
     "deepgram-sdk>=3,<4",
     # Vector store (persona memory)
     "chromadb>=0.5,<1",
-    # PDF parsing (persona scrapers — Buffett shareholder letters)
+    # PDF parsing (persona scrapers — Buffett, Dalio Principles)
     "pypdf>=4,<6",
+    # YouTube transcript fetching (Druckenmiller, Tudor Jones interviews)
+    "youtube-transcript-api>=0.6,<1",
+    # RSS / Atom feed parsing (Krugman, El-Erian, Summers op-eds)
+    "feedparser>=6.0,<7",
 ]
 
 [project.optional-dependencies]
