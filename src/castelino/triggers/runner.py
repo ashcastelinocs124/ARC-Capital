@@ -291,6 +291,15 @@ def tick() -> str | None:
         fire_pipeline(trg, recent_headlines=[trg.headline])
         return "calendar"
 
+    # ── Path 0.5: Speech deviation triggers from live listener ──
+    from castelino.triggers.speech.queue import speech_trigger_queue
+    pending = speech_trigger_queue.drain()
+    if pending:
+        trg = pending[0]
+        log.info("SPEECH trigger: %s", trg.headline)
+        fire_pipeline(trg, recent_headlines=[trg.headline])
+        return "speech"
+
     # ── Path 1: Black swan — single headline ≥ 0.9 ──
     trg = _check_black_swan(scores)
     if trg:
