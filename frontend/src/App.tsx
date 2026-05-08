@@ -7,6 +7,7 @@ import MacroPage from "./pages/MacroPage";
 import ResearchPage from "./pages/ResearchPage";
 import RiskPage from "./pages/RiskPage";
 import AgentsPage from "./pages/AgentsPage";
+import PersonasPage from "./pages/PersonasPage";
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="/research" element={<ResearchPage />} />
         <Route path="/risk" element={<RiskPage />} />
         <Route path="/agents" element={<AgentsPage />} />
+        <Route path="/personas" element={<PersonasPage />} />
         <Route path="/approvals" element={<ApprovalCenterPage />} />
         <Route path="/approvals/:entryId/consult" element={<ApprovalConsultPage />} />
       </Routes>

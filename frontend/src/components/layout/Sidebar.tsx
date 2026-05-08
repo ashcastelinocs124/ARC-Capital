@@ -5,6 +5,7 @@ import {
   Microscope,
   ShieldAlert,
   Bot,
+  Users,
   CheckSquare,
   Settings,
   Bell,
@@ -25,6 +26,7 @@ const items: NavItem[] = [
   { to: "/research", label: "Research", icon: Microscope },
   { to: "/risk", label: "Risk", icon: ShieldAlert },
   { to: "/agents", label: "Agents", icon: Bot },
+  { to: "/personas", label: "Personas", icon: Users },
   { to: "/approvals", label: "Approvals", icon: CheckSquare },
 ];
 
