@@ -159,17 +159,52 @@
     "endpoint": "approval_metrics"
   },
   "approval_queue_table": {
-    "name": "Approval Queue",
-    "description": "Pending items",
+    "name": "Approval Queue (summary)",
+    "description": "Pending items — one-line summary",
     "category": "Approvals",
     "type": "table",
-    "endpoint": "approval_queue"
+    "endpoint": "approval_queue",
+    "data": {
+      "table": {
+        "columnsDefs": [
+          {"field": "entry_id", "headerName": "ID", "cellDataType": "text", "pinned": "left"},
+          {"field": "gate", "headerName": "Gate", "cellDataType": "text"},
+          {"field": "submitted_at", "headerName": "Submitted", "cellDataType": "text"},
+          {"field": "summary", "headerName": "Summary", "cellDataType": "text", "flex": 2}
+        ]
+      }
+    }
+  },
+  "approval_decision": {
+    "name": "Decide Approval",
+    "description": "Approve or reject pending items with one click + reasoning notes",
+    "category": "Approvals",
+    "type": "html",
+    "endpoint": "approval_form"
+  },
+  "approval_full_context": {
+    "name": "Pending Items — Full Context",
+    "description": "Each pending item with full payload (hypothesis text, kill criteria, verdict reasoning)",
+    "category": "Approvals",
+    "type": "table",
+    "endpoint": "approval_queue_full"
   },
   "approval_history_table": {
     "name": "Decision History",
-    "description": "Past decisions",
+    "description": "Past decisions with reasoning notes",
     "category": "Approvals",
     "type": "table",
-    "endpoint": "approval_history"
+    "endpoint": "approval_history",
+    "data": {
+      "table": {
+        "columnsDefs": [
+          {"field": "entry_id", "headerName": "ID", "cellDataType": "text", "pinned": "left"},
+          {"field": "gate", "headerName": "Gate", "cellDataType": "text"},
+          {"field": "status", "headerName": "Status", "cellDataType": "text"},
+          {"field": "resolved_at", "headerName": "Resolved", "cellDataType": "text"},
+          {"field": "notes", "headerName": "Notes", "cellDataType": "text", "flex": 2}
+        ]
+      }
+    }
   }
 }

@@ -34,6 +34,7 @@ class ApprovalItem(BaseModel):
     submitted_at: str = ""
     resolved_at: str | None = None
     rejection_reason: str | None = None
+    notes: str = ""  # human reasoning for approve/reject decision
 
     model_config = {"use_enum_values": True}
 
@@ -80,18 +81,20 @@ class ApprovalQueue:
             raise KeyError(f"No approval item with id {entry_id}")
         return self._items[entry_id]
 
-    def approve(self, entry_id: str) -> ApprovalItem:
+    def approve(self, entry_id: str, notes: str = "") -> ApprovalItem:
         item = self.get(entry_id)
         item.status = ApprovalStatus.APPROVED
         item.resolved_at = datetime.now(UTC).isoformat()
+        item.notes = notes
         self._save()
-        log.info("Approved: %s", entry_id)
+        log.info("Approved: %s%s", entry_id, f" — {notes}" if notes else "")
         return item
 
-    def reject(self, entry_id: str, reason: str = "") -> ApprovalItem:
+    def reject(self, entry_id: str, reason: str = "", notes: str = "") -> ApprovalItem:
         item = self.get(entry_id)
         item.status = ApprovalStatus.REJECTED
         item.rejection_reason = reason
+        item.notes = notes or reason
         item.resolved_at = datetime.now(UTC).isoformat()
         self._save()
         log.info("Rejected: %s — %s", entry_id, reason)

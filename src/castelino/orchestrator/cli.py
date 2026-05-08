@@ -245,6 +245,33 @@ def forecast_regime(
         print(f"[green]Saved:[/green] {out}")
 
 
+@app.command("forecast-risk")
+def forecast_risk():
+    """Train the risk-off classifier (P(SPY drawdown >5% next month)) and save."""
+    from castelino.forecast.risk_off import train_and_predict
+
+    forecast = train_and_predict()
+    table = Table(title="Risk-Off Forecast")
+    table.add_column("Field"); table.add_column("Value", justify="right")
+    table.add_row("prob_risk_off", f"{forecast.prob_risk_off:.4f}")
+    table.add_row("feature month", forecast.feature_month)
+    table.add_row("target month", forecast.target_month)
+    table.add_row("as of", forecast.as_of.strftime("%Y-%m-%d %H:%M UTC"))
+    table.add_row("model version", forecast.model_version)
+
+    if forecast.prob_risk_off < 0.3:
+        tier = "[green]calm — gate passes everything[/green]"
+    elif forecast.prob_risk_off < 0.6:
+        tier = "[yellow]caution — risk-on cut to 0.5x[/yellow]"
+    elif forecast.prob_risk_off < 0.85:
+        tier = "[red]danger — risk-on vetoed[/red]"
+    else:
+        tier = "[magenta]capitulation — contrarian amplify 1.3x[/magenta]"
+    table.add_row("gate tier", tier)
+
+    print(table)
+
+
 def _run_indicator_search(
     *,
     target_kind: str,
@@ -434,6 +461,7 @@ def queue(
 @app.command(name="approve")
 def approve_cmd(
     entry_id: str = typer.Argument(..., help="Approval item ID (e.g. H-abc123, V-def456)."),
+    notes: str = typer.Option("", "--notes", "-n", help="Reasoning notes for the approval."),
     state_dir: str = typer.Option(None, help="Override state directory."),
 ):
     """Approve a pending hypothesis or verdict."""
@@ -442,8 +470,9 @@ def approve_cmd(
     sd = Path(state_dir) if state_dir else None
     q = ApprovalQueue(state_dir=sd)
     try:
-        item = q.approve(entry_id)
-        print(f"[green]Approved:[/green] {item.entry_id} ({item.gate})")
+        item = q.approve(entry_id, notes=notes)
+        suffix = f" — {notes}" if notes else ""
+        print(f"[green]Approved:[/green] {item.entry_id} ({item.gate}){suffix}")
     except KeyError:
         print(f"[red]Not found:[/red] {entry_id}")
         raise typer.Exit(1)
@@ -453,6 +482,7 @@ def approve_cmd(
 def reject_cmd(
     entry_id: str = typer.Argument(..., help="Approval item ID."),
     reason: str = typer.Option("", help="Reason for rejection."),
+    notes: str = typer.Option("", "--notes", "-n", help="Reasoning notes for the rejection."),
     state_dir: str = typer.Option(None, help="Override state directory."),
 ):
     """Reject a pending hypothesis or verdict."""
@@ -461,8 +491,8 @@ def reject_cmd(
     sd = Path(state_dir) if state_dir else None
     q = ApprovalQueue(state_dir=sd)
     try:
-        item = q.reject(entry_id, reason=reason)
-        print(f"[red]Rejected:[/red] {item.entry_id} — {reason or '(no reason)'}")
+        item = q.reject(entry_id, reason=reason or notes, notes=notes or reason)
+        print(f"[red]Rejected:[/red] {item.entry_id} — {item.notes or '(no reason)'}")
     except KeyError:
         print(f"[red]Not found:[/red] {entry_id}")
         raise typer.Exit(1)

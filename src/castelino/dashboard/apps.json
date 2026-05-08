@@ -58,11 +58,13 @@
       },
       "approvals": {
         "id": "approvals",
-        "name": "Approval Queue",
+        "name": "Approval Center",
         "layout": [
           {"i": "approval_count", "x": 0, "y": 0, "w": 40, "h": 5},
-          {"i": "approval_queue_table", "x": 0, "y": 5, "w": 40, "h": 14},
-          {"i": "approval_history_table", "x": 0, "y": 19, "w": 40, "h": 12}
+          {"i": "approval_queue_table", "x": 0, "y": 5, "w": 40, "h": 10},
+          {"i": "approval_full_context", "x": 0, "y": 15, "w": 22, "h": 16},
+          {"i": "approval_decision", "x": 22, "y": 15, "w": 18, "h": 16},
+          {"i": "approval_history_table", "x": 0, "y": 31, "w": 40, "h": 12}
         ]
       }
     },
