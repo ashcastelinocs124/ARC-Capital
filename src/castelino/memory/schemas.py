@@ -55,6 +55,7 @@ class TriggerSource(str, Enum):
     MANUAL = "manual"
     REGIME_SHIFT = "regime_shift"
     CONVICTION = "conviction"
+    SPEECH_DEVIATION = "speech_deviation"
 
 
 # ────────────────────────── trigger / world-state ────────────────────────────
