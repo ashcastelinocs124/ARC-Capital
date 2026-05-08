@@ -41,6 +41,8 @@ dependencies = [
     "deepgram-sdk>=3,<4",
     # Vector store (persona memory)
     "chromadb>=0.5,<1",
+    # PDF parsing (persona scrapers — Buffett shareholder letters)
+    "pypdf>=4,<6",
 ]
 
 [project.optional-dependencies]
