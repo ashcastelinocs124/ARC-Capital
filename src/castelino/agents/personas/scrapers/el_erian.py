@@ -16,11 +16,14 @@ import feedparser
 
 from castelino.agents.personas.corpus import CorpusDoc
 from castelino.agents.personas.scrapers.base import PersonaScraper
+from castelino.agents.personas.sonar_fetcher import fetch_persona_via_sonar
 
 
 class ElErianScraper(PersonaScraper):
     persona_id = "el_erian"
-    FEED_URL = "https://www.project-syndicate.org/columnist/mohamed-a-el-erian/feed"
+    # Project Syndicate global feed; filter by author name.
+    FEED_URL = "https://www.project-syndicate.org/rss"
+    AUTHOR_MATCH = "el-erian"
 
     def _fetch_feed(self, url: str) -> str:
         with httpx.Client(timeout=20.0) as client:
@@ -46,15 +49,21 @@ class ElErianScraper(PersonaScraper):
             return datetime.now(UTC)
 
     async def fetch(self) -> list[CorpusDoc]:
-        feed = feedparser.parse(self._fetch_feed(self.FEED_URL))
+        try:
+            feed = feedparser.parse(self._fetch_feed(self.FEED_URL))
+        except Exception:
+            feed = feedparser.parse("")
         docs: list[CorpusDoc] = []
         for entry in feed.entries:
             try:
+                author = (entry.get("author") or "").lower()
+                if self.AUTHOR_MATCH not in author:
+                    continue
                 url = entry.link
                 date = self._parse_pubdate(entry.get("published", ""))
-                html = await self._fetch_article(url)
-                text = self._parse_article_html(html)
-                if not text.strip():
+                html_summary = entry.get("summary", "") or ""
+                text = self._parse_article_html(html_summary)
+                if len(text) < 50:
                     continue
                 docs.append(CorpusDoc(
                     source=url.rsplit("/", 1)[-1] or url,
@@ -62,4 +71,9 @@ class ElErianScraper(PersonaScraper):
                 ))
             except Exception:
                 continue
+
+        if len(docs) < 3:
+            docs.extend(fetch_persona_via_sonar(
+                persona_id=self.persona_id, persona_name="Mohamed A. El-Erian",
+            ))
         return docs

@@ -16,6 +16,7 @@ import feedparser
 
 from castelino.agents.personas.corpus import CorpusDoc
 from castelino.agents.personas.scrapers.base import PersonaScraper
+from castelino.agents.personas.sonar_fetcher import fetch_persona_via_sonar
 
 
 # Curated list of Brookings articles authored by Summers. Add to this list
@@ -29,7 +30,9 @@ BROOKINGS_KNOWN_URLS: list[str] = [
 
 class SummersScraper(PersonaScraper):
     persona_id = "summers"
-    FEED_URL = "https://www.project-syndicate.org/columnist/lawrence-h-summers/feed"
+    # Project Syndicate global feed; filter by author name.
+    FEED_URL = "https://www.project-syndicate.org/rss"
+    AUTHOR_MATCH = "summers"
 
     def _fetch_feed(self, url: str) -> str:
         with httpx.Client(timeout=20.0) as client:
@@ -58,16 +61,22 @@ class SummersScraper(PersonaScraper):
         return list(BROOKINGS_KNOWN_URLS)
 
     async def fetch(self) -> list[CorpusDoc]:
-        feed = feedparser.parse(self._fetch_feed(self.FEED_URL))
+        try:
+            feed = feedparser.parse(self._fetch_feed(self.FEED_URL))
+        except Exception:
+            feed = feedparser.parse("")  # falls through to Sonar
         docs: list[CorpusDoc] = []
-        # Project Syndicate columns
+        # Project Syndicate columns — global feed, filter by author
         for entry in feed.entries:
             try:
+                author = (entry.get("author") or "").lower()
+                if self.AUTHOR_MATCH not in author:
+                    continue
                 url = entry.link
                 date = self._parse_pubdate(entry.get("published", ""))
-                html = await self._fetch_article(url)
-                text = self._parse_article_html(html)
-                if not text.strip():
+                html_summary = entry.get("summary", "") or ""
+                text = self._parse_article_html(html_summary)
+                if len(text) < 50:
                     continue
                 docs.append(CorpusDoc(
                     source=url.rsplit("/", 1)[-1] or url,
@@ -90,4 +99,9 @@ class SummersScraper(PersonaScraper):
                 ))
             except Exception:
                 continue
+
+        if len(docs) < 3:
+            docs.extend(fetch_persona_via_sonar(
+                persona_id=self.persona_id, persona_name="Lawrence H. Summers",
+            ))
         return docs

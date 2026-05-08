@@ -17,11 +17,14 @@ import feedparser
 
 from castelino.agents.personas.corpus import CorpusDoc
 from castelino.agents.personas.scrapers.base import PersonaScraper
+from castelino.agents.personas.sonar_fetcher import fetch_persona_via_sonar
 
 
 class KrugmanScraper(PersonaScraper):
     persona_id = "krugman"
-    FEED_URL = "https://www.project-syndicate.org/columnist/paul-krugman/feed"
+    # Project Syndicate has only one global feed; we filter by author name.
+    FEED_URL = "https://www.project-syndicate.org/rss"
+    AUTHOR_MATCH = "krugman"  # case-insensitive substring on entry.author
 
     def _fetch_feed(self, url: str) -> str:
         # Synchronous because feedparser is sync; small payload.
@@ -48,17 +51,26 @@ class KrugmanScraper(PersonaScraper):
             return datetime.now(UTC)
 
     async def fetch(self) -> list[CorpusDoc]:
-        feed_xml = self._fetch_feed(self.FEED_URL)
-        feed = feedparser.parse(feed_xml)
+        try:
+            feed_xml = self._fetch_feed(self.FEED_URL)
+            feed = feedparser.parse(feed_xml)
+        except Exception:
+            feed = feedparser.parse("")
         docs: list[CorpusDoc] = []
         for entry in feed.entries:
             try:
+                author = (entry.get("author") or "").lower()
+                if self.AUTHOR_MATCH not in author:
+                    continue  # not by this persona
                 url = entry.link
                 title = entry.title
                 date = self._parse_pubdate(entry.get("published", ""))
-                html = await self._fetch_article(url)
-                text = self._parse_article_html(html)
-                if not text.strip():
+                # RSS summary holds the article abstract (1-3 paragraphs of
+                # real text). Article body is paywalled — abstract is the
+                # most reliable scrapable persona content.
+                html_summary = entry.get("summary", "") or ""
+                text = self._parse_article_html(html_summary)
+                if len(text) < 50:
                     continue
                 docs.append(CorpusDoc(
                     source=url.rsplit("/", 1)[-1] or url,
@@ -66,4 +78,12 @@ class KrugmanScraper(PersonaScraper):
                 ))
             except Exception:
                 continue
+
+        # Sonar fallback: RSS only carries the 20 most recent pieces
+        # globally, so any given columnist may not appear. Augment with
+        # search-grounded persona content via Perplexity Sonar.
+        if len(docs) < 3:
+            docs.extend(fetch_persona_via_sonar(
+                persona_id=self.persona_id, persona_name="Paul Krugman",
+            ))
         return docs
