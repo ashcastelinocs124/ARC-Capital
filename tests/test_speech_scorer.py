@@ -26,3 +26,24 @@ def test_hedging_dampens_magnitude():
     bare = score_sentence("Further firming is warranted.", lexicon=LEX)
     hedged = score_sentence("Further firming may be warranted.", lexicon=LEX)
     assert abs(hedged) < abs(bare)
+
+
+from castelino.triggers.speech.scorer import score_speech
+
+
+def test_score_speech_filters_neutral_sentences():
+    sentences = [
+        "Good morning, everyone.",                    # neutral
+        "Today the Committee met.",                   # neutral
+        "Further firming may be warranted.",          # hawkish
+        "Inflation persistent and elevated.",         # hawkish
+    ]
+    result = score_speech(sentences, lexicon=LEX)
+    assert result.n_policy_sentences >= 1
+    assert result.score > 0.2
+
+
+def test_score_speech_zero_when_no_policy_sentences():
+    result = score_speech(["Hello.", "Good to be here."], lexicon=LEX)
+    assert result.score == 0.0
+    assert result.n_policy_sentences == 0

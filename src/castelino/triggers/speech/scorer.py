@@ -48,3 +48,24 @@ def score_sentence(text: str, *, lexicon: Lexicon) -> float:
         raw *= max(0.4, 1.0 - 0.2 * hedge_count)
 
     return max(-1.0, min(1.0, raw))
+
+
+@dataclass(frozen=True)
+class SpeechScoreResult:
+    score: float
+    n_policy_sentences: int
+
+
+POLICY_RELEVANT_THRESHOLD = 0.05
+
+
+def score_speech(sentences: list[str], *, lexicon: Lexicon) -> SpeechScoreResult:
+    """Aggregate a speech: mean of policy-relevant sentence scores."""
+    scored = [score_sentence(s, lexicon=lexicon) for s in sentences]
+    policy = [x for x in scored if abs(x) > POLICY_RELEVANT_THRESHOLD]
+    if not policy:
+        return SpeechScoreResult(score=0.0, n_policy_sentences=0)
+    return SpeechScoreResult(
+        score=sum(policy) / len(policy),
+        n_policy_sentences=len(policy),
+    )
