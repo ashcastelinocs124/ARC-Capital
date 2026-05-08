@@ -139,6 +139,21 @@ sonar:
   model: "sonar"
   regions: ["EU", "UK", "JP", "CN", "GLOBAL"]
 
+speech:
+  enabled: true
+  stt_provider: deepgram
+  deepgram_model: nova-2-finance
+  lexicon_version: hawkish_dovish_v1
+  window_size: 5
+  deviation_threshold_sigma: 1.5
+  half_life_months: 6.0
+  baseline_window_days: 365
+  llm_model: gpt-4o-mini
+  speakers:
+    - id: powell
+      full_name: Jerome H. Powell
+      role: Chair, Federal Reserve
+
 paths:
   data_dir: "data"
   reports_dir: "reports"

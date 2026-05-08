@@ -143,6 +143,25 @@ class OpenBBCfg(BaseModel):
     cache_ttl_minutes: int = 15
 
 
+class SpeechSpeakerCfg(BaseModel):
+    id: str
+    full_name: str
+    role: str
+
+
+class SpeechCfg(BaseModel):
+    enabled: bool = True
+    stt_provider: str = "deepgram"
+    deepgram_model: str = "nova-2-finance"
+    lexicon_version: str = "hawkish_dovish_v1"
+    window_size: int = 5
+    deviation_threshold_sigma: float = 1.5
+    half_life_months: float = 6.0
+    baseline_window_days: int = 365
+    llm_model: str = "gpt-4o-mini"
+    speakers: list[SpeechSpeakerCfg] = Field(default_factory=list)
+
+
 class Settings(BaseModel):
     fund: FundCfg
     models: ModelsCfg
@@ -158,6 +177,7 @@ class Settings(BaseModel):
     conviction: ConvictionCfg = ConvictionCfg()
     openbb: OpenBBCfg = OpenBBCfg()
     sonar: SonarCfg = SonarCfg()
+    speech: SpeechCfg = SpeechCfg()
     paths: PathsCfg
     root: Path
 
