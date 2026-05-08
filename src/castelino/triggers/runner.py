@@ -30,6 +30,7 @@ from castelino.triggers import calendar as calmod
 from castelino.triggers import conviction as conv
 from castelino.triggers.news import NewsHeadline, enrich_significant_headlines, fetch_recent, fetch_x_sentiment
 from castelino.triggers.polymarket import fetch_related_contracts
+from castelino.triggers.readiness import apply_readiness
 from castelino.triggers.significance import HeadlineScore, rescore_borderlines, score_batch
 
 log = logging.getLogger(__name__)
@@ -274,9 +275,10 @@ def tick() -> str | None:
         else None
     )
 
-    # ── Always: pull news + score + enrich borderlines + feed ledger ──
+    # ── Always: pull news + score + readiness + enrich borderlines + feed ledger ──
     news = fetch_recent(max_per_feed=20)
     scores = score_batch(news[:30]) if news else []
+    scores = apply_readiness(scores)
     scores = _enrich_borderlines(scores)
     if scores:
         conv.append(scores)
