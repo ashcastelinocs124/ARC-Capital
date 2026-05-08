@@ -5,6 +5,9 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
+from castelino.agents.base import get_llm_client
+from castelino.agents.personas.panel import PanelOrchestrator
+from castelino.agents.personas.service import PersonaChatService
 from castelino.orchestrator.approval import ApprovalQueue
 
 router = APIRouter()
@@ -123,6 +126,47 @@ def reject(entry_id: str, action: ApprovalAction):
         "rejection_reason": item.rejection_reason,
         "resolved_at": item.resolved_at,
     }
+
+
+# ───────────────────── persona conversations + panel ────────────────────
+
+
+class _MessageBody(BaseModel):
+    text: str
+
+
+class _PanelBody(BaseModel):
+    personas: list[str]
+    question: str
+
+
+def _chat_service():
+    queue = ApprovalQueue()
+    return PersonaChatService(queue=queue, client=get_llm_client())
+
+
+def _panel_orchestrator():
+    queue = ApprovalQueue()
+    return PanelOrchestrator(queue=queue, client=get_llm_client())
+
+
+@router.get("/approvals/{entry_id}/conversations")
+def list_conversations(entry_id: str):
+    return _chat_service().list_conversations(entry_id=entry_id)
+
+
+@router.post("/approvals/{entry_id}/conversations/{persona_id}/messages")
+def send_message(entry_id: str, persona_id: str, body: _MessageBody):
+    return _chat_service().send(
+        entry_id=entry_id, persona_id=persona_id, user_text=body.text,
+    )
+
+
+@router.post("/approvals/{entry_id}/panel")
+async def run_panel(entry_id: str, body: _PanelBody):
+    return await _panel_orchestrator().run(
+        entry_id=entry_id, personas=body.personas, question=body.question,
+    )
 
 
 # ───────────────────── helpers ───────────────────────────────────────────
