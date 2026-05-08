@@ -47,6 +47,7 @@ class FundState(BaseModel):
     bear_cases: list[BearCase] = Field(default_factory=list)
     verdicts: list[Verdict] = Field(default_factory=list)
     guard_decisions: list[GuardDecision] = Field(default_factory=list)
+    gate_decisions: list = Field(default_factory=list)  # list[GateDecision]
     portfolio_decisions: list[PortfolioDecision] = Field(default_factory=list)
     orders: list[TradeOrder] = Field(default_factory=list)
     fills: list[Fill] = Field(default_factory=list)

@@ -105,11 +105,13 @@ def materialize_order(
     hypothesis: Hypothesis,
     guard: GuardDecision,
     portfolio: Portfolio,
+    gate_multiplier: float = 1.0,
 ) -> TradeOrder | None:
     """Turn the agent's PortfolioDecision into an executable TradeOrder.
 
-    Returns None for 'hold'. Raises if pricing fails — we fail loudly rather
-    than journalling a corrupt order.
+    Returns None for 'hold' or for `gate_multiplier == 0` (risk-off veto).
+    Raises if pricing fails — we fail loudly rather than journalling a
+    corrupt order.
     """
     # Defense in depth: even if a future caller bypasses run_portfolio_agent's
     # short-circuit, a hard-vetoed expression must never become an order.
@@ -122,13 +124,19 @@ def materialize_order(
         return None
     if decision.action == "hold":
         return None
+    if gate_multiplier <= 0.0:
+        log.info(
+            "Risk-off gate vetoed %s on %s — emitting no order.",
+            decision.action, expression.instrument_id,
+        )
+        return None
 
     inst_price = latest(expression.instrument_id).price
     nav = portfolio.nav
     if nav <= 0:
         raise RuntimeError("NAV non-positive — cannot size order")
 
-    notional = decision.quantity_pct_nav * nav
+    notional = decision.quantity_pct_nav * nav * gate_multiplier
     instrument = expression.instrument_id
 
     # Compute quantity respecting contract multiplier (futures: contracts; FX: notional)
@@ -182,6 +190,7 @@ def run_portfolio_agent(
     expression: TradeExpression,
     hypothesis: Hypothesis,
     portfolio: Portfolio,
+    gate_multiplier: float = 1.0,
 ) -> tuple[PortfolioDecision, TradeOrder | None]:
     """End-to-end: run the LLM, then materialize an order.
 
@@ -217,6 +226,7 @@ def run_portfolio_agent(
             hypothesis=hypothesis,
             guard=guard,
             portfolio=portfolio,
+            gate_multiplier=gate_multiplier,
         )
     except PricingError as e:
         log.error("pricing failed during order materialization: %s", e)

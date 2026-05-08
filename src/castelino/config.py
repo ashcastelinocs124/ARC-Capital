@@ -120,6 +120,14 @@ class EnrichmentCfg(BaseModel):
     cache_ttl_minutes: int = 60
 
 
+class RiskGateCfg(BaseModel):
+    caution_min: float = 0.3
+    caution_size_mult: float = 0.5
+    danger_min: float = 0.6
+    capitulation_min: float = 0.85
+    capitulation_amplify: float = 1.3
+
+
 class ConvictionCfg(BaseModel):
     half_life_hours: float = 12.0
     fire_threshold: float = 2.5
@@ -146,6 +154,7 @@ class Settings(BaseModel):
     execution: ExecutionCfg
     fred: FredCfg
     enrichment: EnrichmentCfg = EnrichmentCfg()
+    risk_gate: RiskGateCfg = RiskGateCfg()
     conviction: ConvictionCfg = ConvictionCfg()
     openbb: OpenBBCfg = OpenBBCfg()
     sonar: SonarCfg = SonarCfg()

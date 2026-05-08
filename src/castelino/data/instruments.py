@@ -39,6 +39,10 @@ class Instrument(BaseModel):
     contract_multiplier: float = Field(default=1.0, ge=0.0)
     # Tradeable. FRED yields are read-only context, not tradable.
     tradable: bool = True
+    # Risk-on (True) vs defensive (False). Used by the Risk-Off Gate to decide
+    # whether to apply size cuts. Defensives flow through unchanged at all
+    # tiers; risk-on trades get downsized/vetoed/amplified per the tier.
+    risk_on: bool = True
 
 
 # v1 universe — ~30 instruments per design doc §3.
@@ -105,6 +109,7 @@ INSTRUMENTS: dict[str, Instrument] = {
         instrument_id="XLV", symbol="XLV", asset_class=AssetClass.EQUITY,
         source=PriceSource.YFINANCE, description="Health Care Select Sector SPDR",
         avg_daily_volume_usd=900_000_000,
+        risk_on=False,  # defensive equity
     ),
     "XLY": Instrument(
         instrument_id="XLY", symbol="XLY", asset_class=AssetClass.EQUITY,
@@ -121,21 +126,25 @@ INSTRUMENTS: dict[str, Instrument] = {
         instrument_id="TLT", symbol="TLT", asset_class=AssetClass.BOND_ETF,
         source=PriceSource.YFINANCE, description="20+ Year Treasury Bond ETF",
         avg_daily_volume_usd=2_500_000_000,
+        risk_on=False,
     ),
     "IEF": Instrument(
         instrument_id="IEF", symbol="IEF", asset_class=AssetClass.BOND_ETF,
         source=PriceSource.YFINANCE, description="7-10 Year Treasury Bond ETF",
         avg_daily_volume_usd=600_000_000,
+        risk_on=False,
     ),
     "SHY": Instrument(
         instrument_id="SHY", symbol="SHY", asset_class=AssetClass.BOND_ETF,
         source=PriceSource.YFINANCE, description="1-3 Year Treasury Bond ETF",
         avg_daily_volume_usd=900_000_000,
+        risk_on=False,
     ),
     "LQD": Instrument(
         instrument_id="LQD", symbol="LQD", asset_class=AssetClass.BOND_ETF,
         source=PriceSource.YFINANCE, description="iShares iBoxx Investment Grade Corporate Bond ETF",
         avg_daily_volume_usd=600_000_000,
+        risk_on=False,
     ),
     "HYG": Instrument(
         instrument_id="HYG", symbol="HYG", asset_class=AssetClass.BOND_ETF,
@@ -158,6 +167,7 @@ INSTRUMENTS: dict[str, Instrument] = {
         instrument_id="GLD", symbol="GLD", asset_class=AssetClass.COMMODITY_ETF,
         source=PriceSource.YFINANCE, description="SPDR Gold Trust",
         avg_daily_volume_usd=1_500_000_000,
+        risk_on=False,
     ),
     "USO": Instrument(
         instrument_id="USO", symbol="USO", asset_class=AssetClass.COMMODITY_ETF,
@@ -178,6 +188,7 @@ INSTRUMENTS: dict[str, Instrument] = {
         instrument_id="GC_F", symbol="GC=F", asset_class=AssetClass.FUTURES,
         source=PriceSource.YFINANCE, description="Gold Front-Month Future",
         contract_multiplier=100.0,  # 100 troy oz
+        risk_on=False,
     ),
     "NG_F": Instrument(
         instrument_id="NG_F", symbol="NG=F", asset_class=AssetClass.FUTURES,

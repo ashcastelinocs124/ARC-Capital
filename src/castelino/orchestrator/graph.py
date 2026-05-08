@@ -21,6 +21,7 @@ from castelino.agents.debate import DebateAgent
 from castelino.agents.guard import run_guard
 from castelino.agents.hypothesis import HypothesisAgent
 from castelino.agents.portfolio import run_portfolio_agent
+from castelino.triggers.risk_gate import GateDecision, evaluate as evaluate_risk_gate
 from castelino.agents.research.backtest import run_backtest
 from castelino.agents.research.risk import run_risk
 from castelino.agents.research.technical import run_ta
@@ -150,6 +151,20 @@ def _node_guard(state: FundState) -> dict:
     return {"guard_decisions": decisions}
 
 
+def _node_risk_gate(state: FundState) -> dict:
+    """Run the Risk-Off Gate against each expression. Defensive overlay only."""
+    log.info("→ risk_gate (n=%d)", len(state.expressions))
+    decisions: list[GateDecision] = []
+    for exp in state.expressions:
+        d = evaluate_risk_gate(exp.instrument_id)
+        log.info(
+            "  gate %s: %s (mult=%.2f, P=%.2f)",
+            exp.instrument_id, d.action, d.size_multiplier, d.prob_risk_off,
+        )
+        decisions.append(d)
+    return {"gate_decisions": decisions}
+
+
 def _node_portfolio_and_execute(state: FundState) -> dict:
     """Run the Portfolio Agent + execute the resulting orders deterministically."""
     log.info("→ portfolio + execute (n=%d)", len(state.guard_decisions))
@@ -160,15 +175,19 @@ def _node_portfolio_and_execute(state: FundState) -> dict:
     p_decisions = []
     orders = []
     fills = []
-    for exp, verdict, guard in zip(
-        state.expressions, state.verdicts, state.guard_decisions, strict=True,
+    gate_decisions = state.gate_decisions or [None] * len(state.expressions)
+    for exp, verdict, guard, gate in zip(
+        state.expressions, state.verdicts, state.guard_decisions, gate_decisions,
+        strict=True,
     ):
+        gate_mult = gate.size_multiplier if gate is not None else 1.0
         decision, order = run_portfolio_agent(
             verdict=verdict,
             guard=guard,
             expression=exp,
             hypothesis=state.hypothesis,
             portfolio=pf,
+            gate_multiplier=gate_mult,
         )
         p_decisions.append(decision)
         if order is None:
@@ -273,6 +292,7 @@ def build_graph():
     g.add_node("debate", _node_debate)
     g.add_node("gate_debate", _node_gate_debate)
     g.add_node("guard", _node_guard)
+    g.add_node("risk_gate", _node_risk_gate)
     g.add_node("portfolio", _node_portfolio_and_execute)
 
     g.set_entry_point("current_event")
@@ -299,6 +319,7 @@ def build_graph():
         lambda s: "abort" if s.aborted else "guard",
         {"guard": "guard", "abort": END},
     )
-    g.add_edge("guard", "portfolio")
+    g.add_edge("guard", "risk_gate")
+    g.add_edge("risk_gate", "portfolio")
     g.add_edge("portfolio", END)
     return g.compile()
