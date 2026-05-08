@@ -7,6 +7,7 @@ v3, ...) and rebuild every persona from the historical corpus.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -69,3 +70,16 @@ def score_speech(sentences: list[str], *, lexicon: Lexicon) -> SpeechScoreResult
         score=sum(policy) / len(policy),
         n_policy_sentences=len(policy),
     )
+
+
+# Common abbreviations that should NOT split a sentence
+_ABBREV = {"U.S.", "Mr.", "Mrs.", "Dr.", "Sen.", "Rep.", "Gov.", "e.g.", "i.e.", "vs.", "etc."}
+
+
+def split_sentences(text: str) -> list[str]:
+    """Split a transcript into sentences, respecting common abbreviations."""
+    placeholder_text = text
+    for abbr in _ABBREV:
+        placeholder_text = placeholder_text.replace(abbr, abbr.replace(".", "<DOT>"))
+    parts = re.split(r"(?<=[.!?])\s+(?=[A-Z])", placeholder_text)
+    return [p.replace("<DOT>", ".").strip() for p in parts if p.strip()]

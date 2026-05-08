@@ -47,3 +47,11 @@ def test_score_speech_zero_when_no_policy_sentences():
     result = score_speech(["Hello.", "Good to be here."], lexicon=LEX)
     assert result.score == 0.0
     assert result.n_policy_sentences == 0
+
+
+def test_split_sentences_handles_abbreviations():
+    from castelino.triggers.speech.scorer import split_sentences
+    text = "The U.S. economy grew. Inflation cooled. Mr. Powell spoke."
+    out = split_sentences(text)
+    assert len(out) == 3
+    assert out[0].startswith("The U.S.")
