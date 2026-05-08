@@ -84,3 +84,93 @@ def score_batch(headlines: list[NewsHeadline]) -> list[HeadlineScore]:
         return []
     out = SignificanceClassifier()(headlines=headlines)
     return out.scores
+
+
+# ---------------------------------------------------------------------------
+# Second-pass re-scoring with enrichment context
+# ---------------------------------------------------------------------------
+
+RESCORE_SYSTEM = """\
+You are re-evaluating borderline macro headlines with supplementary market
+context. Your job is the same as the first pass — score materiality 0.0-1.0,
+growth_direction, inflation_direction — but now you have prediction market
+prices and X/Twitter sentiment to inform your judgment.
+
+Adjustment rules:
+- A large prediction market price move (>10pp in 24h) with high volume is
+  strong evidence the market takes this seriously — weight it heavily.
+- High X engagement from macro accounts suggests broader market awareness.
+- If prediction markets AND X both confirm the headline, materiality goes UP.
+- If prediction markets show no reaction despite the headline, materiality
+  goes DOWN — the market doesn't care.
+- Adjust growth_direction and inflation_direction if the supplementary
+  context clarifies the macro implications.
+- A quiet X reaction with no prediction market movement suggests the
+  headline is noise — score DOWN toward 0.3.
+
+For each headline:
+- `headline_id` and `title` MUST match the input verbatim.
+- `asset_classes_affected` from {equity, bond_etf, commodity_etf, fx, futures}.
+- `one_sentence_reason` ≤ 120 chars — mention the enrichment signal if relevant.
+"""
+
+
+class RescoreClassifier(StructuredAgent[SignificanceBatch]):
+    name = "significance_rescore"
+    output_schema = SignificanceBatch
+    tier = "significance"
+
+    def system_prompt(self) -> str:
+        return RESCORE_SYSTEM
+
+    def user_prompt(self, *, items: list[dict]) -> str:
+        blocks: list[str] = []
+        for item in items:
+            block = (
+                f"Headline (id={item['headline_id']}): {item['title']}\n"
+                f"  Initial score: {item['materiality']}\n"
+                f"  Initial growth: {item['growth_direction']}\n"
+                f"  Initial inflation: {item['inflation_direction']}\n"
+            )
+            if item.get("contracts"):
+                block += f"  Prediction market context:\n{item['contracts']}\n"
+            else:
+                block += "  Prediction market context: (no relevant contracts found)\n"
+            if item.get("x_sentiment"):
+                block += f"  X/Twitter sentiment: {item['x_sentiment']}\n"
+            else:
+                block += "  X/Twitter sentiment: (no data available)\n"
+            blocks.append(block)
+
+        return (
+            "Re-score these borderline headlines with the supplementary context:\n\n"
+            + "\n".join(blocks)
+            + "\nReturn one HeadlineScore per headline; preserve order."
+        )
+
+
+def rescore_borderlines(
+    borderlines: list[HeadlineScore],
+    contracts: dict[str, list],
+    x_sentiments: dict[str, str],
+) -> list[HeadlineScore]:
+    """Re-score borderline headlines with Polymarket + X context."""
+    if not borderlines:
+        return []
+
+    items: list[dict] = []
+    for s in borderlines:
+        contract_list = contracts.get(s.headline_id, [])
+        contracts_text = "\n".join(c.format_for_prompt() for c in contract_list) if contract_list else ""
+        items.append({
+            "headline_id": s.headline_id,
+            "title": s.title,
+            "materiality": s.materiality,
+            "growth_direction": s.growth_direction,
+            "inflation_direction": s.inflation_direction,
+            "contracts": contracts_text,
+            "x_sentiment": x_sentiments.get(s.headline_id, ""),
+        })
+
+    out = RescoreClassifier()(items=items)
+    return out.scores

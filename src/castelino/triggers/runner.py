@@ -28,8 +28,9 @@ from castelino.orchestrator.graph import build_graph
 from castelino.orchestrator.state import FundState
 from castelino.triggers import calendar as calmod
 from castelino.triggers import conviction as conv
-from castelino.triggers.news import NewsHeadline, enrich_significant_headlines, fetch_recent
-from castelino.triggers.significance import HeadlineScore, score_batch
+from castelino.triggers.news import NewsHeadline, enrich_significant_headlines, fetch_recent, fetch_x_sentiment
+from castelino.triggers.polymarket import fetch_related_contracts
+from castelino.triggers.significance import HeadlineScore, rescore_borderlines, score_batch
 
 log = logging.getLogger(__name__)
 
@@ -185,6 +186,36 @@ def _trigger_cron_fallback(last_fire: datetime | None) -> TriggerRecord | None:
     )
 
 
+# ─────────────────────────── two-pass enrichment ─────────────────────────
+
+
+def _enrich_borderlines(scores: list[HeadlineScore]) -> list[HeadlineScore]:
+    """Second pass: re-score borderline headlines with Polymarket + X context."""
+    cfg = get_settings().enrichment
+    if not scores:
+        return scores
+
+    borderlines = [
+        s for s in scores
+        if cfg.borderline_min <= s.materiality <= cfg.borderline_max
+    ]
+    if not borderlines:
+        return scores
+
+    log.info("enrichment: %d borderline headlines to re-score", len(borderlines))
+
+    contracts: dict[str, list] = {}
+    x_sentiments: dict[str, str] = {}
+    for s in borderlines:
+        contracts[s.headline_id] = fetch_related_contracts(s.title)
+        x_sentiments[s.headline_id] = fetch_x_sentiment(s.title)
+
+    rescored = rescore_borderlines(borderlines, contracts, x_sentiments)
+
+    rescored_by_id = {s.headline_id: s for s in rescored}
+    return [rescored_by_id.get(s.headline_id, s) for s in scores]
+
+
 # ─────────────────────────── public entry points ───────────────────────────
 
 
@@ -243,9 +274,10 @@ def tick() -> str | None:
         else None
     )
 
-    # ── Always: pull news + score + feed the conviction ledger ──
+    # ── Always: pull news + score + enrich borderlines + feed ledger ──
     news = fetch_recent(max_per_feed=20)
     scores = score_batch(news[:30]) if news else []
+    scores = _enrich_borderlines(scores)
     if scores:
         conv.append(scores)
 

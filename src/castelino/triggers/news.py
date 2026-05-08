@@ -183,3 +183,78 @@ def enrich_significant_headlines(headlines: list[NewsHeadline]) -> list[NewsHead
         deep = _sonar_deep_read(h)
         enriched.append(replace(h, deep_summary=deep))
     return enriched
+
+
+# ---------------------------------------------------------------------------
+# X/Twitter sentiment via Sonar
+# ---------------------------------------------------------------------------
+
+_X_SENTIMENT_PROMPT = """\
+What is the financial community on X/Twitter saying about this news?
+Focus on: macro traders, economists, financial analysts.
+
+Headline: "{title}"
+
+Report in 2-3 sentences:
+- Overall sentiment (bullish/bearish/mixed/indifferent)
+- Engagement level (viral, moderate, quiet)
+- Any contrarian takes or notable disagreements
+
+Return ONLY the summary, no headers.\
+"""
+
+
+def _x_sentiment_cache_dir() -> Path:
+    return get_settings().resolved_paths.cache / "x_sentiment"
+
+
+def _read_x_cache(headline_hash: str) -> str | None:
+    cfg = get_settings()
+    p = _x_sentiment_cache_dir() / f"{headline_hash}.txt"
+    if not p.exists():
+        return None
+    mtime = datetime.fromtimestamp(p.stat().st_mtime, tz=UTC)
+    if (datetime.now(UTC) - mtime) > timedelta(minutes=cfg.enrichment.cache_ttl_minutes):
+        return None
+    return p.read_text()
+
+
+def _write_x_cache(headline_hash: str, text: str) -> None:
+    d = _x_sentiment_cache_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{headline_hash}.txt").write_text(text)
+
+
+def fetch_x_sentiment(headline: str) -> str:
+    """Ask Sonar what the financial X/Twitter community is saying about a headline."""
+    cfg = get_settings()
+    if not cfg.enrichment.x_sentiment_enabled:
+        return ""
+    api_key = cfg.perplexity_api_key
+    if not api_key:
+        return ""
+
+    h = hashlib.sha1(headline.encode()).hexdigest()
+    cached = _read_x_cache(h)
+    if cached is not None:
+        return cached
+
+    prompt = _X_SENTIMENT_PROMPT.format(title=headline)
+    try:
+        client = OpenAI(api_key=api_key, base_url="https://api.perplexity.ai")
+        resp = client.chat.completions.create(
+            model=cfg.sonar.model,
+            messages=[
+                {"role": "system", "content": "You are a social media sentiment analyst focused on financial markets."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.0,
+        )
+        text = (resp.choices[0].message.content or "").strip()
+        if text:
+            _write_x_cache(h, text)
+            return text
+    except Exception as e:
+        log.warning("Sonar X sentiment failed for %r: %s", headline, e)
+
+    return ""

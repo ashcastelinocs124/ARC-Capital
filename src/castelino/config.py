@@ -112,6 +112,14 @@ class SonarCfg(BaseModel):
     )
 
 
+class EnrichmentCfg(BaseModel):
+    borderline_min: float = 0.4
+    borderline_max: float = 0.8
+    polymarket_enabled: bool = True
+    x_sentiment_enabled: bool = True
+    cache_ttl_minutes: int = 60
+
+
 class ConvictionCfg(BaseModel):
     half_life_hours: float = 12.0
     fire_threshold: float = 2.5
@@ -137,6 +145,7 @@ class Settings(BaseModel):
     curator: CuratorCfg
     execution: ExecutionCfg
     fred: FredCfg
+    enrichment: EnrichmentCfg = EnrichmentCfg()
     conviction: ConvictionCfg = ConvictionCfg()
     openbb: OpenBBCfg = OpenBBCfg()
     sonar: SonarCfg = SonarCfg()
