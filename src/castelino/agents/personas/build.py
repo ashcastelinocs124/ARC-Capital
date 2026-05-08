@@ -26,13 +26,21 @@ def register_scraper(persona_id: str, scraper_cls: type) -> None:
 def _seed_registry_once() -> None:
     """Seed default scrapers. Macro-only roster — Buffett (value investor)
     excluded from the active roster but his scraper at scrapers/buffett.py
-    is kept as a reference template for new persona scrapers.
+    is kept as a reference template.
     """
     if SCRAPERS_REGISTRY:
         return
-    # No default scrapers wired yet — each macro persona scraper (T19a-f
-    # in the implementation plan) registers itself when added. Until then,
-    # build_persona for any id will raise KeyError, which is the safe default.
+    from castelino.agents.personas.scrapers.druckenmiller import DruckenmillerScraper
+    from castelino.agents.personas.scrapers.el_erian import ElErianScraper
+    from castelino.agents.personas.scrapers.krugman import KrugmanScraper
+    from castelino.agents.personas.scrapers.summers import SummersScraper
+
+    register_scraper("krugman", KrugmanScraper)
+    register_scraper("el_erian", ElErianScraper)
+    register_scraper("summers", SummersScraper)
+    register_scraper("druckenmiller", DruckenmillerScraper)
+    # dalio + tudor_jones scrapers are deferred follow-ups — until wired,
+    # build_persona for those ids raises KeyError, which is the safe default.
 
 
 def _stratified_sample(chunks: list[CorpusChunk], n: int) -> list[CorpusChunk]:
