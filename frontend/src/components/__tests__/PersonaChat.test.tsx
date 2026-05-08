@@ -47,9 +47,9 @@ describe("PersonaChat", () => {
     });
 
     render(<PersonaChat entryId="H-x" personaId="buffett" />);
-    fireEvent.submit(
-      screen.getByPlaceholderText(/type a question/i).closest("form")!,
-    );
+    const input = screen.getByPlaceholderText(/type a question/i);
+    fireEvent.change(input, { target: { value: "What about 2008?" } });
+    fireEvent.submit(input.closest("form")!);
     await waitFor(() => screen.getByText(/hold quality/i));
 
     const footnote = await screen.findByText(/buffett_2008\.pdf/i);
