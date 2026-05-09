@@ -1,5 +1,5 @@
 from datetime import datetime, UTC
-from castelino.triggers.speech.events import SpeechEventRecord, save_event_record
+from castelino.triggers.figure_deviation.events import SpeechEventRecord, save_event_record
 
 
 def test_save_event_record_round_trip(tmp_path):

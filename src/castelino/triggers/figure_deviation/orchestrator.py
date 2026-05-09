@@ -23,15 +23,15 @@ from datetime import UTC, datetime, timedelta
 
 from castelino.config import get_settings
 from castelino.triggers.calendar import CalendarEvent
-from castelino.triggers.speech.emitter import SpeechTriggerEmitter
-from castelino.triggers.speech.events import SpeechEventRecord, save_event_record
-from castelino.triggers.speech.listener import listen
-from castelino.triggers.speech.persona import load_persona
-from castelino.triggers.speech.queue import speech_trigger_queue
-from castelino.triggers.speech.scorer import (
+from castelino.triggers.figure_deviation.emitter import SpeechTriggerEmitter
+from castelino.triggers.figure_deviation.events import SpeechEventRecord, save_event_record
+from castelino.triggers.figure_deviation.listener import listen
+from castelino.triggers.figure_deviation.persona import load_persona
+from castelino.triggers.figure_deviation.queue import speech_trigger_queue
+from castelino.triggers.figure_deviation.scorer import (
     POLICY_RELEVANT_THRESHOLD, load_lexicon, score_sentence,
 )
-from castelino.triggers.speech.stt import SpeechToTextProvider
+from castelino.triggers.figure_deviation.stt import SpeechToTextProvider
 
 log = logging.getLogger(__name__)
 
@@ -192,7 +192,7 @@ def spawn_listener_threaded(
 
 async def _resolve_fomc(event: CalendarEvent) -> str | None:
     import httpx
-    from castelino.triggers.speech.streams import (
+    from castelino.triggers.figure_deviation.streams import (
         FOMC_MONETARY_POLICY_PAGE, parse_fomc_live_url,
     )
     try:
@@ -246,7 +246,7 @@ def default_provider_factory() -> SpeechToTextProvider:
         api_key = os.environ.get("DEEPGRAM_API_KEY", "")
         if not api_key:
             raise RuntimeError("DEEPGRAM_API_KEY env var not set")
-        from castelino.triggers.speech.stt_deepgram import DeepgramSTTProvider
+        from castelino.triggers.figure_deviation.stt_deepgram import DeepgramSTTProvider
 
         return DeepgramSTTProvider(api_key=api_key, model=cfg.speech.deepgram_model)
     raise RuntimeError(f"Unknown STT provider: {cfg.speech.stt_provider}")

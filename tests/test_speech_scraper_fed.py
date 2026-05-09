@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from castelino.triggers.speech.scrapers.fed import (
+from castelino.triggers.figure_deviation.scrapers.fed import (
     parse_speech_index,
     parse_speech_page,
 )

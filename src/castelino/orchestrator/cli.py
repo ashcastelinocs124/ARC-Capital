@@ -581,10 +581,10 @@ def persona_refresh(
     """Scrape Fed website and rebuild the rolling-window persona."""
     import asyncio
     import httpx
-    from castelino.triggers.speech.persona import (
+    from castelino.triggers.figure_deviation.persona import (
         build_persona_from_speeches, save_persona,
     )
-    from castelino.triggers.speech.scrapers.fed import fetch_speeches_for_speaker
+    from castelino.triggers.figure_deviation.scrapers.fed import fetch_speeches_for_speaker
 
     cfg = get_settings()
     sp = next((s for s in cfg.speech.speakers if s.id == speaker), None)
@@ -632,10 +632,10 @@ def speech_test(
     from pathlib import Path
 
     from castelino.config import get_settings
-    from castelino.triggers.speech.emitter import SpeechTriggerEmitter
-    from castelino.triggers.speech.persona import load_persona
-    from castelino.triggers.speech.scorer import split_sentences
-    from castelino.triggers.speech.models import SpeechSegment
+    from castelino.triggers.figure_deviation.emitter import SpeechTriggerEmitter
+    from castelino.triggers.figure_deviation.persona import load_persona
+    from castelino.triggers.figure_deviation.scorer import split_sentences
+    from castelino.triggers.figure_deviation.speech_models import SpeechSegment
 
     cfg = get_settings()
     sp_cfg = next((s for s in cfg.speech.speakers if s.id == speaker), None)
@@ -659,7 +659,7 @@ def speech_test(
 
     # Stage A only (no LLM calls in dry-run if no client available — keep it offline-friendly)
     from castelino.agents.base import FakeLLMClient
-    from castelino.triggers.speech.llm_gate import SpeechShiftClassification
+    from castelino.triggers.figure_deviation.llm_gate import SpeechShiftClassification
     fake = FakeLLMClient()
     fake.register(
         "SpeechShiftClassification",
@@ -689,7 +689,7 @@ def speech_test(
         print(f"  - {trg.headline} (significance={trg.significance:.2f})")
         print(f"    reason: {trg.one_sentence_reason}")
     if not dry_run:
-        from castelino.triggers.speech.queue import speech_trigger_queue
+        from castelino.triggers.figure_deviation.queue import speech_trigger_queue
         for trg in em.triggers:
             speech_trigger_queue.offer(trg)
         print(f"[green]Pushed {len(em.triggers)} trigger(s) onto pipeline queue.[/green]")

@@ -1,5 +1,5 @@
 import pytest
-from castelino.triggers.speech.scorer import score_sentence, load_lexicon
+from castelino.triggers.figure_deviation.scorer import score_sentence, load_lexicon
 
 LEX = load_lexicon("hawkish_dovish_v1")
 
@@ -28,7 +28,7 @@ def test_hedging_dampens_magnitude():
     assert abs(hedged) < abs(bare)
 
 
-from castelino.triggers.speech.scorer import score_speech
+from castelino.triggers.figure_deviation.scorer import score_speech
 
 
 def test_score_speech_filters_neutral_sentences():
@@ -50,7 +50,7 @@ def test_score_speech_zero_when_no_policy_sentences():
 
 
 def test_split_sentences_handles_abbreviations():
-    from castelino.triggers.speech.scorer import split_sentences
+    from castelino.triggers.figure_deviation.scorer import split_sentences
     text = "The U.S. economy grew. Inflation cooled. Mr. Powell spoke."
     out = split_sentences(text)
     assert len(out) == 3

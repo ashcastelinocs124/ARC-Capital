@@ -1,9 +1,9 @@
 from datetime import datetime, UTC
 
 from castelino.agents.base import FakeLLMClient
-from castelino.triggers.speech.emitter import SpeechTriggerEmitter
-from castelino.triggers.speech.llm_gate import SpeechShiftClassification
-from castelino.triggers.speech.models import BaselineVector, SpeechSegment
+from castelino.triggers.figure_deviation.emitter import SpeechTriggerEmitter
+from castelino.triggers.figure_deviation.llm_gate import SpeechShiftClassification
+from castelino.triggers.figure_deviation.speech_models import BaselineVector, SpeechSegment
 
 
 BL = BaselineVector(

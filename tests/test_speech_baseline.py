@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime, timedelta, UTC
-from castelino.triggers.speech.baseline import build_baseline
-from castelino.triggers.speech.models import ScoredSpeech
+from castelino.triggers.figure_deviation.baseline import build_baseline
+from castelino.triggers.figure_deviation.speech_models import ScoredSpeech
 
 
 def _ss(score: float, days_ago: int) -> ScoredSpeech:

@@ -12,13 +12,13 @@ from dataclasses import dataclass, field
 
 from castelino.agents.base import LLMClient
 from castelino.memory.schemas import TriggerRecord, TriggerSource
-from castelino.triggers.speech.deviation import RollingWindow, compute_deviation
-from castelino.triggers.speech.llm_gate import (
+from castelino.triggers.figure_deviation.deviation import RollingWindow, compute_deviation
+from castelino.triggers.figure_deviation.llm_gate import (
     SpeechShiftClassification,
     classify_speech_shift,
 )
-from castelino.triggers.speech.models import BaselineVector, SpeechSegment
-from castelino.triggers.speech.scorer import (
+from castelino.triggers.figure_deviation.speech_models import BaselineVector, SpeechSegment
+from castelino.triggers.figure_deviation.scorer import (
     POLICY_RELEVANT_THRESHOLD,
     load_lexicon,
     score_sentence,

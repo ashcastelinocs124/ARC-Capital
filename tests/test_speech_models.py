@@ -1,5 +1,5 @@
 from datetime import datetime, UTC
-from castelino.triggers.speech.models import (
+from castelino.triggers.figure_deviation.speech_models import (
     BaselineVector, ScoredSpeech, SpeakerPersona, SpeechSegment,
 )
 

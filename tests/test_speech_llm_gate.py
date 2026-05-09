@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 from castelino.agents.base import FakeLLMClient
-from castelino.triggers.speech.llm_gate import (
+from castelino.triggers.figure_deviation.llm_gate import (
     SpeechShiftClassification,
     classify_speech_shift,
 )
-from castelino.triggers.speech.models import BaselineVector
+from castelino.triggers.figure_deviation.speech_models import BaselineVector
 
 
 BL = BaselineVector(

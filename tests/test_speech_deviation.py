@@ -1,5 +1,5 @@
-from castelino.triggers.speech.deviation import RollingWindow, compute_deviation
-from castelino.triggers.speech.models import BaselineVector
+from castelino.triggers.figure_deviation.deviation import RollingWindow, compute_deviation
+from castelino.triggers.figure_deviation.speech_models import BaselineVector
 
 BL = BaselineVector(
     hawkish_dovish_mean=-0.15, hawkish_dovish_std=0.20,

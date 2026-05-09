@@ -9,7 +9,7 @@ import pytest
 
 deepgram = pytest.importorskip("deepgram")
 
-from castelino.triggers.speech.stt_deepgram import DeepgramSTTProvider  # noqa: E402
+from castelino.triggers.figure_deviation.stt_deepgram import DeepgramSTTProvider  # noqa: E402
 
 
 def test_deepgram_provider_constructs_with_api_key():
@@ -24,7 +24,7 @@ def test_deepgram_provider_default_model():
 
 def test_stream_calls_sdk(monkeypatch):
     """Mock at the SDK boundary — verify init + start + finish are wired up."""
-    from castelino.triggers.speech import stt_deepgram as mod
+    from castelino.triggers.figure_deviation import stt_deepgram as mod
 
     called: dict[str, bool] = {}
 

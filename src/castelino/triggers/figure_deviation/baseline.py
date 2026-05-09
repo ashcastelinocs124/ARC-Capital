@@ -4,7 +4,7 @@ from __future__ import annotations
 import math
 from datetime import datetime, UTC
 
-from castelino.triggers.speech.models import BaselineVector, ScoredSpeech
+from castelino.triggers.figure_deviation.speech_models import BaselineVector, ScoredSpeech
 
 
 def _months_ago(d: datetime) -> float:

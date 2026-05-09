@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime, UTC
-from castelino.triggers.speech.stt import FakeSTTProvider, TranscriptEvent
+from castelino.triggers.figure_deviation.stt import FakeSTTProvider, TranscriptEvent
 
 
 def test_fake_stt_yields_canned_sequence():

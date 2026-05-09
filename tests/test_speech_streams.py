@@ -1,5 +1,5 @@
 from pathlib import Path
-from castelino.triggers.speech.streams import (
+from castelino.triggers.figure_deviation.streams import (
     parse_fomc_live_url, FOMC_MONETARY_POLICY_PAGE,
 )
 

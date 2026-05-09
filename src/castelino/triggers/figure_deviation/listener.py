@@ -3,9 +3,9 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 
-from castelino.triggers.speech.models import SpeechSegment
-from castelino.triggers.speech.scorer import split_sentences
-from castelino.triggers.speech.stt import SpeechToTextProvider
+from castelino.triggers.figure_deviation.speech_models import SpeechSegment
+from castelino.triggers.figure_deviation.scorer import split_sentences
+from castelino.triggers.figure_deviation.stt import SpeechToTextProvider
 
 
 async def listen(

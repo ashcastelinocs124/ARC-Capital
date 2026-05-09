@@ -1,10 +1,10 @@
 import pytest
 from datetime import datetime, timedelta, UTC
 
-from castelino.triggers.speech.persona import (
+from castelino.triggers.figure_deviation.persona import (
     build_persona_from_speeches, load_persona, save_persona,
 )
-from castelino.triggers.speech.scrapers.fed import ParsedSpeech
+from castelino.triggers.figure_deviation.scrapers.fed import ParsedSpeech
 
 
 def _ps(text: str, days_ago: int) -> ParsedSpeech:
@@ -38,7 +38,7 @@ def test_build_persona_aggregates_correctly():
 
 
 def test_save_and_load_persona_round_trip(tmp_path):
-    from castelino.triggers.speech.models import (
+    from castelino.triggers.figure_deviation.speech_models import (
         BaselineVector, SpeakerPersona,
     )
     p = SpeakerPersona(

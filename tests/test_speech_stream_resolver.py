@@ -3,7 +3,7 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 
 from castelino.triggers.calendar import CalendarEvent
-from castelino.triggers.speech.orchestrator import (
+from castelino.triggers.figure_deviation.orchestrator import (
     _STREAM_DISPATCH,
     default_stream_resolver,
 )

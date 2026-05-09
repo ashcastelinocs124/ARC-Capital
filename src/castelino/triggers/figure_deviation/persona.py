@@ -5,14 +5,14 @@ from datetime import datetime, UTC
 from pathlib import Path
 
 from castelino.config import get_settings
-from castelino.triggers.speech.baseline import build_baseline
-from castelino.triggers.speech.models import (
+from castelino.triggers.figure_deviation.baseline import build_baseline
+from castelino.triggers.figure_deviation.speech_models import (
     BaselineVector, ScoredSpeech, SpeakerPersona,
 )
-from castelino.triggers.speech.scorer import (
+from castelino.triggers.figure_deviation.scorer import (
     Lexicon, load_lexicon, score_speech, split_sentences,
 )
-from castelino.triggers.speech.scrapers.fed import ParsedSpeech
+from castelino.triggers.figure_deviation.scrapers.fed import ParsedSpeech
 
 
 def _personas_dir(root: Path | None = None) -> Path:

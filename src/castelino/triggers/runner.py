@@ -181,7 +181,7 @@ def _maybe_spawn_speech_listeners(cal_events: list) -> None:
     if not cfg.speech.enabled:
         return
     try:
-        from castelino.triggers.speech.orchestrator import (
+        from castelino.triggers.figure_deviation.orchestrator import (
             default_llm_client_factory,
             default_provider_factory,
             default_stream_resolver,
@@ -332,7 +332,7 @@ def tick() -> str | None:
         return "calendar"
 
     # ── Path 0.5: Speech deviation triggers from live listener ──
-    from castelino.triggers.speech.queue import speech_trigger_queue
+    from castelino.triggers.figure_deviation.queue import speech_trigger_queue
     pending = speech_trigger_queue.drain()
     if pending:
         trg = pending[0]

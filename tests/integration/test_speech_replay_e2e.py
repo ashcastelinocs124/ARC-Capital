@@ -4,13 +4,13 @@ from datetime import datetime, UTC
 from pathlib import Path
 
 from castelino.agents.base import FakeLLMClient
-from castelino.triggers.speech.emitter import SpeechTriggerEmitter
-from castelino.triggers.speech.llm_gate import SpeechShiftClassification
-from castelino.triggers.speech.models import (
+from castelino.triggers.figure_deviation.emitter import SpeechTriggerEmitter
+from castelino.triggers.figure_deviation.llm_gate import SpeechShiftClassification
+from castelino.triggers.figure_deviation.speech_models import (
     BaselineVector,
     SpeechSegment,
 )
-from castelino.triggers.speech.scorer import split_sentences
+from castelino.triggers.figure_deviation.scorer import split_sentences
 
 
 def test_replay_dovish_to_hawkish_pivot_emits_one_trigger():

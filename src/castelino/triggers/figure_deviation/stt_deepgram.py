@@ -15,7 +15,7 @@ except ImportError:  # pragma: no cover - exercised when SDK absent
     LiveTranscriptionEvents = None  # type: ignore[assignment]
     LiveOptions = None  # type: ignore[assignment]
 
-from castelino.triggers.speech.stt import SpeechToTextProvider, TranscriptEvent
+from castelino.triggers.figure_deviation.stt import SpeechToTextProvider, TranscriptEvent
 
 
 class DeepgramSTTProvider(SpeechToTextProvider):

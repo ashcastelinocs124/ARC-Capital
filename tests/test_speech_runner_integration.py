@@ -1,4 +1,4 @@
-from castelino.triggers.speech.queue import speech_trigger_queue
+from castelino.triggers.figure_deviation.queue import speech_trigger_queue
 from castelino.memory.schemas import TriggerRecord, TriggerSource
 
 
@@ -16,7 +16,7 @@ def test_queue_offer_and_drain_round_trip():
 
 def test_tick_fires_pipeline_when_speech_trigger_present(monkeypatch):
     from castelino.triggers import runner as r
-    from castelino.triggers.speech.queue import speech_trigger_queue
+    from castelino.triggers.figure_deviation.queue import speech_trigger_queue
 
     fired = []
     monkeypatch.setattr(r, "fire_pipeline", lambda trg, **kw: fired.append(trg) or {})

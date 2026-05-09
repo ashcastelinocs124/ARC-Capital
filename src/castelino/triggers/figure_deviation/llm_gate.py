@@ -10,7 +10,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from castelino.agents.base import LLMClient
-from castelino.triggers.speech.models import BaselineVector
+from castelino.triggers.figure_deviation.speech_models import BaselineVector
 
 
 class SpeechShiftClassification(BaseModel):

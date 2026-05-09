@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass, field
 
-from castelino.triggers.speech.models import BaselineVector
+from castelino.triggers.figure_deviation.speech_models import BaselineVector
 
 
 @dataclass

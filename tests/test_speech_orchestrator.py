@@ -13,20 +13,20 @@ import pytest
 
 from castelino.agents.base import FakeLLMClient
 from castelino.triggers.calendar import CalendarEvent
-from castelino.triggers.speech.events import SpeechEventRecord
-from castelino.triggers.speech.llm_gate import SpeechShiftClassification
-from castelino.triggers.speech.models import (
+from castelino.triggers.figure_deviation.events import SpeechEventRecord
+from castelino.triggers.figure_deviation.llm_gate import SpeechShiftClassification
+from castelino.triggers.figure_deviation.speech_models import (
     BaselineVector, SpeakerPersona,
 )
-from castelino.triggers.speech.orchestrator import (
+from castelino.triggers.figure_deviation.orchestrator import (
     event_id_for,
     run_listener_for_event,
     should_spawn_listener,
     _active_listeners,
 )
-from castelino.triggers.speech.persona import save_persona
-from castelino.triggers.speech.queue import speech_trigger_queue
-from castelino.triggers.speech.stt import FakeSTTProvider, TranscriptEvent
+from castelino.triggers.figure_deviation.persona import save_persona
+from castelino.triggers.figure_deviation.queue import speech_trigger_queue
+from castelino.triggers.figure_deviation.stt import FakeSTTProvider, TranscriptEvent
 
 
 def _fixture_event(*, in_minutes: int = 2, has_live: bool = True, speaker_id: str | None = "powell") -> CalendarEvent:
@@ -61,7 +61,7 @@ def powell_persona(tmp_path, monkeypatch):
     )
     save_persona(persona, root=tmp_path)
     # Patch _personas_dir so load_persona finds the fixture
-    from castelino.triggers.speech import persona as persona_mod
+    from castelino.triggers.figure_deviation import persona as persona_mod
     monkeypatch.setattr(persona_mod, "_personas_dir",
                         lambda root=None: tmp_path / "personas" if root is None else root / "personas")
     return persona
@@ -173,7 +173,7 @@ def test_runner_tick_spawns_listener_for_qualifying_event(monkeypatch):
         return None
 
     # Replace the orchestrator function inside _maybe_spawn_speech_listeners
-    import castelino.triggers.speech.orchestrator as orch
+    import castelino.triggers.figure_deviation.orchestrator as orch
     monkeypatch.setattr(orch, "spawn_listener_threaded", _fake_spawn)
 
     ev = _fixture_event(in_minutes=2)
