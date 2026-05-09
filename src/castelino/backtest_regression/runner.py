@@ -165,3 +165,49 @@ def run_all_figure_deviation() -> list[CaseResult]:
     return [
         run_figure_deviation_case(f) for f in _load_fixture_dir("figure_deviation")
     ]
+
+
+# ────────────────────────── materialize_order runner ─────────────────────────
+
+
+def run_all_materialize_order() -> list[CaseResult]:
+    """Re-run the materialize_order regression tests programmatically.
+
+    The actual pytest-driven assertions live in
+    `tests/backtest/test_materialize_order_backtest.py`. This function
+    drives the same logic from the CLI by spawning a pytest run scoped to
+    that file and translating the result to CaseResult records.
+
+    For simplicity this returns a single roll-up CaseResult — the per-case
+    granularity is available via `pytest tests/backtest/test_materialize_order_backtest.py -v`.
+    """
+    import subprocess
+
+    proc = subprocess.run(
+        [
+            "pytest",
+            "tests/backtest/test_materialize_order_backtest.py",
+            "-m",
+            "backtest",
+            "--tb=no",
+            "--no-header",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=str(_FIXTURE_ROOT.parent.parent.parent),
+    )
+    passed_line = [
+        line for line in proc.stdout.splitlines()
+        if "passed" in line or "failed" in line
+    ]
+    summary = passed_line[-1] if passed_line else "no summary"
+    return [
+        CaseResult(
+            case_id="materialize_order_suite",
+            component="materialize_order",
+            passed=proc.returncode == 0,
+            actual={"summary": summary, "exit_code": proc.returncode},
+            expected={"all_pass": True},
+            notes=None if proc.returncode == 0 else proc.stdout[-500:],
+        )
+    ]
