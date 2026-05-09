@@ -105,7 +105,9 @@ def run_all_risk_off() -> list[CaseResult]:
 
 # ────────────────────────── figure-deviation runner ──────────────────────────
 
-_scorer = Scorer()
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_LEXICON_DIR = _REPO_ROOT / "data" / "lexicons"
+_scorer = Scorer(lexicon_dir=_LEXICON_DIR)
 
 
 def run_figure_deviation_case(fixture: dict) -> CaseResult:

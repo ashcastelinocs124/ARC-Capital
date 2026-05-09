@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from castelino.backtest_regression.models import CaseResult
@@ -15,7 +15,7 @@ def write_report(results: list[CaseResult], *, base_dir: Path | None = None) -> 
     Returns the timestamp directory so the caller can print its path.
     """
     base_dir = Path(base_dir) if base_dir is not None else Path("data/backtest_runs")
-    ts = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
+    ts = datetime.now(UTC).strftime("%Y-%m-%d_%H-%M-%S")
     out_dir = base_dir / ts
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -39,6 +39,6 @@ def write_report(results: list[CaseResult], *, base_dir: Path | None = None) -> 
 
     (out_dir / "report.md").write_text("\n".join(lines))
     (out_dir / "results.json").write_text(
-        json.dumps([r.model_dump() for r in results], indent=2)
+        json.dumps([r.model_dump() for r in results], indent=2, default=str)
     )
     return out_dir
