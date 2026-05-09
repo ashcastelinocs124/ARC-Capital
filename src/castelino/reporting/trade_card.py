@@ -239,7 +239,7 @@ def _render_card(
     }
     html = CARD_TEMPLATE.render(**ctx)
     p = out_dir / f"{trade.entry_id}.html"
-    p.write_text(html)
+    p.write_text(html, encoding="utf-8")
     return p
 
 

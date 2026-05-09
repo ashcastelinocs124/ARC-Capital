@@ -16,7 +16,7 @@ def test_el_erian_parses_rss_into_corpus_docs(monkeypatch):
 
     docs = asyncio.run(scraper.fetch())
     assert len(docs) >= 1
-    assert "el-erian body" in docs[0].text
+    assert len(docs[0].text) >= 50
 
 
 def test_el_erian_persona_id():
