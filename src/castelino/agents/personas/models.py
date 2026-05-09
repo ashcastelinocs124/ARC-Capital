@@ -76,3 +76,21 @@ class PersonaStandaloneThread(BaseModel):
     started_at: datetime
     last_active_at: datetime
     messages: list[PersonaMessage] = Field(default_factory=list)
+
+
+class RoomMessage(BaseModel):
+    speaker: str                # "user" or persona_id
+    text: str
+    timestamp: datetime
+    turn: int                   # 1-indexed; groups all replies to one user msg
+    citations: list[Citation] = Field(default_factory=list)
+
+
+class PersonaRoom(BaseModel):
+    room_id: str
+    name: str
+    member_persona_ids: list[str]
+    context: str = ""
+    created_at: datetime
+    last_active_at: datetime
+    messages: list[RoomMessage] = Field(default_factory=list)
