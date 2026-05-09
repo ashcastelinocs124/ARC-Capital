@@ -549,6 +549,24 @@ pytest -q
 
 No network or OpenAI calls in the test suite — `FakeLLMClient` and pricing stubs make end-to-end pipeline tests deterministic.
 
+### Backtest regression suite
+
+`tests/backtest/` holds component-level regression tests over the deterministic
+layer (risk-off gate, figure-deviation Powell scorer, `materialize_order`).
+Each test is hand-curated against a historical event or a property over
+generated cases.
+
+Run it:
+
+```bash
+pytest -m backtest                                   # CI go/no-go
+castelino backtest-regression                        # diagnostic report
+castelino backtest-regression --components risk_off  # one component
+```
+
+Companion to the full-pipeline backtest in `src/castelino/backtest/`
+(`docs/plans/2026-05-08-backtest-design.md`).
+
 ---
 
 ## Cost discipline
