@@ -1,0 +1,7 @@
+{
+  "case_id": "2022-09-26_gilt",
+  "date": "2022-09-26",
+  "description": "UK gilt crisis after mini-budget — danger tier",
+  "inputs": {"prob_risk_off": 0.68, "instrument_id": "SPY"},
+  "expected": {"action": "veto", "size_multiplier": 0.0}
+}

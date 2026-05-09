@@ -1,0 +1,7 @@
+{
+  "case_id": "2020-03-16_covid",
+  "date": "2020-03-16",
+  "description": "Covid crash, peak panic — capitulation tier flips to contrarian",
+  "inputs": {"prob_risk_off": 0.95, "instrument_id": "SPY"},
+  "expected": {"action": "amplify", "size_multiplier": 1.3}
+}

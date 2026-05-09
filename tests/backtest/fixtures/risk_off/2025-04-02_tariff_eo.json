@@ -1,0 +1,7 @@
+{
+  "case_id": "2025-04-02_tariff_eo",
+  "date": "2025-04-02",
+  "description": "Trump tariff EO panic — caution tier (elevated but not danger)",
+  "inputs": {"prob_risk_off": 0.50, "instrument_id": "SPY"},
+  "expected": {"action": "downsize", "size_multiplier": 0.5}
+}

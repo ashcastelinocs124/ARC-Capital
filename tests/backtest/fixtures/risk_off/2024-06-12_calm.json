@@ -1,0 +1,7 @@
+{
+  "case_id": "2024-06-12_calm",
+  "date": "2024-06-12",
+  "description": "Calm trading day — calm tier",
+  "inputs": {"prob_risk_off": 0.18, "instrument_id": "SPY"},
+  "expected": {"action": "pass", "size_multiplier": 1.0}
+}

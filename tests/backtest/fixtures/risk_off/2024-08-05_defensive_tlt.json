@@ -1,0 +1,7 @@
+{
+  "case_id": "2024-08-05_defensive_tlt",
+  "date": "2024-08-05",
+  "description": "Defensive instrument bypass — gate passes regardless of prob",
+  "inputs": {"prob_risk_off": 0.72, "instrument_id": "TLT"},
+  "expected": {"action": "pass", "size_multiplier": 1.0}
+}

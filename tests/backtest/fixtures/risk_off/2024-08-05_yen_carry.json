@@ -1,0 +1,7 @@
+{
+  "case_id": "2024-08-05_yen_carry",
+  "date": "2024-08-05",
+  "description": "Yen carry-trade unwind, VIX spiked to 65 — danger tier",
+  "inputs": {"prob_risk_off": 0.72, "instrument_id": "SPY"},
+  "expected": {"action": "veto", "size_multiplier": 0.0}
+}
