@@ -165,3 +165,29 @@ export interface PersonaStandaloneThread {
   last_active_at: string;
   messages: PersonaMessage[];
 }
+
+export interface RoomMessage {
+  speaker: string;       // "user" or persona_id
+  text: string;
+  timestamp: string;
+  turn: number;
+  citations: Citation[];
+}
+
+export interface RoomSummary {
+  room_id: string;
+  name: string;
+  member_persona_ids: string[];
+  last_active_at: string;
+  message_count: number;
+}
+
+export interface PersonaRoom {
+  room_id: string;
+  name: string;
+  member_persona_ids: string[];
+  context: string;
+  created_at: string;
+  last_active_at: string;
+  messages: RoomMessage[];
+}
