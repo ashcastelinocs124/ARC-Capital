@@ -73,12 +73,31 @@ export default function PersonasPage() {
                 className="rounded-lg border border-border bg-surface p-4 transition hover:border-text-2"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="font-semibold truncate">{p.full_name}</div>
-                    <div className="text-xs text-muted">{p.role}</div>
-                    {p.tenure && (
-                      <div className="text-xs text-muted mt-0.5">{p.tenure}</div>
+                  <div className="flex items-start gap-3 min-w-0">
+                    {p.image_url ? (
+                      <img
+                        src={p.image_url}
+                        alt={p.full_name}
+                        className="w-12 h-12 rounded-full object-cover border border-border shrink-0"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-surface-2 border border-border flex items-center justify-center text-sm font-semibold text-text-2 shrink-0">
+                        {p.full_name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase()}
+                      </div>
                     )}
+                    <div className="min-w-0">
+                      <div className="font-semibold truncate">{p.full_name}</div>
+                      <div className="text-xs text-muted">{p.role}</div>
+                      {p.tenure && (
+                        <div className="text-xs text-muted mt-0.5">{p.tenure}</div>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <button

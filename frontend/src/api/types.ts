@@ -131,6 +131,7 @@ export interface PersonaCard {
   full_name: string;
   role: string;
   tenure: string;
+  image_url?: string;
   belief_summary: string;
   decision_framework: string[];
   signature_phrases: string[];

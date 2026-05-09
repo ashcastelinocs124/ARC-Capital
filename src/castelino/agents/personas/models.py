@@ -62,6 +62,7 @@ class PersonaCard(BaseModel):
     full_name: str
     role: str
     tenure: str = ""
+    image_url: str = ""              # public portrait URL (e.g. Wikipedia)
     belief_summary: str
     decision_framework: list[str] = Field(default_factory=list)
     signature_phrases: list[str] = Field(default_factory=list)
