@@ -1,9 +1,14 @@
-"""Sentence-level hawkish/dovish scorer.
+"""Sentence-level scorer (legacy hawkish/dovish API + multi-lexicon Scorer).
 
 The scoring function is the load-bearing invariant: identical scoring is used
 for both the offline persona baseline and the live listener, so z-score
 deviations compare like-for-like. If the lexicon changes, version it (v2,
 v3, ...) and rebuild every persona from the historical corpus.
+
+Wave 3 Task 3.1 added the `Scorer` class which loads lexicons from disk by
+name and returns the generic `LexiconScore` model. It supports both the
+legacy hawkish/dovish YAML shape and the new hot/cold/modifiers shape so a
+single Scorer can drive every figure × lexicon combination uniformly.
 """
 from __future__ import annotations
 
@@ -12,6 +17,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
+
+from castelino.triggers.figure_deviation.models import LexiconScore
 
 
 @dataclass(frozen=True)
@@ -31,6 +38,110 @@ def load_lexicon(version: str = "hawkish_dovish_v1") -> Lexicon:
         dovish_phrases=dict(raw["dovish_phrases"]),
         hedges=tuple(raw["hedges"]),
     )
+
+
+# ────────────────────────── multi-lexicon Scorer ────────────────────────────
+
+
+@dataclass(frozen=True)
+class _NormalisedLexicon:
+    """Internal uniform representation of any lexicon, regardless of the
+    on-disk shape it came in. Both the legacy hawkish/dovish format and the
+    new hot/cold/modifiers format are converted to this on load."""
+
+    name: str
+    weighted_terms: dict[str, float]   # term → signed weight
+    intensifiers: tuple[str, ...]      # multiplicative boosters
+    hedges: tuple[str, ...]            # multiplicative dampers
+
+
+def _normalise_lexicon_yaml(raw: dict, *, fallback_name: str) -> _NormalisedLexicon:
+    """Coerce either YAML shape into the uniform internal representation."""
+    name = raw.get("name", fallback_name)
+
+    # Branch by shape: presence of hot_terms / cold_terms = new shape.
+    if "hot_terms" in raw or "cold_terms" in raw:
+        weighted: dict[str, float] = {}
+        for entry in raw.get("hot_terms", []) or []:
+            weighted[entry["term"]] = float(entry["weight"])
+        for entry in raw.get("cold_terms", []) or []:
+            weighted[entry["term"]] = float(entry["weight"])  # weight is negative
+        modifiers = raw.get("modifiers") or {}
+        intensifiers = tuple(modifiers.get("intensifiers", []) or [])
+        hedges = tuple(modifiers.get("hedges", []) or [])
+        return _NormalisedLexicon(
+            name=name,
+            weighted_terms=weighted,
+            intensifiers=intensifiers,
+            hedges=hedges,
+        )
+
+    # Legacy shape: hawkish_phrases / dovish_phrases / hedges
+    weighted = {}
+    for phrase, w in (raw.get("hawkish_phrases") or {}).items():
+        weighted[phrase] = float(w)
+    for phrase, w in (raw.get("dovish_phrases") or {}).items():
+        weighted[phrase] = float(w)  # already negative in YAML
+    return _NormalisedLexicon(
+        name=name,
+        weighted_terms=weighted,
+        intensifiers=(),
+        hedges=tuple(raw.get("hedges") or []),
+    )
+
+
+class Scorer:
+    """Loads lexicons by name from a directory and scores arbitrary text.
+
+    The scorer caches loaded lexicons in-process; mutating a YAML on disk
+    after first load does not affect already-running scoring (intentional —
+    rebuilds require restart, matching the lexicon-version invariant).
+    """
+
+    def __init__(self, lexicon_dir: Path | None = None) -> None:
+        self._lexicon_dir = lexicon_dir or Path("data/lexicons")
+        self._cache: dict[str, _NormalisedLexicon] = {}
+
+    def _load(self, lexicon_name: str) -> _NormalisedLexicon:
+        if lexicon_name in self._cache:
+            return self._cache[lexicon_name]
+        path = self._lexicon_dir / f"{lexicon_name}.yaml"
+        if not path.exists():
+            raise KeyError(
+                f"Lexicon {lexicon_name!r} not found at {path}",
+            )
+        raw = yaml.safe_load(path.read_text())
+        lex = _normalise_lexicon_yaml(raw, fallback_name=lexicon_name)
+        self._cache[lexicon_name] = lex
+        return lex
+
+    def score_post(self, *, text: str, lexicon_name: str) -> LexiconScore:
+        """Score a piece of text on the named lexicon. Returns a generic
+        `LexiconScore` with the signed value in [-1, 1] and a hits dict
+        recording which terms matched (for audit + debugging)."""
+        lex = self._load(lexicon_name)
+        lowered = text.lower()
+        raw_value = 0.0
+        hits: dict[str, int] = {}
+        for term, weight in lex.weighted_terms.items():
+            tlow = term.lower()
+            if tlow in lowered:
+                raw_value += weight
+                hits[term] = lowered.count(tlow)
+
+        # Intensifiers: each present intensifier amplifies the magnitude
+        # without changing sign. Capped at 1.5x to avoid runaway scores.
+        intensifier_count = sum(1 for i in lex.intensifiers if i.lower() in lowered)
+        if intensifier_count > 0:
+            raw_value *= min(1.5, 1.0 + 0.15 * intensifier_count)
+
+        # Hedges dampen magnitude (mirrors the legacy score_sentence behaviour).
+        hedge_count = sum(1 for h in lex.hedges if h.lower() in lowered)
+        if hedge_count > 0:
+            raw_value *= max(0.4, 1.0 - 0.2 * hedge_count)
+
+        clamped = max(-1.0, min(1.0, raw_value))
+        return LexiconScore(value=clamped, hits=hits)
 
 
 def score_sentence(text: str, *, lexicon: Lexicon) -> float:
