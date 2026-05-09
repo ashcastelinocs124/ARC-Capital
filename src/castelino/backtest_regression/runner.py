@@ -9,6 +9,7 @@ from unittest.mock import patch as _patch
 
 from castelino.backtest_regression.models import CaseResult
 from castelino.forecast.risk_off import RiskOffForecast, read_forecast  # patched in tests
+from castelino.triggers.figure_deviation.scorer import Scorer
 from castelino.triggers.risk_gate import evaluate as evaluate_risk_gate
 
 _FIXTURE_ROOT = Path(__file__).parent.parent.parent.parent / "tests" / "backtest" / "fixtures"
@@ -100,3 +101,61 @@ def run_all_risk_off() -> list[CaseResult]:
         with with_stubbed_forecast(fixture["inputs"]["prob_risk_off"]):
             out.append(run_risk_off_case(fixture))
     return out
+
+
+# ────────────────────────── figure-deviation runner ──────────────────────────
+
+_scorer = Scorer()
+
+
+def run_figure_deviation_case(fixture: dict) -> CaseResult:
+    """Score the transcript on the named lexicon and assert on the raw
+    `LexiconScore.value` plus required term hits.
+
+    Assertions supported in `expected`:
+    - `value_sign`: "positive" | "negative" | "any"
+    - `abs_value_min`: float — |value| must be ≥ this
+    - `abs_value_max`: float — |value| must be ≤ this (negative-case test)
+    - `must_hit_terms_any`: list[str] — at least one term must appear in `hits`
+    """
+    case_id = fixture["case_id"]
+    expected = fixture["expected"]
+
+    score = _scorer.score_post(
+        text=fixture["transcript_excerpt"],
+        lexicon_name=fixture["lexicon"],
+    )
+    actual = {
+        "value": score.value,
+        "hits": dict(score.hits),
+        "lexicon_version": fixture["lexicon"],
+    }
+
+    failures: list[str] = []
+    if "value_sign" in expected:
+        sign = expected["value_sign"]
+        if sign == "positive" and not (score.value > 0):
+            failures.append(f"value {score.value:.3f} not positive")
+        elif sign == "negative" and not (score.value < 0):
+            failures.append(f"value {score.value:.3f} not negative")
+    if "abs_value_min" in expected and abs(score.value) < expected["abs_value_min"]:
+        failures.append(
+            f"|value|={abs(score.value):.3f} < min {expected['abs_value_min']}"
+        )
+    if "abs_value_max" in expected and abs(score.value) > expected["abs_value_max"]:
+        failures.append(
+            f"|value|={abs(score.value):.3f} > max {expected['abs_value_max']}"
+        )
+    if "must_hit_terms_any" in expected:
+        terms = expected["must_hit_terms_any"]
+        if not any(t in score.hits for t in terms):
+            failures.append(f"none of {terms} matched (hits={list(score.hits)})")
+
+    return CaseResult(
+        case_id=case_id,
+        component="figure_deviation",
+        passed=len(failures) == 0,
+        actual=actual,
+        expected=expected,
+        notes="; ".join(failures) if failures else None,
+    )
