@@ -78,6 +78,30 @@ Emitter = Callable[[FigureDeviationTrigger], None] | Callable[
 ]
 
 
+class PostScoredEvent:
+    """Payload for the on_post_scored hook (Wave 7 Task 7.3 — conviction
+    feed). One emitted per (post, lexicon) regardless of whether Stage A
+    fires, so the conviction ledger sees the full materiality stream."""
+
+    def __init__(
+        self,
+        *,
+        figure_id: str,
+        post: "FigurePost",
+        lexicon: str,
+        score_value: float,
+        directional_tags: list[str],
+    ) -> None:
+        self.figure_id = figure_id
+        self.post = post
+        self.lexicon = lexicon
+        self.score_value = score_value
+        self.directional_tags = directional_tags
+
+
+PostScoredHook = Callable[[PostScoredEvent], None]
+
+
 class FigureDeviationDispatcher:
     """Per-figure runtime that scores incoming posts across N lexicons,
     runs each through the Stage A gate, escalates the survivors to Stage B,
@@ -85,6 +109,10 @@ class FigureDeviationDispatcher:
 
     Cooldown state is in-process and per-dispatcher; persistent cooldown
     across restarts is a Wave 5/8 concern.
+
+    `on_post_scored` (optional, Wave 7) fires for every scored post BEFORE
+    the Stage A gate — used by the conviction-ledger dual feed so signals
+    accumulate even without firing a deviation trigger.
     """
 
     def __init__(
@@ -96,6 +124,7 @@ class FigureDeviationDispatcher:
         baseline_dir: Path,
         stage_b: StageBProtocol,
         emitter: Emitter,
+        on_post_scored: PostScoredHook | None = None,
     ) -> None:
         self._figure_id = figure_id
         self._bindings = lexicon_bindings
@@ -106,6 +135,7 @@ class FigureDeviationDispatcher:
         self._gate = DeviationGate()
         self._stage_b = stage_b
         self._emitter = emitter
+        self._on_post_scored = on_post_scored
         # Cooldown set: (figure_id, lexicon_name, event_id) we've emitted on
         self._emitted: set[tuple[str, str, str]] = set()
 
@@ -128,6 +158,29 @@ class FigureDeviationDispatcher:
         score = self._scorer.score_post(
             text=post.text, lexicon_name=binding.name,
         )
+
+        # Conviction-ledger dual feed: every scored post (with non-zero
+        # score) contributes materiality regardless of whether Stage A
+        # fires. The hook chooses which directional tags to apply based
+        # on score sign.
+        if self._on_post_scored is not None and score.value != 0.0:
+            tags = list(
+                binding.directional_tags_positive if score.value > 0
+                else binding.directional_tags_negative
+            )
+            try:
+                self._on_post_scored(PostScoredEvent(
+                    figure_id=self._figure_id,
+                    post=post,
+                    lexicon=binding.name,
+                    score_value=score.value,
+                    directional_tags=tags,
+                ))
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception(
+                    "on_post_scored hook raised — continuing without it",
+                )
 
         # Look up the figure's baseline for this lexicon (raises if missing)
         baseline = self._baselines.load(
