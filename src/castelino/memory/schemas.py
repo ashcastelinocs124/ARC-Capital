@@ -55,7 +55,8 @@ class TriggerSource(str, Enum):
     MANUAL = "manual"
     REGIME_SHIFT = "regime_shift"
     CONVICTION = "conviction"
-    SPEECH_DEVIATION = "speech_deviation"
+    SPEECH_DEVIATION = "speech_deviation"  # retained for back-compat in approval history
+    FIGURE_DEVIATION = "figure_deviation"
 
 
 # ────────────────────────── trigger / world-state ────────────────────────────

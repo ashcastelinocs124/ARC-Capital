@@ -162,3 +162,17 @@ def test_off_switch_persists():
 def test_speech_deviation_trigger_source_exists():
     from castelino.memory.schemas import TriggerSource
     assert TriggerSource.SPEECH_DEVIATION.value == "speech_deviation"
+
+
+def test_figure_deviation_trigger_source_exists():
+    from castelino.memory.schemas import TriggerSource
+    assert TriggerSource.FIGURE_DEVIATION.value == "figure_deviation"
+
+
+def test_speech_deviation_alias_retained_for_backcompat():
+    """SPEECH_DEVIATION must continue to exist after FIGURE_DEVIATION is added,
+    because approval_queue.json history records use the old value."""
+    from castelino.memory.schemas import TriggerSource
+    assert TriggerSource.SPEECH_DEVIATION.value == "speech_deviation"
+    # Must remain distinct enum members
+    assert TriggerSource.SPEECH_DEVIATION is not TriggerSource.FIGURE_DEVIATION
