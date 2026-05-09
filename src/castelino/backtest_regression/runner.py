@@ -1,11 +1,41 @@
 """Per-component runners for the backtest regression suite."""
 from __future__ import annotations
 
+from contextlib import contextmanager
+from datetime import UTC, datetime
 from unittest.mock import patch as _patch
 
 from castelino.backtest_regression.models import CaseResult
-from castelino.forecast.risk_off import read_forecast  # patched in tests
+from castelino.forecast.risk_off import RiskOffForecast, read_forecast  # patched in tests
 from castelino.triggers.risk_gate import evaluate as evaluate_risk_gate
+
+
+@contextmanager
+def with_stubbed_forecast(prob: float):
+    """Stub `read_forecast` inside the runner module to return a
+    fixture-driven prob. Used by the CLI; tests prefer `unittest.mock.patch`
+    directly.
+
+    Patches all three call sites (source module, runner, gate) so any caller —
+    including `risk_gate.evaluate()` — sees the fixture's probability.
+    """
+    fake = RiskOffForecast(
+        prob_risk_off=prob,
+        as_of=datetime.now(UTC),
+        feature_month="",
+        target_month="",
+    )
+    with _patch(
+        "castelino.forecast.risk_off.read_forecast",
+        return_value=fake,
+    ), _patch(
+        "castelino.backtest_regression.runner.read_forecast",
+        return_value=fake,
+    ), _patch(
+        "castelino.triggers.risk_gate.read_forecast",
+        return_value=fake,
+    ):
+        yield
 
 
 def run_risk_off_case(fixture: dict) -> CaseResult:

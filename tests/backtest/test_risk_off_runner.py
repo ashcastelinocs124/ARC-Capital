@@ -45,3 +45,13 @@ def test_runner_fails_when_action_diverges():
         result = run_risk_off_case(fixture)
     assert result.passed is False
     assert result.actual["action"] == "veto"
+
+
+def test_with_stubbed_forecast_context():
+    from castelino.backtest_regression.runner import with_stubbed_forecast
+
+    with with_stubbed_forecast(0.55):
+        from castelino.forecast.risk_off import read_forecast
+        f = read_forecast()
+        assert f is not None
+        assert abs(f.prob_risk_off - 0.55) < 1e-9
