@@ -47,12 +47,19 @@ def load_lexicon(version: str = "hawkish_dovish_v1") -> Lexicon:
 class _NormalisedLexicon:
     """Internal uniform representation of any lexicon, regardless of the
     on-disk shape it came in. Both the legacy hawkish/dovish format and the
-    new hot/cold/modifiers format are converted to this on load."""
+    new hot/cold/modifiers format are converted to this on load.
+
+    `term_sub_axes` is populated only for multi-axis lexicons (e.g.
+    regulatory_stance_v1) — maps term → which sub-axis owns it. Single-axis
+    lexicons leave this empty.
+    """
 
     name: str
-    weighted_terms: dict[str, float]   # term → signed weight
-    intensifiers: tuple[str, ...]      # multiplicative boosters
-    hedges: tuple[str, ...]            # multiplicative dampers
+    weighted_terms: dict[str, float]    # term → signed weight
+    term_sub_axes: dict[str, str]       # term → sub_axis label (multi-axis only)
+    sub_axes: tuple[str, ...]           # ordered sub-axis labels
+    intensifiers: tuple[str, ...]
+    hedges: tuple[str, ...]
 
 
 def _normalise_lexicon_yaml(raw: dict, *, fallback_name: str) -> _NormalisedLexicon:
@@ -62,16 +69,34 @@ def _normalise_lexicon_yaml(raw: dict, *, fallback_name: str) -> _NormalisedLexi
     # Branch by shape: presence of hot_terms / cold_terms = new shape.
     if "hot_terms" in raw or "cold_terms" in raw:
         weighted: dict[str, float] = {}
+        term_sub_axes: dict[str, str] = {}
         for entry in raw.get("hot_terms", []) or []:
             weighted[entry["term"]] = float(entry["weight"])
+            if "sub_axis" in entry:
+                term_sub_axes[entry["term"]] = entry["sub_axis"]
         for entry in raw.get("cold_terms", []) or []:
-            weighted[entry["term"]] = float(entry["weight"])  # weight is negative
+            weighted[entry["term"]] = float(entry["weight"])  # already negative
+            if "sub_axis" in entry:
+                term_sub_axes[entry["term"]] = entry["sub_axis"]
         modifiers = raw.get("modifiers") or {}
         intensifiers = tuple(modifiers.get("intensifiers", []) or [])
         hedges = tuple(modifiers.get("hedges", []) or [])
+        # Sub-axis labels (preserve declared order if present in YAML)
+        declared_sub_axes = raw.get("sub_axes")
+        if isinstance(declared_sub_axes, dict):
+            sub_axes = tuple(declared_sub_axes.keys())
+        else:
+            # Infer from per-term annotations
+            seen: list[str] = []
+            for sa in term_sub_axes.values():
+                if sa not in seen:
+                    seen.append(sa)
+            sub_axes = tuple(seen)
         return _NormalisedLexicon(
             name=name,
             weighted_terms=weighted,
+            term_sub_axes=term_sub_axes,
+            sub_axes=sub_axes,
             intensifiers=intensifiers,
             hedges=hedges,
         )
@@ -81,10 +106,12 @@ def _normalise_lexicon_yaml(raw: dict, *, fallback_name: str) -> _NormalisedLexi
     for phrase, w in (raw.get("hawkish_phrases") or {}).items():
         weighted[phrase] = float(w)
     for phrase, w in (raw.get("dovish_phrases") or {}).items():
-        weighted[phrase] = float(w)  # already negative in YAML
+        weighted[phrase] = float(w)
     return _NormalisedLexicon(
         name=name,
         weighted_terms=weighted,
+        term_sub_axes={},
+        sub_axes=(),
         intensifiers=(),
         hedges=tuple(raw.get("hedges") or []),
     )
@@ -118,30 +145,68 @@ class Scorer:
     def score_post(self, *, text: str, lexicon_name: str) -> LexiconScore:
         """Score a piece of text on the named lexicon. Returns a generic
         `LexiconScore` with the signed value in [-1, 1] and a hits dict
-        recording which terms matched (for audit + debugging)."""
+        recording which terms matched (for audit + debugging).
+
+        Multi-axis lexicons additionally populate `sub_axis_scores` with
+        the (clamped) per-axis score; the top-level `value` is the average
+        of non-zero sub-axis values."""
         lex = self._load(lexicon_name)
         lowered = text.lower()
-        raw_value = 0.0
+
+        # Per-sub-axis raw accumulator (single-axis lexicons collapse to
+        # one bucket via the empty key).
+        per_sub_axis: dict[str, float] = {}
+        if lex.sub_axes:
+            for sa in lex.sub_axes:
+                per_sub_axis[sa] = 0.0
+        else:
+            per_sub_axis[""] = 0.0
+
         hits: dict[str, int] = {}
         for term, weight in lex.weighted_terms.items():
             tlow = term.lower()
             if tlow in lowered:
-                raw_value += weight
-                hits[term] = lowered.count(tlow)
+                count = lowered.count(tlow)
+                hits[term] = count
+                bucket = lex.term_sub_axes.get(term, "")
+                if bucket not in per_sub_axis:
+                    # Multi-axis lexicon but term lacked an annotation —
+                    # fall back to overall bucket.
+                    bucket = next(iter(per_sub_axis.keys()))
+                per_sub_axis[bucket] += weight
 
-        # Intensifiers: each present intensifier amplifies the magnitude
-        # without changing sign. Capped at 1.5x to avoid runaway scores.
+        # Modifiers (apply uniformly across all sub-axes — they're a
+        # whole-utterance effect, not per-axis)
         intensifier_count = sum(1 for i in lex.intensifiers if i.lower() in lowered)
-        if intensifier_count > 0:
-            raw_value *= min(1.5, 1.0 + 0.15 * intensifier_count)
-
-        # Hedges dampen magnitude (mirrors the legacy score_sentence behaviour).
+        intensifier_factor = (
+            min(1.5, 1.0 + 0.15 * intensifier_count) if intensifier_count else 1.0
+        )
         hedge_count = sum(1 for h in lex.hedges if h.lower() in lowered)
-        if hedge_count > 0:
-            raw_value *= max(0.4, 1.0 - 0.2 * hedge_count)
+        hedge_factor = (
+            max(0.4, 1.0 - 0.2 * hedge_count) if hedge_count else 1.0
+        )
 
-        clamped = max(-1.0, min(1.0, raw_value))
-        return LexiconScore(value=clamped, hits=hits)
+        # Apply modifiers + clamp each bucket
+        clamped_per_axis = {
+            sa: max(-1.0, min(1.0, v * intensifier_factor * hedge_factor))
+            for sa, v in per_sub_axis.items()
+        }
+
+        if lex.sub_axes:
+            # Top-level value: mean of NON-ZERO sub-axis scores (so the score
+            # reflects 'how strongly does any axis fire', not diluted by
+            # silent axes).
+            nonzero = [v for v in clamped_per_axis.values() if v != 0.0]
+            top = sum(nonzero) / len(nonzero) if nonzero else 0.0
+            return LexiconScore(
+                value=max(-1.0, min(1.0, top)),
+                hits=hits,
+                sub_axis_scores=clamped_per_axis,
+            )
+        else:
+            return LexiconScore(
+                value=clamped_per_axis[""], hits=hits,
+            )
 
 
 def score_sentence(text: str, *, lexicon: Lexicon) -> float:

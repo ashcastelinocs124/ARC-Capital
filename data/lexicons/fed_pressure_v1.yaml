@@ -1,0 +1,44 @@
+name: fed_pressure_v1
+version: 1
+axis: fed_pressure
+description: >
+  Scores posts on a Fed-pressuring (positive) ↔ Fed-deferential (negative)
+  axis. Captures rhetoric pushing the Federal Reserve toward dovish policy
+  or attacking its leadership. Trump-specific signature; could extend to
+  other politicians or commentators who weigh in on monetary policy.
+
+hot_terms:
+  - { term: "Powell should", weight: 1.0 }
+  - { term: "the Fed should", weight: 1.0 }
+  - { term: "Fed needs to", weight: 0.9 }
+  - { term: "cut rates", weight: 1.0 }
+  - { term: "lower rates", weight: 0.9 }
+  - { term: "rate cuts", weight: 0.8 }
+  - { term: "easy money", weight: 0.5 }
+  - { term: "hurt the economy", weight: 0.7 }
+  - { term: "killing the economy", weight: 0.9 }
+  - { term: "killing our economy", weight: 1.0 }
+  - { term: "rates too high", weight: 0.8 }
+  - { term: "rates are too high", weight: 0.8 }
+  - { term: "behind the curve", weight: 0.7 }
+  - { term: "too late", weight: 0.7 }
+  - { term: "asleep at the wheel", weight: 0.9 }
+  - { term: "weakening", weight: 0.4 }
+  - { term: "Powell is", weight: 0.5 }
+  - { term: "fire Powell", weight: 1.5 }
+  - { term: "remove Powell", weight: 1.4 }
+  - { term: "Fed is clueless", weight: 1.2 }
+  - { term: "Fed disaster", weight: 1.2 }
+
+cold_terms:
+  - { term: "Fed independence", weight: -0.8 }
+  - { term: "data-dependent", weight: -0.5 }
+  - { term: "Fed mandate", weight: -0.5 }
+  - { term: "central bank", weight: -0.3 }
+  - { term: "respect the Fed", weight: -0.9 }
+  - { term: "Powell is doing", weight: -0.4 }
+  - { term: "Powell did", weight: -0.3 }
+
+modifiers:
+  intensifiers: ["clueless", "terrible", "disaster", "disgrace", "incompetent"]
+  hedges: ["I think", "in my view", "hopefully", "should consider"]

@@ -1,0 +1,47 @@
+name: trade_protectionist_v1
+version: 1
+axis: trade_protectionist
+description: >
+  Scores posts on a protectionist (positive) ↔ free-trade (negative) axis.
+  Designed for the Trump TrackedFigure first; extensible to any other figure
+  who speaks publicly about trade policy.
+
+hot_terms:
+  - { term: "tariff", weight: 1.0 }
+  - { term: "tariffs", weight: 1.0 }
+  - { term: "China tariff", weight: 1.5 }
+  - { term: "reciprocal tariff", weight: 1.4 }
+  - { term: "decouple", weight: 1.2 }
+  - { term: "decoupling", weight: 1.2 }
+  - { term: "dump", weight: 1.0 }
+  - { term: "dumping", weight: 1.0 }
+  - { term: "level the playing field", weight: 0.9 }
+  - { term: "unfair trade", weight: 1.0 }
+  - { term: "trade deficit", weight: 0.7 }
+  - { term: "manufacturing back", weight: 1.0 }
+  - { term: "made in America", weight: 0.8 }
+  - { term: "Section 301", weight: 1.3 }
+  - { term: "Section 232", weight: 1.3 }
+  - { term: "anti-dumping", weight: 1.0 }
+  - { term: "currency manipulator", weight: 1.2 }
+  - { term: "ripping us off", weight: 1.1 }
+  - { term: "taking advantage", weight: 0.7 }
+  - { term: "America First", weight: 0.6 }
+
+cold_terms:
+  - { term: "free trade", weight: -1.0 }
+  - { term: "open markets", weight: -1.0 }
+  - { term: "mutually beneficial", weight: -0.7 }
+  - { term: "partnership", weight: -0.5 }
+  - { term: "agreement", weight: -0.4 }
+  - { term: "win-win", weight: -0.6 }
+  - { term: "trade liberalisation", weight: -0.9 }
+  - { term: "trade liberalization", weight: -0.9 }
+  - { term: "remove tariffs", weight: -1.2 }
+  - { term: "lower tariffs", weight: -0.9 }
+  - { term: "reduce tariffs", weight: -0.9 }
+  - { term: "great relationship", weight: -0.4 }
+
+modifiers:
+  intensifiers: ["massive", "huge", "tremendous", "biggest ever", "extreme"]
+  hedges: ["considering", "looking at", "might", "possibly", "thinking about"]

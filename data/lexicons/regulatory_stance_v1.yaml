@@ -1,0 +1,74 @@
+name: regulatory_stance_v1
+version: 1
+axis: regulatory_stance
+description: >
+  Multi-axis lexicon scoring posts on four sectoral regulation dimensions.
+  Each sub-axis maintains its own score and its own deviation gate so a
+  tweet can fire on, say, crypto-friendly without affecting the other
+  dimensions. The top-level value aggregates all sub-axes.
+sub_axes:
+  crypto_friendly: ["ibit_up", "btc_up"]
+  oil_friendly: ["xle_up", "wti_up"]
+  defence_hawkish: ["ita_up", "lmt_up"]
+  tech_hostile: ["xlk_down", "qqq_down"]
+
+hot_terms:
+  # crypto_friendly hot
+  - { term: "bitcoin", weight: 0.9, sub_axis: crypto_friendly }
+  - { term: "BTC", weight: 0.9, sub_axis: crypto_friendly }
+  - { term: "crypto", weight: 0.7, sub_axis: crypto_friendly }
+  - { term: "digital assets", weight: 0.7, sub_axis: crypto_friendly }
+  - { term: "blockchain", weight: 0.5, sub_axis: crypto_friendly }
+  - { term: "SAB 121", weight: 1.2, sub_axis: crypto_friendly }
+  - { term: "Operation Chokepoint", weight: 1.2, sub_axis: crypto_friendly }
+  - { term: "debanking", weight: 1.0, sub_axis: crypto_friendly }
+  - { term: "bitcoin reserve", weight: 1.4, sub_axis: crypto_friendly }
+  - { term: "strategic bitcoin", weight: 1.4, sub_axis: crypto_friendly }
+  # oil_friendly hot
+  - { term: "drill", weight: 0.9, sub_axis: oil_friendly }
+  - { term: "drill baby drill", weight: 1.5, sub_axis: oil_friendly }
+  - { term: "ANWR", weight: 1.0, sub_axis: oil_friendly }
+  - { term: "energy dominance", weight: 1.2, sub_axis: oil_friendly }
+  - { term: "pipeline", weight: 0.7, sub_axis: oil_friendly }
+  - { term: "Keystone", weight: 1.0, sub_axis: oil_friendly }
+  - { term: "fossil fuels", weight: 0.6, sub_axis: oil_friendly }
+  - { term: "LNG export", weight: 0.9, sub_axis: oil_friendly }
+  - { term: "unleash energy", weight: 1.1, sub_axis: oil_friendly }
+  # defence_hawkish hot
+  - { term: "NATO spending", weight: 0.8, sub_axis: defence_hawkish }
+  - { term: "defence budget", weight: 0.6, sub_axis: defence_hawkish }
+  - { term: "defense budget", weight: 0.6, sub_axis: defence_hawkish }
+  - { term: "Iran", weight: 0.6, sub_axis: defence_hawkish }
+  - { term: "China military", weight: 0.7, sub_axis: defence_hawkish }
+  - { term: "Taiwan", weight: 0.7, sub_axis: defence_hawkish }
+  - { term: "peace through strength", weight: 1.0, sub_axis: defence_hawkish }
+  - { term: "military readiness", weight: 0.8, sub_axis: defence_hawkish }
+  - { term: "rebuild the military", weight: 1.0, sub_axis: defence_hawkish }
+  # tech_hostile hot
+  - { term: "Section 230", weight: 1.0, sub_axis: tech_hostile }
+  - { term: "antitrust", weight: 0.7, sub_axis: tech_hostile }
+  - { term: "big tech", weight: 0.8, sub_axis: tech_hostile }
+  - { term: "censorship", weight: 0.9, sub_axis: tech_hostile }
+  - { term: "shadowban", weight: 0.9, sub_axis: tech_hostile }
+  - { term: "shadow ban", weight: 0.9, sub_axis: tech_hostile }
+  - { term: "content moderation", weight: 0.6, sub_axis: tech_hostile }
+  - { term: "App Store", weight: 0.5, sub_axis: tech_hostile }
+
+cold_terms:
+  # crypto_friendly cold
+  - { term: "ban crypto", weight: -1.2, sub_axis: crypto_friendly }
+  - { term: "crypto fraud", weight: -0.8, sub_axis: crypto_friendly }
+  # oil_friendly cold
+  - { term: "Green New Deal", weight: -1.0, sub_axis: oil_friendly }
+  - { term: "ban fracking", weight: -1.2, sub_axis: oil_friendly }
+  - { term: "renewable mandate", weight: -0.7, sub_axis: oil_friendly }
+  # defence_hawkish cold
+  - { term: "endless wars", weight: -0.9, sub_axis: defence_hawkish }
+  - { term: "withdraw troops", weight: -0.7, sub_axis: defence_hawkish }
+  # tech_hostile cold (rare for this figure but provided for symmetry)
+  - { term: "innovation", weight: -0.3, sub_axis: tech_hostile }
+  - { term: "competitive edge", weight: -0.4, sub_axis: tech_hostile }
+
+modifiers:
+  intensifiers: ["massive", "huge", "tremendous"]
+  hedges: ["considering", "looking at", "might"]
