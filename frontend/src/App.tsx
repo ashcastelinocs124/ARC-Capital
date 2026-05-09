@@ -9,6 +9,7 @@ import RiskPage from "./pages/RiskPage";
 import AgentsPage from "./pages/AgentsPage";
 import PersonasPage from "./pages/PersonasPage";
 import RoomsPage from "./pages/RoomsPage";
+import RoomChatPage from "./pages/RoomChatPage";
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
         <Route path="/agents" element={<AgentsPage />} />
         <Route path="/personas" element={<PersonasPage />} />
         <Route path="/rooms" element={<RoomsPage />} />
+        <Route path="/rooms/:roomId" element={<RoomChatPage />} />
         <Route path="/approvals" element={<ApprovalCenterPage />} />
         <Route path="/approvals/:entryId/consult" element={<ApprovalConsultPage />} />
       </Routes>
