@@ -238,6 +238,14 @@ class FigureDeviationCfg(BaseModel):
     figures: list[TrackedFigureCfg] = Field(default_factory=list)
 
 
+class XApiCfg(BaseModel):
+    """X (Twitter) API v2 settings. Bearer token is read from env at runtime
+    via the `x_api_bearer_token` property on `Settings`, NOT stored in YAML."""
+
+    base_url: str = "https://api.twitter.com/2"
+    request_timeout_sec: int = 10
+
+
 class Settings(BaseModel):
     fund: FundCfg
     models: ModelsCfg
@@ -255,6 +263,7 @@ class Settings(BaseModel):
     sonar: SonarCfg = SonarCfg()
     speech: SpeechCfg = SpeechCfg()
     figure_deviation: FigureDeviationCfg = FigureDeviationCfg()
+    x_api: XApiCfg = XApiCfg()
     personas: PersonaCfg = PersonaCfg()
     paths: PathsCfg
     root: Path
@@ -290,6 +299,13 @@ class Settings(BaseModel):
     def perplexity_api_key(self) -> str | None:
         """Perplexity Sonar API key. Optional — falls back to static calendar."""
         key = os.environ.get("PERPLEXITY_API_KEY", "").strip()
+        return key or None
+
+    @property
+    def x_api_bearer_token(self) -> str | None:
+        """X (Twitter) API v2 bearer token. Required when any figure declares
+        a `type: x_api` source; optional otherwise."""
+        key = os.environ.get("X_API_BEARER_TOKEN", "").strip()
         return key or None
 
 
