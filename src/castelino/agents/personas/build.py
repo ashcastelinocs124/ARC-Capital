@@ -30,17 +30,19 @@ def _seed_registry_once() -> None:
     """
     if SCRAPERS_REGISTRY:
         return
+    from castelino.agents.personas.scrapers.dalio import DalioScraper
     from castelino.agents.personas.scrapers.druckenmiller import DruckenmillerScraper
     from castelino.agents.personas.scrapers.el_erian import ElErianScraper
     from castelino.agents.personas.scrapers.krugman import KrugmanScraper
     from castelino.agents.personas.scrapers.summers import SummersScraper
+    from castelino.agents.personas.scrapers.tudor_jones import TudorJonesScraper
 
     register_scraper("krugman", KrugmanScraper)
     register_scraper("el_erian", ElErianScraper)
     register_scraper("summers", SummersScraper)
     register_scraper("druckenmiller", DruckenmillerScraper)
-    # dalio + tudor_jones scrapers are deferred follow-ups — until wired,
-    # build_persona for those ids raises KeyError, which is the safe default.
+    register_scraper("dalio", DalioScraper)
+    register_scraper("tudor_jones", TudorJonesScraper)
 
 
 def _stratified_sample(chunks: list[CorpusChunk], n: int) -> list[CorpusChunk]:

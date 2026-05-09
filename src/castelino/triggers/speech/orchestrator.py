@@ -183,23 +183,18 @@ def spawn_listener_threaded(
     return t
 
 
-# ────────────────────────── default factories ──────────────────────────
+# ────────────────────────── stream resolver dispatch table ──────────────
+#
+# Maps a lowercase keyword (matched against event.name and event.speaker_id)
+# to an async resolver. Extend here to add speakers / venues — no if/elif
+# chains needed. First matching key wins.
 
 
-async def default_stream_resolver(event: CalendarEvent) -> str | None:
-    """Hit the FOMC monetary-policy page, scrape a YouTube live URL.
-
-    Only handles FOMC pressers in v1. For other speakers/venues, return None
-    and let the calendar trigger fire through its existing path.
-    """
+async def _resolve_fomc(event: CalendarEvent) -> str | None:
     import httpx
-
     from castelino.triggers.speech.streams import (
         FOMC_MONETARY_POLICY_PAGE, parse_fomc_live_url,
     )
-
-    if "fomc" not in event.name.lower():
-        return None
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             r = await client.get(FOMC_MONETARY_POLICY_PAGE)
@@ -208,6 +203,40 @@ async def default_stream_resolver(event: CalendarEvent) -> str | None:
     except Exception as e:
         log.warning("failed to resolve FOMC stream URL: %s", e)
         return None
+
+
+async def _resolve_stub(event: CalendarEvent) -> str | None:
+    log.info(
+        "no live-stream source configured for %s (speaker=%s) — skipping STT",
+        event.name, event.speaker_id,
+    )
+    return None
+
+
+_STREAM_DISPATCH: dict[str, Callable[[CalendarEvent], Awaitable[str | None]]] = {
+    "fomc": _resolve_fomc,
+    "waller": _resolve_stub,   # Christopher Waller — no known stream source yet
+    "barkin": _resolve_stub,   # Thomas Barkin — no known stream source yet
+}
+
+
+async def default_stream_resolver(event: CalendarEvent) -> str | None:
+    """Config-driven dispatch: match event name / speaker_id against _STREAM_DISPATCH.
+
+    Each entry in _STREAM_DISPATCH is a keyword checked as a substring of
+    event.name (lowercased) and event.speaker_id (lowercased). Add new
+    speakers by inserting a key → resolver pair — no code changes elsewhere.
+    """
+    name_lower = event.name.lower()
+    speaker_lower = (event.speaker_id or "").lower()
+    for key, resolver in _STREAM_DISPATCH.items():
+        if key in name_lower or key in speaker_lower:
+            return await resolver(event)
+    log.info(
+        "no stream resolver matched for %s (speaker=%s)",
+        event.name, event.speaker_id,
+    )
+    return None
 
 
 def default_provider_factory() -> SpeechToTextProvider:
