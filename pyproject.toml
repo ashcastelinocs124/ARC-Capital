@@ -74,6 +74,7 @@ pythonpath = ["src"]
 addopts = "-q --strict-markers"
 markers = [
     "live: hits real OpenAI / network (skip in CI)",
+    "backtest: regression suite over deterministic components (run separately in CI)",
 ]
 
 [tool.ruff]
