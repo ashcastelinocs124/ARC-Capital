@@ -48,3 +48,15 @@ def test_run_all_figure_deviation_returns_one_per_fixture():
     assert pos_pass_rate >= 0.80, f"positive-case pass rate {pos_pass_rate:.2f} < 0.80"
     neg = [r for r in results if "abs_value_max" in r.expected]
     assert all(r.passed for r in neg), [r for r in neg if not r.passed]
+
+
+def test_runner_records_lexicon_version_in_actual():
+    fixture = {
+        "case_id": "synth_v",
+        "lexicon": "hawkish_dovish_v1",
+        "transcript_excerpt": "Further firming is warranted.",
+        "expected": {"value_sign": "positive", "abs_value_min": 0.0},
+    }
+    result = run_figure_deviation_case(fixture)
+    assert "lexicon_version" in result.actual
+    assert result.actual["lexicon_version"] == "hawkish_dovish_v1"
