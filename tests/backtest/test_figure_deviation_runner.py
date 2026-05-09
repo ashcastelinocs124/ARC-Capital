@@ -37,3 +37,14 @@ def test_diverging_sign_fails():
     }
     result = run_figure_deviation_case(fixture)
     assert result.passed is False
+
+
+def test_run_all_figure_deviation_returns_one_per_fixture():
+    from castelino.backtest_regression.runner import run_all_figure_deviation
+    results = run_all_figure_deviation()
+    assert len(results) == 7
+    pos = [r for r in results if "value_sign" in r.expected]
+    pos_pass_rate = sum(r.passed for r in pos) / max(1, len(pos))
+    assert pos_pass_rate >= 0.80, f"positive-case pass rate {pos_pass_rate:.2f} < 0.80"
+    neg = [r for r in results if "abs_value_max" in r.expected]
+    assert all(r.passed for r in neg), [r for r in neg if not r.passed]

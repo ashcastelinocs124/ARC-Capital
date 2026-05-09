@@ -159,3 +159,9 @@ def run_figure_deviation_case(fixture: dict) -> CaseResult:
         expected=expected,
         notes="; ".join(failures) if failures else None,
     )
+
+
+def run_all_figure_deviation() -> list[CaseResult]:
+    return [
+        run_figure_deviation_case(f) for f in _load_fixture_dir("figure_deviation")
+    ]
