@@ -1,0 +1,12 @@
+{
+  "case_id": "powell_2024-09-18_cut",
+  "date": "2024-09-18",
+  "lexicon": "hawkish_dovish_v1",
+  "description": "Surprise 50bp cut - inflation moderating, balanced risks",
+  "transcript_excerpt": "We see good progress on inflation and the economy is well-positioned. Risks are now approaching balance.",
+  "expected": {
+    "value_sign": "negative",
+    "abs_value_min": 0.20,
+    "must_hit_terms_any": ["good progress", "well-positioned", "approaching balance"]
+  }
+}

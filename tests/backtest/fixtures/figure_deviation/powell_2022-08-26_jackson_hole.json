@@ -1,0 +1,12 @@
+{
+  "case_id": "powell_2022-08-26_jackson_hole",
+  "date": "2022-08-26",
+  "lexicon": "hawkish_dovish_v1",
+  "description": "Jackson Hole - pain to bring inflation down",
+  "transcript_excerpt": "Restoring price stability will require us to remain restrictive for some time. Inflation remains too high and we have more work to do.",
+  "expected": {
+    "value_sign": "positive",
+    "abs_value_min": 0.30,
+    "must_hit_terms_any": ["remain restrictive", "inflation remains too high", "more work to do"]
+  }
+}

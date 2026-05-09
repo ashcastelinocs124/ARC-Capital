@@ -1,0 +1,8 @@
+{
+  "case_id": "powell_2024-11-07_routine",
+  "date": "2024-11-07",
+  "lexicon": "hawkish_dovish_v1",
+  "description": "Routine post-FOMC presser, no rhetorical pivot",
+  "transcript_excerpt": "Today the Committee voted to lower the target range by twenty-five basis points. The economy continues to expand at a solid pace and the labor market has cooled from its overheated state earlier this year.",
+  "expected": {"abs_value_max": 0.10}
+}

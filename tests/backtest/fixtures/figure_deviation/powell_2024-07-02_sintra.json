@@ -1,0 +1,12 @@
+{
+  "case_id": "powell_2024-07-02_sintra",
+  "date": "2024-07-02",
+  "lexicon": "hawkish_dovish_v1",
+  "description": "Sintra ECB forum - disinflation back on track",
+  "transcript_excerpt": "We're seeing considerable progress on inflation. The labor market is moderating and price pressures are softening.",
+  "expected": {
+    "value_sign": "negative",
+    "abs_value_min": 0.15,
+    "must_hit_terms_any": ["considerable progress", "moderating", "softening"]
+  }
+}

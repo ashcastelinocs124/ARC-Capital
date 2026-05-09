@@ -1,0 +1,8 @@
+{
+  "case_id": "powell_2025-03-19_routine",
+  "date": "2025-03-19",
+  "lexicon": "hawkish_dovish_v1",
+  "description": "Routine FOMC, no clear pivot",
+  "transcript_excerpt": "The Committee maintained the target range. Members reviewed the economic projections and discussed risks to the outlook over the projection horizon.",
+  "expected": {"abs_value_max": 0.10}
+}

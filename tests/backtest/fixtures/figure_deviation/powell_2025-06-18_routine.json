@@ -1,0 +1,8 @@
+{
+  "case_id": "powell_2025-06-18_routine",
+  "date": "2025-06-18",
+  "lexicon": "hawkish_dovish_v1",
+  "description": "Routine FOMC presser",
+  "transcript_excerpt": "Members reviewed conditions across financial markets and noted the path of consumer spending. The vote on the policy decision was unanimous.",
+  "expected": {"abs_value_max": 0.10}
+}

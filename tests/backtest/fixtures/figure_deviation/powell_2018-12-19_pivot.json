@@ -1,0 +1,12 @@
+{
+  "case_id": "powell_2018-12-19_pivot",
+  "date": "2018-12-19",
+  "lexicon": "hawkish_dovish_v1",
+  "description": "Hawkish FOMC presser that triggered Q4 2018 selloff",
+  "transcript_excerpt": "We have a long way to go before policy reaches neutral. Further tightening is warranted given the tight labor market and ongoing risks.",
+  "expected": {
+    "value_sign": "positive",
+    "abs_value_min": 0.20,
+    "must_hit_terms_any": ["long way to go", "further tightening", "warranted"]
+  }
+}
