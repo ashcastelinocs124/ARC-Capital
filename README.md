@@ -61,41 +61,44 @@ The system is split into three layers — **trigger detection** (when does the p
                           TRIGGER LAYER (deterministic + LLM scorer)
 ══════════════════════════════════════════════════════════════════════════
 
-   FRED + yfinance     RSS feeds      Sonar non-US     LIVE AUDIO
-   (calendar)          (headlines)    (calendar)       (FOMC/ECB pressers)
+   FRED + yfinance     RSS feeds      Sonar non-US      FIGURE SOURCES
+   (calendar)          (headlines)    (calendar)        (audio + tweets)
         │                  │                │                │
         ▼                  ▼                ▼                ▼
-  ┌──────────┐       ┌──────────┐    ┌────────────┐  ┌──────────────┐
-  │ Calendar │       │ ~20 head-│    │ Calendar   │  │ Deepgram STT │
-  │ events   │       │ lines    │    │ events     │  │ nova-2-finance
-  └────┬─────┘       └─────┬────┘    └─────┬──────┘  └──────┬───────┘
+  ┌──────────┐       ┌──────────┐    ┌────────────┐  ┌──────────────────┐
+  │ Calendar │       │ ~20 head-│    │ Calendar   │  │ Audio: Deepgram  │
+  │ events   │       │ lines    │    │ events     │  │ nova-2-finance   │
+  └────┬─────┘       └─────┬────┘    └─────┬──────┘  │ X API: GET tweets│
+       │                   │               │         │ (since_id polling)│
+       │           ┌───────▼─────────┐     │         └──────┬───────────┘
+       │           │ SIGNIFICANCE    │ P1  │                │
+       │           │ SCORER (LLM)    │     │         ┌──────▼────────────┐
+       │           │ → 0–1 + growth  │     │         │ FigurePost stream │
+       │           │   /inflation    │     │         │ (uniform across   │
+       │           │   direction     │     │         │  audio + tweets)  │
+       │           └───────┬─────────┘     │         └──────┬────────────┘
        │                   │               │                │
-       │           ┌───────▼─────────┐     │       ┌────────▼────────────┐
-       │           │ SIGNIFICANCE    │ P1  │       │ Sentence segmenter  │
-       │           │ SCORER (LLM)    │     │       │ (resp. abbreviations)
-       │           │ → 0–1 + growth  │     │       └────────┬────────────┘
-       │           │   /inflation    │     │                │
-       │           │   direction     │     │       ┌────────▼─────────────┐
-       │           └───────┬─────────┘     │       │ HAWKISH/DOVISH SCORER│
-       │                   │               │       │ (versioned lexicon)   │
-       │           ┌───────▼──────────┐    │       └────────┬─────────────┘
-       │           │ TECHNICAL        │    │                │
-       │           │ READINESS x0.7-1.5│   │       ┌────────▼─────────────┐
-       │           │ (RSI/MACD/OBV)   │    │       │ DEVIATION DETECTOR   │
-       │           └───────┬──────────┘    │       │ z-score vs persona   │
-       │                   │               │       │ baseline (>1.5σ)     │
-       │           ┌───────▼──────────┐    │       └────────┬─────────────┘
-       │           │ TWO-PASS ENRICH  │ P2 │                │
-       │           │ Polymarket + X   │    │       ┌────────▼─────────────┐
-       │           │ (borderlines)    │    │       │ LLM GATE             │
-       │           └───────┬──────────┘    │       │ (structural shift?)  │
-       │                   │               │       └────────┬─────────────┘
-       │           ┌───────▼──────────┐    │                │
-       │           │ CONVICTION       │    │                │
-       │           │ LEDGER           │    │                │
+       │           ┌───────▼──────────┐    │         ┌──────▼─────────────┐
+       │           │ TECHNICAL        │    │         │ MULTI-LEXICON      │
+       │           │ READINESS x0.7-1.5│   │         │ SCORER (per figure)│
+       │           │ (RSI/MACD/OBV)   │    │         │ • hawkish/dovish   │
+       │           └───────┬──────────┘    │         │ • trade_protect.   │
+       │                   │               │         │ • fed_pressure     │
+       │           ┌───────▼──────────┐    │         │ • regulatory(×4)   │
+       │           │ TWO-PASS ENRICH  │ P2 │         └──────┬─────────────┘
+       │           │ Polymarket + X   │    │                │
+       │           │ (borderlines)    │    │         ┌──────▼─────────────┐
+       │           └───────┬──────────┘    │         │ DEVIATION GATE     │
+       │                   │               │         │ z-score vs persona │
+       │           ┌───────▼──────────┐    │         │ baseline (>1.5σ)   │
+       │           │ CONVICTION       │◀───┼─────────┤ + movement filter  │
+       │           │ LEDGER           │    │         └──────┬─────────────┘
        │           │ (12h decay)      │    │                │
-       │           └───────┬──────────┘    │                │
-       │                   │               │                │
+       │           └───────┬──────────┘    │         ┌──────▼─────────────┐
+       │                   │               │         │ STAGE B (LLM gate) │
+       │                   │               │         │ + FigureProfile RAG│
+       │                   │               │         │ retrieval          │
+       │                   │               │         └──────┬─────────────┘
        └────────┬──────────┼───────────────┘                │
                 │          │                                │
                 ▼          ▼                                ▼
@@ -105,7 +108,8 @@ The system is split into three layers — **trigger detection** (when does the p
        ║  ② Regime shift      XGBoost label flip             ║
        ║  ③ Conviction        decayed sum ≥ 2.5              ║
        ║  ④ Calendar          high-impact event imminent     ║
-       ║  ⑤ Speech deviation  >1.5σ + LLM confirms shift     ║
+       ║  ⑤ Figure deviation  >1.5σ + LLM confirms (audio +   ║
+       ║                       X tweets, multi-lexicon)       ║
        ║  ⑥ Cron fallback     24h since last fire            ║
        ╚════════════════╤═════════════════════════════════════╝
                         │
@@ -262,7 +266,8 @@ Every agent's output is a **Pydantic model with hard constraints**. Examples:
 ## Highlights
 
 - **Conviction-based triggers** — accumulated directional signals, not single-event reactions. Medium-significance headlines that individually wouldn't fire the pipeline can collectively trigger it when they all point the same direction.
-- **Live speech listener** — Deepgram STT streams Fed/ECB pressers in real time, scored against per-speaker hawkish/dovish baselines. Fires when tone deviates >1.5σ AND an LLM confirms a structural shift.
+- **Persona-relative figure-deviation engine** — multi-source / multi-lexicon tone-scoring tracks named public figures (Powell + Fed officials via Deepgram audio, Trump via X API v2 tweet polling). Each figure scores against their *own* twelve-month rhetorical baseline, so a dovish Powell turning hawkish — or Trump escalating from "considering tariffs" to "starting Monday" — produces a signal that absolute-tone scoring would miss. Trump scores on three lexicons in parallel (`trade_protectionist_v1`, `fed_pressure_v1`, `regulatory_stance_v1` with crypto/oil/defence/tech sub-axes); a single tweet can fire on multiple dimensions independently.
+- **FigureProfile RAG layer** — per-figure Chroma corpus (track record, behavioural patterns, tweet→outcome examples, current cabinet, rhetorical tells) retrieved into Stage B confirmation and the Hypothesis Agent's analogy reasoning. Stage B sees behavioural-pattern slices ("starting Monday" → 71% follow-through with named advisors); the Hypothesis Agent sees outcome examples and track record for analogy-based horizon/conviction calibration.
 - **Two-pass significance scoring** — borderline headlines get re-scored with Polymarket prediction market data and X/Twitter sentiment to separate real signals from noise.
 - **Perplexity Sonar integration** — headlines enriched with ~200-word search-grounded summaries. Non-US calendar events (ECB, BoJ, OPEC) fetched in real-time.
 - **Regime-aware pipeline** — XGBoost nowcasters (growth + inflation) label the macro environment. Agents receive regime context; asset selection prioritizes regime-aligned instruments.
@@ -289,7 +294,17 @@ CKM-Capital/
 │   ├── growth_leading_indicators.yaml
 │   ├── inflation_leading_indicators.yaml
 │   ├── regime_sector_cheat_sheet.yaml
-│   └── ism_manufacturing_pmi.csv   # INDPRO-based proxy for ISM PMI
+│   ├── ism_manufacturing_pmi.csv   # INDPRO-based proxy for ISM PMI
+│   ├── lexicons/                   # versioned tone-deviation lexicons
+│   │   ├── hawkish_dovish_v1.yaml  #   Fed speech (Powell, Bullard, Williams)
+│   │   ├── trade_protectionist_v1.yaml  # Trump trade rhetoric
+│   │   ├── fed_pressure_v1.yaml         # Trump Fed-pressuring rhetoric
+│   │   └── regulatory_stance_v1.yaml    # Trump sectoral stance (4 sub-axes)
+│   ├── personas/                   # audio-source SpeakerPersona files
+│   │   └── <speaker_id>/<lexicon>.json  # nested layout (Wave 2.3)
+│   ├── figure_baselines/           # generic FigureBaseline files (per fig × lex)
+│   └── figure_profiles/            # per-figure RAG corpus (Chroma + sources/)
+│       └── <figure_id>/{sources/,index.json,card.json,version.json}
 │
 ├── src/castelino/
 │   ├── config.py                   # typed Settings + env loader
@@ -323,17 +338,37 @@ CKM-Capital/
 │   │   ├── readiness.py            # technical readiness multiplier (RSI/MACD/OBV)
 │   │   ├── polymarket.py           # Polymarket CLOB API integration
 │   │   ├── risk_gate.py            # 4-tier risk-off enforcement gate
-│   │   ├── speech/                 # NEW: live Fed/ECB speech listener
-│   │   │   ├── orchestrator.py     #   spawns listener thread per event
+│   │   ├── figure_deviation/       # multi-source / multi-lexicon tone-deviation
+│   │   │   ├── models.py           #   FigurePost, FigureBaseline, LexiconScore,
+│   │   │   │                       #   FigureDeviationTrigger
+│   │   │   ├── speech_models.py    #   audio-source-specific types (legacy)
+│   │   │   ├── source/
+│   │   │   │   ├── base.py         #   FigurePostSource ABC
+│   │   │   │   ├── audio.py        #   Deepgram → SpeechSegment → FigurePost
+│   │   │   │   └── x_api.py        #   X API v2 tweet polling (since_id)
+│   │   │   ├── scorer.py           #   multi-lexicon scorer + sub-axis support
+│   │   │   ├── baseline.py         #   audio-source baseline builder (legacy)
+│   │   │   ├── baseline_store.py   #   per-(figure × lexicon) FigureBaseline
+│   │   │   │                       #   with version-mismatch hard-fail
+│   │   │   ├── gate.py             #   per-pair Stage A z-score gate
+│   │   │   ├── deviation.py        #   single-shot z-score helper (legacy)
+│   │   │   ├── stage_b.py          #   LLM confirmation + profile retrieval
+│   │   │   ├── dispatcher.py       #   fan-out across N lexicons + cooldown
+│   │   │   ├── polling.py          #   poll all non-audio sources on cadence
+│   │   │   ├── conviction_feed.py  #   tag→growth/inflation translation feed
+│   │   │   ├── orchestrator.py     #   audio listener orchestration (legacy)
 │   │   │   ├── listener.py         #   stream → SpeechSegment per sentence
 │   │   │   ├── stt_deepgram.py     #   Deepgram nova-2-finance integration
-│   │   │   ├── scorer.py           #   hawkish/dovish lexicon scorer
-│   │   │   ├── persona.py          #   per-speaker baseline distribution
-│   │   │   ├── baseline.py         #   z-score vs persona
-│   │   │   ├── deviation.py        #   >1.5σ threshold + cooldown
-│   │   │   ├── llm_gate.py         #   Stage B: confirms structural shift
-│   │   │   ├── emitter.py          #   constructs SPEECH_DEVIATION trigger
-│   │   │   └── queue.py            #   hand-off to runner.tick()
+│   │   │   ├── persona.py          #   audio-source persona builder (nested layout)
+│   │   │   ├── llm_gate.py         #   speech-specific Stage B (legacy)
+│   │   │   ├── emitter.py          #   constructs FIGURE_DEVIATION trigger
+│   │   │   ├── queue.py            #   hand-off to runner.tick()
+│   │   │   ├── streams.py · stt.py · events.py
+│   │   │   ├── scrapers/fed.py     #   federalreserve.gov speech scraper
+│   │   │   └── profile/            #   FigureProfile RAG layer
+│   │   │       ├── models.py       #     FigureCard, RetrievedChunk, Chunk
+│   │   │       ├── store.py        #     Chroma-shaped per-figure store
+│   │   │       └── hypothesis_helpers.py  # Hypothesis Agent context builder
 │   │   └── runner.py               # `castelino watch` — 6 trigger paths
 │   ├── forecast/
 │   │   ├── regime.py               # XGBoost growth + inflation nowcasters
@@ -351,7 +386,8 @@ CKM-Capital/
 │
 ├── scripts/
 │   ├── seed_book.py · reset_demo.py · replay.py
-│   └── build_ism_pmi_proxy.py
+│   ├── build_ism_pmi_proxy.py
+│   └── migrate_persona_layout.py   # data/personas/<id>.json → nested (reversible)
 │
 └── tests/
 ```
