@@ -145,14 +145,16 @@ def _ensure_journal_files() -> None:
     if not p.short_term_md.exists():
         p.short_term_md.write_text(
             "# Castelino Capital — Short-Term Journal\n\n"
-            "Rolling working memory. Auto-written by the pipeline.\n\n"
+            "Rolling working memory. Auto-written by the pipeline.\n\n",
+            encoding="utf-8",
         )
     if not p.short_term_index.exists():
-        p.short_term_index.write_text("{}")
+        p.short_term_index.write_text("{}", encoding="utf-8")
     if not p.long_term_md.exists():
         p.long_term_md.write_text(
             "# Castelino Capital — Long-Term Journal\n\n"
-            "Curator-written lessons. One entry per pattern.\n\n"
+            "Curator-written lessons. One entry per pattern.\n\n",
+            encoding="utf-8",
         )
 
 
@@ -184,17 +186,17 @@ def append_short_term(entry: JournalEntry, who: WriterIdentity) -> None:
     block = _serialize_entry(entry)
     # Compute byte offset *before* the write so the index points at the start.
     offset = p.short_term_md.stat().st_size
-    with p.short_term_md.open("a") as f:
-        f.write(block)
+    with p.short_term_md.open("ab") as f:
+        f.write(block.encode("utf-8"))
 
-    idx = json.loads(p.short_term_index.read_text() or "{}")
+    idx = json.loads(p.short_term_index.read_text(encoding="utf-8") or "{}")
     idx[entry.entry_id] = {
         "kind": entry.kind,
         "offset": offset,
         "length": len(block.encode("utf-8")),
         "timestamp": entry.timestamp.isoformat(),
     }
-    p.short_term_index.write_text(json.dumps(idx, indent=2, default=str))
+    p.short_term_index.write_text(json.dumps(idx, indent=2, default=str), encoding="utf-8")
 
 
 def append_long_term(lesson: LongTermLesson, who: WriterIdentity) -> None:
@@ -202,7 +204,7 @@ def append_long_term(lesson: LongTermLesson, who: WriterIdentity) -> None:
     _check_write(Journal.LONG_TERM, who, "append")
     _ensure_journal_files()
     p = _paths()
-    with p.long_term_md.open("a") as f:
+    with p.long_term_md.open("a", encoding="utf-8") as f:
         f.write(_serialize_entry(lesson))
 
 
@@ -237,8 +239,8 @@ def trim_short_term(keep_entry_ids: set[str], who: WriterIdentity) -> int:
         body_parts.append(block)
         cursor += len(block.encode("utf-8"))
 
-    p.short_term_md.write_text(header + "".join(body_parts))
-    p.short_term_index.write_text(json.dumps(new_idx, indent=2, default=str))
+    p.short_term_md.write_bytes((header + "".join(body_parts)).encode("utf-8"))
+    p.short_term_index.write_text(json.dumps(new_idx, indent=2, default=str), encoding="utf-8")
     return dropped
 
 
@@ -250,7 +252,7 @@ def read_short_term() -> list[JournalEntry]:
     p = _paths()
     if not p.short_term_md.exists():
         return []
-    raw = p.short_term_md.read_text()
+    raw = p.short_term_md.read_text(encoding="utf-8")
     return _parse_entries(raw)
 
 
@@ -258,14 +260,14 @@ def read_long_term() -> list[LongTermLesson]:
     p = _paths()
     if not p.long_term_md.exists():
         return []
-    raw = p.long_term_md.read_text()
+    raw = p.long_term_md.read_text(encoding="utf-8")
     parsed = _parse_entries(raw)
     return [e for e in parsed if isinstance(e, LongTermLesson)]
 
 
 def read_principles() -> str:
     p = _paths()
-    return p.principles_md.read_text() if p.principles_md.exists() else ""
+    return p.principles_md.read_text(encoding="utf-8") if p.principles_md.exists() else ""
 
 
 def _parse_entries(raw: str) -> list[JournalEntry]:
@@ -299,7 +301,7 @@ def find_by_id(entry_id: str) -> JournalEntry | None:
     p = _paths()
     if not p.short_term_index.exists():
         return None
-    idx = json.loads(p.short_term_index.read_text() or "{}")
+    idx = json.loads(p.short_term_index.read_text(encoding="utf-8") or "{}")
     record = idx.get(entry_id)
     if not record:
         return None

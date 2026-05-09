@@ -123,13 +123,15 @@ def test_news_dedupes_seen_headlines(monkeypatch):
     class FakeFeed:
         feed = type("F", (), {"get": staticmethod(lambda k, d="": "Fake Source")})
         entries = [
-            {"link": "http://x/1", "title": "Hello", "published_parsed": (2026, 5, 1, 12, 0, 0)},
-            {"link": "http://x/2", "title": "World", "published_parsed": (2026, 5, 1, 12, 1, 0)},
+            # No published_parsed — _parse_published falls back to datetime.now(UTC),
+            # keeping entries safely within the 7-day pruning window.
+            {"link": "http://x/1", "title": "Hello"},
+            {"link": "http://x/2", "title": "World"},
         ]
 
     monkeypatch.setattr(newsmod.feedparser, "parse", lambda url: FakeFeed)
     h1 = newsmod.fetch_recent()
-    assert len(h1) == 2 * len(["fake feeds"])  # rss_feeds in config has 4 entries → returns 4*2=8 unique by link
+    assert len(h1) == 2  # 2 unique links; dedup collapses hits from every feed URL
     # Second run should return zero new
     h2 = newsmod.fetch_recent()
     assert len(h2) == 0

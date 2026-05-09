@@ -397,6 +397,10 @@ def _save_regime_key(key: str) -> None:
 
 
 
+def replay_historical(days: int) -> None:
+    log.warning("replay_historical(%d) called but replay is not yet implemented", days)
+
+
 def set_trading_enabled(enabled: bool) -> None:
     state = _load_system_state()
     state["trading_enabled"] = bool(enabled)

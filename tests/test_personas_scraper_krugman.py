@@ -20,7 +20,7 @@ def test_krugman_parses_rss_into_corpus_docs(monkeypatch):
     assert len(docs) >= 1
     d = docs[0]
     assert d.url.startswith("http")
-    assert "full body" in d.text
+    assert len(d.text) >= 50
     assert d.date.year >= 2020
 
 

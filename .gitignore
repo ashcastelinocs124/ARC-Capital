@@ -66,6 +66,7 @@ data/system_state.json
 data/news_cache.json
 data/calendar_cache.json
 data/regime_forecast.json
+data/approval_queue.json
 reports/
 
 # Worktrees
