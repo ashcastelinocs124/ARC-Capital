@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from dotenv import load_dotenv
@@ -174,6 +175,69 @@ class PersonaCfg(BaseModel):
     active_roster: list[str] = Field(default_factory=list)
 
 
+# ────────────────────────── figure_deviation (Wave 1) ────────────────────────
+# Generalises `speech.speakers` into a multi-source, multi-lexicon engine.
+# Existing Fed speakers are ported here in Wave 1. Trump (X API) lands in
+# Wave 5. The legacy `speech` config above is retained while the migration
+# happens — the two coexist until Wave 2.
+
+
+class LexiconCfg(BaseModel):
+    """One lexicon configuration on a tracked figure. A figure may have N
+    lexicons that fire independently in parallel (see Trump → trade /
+    fed-pressure / regulatory)."""
+
+    name: str
+    threshold_sigma: float = 1.5
+    window_size: int = 5
+    directional_tags_positive: list[str] = Field(default_factory=list)
+    directional_tags_negative: list[str] = Field(default_factory=list)
+    sub_axes: dict[str, list[str]] | None = None  # only for multi-axis lexicons
+
+
+class TrackedFigureSourceCfg(BaseModel):
+    """Source for a tracked figure's posts. `audio` for Fed speakers (existing
+    Deepgram path), `x_api` for Trump (Wave 5), `sonar_tweet` reserved for
+    figures without an X presence."""
+
+    type: Literal["audio", "x_api", "sonar_tweet"]
+    # audio path:
+    provider: str | None = None
+    stream_resolver: str | None = None
+    # x_api / sonar_tweet path:
+    username: str | None = None
+    handles: list[str] | None = None
+    poll_interval_min: int | None = None
+
+
+class TrackedFigureBaselineCfg(BaseModel):
+    """Per-figure baseline window + decay. Refreshed on the cadence below."""
+
+    window_days: int = 365
+    time_decay_half_life_days: int = 90
+    refresh_cadence_days: int = 7
+
+
+class TrackedFigureCfg(BaseModel):
+    """One figure being tracked. Holds its sources, lexicons, baseline params,
+    and presentational metadata."""
+
+    id: str
+    display_name: str
+    sources: list[TrackedFigureSourceCfg]
+    lexicons: list[LexiconCfg]
+    baseline: TrackedFigureBaselineCfg = TrackedFigureBaselineCfg()
+
+
+class FigureDeviationCfg(BaseModel):
+    """Top-level figure-deviation engine config. Wave 2 will connect this to
+    the orchestrator; Wave 1 just establishes the schema."""
+
+    enabled: bool = True
+    poll_interval_min: int = 30
+    figures: list[TrackedFigureCfg] = Field(default_factory=list)
+
+
 class Settings(BaseModel):
     fund: FundCfg
     models: ModelsCfg
@@ -190,6 +254,7 @@ class Settings(BaseModel):
     openbb: OpenBBCfg = OpenBBCfg()
     sonar: SonarCfg = SonarCfg()
     speech: SpeechCfg = SpeechCfg()
+    figure_deviation: FigureDeviationCfg = FigureDeviationCfg()
     personas: PersonaCfg = PersonaCfg()
     paths: PathsCfg
     root: Path

@@ -154,6 +154,36 @@ speech:
       full_name: Jerome H. Powell
       role: Chair, Federal Reserve
 
+# figure_deviation: generalised tone-deviation engine that supersedes `speech`
+# above. Wave 1 ports existing Fed speakers; Wave 5 adds Trump (X API).
+# Both coexist until the migration in Wave 2.
+figure_deviation:
+  enabled: true
+  poll_interval_min: 30
+  figures:
+    - id: powell
+      display_name: Jerome H. Powell
+      sources:
+        - type: audio
+          provider: deepgram
+          stream_resolver: fed_event_calendar
+      lexicons:
+        - name: hawkish_dovish_v1
+          threshold_sigma: 1.5
+          window_size: 5
+          directional_tags_positive:
+            - rates_up
+            - usd_up
+            - gold_down
+          directional_tags_negative:
+            - rates_down
+            - usd_down
+            - gold_up
+      baseline:
+        window_days: 365
+        time_decay_half_life_days: 90
+        refresh_cadence_days: 7
+
 personas:
   enabled: true
   chat_model: gpt-4o-mini
