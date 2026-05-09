@@ -34,6 +34,13 @@ Non-negotiable rules:
    consistent with headlines and leading-indicator reads. If the news flow
    strongly contradicts that quadrant, say so explicitly and explain which
    signal you are prioritizing.
+8. When FIGURE DEVIATION CONTEXT is present, the trigger came from a tracked
+   figure's tone-deviation. Treat the directional_tags as a STRONG PRIOR on
+   `expected_directional_moves` unless your reasoning produces a stronger
+   contradicting view; if it does, explain the override in `rationale`.
+   Use the retrieved profile chunks (outcome examples, track record) as
+   analogy basis — match the current event to the closest historical
+   precedent and use that to calibrate horizon + conviction.
 
 This is a TOP-DOWN macro thesis, not a stock pick. Frame it in regime terms
 ("disinflation continues", "USD top is in", "energy supply shock"), not company
@@ -49,7 +56,12 @@ class HypothesisAgent(StructuredAgent[Hypothesis]):
     def system_prompt(self) -> str:
         return SYSTEM
 
-    def user_prompt(self, *, world_state: WorldStateBrief, macro_context: str = "") -> str:
+    def user_prompt(
+        self, *,
+        world_state: WorldStateBrief,
+        macro_context: str = "",
+        figure_deviation_context: str = "",
+    ) -> str:
         principles = memio.read_principles()
         recent_hypotheses = [
             f"- {e.thesis} (regime={e.regime.value}, conviction={e.conviction.value})"
@@ -61,7 +73,11 @@ class HypothesisAgent(StructuredAgent[Hypothesis]):
         ]
         return (
             f"MACRO REGIME CONTEXT:\n{macro_context}\n\n"
-            f"World-state brief:\n{world_state.summary}\n\n"
+            + (
+                f"FIGURE DEVIATION CONTEXT:\n{figure_deviation_context}\n\n"
+                if figure_deviation_context else ""
+            )
+            + f"World-state brief:\n{world_state.summary}\n\n"
             f"Headlines: {world_state.headlines}\n"
             f"Surprises: {world_state.surprises}\n"
             f"Macro signals: {world_state.macro_signals}\n"
