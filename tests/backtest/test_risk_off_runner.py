@@ -55,3 +55,11 @@ def test_with_stubbed_forecast_context():
         f = read_forecast()
         assert f is not None
         assert abs(f.prob_risk_off - 0.55) < 1e-9
+
+
+def test_run_all_risk_off_returns_one_result_per_fixture():
+    from castelino.backtest_regression.runner import run_all_risk_off
+    results = run_all_risk_off()
+    assert len(results) == 8
+    assert all(r.component == "risk_off" for r in results)
+    assert all(r.passed for r in results), [r for r in results if not r.passed]

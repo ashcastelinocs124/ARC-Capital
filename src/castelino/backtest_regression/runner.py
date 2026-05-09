@@ -1,13 +1,24 @@
 """Per-component runners for the backtest regression suite."""
 from __future__ import annotations
 
+import json
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from pathlib import Path
 from unittest.mock import patch as _patch
 
 from castelino.backtest_regression.models import CaseResult
 from castelino.forecast.risk_off import RiskOffForecast, read_forecast  # patched in tests
 from castelino.triggers.risk_gate import evaluate as evaluate_risk_gate
+
+_FIXTURE_ROOT = Path(__file__).parent.parent.parent.parent / "tests" / "backtest" / "fixtures"
+
+
+def _load_fixture_dir(subdir: str) -> list[dict]:
+    path = _FIXTURE_ROOT / subdir
+    if not path.is_dir():
+        return []
+    return [json.loads(f.read_text()) for f in sorted(path.glob("*.json"))]
 
 
 @contextmanager
@@ -81,3 +92,11 @@ def run_risk_off_case(fixture: dict) -> CaseResult:
         actual=actual,
         expected=expected,
     )
+
+
+def run_all_risk_off() -> list[CaseResult]:
+    out: list[CaseResult] = []
+    for fixture in _load_fixture_dir("risk_off"):
+        with with_stubbed_forecast(fixture["inputs"]["prob_risk_off"]):
+            out.append(run_risk_off_case(fixture))
+    return out
