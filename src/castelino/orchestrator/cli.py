@@ -714,5 +714,40 @@ def persona_build(
     print(f"[green]Persona built:[/green] {persona_id}")
 
 
+@app.command("backtest-regression")
+def backtest_regression(
+    components: str = typer.Option(
+        "risk_off,figure_deviation,materialize_order",
+        help="Comma-separated subset of components to run.",
+    ),
+    out_dir: str = typer.Option(
+        "data/backtest_runs",
+        help="Where to write the markdown + JSON report.",
+    ),
+) -> None:
+    """Run the deterministic-component regression suite."""
+    from castelino.backtest_regression.runner import (
+        run_all_risk_off,
+        run_all_figure_deviation,
+        run_all_materialize_order,
+    )
+    from castelino.backtest_regression.report import write_report
+
+    requested = {c.strip() for c in components.split(",") if c.strip()}
+    results = []
+    if "risk_off" in requested:
+        results.extend(run_all_risk_off())
+    if "figure_deviation" in requested:
+        results.extend(run_all_figure_deviation())
+    if "materialize_order" in requested:
+        results.extend(run_all_materialize_order())
+
+    out = write_report(results, base_dir=Path(out_dir))
+    total = len(results)
+    passed = sum(r.passed for r in results)
+    print(f"[bold]Backtest regression: {passed}/{total} passed[/bold]")
+    print(f"Report: {out / 'report.md'}")
+
+
 if __name__ == "__main__":
     app()
