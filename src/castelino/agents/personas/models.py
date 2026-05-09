@@ -67,3 +67,11 @@ class PersonaCard(BaseModel):
     signature_phrases: list[str] = Field(default_factory=list)
     famous_calls: list[FamousCall] = Field(default_factory=list)
     voice_notes: str = ""
+
+
+class PersonaStandaloneThread(BaseModel):
+    """Free-form rolling chat with a persona — not tied to an approval."""
+    persona_id: str
+    started_at: datetime
+    last_active_at: datetime
+    messages: list[PersonaMessage] = Field(default_factory=list)

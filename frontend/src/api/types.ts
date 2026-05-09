@@ -156,3 +156,11 @@ export interface PanelDiscussion {
   synthesis: PanelSynthesis;
   created_at: string;
 }
+
+
+export interface PersonaStandaloneThread {
+  persona_id: string;
+  started_at: string;
+  last_active_at: string;
+  messages: PersonaMessage[];
+}

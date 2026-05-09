@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { listPersonas } from "../api/personas";
+import { PersonaStandaloneChatDrawer } from "../components/PersonaStandaloneChatDrawer";
 import type { PersonaCard } from "../api/types";
 
 export default function PersonasPage() {
   const [personas, setPersonas] = useState<PersonaCard[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [chatTarget, setChatTarget] = useState<{
+    id: string; name: string;
+  } | null>(null);
 
   useEffect(() => {
     listPersonas()
@@ -76,14 +80,24 @@ export default function PersonasPage() {
                       <div className="text-xs text-muted mt-0.5">{p.tenure}</div>
                     )}
                   </div>
-                  <button
-                    onClick={() =>
-                      setExpanded(isExpanded ? null : p.persona_id)
-                    }
-                    className="text-xs text-text-2 hover:text-text px-2 py-1 rounded border border-border"
-                  >
-                    {isExpanded ? "Collapse" : "Expand"}
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() =>
+                        setChatTarget({ id: p.persona_id, name: p.full_name })
+                      }
+                      className="text-xs px-2 py-1 rounded border border-border bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium"
+                    >
+                      Chat
+                    </button>
+                    <button
+                      onClick={() =>
+                        setExpanded(isExpanded ? null : p.persona_id)
+                      }
+                      className="text-xs text-text-2 hover:text-text px-2 py-1 rounded border border-border"
+                    >
+                      {isExpanded ? "Collapse" : "Expand"}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-3 text-sm text-text-2 leading-relaxed">
@@ -152,6 +166,15 @@ export default function PersonasPage() {
             );
           })}
         </div>
+      )}
+
+      {chatTarget && (
+        <PersonaStandaloneChatDrawer
+          personaId={chatTarget.id}
+          personaName={chatTarget.name}
+          isOpen={true}
+          onClose={() => setChatTarget(null)}
+        />
       )}
     </div>
   );

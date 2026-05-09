@@ -1,5 +1,5 @@
 import type {
-  PersonaCard, PersonaMessage, PanelDiscussion,
+  PersonaCard, PersonaMessage, PanelDiscussion, PersonaStandaloneThread,
 } from "./types";
 
 const BASE = "/api"; // proxied to localhost:7779 in dev (vite.config.ts)
@@ -32,5 +32,25 @@ export async function runPanel(
 export async function listPersonas(): Promise<PersonaCard[]> {
   const r = await fetch(`${BASE}/personas`);
   if (!r.ok) throw new Error(`personas failed: ${r.status}`);
+  return r.json();
+}
+
+export async function getPersonaThread(
+  personaId: string,
+): Promise<PersonaStandaloneThread> {
+  const r = await fetch(`${BASE}/personas/${personaId}/thread`);
+  if (!r.ok) throw new Error(`thread fetch failed: ${r.status}`);
+  return r.json();
+}
+
+export async function sendPersonaThreadMessage(
+  personaId: string, text: string,
+): Promise<PersonaMessage> {
+  const r = await fetch(`${BASE}/personas/${personaId}/thread/messages`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  if (!r.ok) throw new Error(`send failed: ${r.status}`);
   return r.json();
 }

@@ -61,8 +61,12 @@ This is a starting point. The brainstorming session is exploring variations.
 - Dashboard: new `/approvals/:entryId/consult` route with three-column layout (pending-item summary + decision notes / persona picker + "Run Panel" button / chat thread); `Apply Synthesis` button copies the synthesis into the decision-notes field
 - 5 new dashboard endpoints: list/send conversation messages, run panel, list personas, get persona
 - Personas DO NOT participate in the agent pipeline — they're advisors, invoked only from the dashboard
+- Standalone chat (free-form): each persona card on /personas now has a "Chat" button that opens a slide-over drawer with one rolling thread per persona, persisted to `data/personas/conversations/<id>.json`. 30-day sliding window for LLM context — older messages stay on disk and visible (faded) but don't pay tokens. Reuses `PersonaAgent.chat()` with empty `approval_payload`.
+- Two new endpoints: `GET /personas/:id/thread`, `POST /personas/:id/thread/messages`
+- Sonar fallback (`personas/sonar_fetcher.py`): when a primary scraper (RSS/YouTube/PDF) returns < 3 docs, Perplexity Sonar does web search with citations and returns 2-3 paragraph summaries of recent persona commentary. Cached 24h. Wired into Krugman/El-Erian/Summers scrapers (Project Syndicate global feed only has 20 most recent globally; per-columnist feeds don't exist).
 - Design doc: `docs/plans/2026-05-08-persona-agents-design.md`
 - Implementation plan: `docs/plans/2026-05-08-persona-agents-plan.md` (20 bite-sized TDD tasks across 9 waves)
+- Standalone-chat design doc: `docs/plans/2026-05-08-persona-standalone-chat-design.md`
 
 ### 2026-05-08 — Fed Speech Listener (`SPEECH_DEVIATION` trigger source)
 - New trigger source: streams live Fed speech audio through Deepgram STT, scores each sentence on a versioned hawkish/dovish lexicon, fires the pipeline when a 5-sentence rolling window deviates >1.5σ from the speaker's own 12-month rhetorical baseline
