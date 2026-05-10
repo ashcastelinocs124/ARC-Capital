@@ -263,6 +263,52 @@ CLI:
 - `castelino persona-refresh --speaker powell` — rebuild speaker baseline from historical corpus
 - `castelino speech-test --transcript-file path --dry-run` — replay a transcript through the listener
 
+### Persona Advisors (HITL consultation)
+
+When the pipeline pauses at a HITL gate, the human can consult a roster of **simulated economists and macro investors** before approving / rejecting / amending. Personas are advisors only — they do **not** sit in the trade pipeline. They exist to stress-test a thesis from named perspectives the human respects.
+
+**Roster (v1, macro-only):**
+
+| Persona | Role |
+|---|---|
+| Paul Krugman | Keynesian academic |
+| Mohamed El-Erian | EM / cross-asset strategist |
+| Larry Summers | Inflation hawk / monetary historian |
+| Stanley Druckenmiller | Top-down macro PM |
+| Ray Dalio | Long-cycle / debt-cycle frame |
+| Paul Tudor Jones | Discretionary macro / risk-off bias |
+
+Buffett is intentionally excluded (single-name value investor — wrong frame for a macro fund), but his scraper is kept as a reference template.
+
+**Per-persona pipeline:**
+
+```
+primary scrapers (RSS, YouTube, PDFs)        per-persona Chroma collection
+        │   ─── if < 3 docs ───▶  Sonar fallback     │
+        ▼                              ▼             ▼
+   token-window chunker  ─────▶  embed + persist  ─────▶  auto-generated PersonaCard
+                                                          (belief summary, decision
+                                                           framework, signature phrases,
+                                                           voice notes)
+```
+
+**Three consultation modes** (all from the dashboard):
+
+1. **Per-turn chat** — query embedded → top-k chunks → `PersonaResponse` with `cited_sources`
+2. **Panel mode** — parallel `asyncio.gather` across N personas, no peer visibility (preserves diversity), then a synthesis pass returns `PanelSynthesis(consensus, disagreements, strongest_objection, recommended_modifications)`. An "Apply Synthesis" button copies the synthesis into the decision-notes field.
+3. **Standalone chat** — one rolling thread per persona, **30-day sliding window** for LLM context (older messages stay on disk and visible but don't pay tokens). Persisted to `data/personas/conversations/<id>.json`.
+
+**Multi-persona Rooms** — named persistent rooms ("Stagflation Q4") where multiple personas debate **round-robin with sequential intra-turn visibility** (Krugman sees Summers' just-spoken reply before answering — produces real debate dynamics, not parallel monologues). Streamed to the UI as **NDJSON** so each reply renders as soon as the persona finishes.
+
+**Audit trail:** chat history attaches to `ApprovalItem.conversations[]` and `ApprovalItem.panel_discussions[]`. Every approval keeps the consultation record with it.
+
+CLI:
+
+```bash
+castelino persona-build --persona druckenmiller \
+  --full-name "Stanley Druckenmiller" --role "Top-down macro PM"
+```
+
 ### Schemas enforce safety
 
 Every agent's output is a **Pydantic model with hard constraints**. Examples:
@@ -283,7 +329,8 @@ Every agent's output is a **Pydantic model with hard constraints**. Examples:
 - **Perplexity Sonar integration** — headlines enriched with ~200-word search-grounded summaries. Non-US calendar events (ECB, BoJ, OPEC) fetched in real-time.
 - **Regime-aware pipeline** — XGBoost nowcasters (growth + inflation) label the macro environment. Agents receive regime context; asset selection prioritizes regime-aligned instruments.
 - **Bitcoin in risk-on** — IBIT (BlackRock Bitcoin Trust ETF) available as a trade expression in Reflation regimes only.
-- **Human-in-the-loop gates** — pipeline stalls after hypothesis and after debate verdicts until human approves via CLI.
+- **Human-in-the-loop gates** — pipeline stalls after hypothesis and after debate verdicts until human approves via CLI or dashboard.
+- **Persona advisor consultation at every gate** — six simulated macro economists and investors (Krugman, El-Erian, Summers, Druckenmiller, Dalio, Tudor Jones), each with a per-persona Chroma corpus and auto-generated card. Three modes from the dashboard: per-turn chat, parallel panel with synthesis, multi-persona rooms with round-robin sequential-visibility debate. Full audit trail attached to each approval.
 - **Hypothesis-first funnel** — top-down macro reasoning. The schema rejects a thesis without kill criteria.
 - **Constitutional governance** — `data/core_principles.md` is the human-edited constitution. Hard violations are deterministic vetoes; the LLM is short-circuited entirely.
 - **Deterministic accounting floor** — `NAV_after = NAV_before − slippage − commission` enforced on every state transition.
@@ -340,7 +387,16 @@ CKM-Capital/
 │   │   ├── bull.py · bear.py · debate.py  # all regime-aware
 │   │   ├── guard.py                # hybrid: Python hard rules + LLM soft rules
 │   │   ├── portfolio.py            # translates verdict → TradeOrder
-│   │   └── curator.py              # weekly memory consolidation
+│   │   ├── curator.py              # weekly memory consolidation
+│   │   └── personas/               # HITL advisor system (not in trade pipeline)
+│   │       ├── agent.py            #   single-persona chat
+│   │       ├── panel.py            #   parallel N-persona panel + synthesis
+│   │       ├── rooms.py            #   multi-persona round-robin debate (NDJSON)
+│   │       ├── standalone.py       #   30-day sliding-window free-form chat
+│   │       ├── store.py            #   per-persona Chroma collection
+│   │       ├── corpus.py · build.py · card_builder.py
+│   │       ├── sonar_fetcher.py    #   thin-source fallback (< 3 RSS docs)
+│   │       └── scrapers/{krugman,elerian,summers,dalio,tudor_jones,druckenmiller,buffett}.py
 │   ├── triggers/
 │   │   ├── calendar.py             # FRED US + Sonar non-US calendar
 │   │   ├── news.py                 # RSS + Sonar deep-reads + X sentiment
@@ -390,10 +446,19 @@ CKM-Capital/
 │   │   ├── graph.py                # the DAG + HITL gates
 │   │   ├── approval.py             # approval queue (disk-persisted)
 │   │   └── cli.py                  # `castelino` Typer app
-│   ├── dashboard/                  # OpenBB Workspace integration (6 tabs)
+│   ├── dashboard/                  # FastAPI backend (port 7779)
+│   │   └── endpoints/{portfolio,macro,research,risk,agents,approvals,personas}.py
 │   └── reporting/
 │       ├── equity_curve.py · exposure.py · attribution.py
 │       ├── trade_card.py · dashboard.py
+│
+├── frontend/                       # Vite + React + Tailwind dashboard
+│   └── src/
+│       ├── pages/{Portfolio,Macro,Research,Risk,Agents,Personas,Rooms,RoomChat,
+│       │          Approvals,ApprovalConsult}.tsx
+│       ├── components/layout/{AppShell,Sidebar}.tsx
+│       ├── api/{personas,approvals,...}.ts   # typed clients incl. NDJSON streaming
+│       └── hooks/{usePersonaRoom,useApprovals,...}.ts
 │
 ├── scripts/
 │   ├── seed_book.py · reset_demo.py · replay.py
@@ -482,7 +547,25 @@ castelino growth-search           # explore growth leading indicators
 castelino inflation-search        # explore inflation leading indicators
 castelino persona-refresh --speaker powell   # rebuild speaker baseline from corpus
 castelino speech-test --transcript-file PATH --dry-run    # replay transcript
+castelino persona-build --persona dalio --full-name "Ray Dalio" --role "Long-cycle macro"
+castelino backtest-regression                # diagnostic regression report
 ```
+
+### Dashboard
+
+`castelino serve` boots a **FastAPI backend (port 7779) + Vite/React frontend** with the following routes:
+
+| Route | Purpose |
+|---|---|
+| `/portfolio` | NAV, positions, fills |
+| `/macro` | Regime nowcaster, leading indicators, conviction ledger |
+| `/research` | Per-instrument TA / web / backtest / risk |
+| `/risk` | Risk-off gate, exposures, attribution |
+| `/agents` | Live agent decision feed |
+| `/personas` | Roster + per-persona standalone chat |
+| `/rooms` and `/rooms/:id` | Multi-persona debate rooms |
+| `/approvals` | Pending HITL queue |
+| `/approvals/:entryId/consult` | Three-column consultation view (item summary · persona picker + panel · chat thread + apply-synthesis) |
 
 ---
 
