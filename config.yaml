@@ -201,6 +201,73 @@ personas:
     - dalio
     - tudor_jones
 
+backtest:
+  # Historical backtest harness — gpt-4o, Oct 2023 onwards.
+  # The actual switch is the BACKTEST_AS_OF env var per-tick by the runner;
+  # this section just defines the model overrides + universe + paths.
+  enabled: false
+  reasoning_model: gpt-4o          # cutoff Oct 2023 — no hindsight on backtest window
+  fast_model: gpt-4o-mini
+  auto_approve_post_hypothesis: true
+  auto_approve_post_debate: true
+  bench_instruments: [SPY, TLT]
+  initial_nav: 1000000.0
+  # Backtest universe — broad enough to cover everything an asset-selection
+  # agent might plausibly pick. FRED yields (DGS2/DGS10) excluded since
+  # yfinance bulk pull doesn't reach them; the asset-selection agent rarely
+  # targets them anyway.
+  universe:
+    # Equities
+    - SPY
+    - QQQ
+    - AAPL
+    - MSFT
+    - NVDA
+    - GOOGL
+    - AMZN
+    - META
+    # Sectors
+    - XLE
+    - XLK
+    - XLF
+    - XLV
+    - XLY
+    - XLI
+    # Bonds
+    - TLT
+    - IEF
+    - SHY
+    - LQD
+    - HYG
+    # Commodities
+    - GLD
+    - USO
+    - UNG
+    # Futures
+    - CL_F
+    - GC_F
+    - NG_F
+    # FX
+    - EURUSD
+    - USDJPY
+    - GBPUSD
+    - AUDUSD
+    - USDCAD
+    # Volatility (Principles Guard reads VIX for the circuit breaker)
+    - VIX
+  nyt_topics:
+    - "federal reserve"
+    - "inflation"
+    - "ecb"
+    - "fomc"
+    - "cpi"
+    - "interest rates"
+    - "recession"
+    - "gdp"
+  sonar_trump_enabled: true        # one Sonar call per month for Trump events
+  sonar_trump_max_per_month: 25
+  runs_dir: "data/backtest_runs"
+
 paths:
   data_dir: "data"
   reports_dir: "reports"

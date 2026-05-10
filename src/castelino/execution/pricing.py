@@ -71,7 +71,24 @@ def _try_openbb(instrument_id: str) -> Price | None:
 
 
 def latest(instrument_id: str) -> Price:
-    """Most recent price for `instrument_id`. Tries OpenBB first, falls back to yfinance/FRED."""
+    """Most recent price for `instrument_id`. Tries OpenBB first, falls back to yfinance/FRED.
+
+    When `BACKTEST_AS_OF` is set in the environment, all live sources are
+    bypassed and the price is read from the historical-prices parquet via
+    `castelino.backtest.pricing.latest_as_of()`. This makes every caller
+    backtest-safe with zero code changes in the agents.
+    """
+    from castelino.backtest.pricing import current_as_of, latest_as_of
+    as_of = current_as_of()
+    if as_of is not None:
+        hp = latest_as_of(instrument_id, as_of)
+        return Price(
+            instrument_id=hp.instrument_id,
+            price=hp.price,
+            asof=hp.asof,
+            source=hp.source,
+        )
+
     # Primary: try OpenBB
     obb_price = _try_openbb(instrument_id)
     if obb_price is not None:

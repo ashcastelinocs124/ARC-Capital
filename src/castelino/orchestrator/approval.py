@@ -1,8 +1,15 @@
-"""Human-in-the-loop approval queue. Persists to JSON on disk."""
+"""Human-in-the-loop approval queue. Persists to JSON on disk.
+
+When `BACKTEST_AS_OF` is set in the environment, `submit()` immediately
+applies the deterministic auto-approval policy from
+`castelino.backtest.auto_approve`, so `wait_for_resolution()` returns
+on the first poll iteration. Live mode (env unset) is unchanged.
+"""
 from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from datetime import UTC, datetime
 from enum import Enum
@@ -71,9 +78,17 @@ class ApprovalQueue:
             payload=payload,
             submitted_at=datetime.now(UTC).isoformat(),
         )
+        # Backtest mode: apply the deterministic auto-approve policy at submit
+        # time so wait_for_resolution() returns immediately on the next poll.
+        if os.environ.get("BACKTEST_AS_OF", "").strip():
+            from castelino.backtest.auto_approve import apply_policy
+            apply_policy(item)
         self._items[entry_id] = item
         self._save()
-        log.info("Approval gate %s: item %s pending", gate.value, entry_id)
+        log.info(
+            "Approval gate %s: item %s %s",
+            gate.value, entry_id, item.status if isinstance(item.status, str) else item.status.value,
+        )
         return item
 
     def pending(self) -> list[ApprovalItem]:

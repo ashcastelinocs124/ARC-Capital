@@ -749,5 +749,88 @@ def backtest_regression(
     print(f"Report: {out / 'report.md'}")
 
 
+@app.command()
+def backtest(
+    start: str = typer.Option("2023-10-01", help="ISO start date (Oct 2023 = gpt-4o cutoff)."),
+    end: str = typer.Option(..., help="ISO end date — usually today."),
+    run_id: str = typer.Option(..., help="Unique run id, e.g. 'ckm-bt-2026-05-08-001'."),
+    skeleton: bool = typer.Option(
+        False,
+        help="Skeleton mode — keyword scoring, no LLM calls. Verifies plumbing only.",
+    ),
+    with_graph: bool = typer.Option(
+        False,
+        "--with-graph",
+        help="Invoke the real LangGraph DAG on every fire (full backtest, ~$60-80, ~6-8h).",
+    ),
+) -> None:
+    """Run the historical backtest harness (gpt-4o, Oct 2023 onwards).
+
+    Three modes:
+      --skeleton     keyword scoring + stub fire (no LLM, free, < 1 min)
+      (default)      real score_batch + trigger router, stub fire (cheap)
+      --with-graph   real graph invocation + mark loop + portfolio snapshots
+                     (full backtest — burns gpt-4o credits, ~$60-80 over 30 mo)
+
+    Prerequisites (Phase-1 one-time setup):
+      python scripts/build_historical_prices.py
+      NYT_API_KEY=... python scripts/build_nyt_archive.py
+      python scripts/build_sonar_trump_archive.py     # PERPLEXITY_API_KEY required
+    """
+    from datetime import date as _date
+    from castelino.backtest.runner import BacktestRunner
+    from castelino.backtest import integration as ig
+
+    start_d = _date.fromisoformat(start)
+    end_d = _date.fromisoformat(end)
+
+    if skeleton:
+        print("[cyan]Skeleton mode — keyword scoring, no LLM calls.[/cyan]")
+        runner = BacktestRunner()  # uses stub_score / stub_trigger / stub_fire
+    elif with_graph:
+        print("[bold red]LIVE PIPELINE — real graph + mark loop + portfolio snapshots[/bold red]")
+        print("[yellow]This burns gpt-4o credits. Ctrl-C aborts after the current day.[/yellow]")
+        from castelino.backtest.execution import (
+            PortfolioHolder, append_daily_snapshot, initial_portfolio,
+            make_fire_fn, run_daily_mark, snapshot_row,
+        )
+        ig.reset_state()
+        holder = PortfolioHolder(initial_portfolio())
+        fire_fn = make_fire_fn(holder)
+        def _eod(d):
+            holder.set(run_daily_mark(holder.get()))
+            append_daily_snapshot(run_id, snapshot_row(d, holder.get()))
+        runner = BacktestRunner(
+            score_fn=ig.real_score_fn,
+            trigger_fn=ig.real_trigger_fn,
+            fire_fn=fire_fn,
+            end_of_day_fn=_eod,
+        )
+    else:
+        print("[cyan]Live triggers, stub fire — score_batch + trigger router only.[/cyan]")
+        ig.reset_state()
+        runner = BacktestRunner(
+            score_fn=ig.real_score_fn,
+            trigger_fn=ig.real_trigger_fn,
+        )
+    summary = runner.run(start=start_d, end=end_d, run_id=run_id)
+    print(f"[bold green]Run complete:[/bold green] {run_id}")
+    print(f"  Business days: {summary.business_days}")
+    print(f"  Total headlines: {summary.total_headlines}")
+    print(f"  Pipeline fires: {summary.pipeline_fires}")
+    print(f"  Triggers by path: {summary.triggers_by_path}")
+
+
+@app.command("backtest-report")
+def backtest_report_cmd(
+    run_id: str = typer.Argument(..., help="Run id of a completed backtest."),
+) -> None:
+    """Build summary.json + report.html for a completed backtest run."""
+    from castelino.backtest.report import write_report
+    json_path, html_path = write_report(run_id)
+    print(f"[green]summary.json[/green] → {json_path}")
+    print(f"[green]report.html[/green]  → {html_path}")
+
+
 if __name__ == "__main__":
     app()

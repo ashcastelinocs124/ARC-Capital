@@ -246,6 +246,33 @@ class XApiCfg(BaseModel):
     request_timeout_sec: int = 10
 
 
+class BacktestCfg(BaseModel):
+    """Historical backtest harness — gpt-4o, Oct 2023 onwards.
+
+    `enabled` is informational; the actual switch is the `BACKTEST_AS_OF`
+    env var, set per-tick by the runner. Kept here so the report writer
+    and CLI can read the canonical model overrides.
+    """
+
+    enabled: bool = False
+    reasoning_model: str = "gpt-4o"
+    fast_model: str = "gpt-4o-mini"
+    auto_approve_post_hypothesis: bool = True
+    auto_approve_post_debate: bool = True
+    bench_instruments: list[str] = Field(default_factory=lambda: ["SPY", "AGG", "TLT"])
+    initial_nav: float = 1_000_000.0
+    universe: list[str] = Field(default_factory=list)
+    nyt_topics: list[str] = Field(
+        default_factory=lambda: [
+            "federal reserve", "inflation", "ecb", "fomc", "cpi",
+            "interest rates", "recession", "gdp",
+        ],
+    )
+    sonar_trump_enabled: bool = True
+    sonar_trump_max_per_month: int = 25
+    runs_dir: str = "data/backtest_runs"
+
+
 class Settings(BaseModel):
     fund: FundCfg
     models: ModelsCfg
@@ -265,6 +292,7 @@ class Settings(BaseModel):
     figure_deviation: FigureDeviationCfg = FigureDeviationCfg()
     x_api: XApiCfg = XApiCfg()
     personas: PersonaCfg = PersonaCfg()
+    backtest: BacktestCfg = BacktestCfg()
     paths: PathsCfg
     root: Path
 
@@ -306,6 +334,13 @@ class Settings(BaseModel):
         """X (Twitter) API v2 bearer token. Required when any figure declares
         a `type: x_api` source; optional otherwise."""
         key = os.environ.get("X_API_BEARER_TOKEN", "").strip()
+        return key or None
+
+    @property
+    def nyt_api_key(self) -> str | None:
+        """NYT Article Search API key. Required to build the historical
+        news archive for backtest. Optional otherwise."""
+        key = os.environ.get("NYT_API_KEY", "").strip()
         return key or None
 
 

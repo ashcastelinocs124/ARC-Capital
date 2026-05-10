@@ -13,6 +13,7 @@ Tests pass a `FakeLLMClient` that returns deterministic stub objects.
 from __future__ import annotations
 
 import logging
+import os
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -22,7 +23,26 @@ from typing import Generic, TypeVar
 from openai import OpenAI
 from pydantic import BaseModel
 
-from castelino.config import get_settings
+from castelino.config import Settings, get_settings
+
+
+def _resolve_model_id(cfg: "Settings", tier: str) -> str:
+    """Pick the live or backtest model ID for `tier`.
+
+    When `BACKTEST_AS_OF` is set, the gpt-4o family is used (cutoff Oct
+    2023 → no hindsight on backtest period). Otherwise live
+    `cfg.models.<tier>` is used.
+
+    Tier mapping in backtest mode (matches live mode's reasoning vs cheap split):
+        reasoning              → backtest.reasoning_model  (gpt-4o)
+        fast, significance     → backtest.fast_model       (gpt-4o-mini)
+    """
+    if os.environ.get("BACKTEST_AS_OF", "").strip():
+        bt = cfg.backtest
+        if tier == "reasoning":
+            return bt.reasoning_model
+        return bt.fast_model
+    return getattr(cfg.models, tier)
 
 log = logging.getLogger(__name__)
 
@@ -222,7 +242,7 @@ class StructuredAgent(Generic[T], ABC):
 
     def __call__(self, **ctx) -> T:
         cfg = get_settings()
-        model_id = getattr(cfg.models, self.tier)
+        model_id = _resolve_model_id(cfg, self.tier)
         log.info("agent=%s model=%s tier=%s", self.name, model_id, self.tier)
         client = get_llm_client()
         return client.parse(
