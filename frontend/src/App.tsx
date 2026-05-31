@@ -10,6 +10,7 @@ import AgentsPage from "./pages/AgentsPage";
 import PersonasPage from "./pages/PersonasPage";
 import RoomsPage from "./pages/RoomsPage";
 import RoomChatPage from "./pages/RoomChatPage";
+import DeepResearchPage from "./pages/DeepResearchPage";
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
         <Route path="/portfolio" element={<PortfolioPage />} />
         <Route path="/macro" element={<MacroPage />} />
         <Route path="/research" element={<ResearchPage />} />
+        <Route path="/deep-research" element={<DeepResearchPage />} />
         <Route path="/risk" element={<RiskPage />} />
         <Route path="/agents" element={<AgentsPage />} />
         <Route path="/personas" element={<PersonasPage />} />

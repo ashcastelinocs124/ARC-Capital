@@ -41,6 +41,15 @@ This is a starting point. The brainstorming session is exploring variations.
 
 ## Completed Work
 
+### 2026-05-30 — Deep Research Agent
+- Multi-agent, Sonar-backed deep-research engine under `src/castelino/agents/research/deep/`: raw query → Clarifier (reword + clarifying questions) → Lead (decompose into ≤6 sub-questions) → parallel Sub-agents (Perplexity Sonar + LLM distill) → Synthesizer with bounded reflection loop (≤2 rounds) → cited `DeepResearchReport`
+- Plain `asyncio` orchestrator as a state machine (CREATED→AWAITING_ANSWERS→RESEARCHING→SYNTHESIZING→COMPLETE/FAILED); fan-out via `asyncio.gather` + `Semaphore`; NO LangGraph. Reuses `StructuredAgent`/`OpenAIClient`/`FakeLLMClient` and the persona-panel parallelism pattern
+- Cost caps in `config.yaml::deep_research` (max_sub_questions=6, max_rounds=2, max_sonar_calls=15, concurrency=5, clarify_max_questions=3); tiered models (reasoning for clarifier/lead/synthesizer, fast for sub-agents)
+- Reports persist to `data/research/<id>.json` (atomic write); analyst tool, NOT auto-fed into the trading pipeline
+- Surfaces: CLI `castelino research "<q>" [--no-clarify]` and dashboard (router `dashboard/endpoints/deep_research.py`: POST /research/start, POST /research/{id}/answers [background], GET /research/{id}, GET /research) + React page at `/deep-research` (`frontend/src/pages/DeepResearchPage.tsx`)
+- 15 test files (`tests/test_deep_research_*.py`), all green; deterministic via FakeLLMClient + FakeSonarClient
+- Design: `docs/plans/2026-05-30-deep-research-agent-design.md`; plan: `docs/plans/2026-05-30-deep-research-agent.md`
+
 ### 2026-05-05 — OpenBB Integration
 - Integrated OpenBB Platform SDK as primary data source with yfinance/FRED fallback (`src/castelino/data/openbb_adapter.py`)
 - Built 6-tab OpenBB Workspace dashboard (FastAPI backend at port 7779, 22 widgets)

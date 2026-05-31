@@ -67,6 +67,8 @@ data/news_cache.json
 data/calendar_cache.json
 data/regime_forecast.json
 data/approval_queue.json
+data/research/
+data/personas/chroma/
 reports/
 
 # Worktrees
@@ -83,3 +85,6 @@ PROGRESS.md
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
+frontend/*.tsbuildinfo
+frontend/vite.config.d.ts
+frontend/vite.config.js
