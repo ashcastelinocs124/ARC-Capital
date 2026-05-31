@@ -832,5 +832,51 @@ def backtest_report_cmd(
     print(f"[green]report.html[/green]  → {html_path}")
 
 
+@app.command()
+def research(
+    query: str = typer.Argument(..., help="Your research question."),
+    no_clarify: bool = typer.Option(
+        False, "--no-clarify",
+        help="Skip clarifying questions; auto-assume context.",
+    ),
+):
+    """Run the deep-research engine on a query and print a cited report."""
+    from castelino.agents.research.deep.orchestrator import DeepResearchOrchestrator
+
+    orch = DeepResearchOrchestrator()
+
+    if no_clarify:
+        sess = orch.run_sync(query)
+    else:
+        sess = orch.start(query)
+        if sess.clarifying_questions:
+            print(f"[bold]Reworded:[/bold] {sess.reworded_query}\n")
+            answers = {}
+            for q in sess.clarifying_questions:
+                ans = typer.prompt(f"❓ {q.question}")
+                answers[q.question] = ans
+            sess = orch.run_first_round(sess.id, answers=answers)
+        else:
+            sess = orch.run_first_round(sess.id, answers={})
+        if sess.status.value != "failed":
+            sess = orch.finish(sess.id)
+
+    if sess.status.value == "failed":
+        print(f"[red]Research failed:[/red] {sess.error}")
+        raise typer.Exit(code=1)
+
+    rep = sess.report
+    print(f"\n[bold green]Answer[/bold green] (confidence {rep.confidence}):\n")
+    print(rep.exec_summary)
+    if rep.caveats:
+        print("\n[bold]Caveats:[/bold]")
+        for c in rep.caveats:
+            print(f"  • {c}")
+    print("\n[bold]Sources:[/bold]")
+    for s in rep.sources:
+        print(f"  • {s.title or s.url} — {s.url}")
+    print(f"\n[dim]Session {sess.id} saved.[/dim]")
+
+
 if __name__ == "__main__":
     app()

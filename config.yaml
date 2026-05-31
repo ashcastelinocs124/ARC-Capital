@@ -201,6 +201,17 @@ personas:
     - dalio
     - tudor_jones
 
+deep_research:
+  enabled: true
+  max_sub_questions: 6
+  max_rounds: 2
+  max_sonar_calls: 15
+  concurrency: 5
+  clarify_max_questions: 3
+  reasoning_tier: reasoning
+  fast_tier: fast
+  reports_dir: data/research
+
 backtest:
   # Historical backtest harness — gpt-4o, Oct 2023 onwards.
   # The actual switch is the BACKTEST_AS_OF env var per-tick by the runner;

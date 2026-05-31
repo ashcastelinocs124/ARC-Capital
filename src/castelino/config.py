@@ -175,6 +175,18 @@ class PersonaCfg(BaseModel):
     active_roster: list[str] = Field(default_factory=list)
 
 
+class DeepResearchCfg(BaseModel):
+    enabled: bool = True
+    max_sub_questions: int = 6        # hard cap on decomposition fan-out
+    max_rounds: int = 2              # reflection rounds, incl. first
+    max_sonar_calls: int = 15        # global Sonar budget per report
+    concurrency: int = 5             # asyncio semaphore over sub-agents
+    clarify_max_questions: int = 3   # cap on clarifying questions
+    reasoning_tier: str = "reasoning"  # tier for clarifier/lead/synthesizer
+    fast_tier: str = "fast"            # tier for parallel sub-agents
+    reports_dir: str = "data/research"
+
+
 # ────────────────────────── figure_deviation (Wave 1) ────────────────────────
 # Generalises `speech.speakers` into a multi-source, multi-lexicon engine.
 # Existing Fed speakers are ported here in Wave 1. Trump (X API) lands in
@@ -292,6 +304,7 @@ class Settings(BaseModel):
     figure_deviation: FigureDeviationCfg = FigureDeviationCfg()
     x_api: XApiCfg = XApiCfg()
     personas: PersonaCfg = PersonaCfg()
+    deep_research: DeepResearchCfg = DeepResearchCfg()
     backtest: BacktestCfg = BacktestCfg()
     paths: PathsCfg
     root: Path
