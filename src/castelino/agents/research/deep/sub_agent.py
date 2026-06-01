@@ -44,6 +44,9 @@ class SubAgent:
                 f"{sub_q.id}"
             ),
             schema=SubFinding,
+            # Reasoning tokens come out of this budget too — keep it generous so
+            # the structured finding isn't truncated.
+            max_tokens=cfg.deep_research.max_output_tokens,
         )
         # Force the id (LLMs drift) and merge Sonar's real source URLs.
         merged = list(finding.citations) + list(res.sources)

@@ -233,6 +233,11 @@ class StructuredAgent(Generic[T], ABC):
     name: str
     output_schema: type[T]
     tier: str  # "reasoning" | "fast"
+    # Optional per-agent output ceiling. None → fall back to the global
+    # cfg.openai.max_output_tokens (unchanged behaviour for existing agents).
+    # Reasoning-heavy agents (e.g. deep-research) override this with a larger
+    # value so reasoning tokens don't starve the structured output.
+    max_output_tokens: int | None = None
 
     @abstractmethod
     def system_prompt(self) -> str: ...
@@ -250,4 +255,5 @@ class StructuredAgent(Generic[T], ABC):
             system=self.system_prompt(),
             user=self.user_prompt(**ctx),
             schema=self.output_schema,
+            max_tokens=self.max_output_tokens,
         )

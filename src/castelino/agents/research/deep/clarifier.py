@@ -24,6 +24,11 @@ class ClarifierAgent(StructuredAgent[ClarifierResult]):
     def tier(self) -> str:  # resolved from config, not hardcoded
         return get_settings().deep_research.reasoning_tier
 
+    @property
+    def max_output_tokens(self) -> int:
+        # Generous ceiling so reasoning tokens don't starve the output.
+        return get_settings().deep_research.max_output_tokens
+
     def system_prompt(self) -> str:
         return SYSTEM
 
