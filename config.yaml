@@ -211,6 +211,14 @@ deep_research:
   reasoning_tier: reasoning
   fast_tier: fast
   reports_dir: data/research
+  # Output ceiling per deep-research LLM call. High on purpose: gpt-5.x
+  # reasoning tokens come out of this same budget, so a small cap gets eaten by
+  # reasoning and truncates the structured output (parse fails). Pay-per-use, so
+  # the high ceiling is free; it just prevents the truncation failure.
+  max_output_tokens: 16000
+  # Thesis charts: cap per report (bounds OpenBB calls) + default lookback window.
+  max_charts: 4
+  chart_lookback_days_default: 365
 
 backtest:
   # Historical backtest harness — gpt-4o, Oct 2023 onwards.

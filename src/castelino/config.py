@@ -185,6 +185,16 @@ class DeepResearchCfg(BaseModel):
     reasoning_tier: str = "reasoning"  # tier for clarifier/lead/synthesizer
     fast_tier: str = "fast"            # tier for parallel sub-agents
     reports_dir: str = "data/research"
+    # Per-call output ceiling for deep-research LLM calls. MUST be generous:
+    # the gpt-5.x reasoning models spend hidden reasoning tokens out of this
+    # SAME budget, so a small cap (e.g. the global 2048) gets fully consumed by
+    # reasoning and leaves nothing for the structured output → parse fails with
+    # "length limit reached". Billing is per token actually used, so a high
+    # ceiling costs nothing extra; it only prevents the truncation failure.
+    max_output_tokens: int = 16000
+    # Charts: hard cap on charts per report (bounds OpenBB calls) + default window.
+    max_charts: int = 4
+    chart_lookback_days_default: int = 365
 
 
 # ────────────────────────── figure_deviation (Wave 1) ────────────────────────
