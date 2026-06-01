@@ -23,6 +23,13 @@ dependencies = [
     "beautifulsoup4>=4.12,<5",
     "httpx>=0.27,<1",
     "openbb-platform-api",
+    # OpenBB data extensions (providers + routers). Without these, `from openbb
+    # import obb` yields a bare App with no `.equity`/`.economy` — every adapter
+    # call fails. Required for thesis charts and the research/macro data pulls.
+    "openbb-equity>=1.6",
+    "openbb-economy>=1.6",
+    "openbb-yfinance>=1.6",
+    "openbb-fred>=1.6",
     # LLM + DAG
     "openai>=1.40",
     "langgraph>=0.2",
