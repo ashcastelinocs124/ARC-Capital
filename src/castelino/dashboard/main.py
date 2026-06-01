@@ -38,6 +38,29 @@ WIDGETS = json.loads((_DIR / "widgets.json").read_text())
 APPS = json.loads((_DIR / "apps.json").read_text())
 
 
+@app.on_event("startup")
+def _warm_openbb_adapter() -> None:
+    """Initialize the OpenBB adapter in the MAIN thread at startup.
+
+    OpenBB registers signal handlers at import time, which only works in the
+    main thread. Research jobs run in FastAPI background threads, so if the
+    adapter first initializes there it fails with "signal only works in main
+    thread" and every thesis chart gets dropped. Forcing init here caches the
+    SDK singleton (data calls don't need signal handlers), so background
+    threads reuse the ready instance.
+    """
+    import logging
+
+    from castelino.data.openbb_adapter import get_adapter
+
+    log = logging.getLogger(__name__)
+    try:
+        ok = get_adapter().available
+        log.info("OpenBB adapter warmed at startup: available=%s", ok)
+    except Exception as exc:  # never block startup on this
+        log.warning("OpenBB adapter warm-up failed: %s", exc)
+
+
 @app.get("/widgets.json")
 def get_widgets():
     return WIDGETS

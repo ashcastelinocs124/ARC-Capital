@@ -6,6 +6,7 @@ import uuid
 from datetime import UTC, datetime
 
 from castelino.agents.base import LLMClient, get_llm_client
+from castelino.agents.research.deep.chart_resolver import ChartResolver
 from castelino.agents.research.deep.clarifier import ClarifierAgent
 from castelino.agents.research.deep.lead import LeadAgent
 from castelino.agents.research.deep.models import (
@@ -134,6 +135,15 @@ class DeepResearchOrchestrator:
         last_refl = sess.rounds[-1].reflection
         if last_refl and not last_refl.is_sufficient:
             report = report.model_copy(update={"gaps_remaining": last_refl.gaps})
+
+        # Resolve thesis charts from the synthesizer's specs (deterministic,
+        # OpenBB-backed). Never fails the report — bad charts are dropped.
+        try:
+            resolved = ChartResolver().resolve_all(report.chart_specs)
+        except Exception as e:  # defensive: resolver already swallows per-chart
+            log.warning("chart resolution failed wholesale: %s", e)
+            resolved = []
+        report = report.model_copy(update={"charts": resolved})
 
         sess.report = report
         sess.status = ResearchStatus.COMPLETE

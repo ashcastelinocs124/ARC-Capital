@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ThesisCharts, type ResolvedChart } from "@/components/ThesisCharts";
 
 type ClarQ = { question: string; why?: string };
 type Source = { title: string; url: string; snippet?: string };
@@ -8,6 +9,7 @@ type Report = {
   caveats: string[];
   sources: Source[];
   gaps_remaining: string[];
+  charts?: ResolvedChart[];
 };
 
 export default function DeepResearchPage() {
@@ -64,7 +66,7 @@ export default function DeepResearchPage() {
     <div className="p-6 max-w-3xl mx-auto space-y-4">
       <h1 className="text-2xl font-semibold">Deep Research</h1>
       <textarea
-        className="w-full border border-slate-700 bg-slate-900 rounded p-2"
+        className="w-full border border-slate-300 bg-white text-black rounded p-2 placeholder-slate-400"
         rows={3}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
@@ -92,7 +94,7 @@ export default function DeepResearchPage() {
               <label className="block text-sm font-medium">{q.question}</label>
               {q.why && <p className="text-xs text-slate-500">{q.why}</p>}
               <input
-                className="w-full border border-slate-700 bg-slate-900 rounded p-1"
+                className="w-full border border-slate-300 bg-white text-black rounded p-1 placeholder-slate-400"
                 onChange={(e) =>
                   setAnswers({ ...answers, [q.question]: e.target.value })
                 }
@@ -125,6 +127,7 @@ export default function DeepResearchPage() {
             </span>
           </h2>
           <p className="whitespace-pre-wrap">{report.exec_summary}</p>
+          <ThesisCharts charts={report.charts} />
           {report.caveats?.length > 0 && (
             <div>
               <h3 className="font-medium">Caveats</h3>

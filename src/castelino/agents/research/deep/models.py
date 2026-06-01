@@ -22,6 +22,43 @@ class SourceRef(BaseModel):
     snippet: str = ""
 
 
+class ChartType(StrEnum):
+    PRICE_HISTORY = "price_history"
+    YIELD_CURVE = "yield_curve"
+    ECON_INDICATOR = "econ_indicator"
+    COMPARISON = "comparison"
+
+
+class ChartSpec(BaseModel):
+    """A chart the Synthesizer requests (no data — just the request)."""
+    type: ChartType
+    title: str
+    rationale: str = ""
+    symbols: list[str] = Field(default_factory=list)
+    series_id: str = ""
+    lookback_days: int = 365
+
+
+class ChartPoint(BaseModel):
+    x: str
+    y: float
+
+
+class ChartSeries(BaseModel):
+    name: str
+    points: list[ChartPoint] = Field(default_factory=list)
+
+
+class ResolvedChart(BaseModel):
+    """A chart with real data grafted on by the ChartResolver."""
+    type: ChartType
+    title: str
+    rationale: str = ""
+    series: list[ChartSeries] = Field(default_factory=list)
+    y_label: str = ""
+    source: str = "OpenBB"
+
+
 class ClarificationQuestion(BaseModel):
     question: str
     why: str = ""
@@ -68,6 +105,8 @@ class DeepResearchReport(BaseModel):
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     caveats: list[str] = Field(default_factory=list)
     gaps_remaining: list[str] = Field(default_factory=list)
+    chart_specs: list[ChartSpec] = Field(default_factory=list)  # synthesizer requests
+    charts: list[ResolvedChart] = Field(default_factory=list)  # resolver fills with data
 
 
 class ResearchRound(BaseModel):

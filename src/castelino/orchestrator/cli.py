@@ -875,6 +875,16 @@ def research(
     print("\n[bold]Sources:[/bold]")
     for s in rep.sources:
         print(f"  • {s.title or s.url} — {s.url}")
+    charts = getattr(rep, "charts", []) or []
+    if charts:
+        print("\n[bold]Supporting charts:[/bold]")
+        for c in charts:
+            n_pts = sum(len(s.points) for s in c.series)
+            # Parens, not brackets — rich's print treats [..] as markup tags.
+            line = f"  • {c.title} ({c.type.value}, {n_pts} pts)"
+            if c.rationale:
+                line += f' — "{c.rationale}"'
+            print(line)
     print(f"\n[dim]Session {sess.id} saved.[/dim]")
 
 

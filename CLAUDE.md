@@ -41,6 +41,15 @@ This is a starting point. The brainstorming session is exploring variations.
 
 ## Completed Work
 
+### 2026-05-31 — Thesis Charts for Deep Research
+- Deep-research reports now carry **supporting charts** backed by **real OpenBB/FRED data**. The Synthesizer emits `chart_specs[]` from a closed 4-type menu (price_history, comparison, econ_indicator, yield_curve); a deterministic `ChartResolver` (`agents/research/deep/chart_resolver.py`, NO LLM) maps each spec to one OpenBB adapter call and attaches data
+- Charts are never load-bearing: bad ticker / OpenBB failure / empty frame → that chart is dropped (logged), report stays COMPLETE. Symbols sanitized via regex; comparison series rebased to 100 at t₀; `max_charts=4` cap
+- New models: `ChartType/ChartSpec/ChartPoint/ChartSeries/ResolvedChart` + `chart_specs`/`charts` on `DeepResearchReport`. Orchestrator resolves once in `finish()` after the reflection loop
+- Surfaces: dashboard renders `report.charts[]` via recharts (`frontend/src/components/ThesisCharts.tsx`, white cards with rationale caption + "Source: OpenBB"); CLI lists them under the answer
+- **Dependency fix:** declared OpenBB data extensions (`openbb-equity/economy/yfinance/fred`) in `pyproject.toml` — without them `obb` has no `.equity`/`.economy` and all data calls fail. Also fixed: rich `print` eats `[..]` as markup (use parens in CLI)
+- 16 new tests (40 deep_research total, all green). Verified live: a real query produced AAPL price (500 pts), FEDFUNDS (862 pts), and a 4-ticker normalized comparison — all real data
+- Design: `docs/plans/2026-05-31-thesis-charts-design.md`; plan: `docs/plans/2026-05-31-thesis-charts.md`
+
 ### 2026-05-30 — Deep Research Agent
 - Multi-agent, Sonar-backed deep-research engine under `src/castelino/agents/research/deep/`: raw query → Clarifier (reword + clarifying questions) → Lead (decompose into ≤6 sub-questions) → parallel Sub-agents (Perplexity Sonar + LLM distill) → Synthesizer with bounded reflection loop (≤2 rounds) → cited `DeepResearchReport`
 - Plain `asyncio` orchestrator as a state machine (CREATED→AWAITING_ANSWERS→RESEARCHING→SYNTHESIZING→COMPLETE/FAILED); fan-out via `asyncio.gather` + `Semaphore`; NO LangGraph. Reuses `StructuredAgent`/`OpenAIClient`/`FakeLLMClient` and the persona-panel parallelism pattern

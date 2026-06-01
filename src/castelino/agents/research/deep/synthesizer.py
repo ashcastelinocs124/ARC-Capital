@@ -17,6 +17,14 @@ with citations) and the main research question. Write a single coherent report:
 - sources: the deduplicated union of all citations across findings.
 - confidence: your overall confidence (0-1).
 - caveats: important limitations.
+- chart_specs: propose 0-4 charts that would visually support your answer,
+  choosing ONLY from these types: price_history (one ticker over time; set
+  symbols=[TICKER]), comparison (2-4 tickers, set symbols), econ_indicator (set
+  series_id to a FRED id like CPIAUCSL, FEDFUNDS, UNRATE, DGS10), or yield_curve
+  (no params). Give each a short title and a one-line rationale tying it to the
+  thesis. Only request a chart when real market/economic data would strengthen
+  the argument — prefer none over a weak chart. Use real tickers and FRED series
+  IDs you are confident exist.
 Only use the supplied findings. Do not invent facts or sources.
 """
 
@@ -59,7 +67,10 @@ class Synthesizer:
             system=SYNTH_SYSTEM,
             user=f"Main question: {reworded_query}\n\nFindings:\n{joined}",
             schema=DeepResearchReport,
-            max_tokens=2500,
+            # Reasoning models spend hidden reasoning tokens from this same
+            # budget; a small cap gets eaten by reasoning and truncates the
+            # report (parse fails). Use the generous deep-research ceiling.
+            max_tokens=get_settings().deep_research.max_output_tokens,
         )
         # Attach findings + ensure deduped sources even if the LLM skipped some.
         return report.model_copy(update={
@@ -78,5 +89,5 @@ class Synthesizer:
                 "Is this sufficient? If not, list gaps and new sub-questions."
             ),
             schema=ReflectionResult,
-            max_tokens=1200,
+            max_tokens=get_settings().deep_research.max_output_tokens,
         )
