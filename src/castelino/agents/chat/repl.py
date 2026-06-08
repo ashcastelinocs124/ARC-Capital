@@ -30,7 +30,8 @@ def run_repl(*, client: LLMClient | None = None,
             continue
         if user.lower() in _EXIT:
             break
-        res = sess.handle_turn(user)
+        with console.status("[bold green]thinking...[/]", spinner="dots"):
+            res = sess.handle_turn(user)
         console.print(res.reply, markup=False)
         if res.error:
             console.print(f"\u26a0 {res.error}", markup=False, style="yellow")
