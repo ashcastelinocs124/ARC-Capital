@@ -6,7 +6,7 @@ from castelino.agents.chat.router import build_system_prompt, route
 def test_system_prompt_contains_all_commands():
     prompt = build_system_prompt()
     assert "status" in prompt
-    assert "CONFIRMED" in prompt
+    assert "MUTATING" in prompt
 
 
 def test_route_returns_structured_output():
