@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class CommandName(str, Enum):
@@ -23,11 +23,7 @@ class CommandName(str, Enum):
     none = "none"
 
 
-class Action(BaseModel):
-    command: CommandName
-    args: dict[str, str] = Field(default_factory=dict)
-
-
 class AssistantTurn(BaseModel):
     reply: str
-    action: Action | None = None
+    command: CommandName | None = None
+    args: dict[str, str] | None = None

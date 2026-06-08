@@ -1,19 +1,19 @@
-from castelino.agents.chat.models import AssistantTurn, Action, CommandName
+from castelino.agents.chat.models import AssistantTurn, CommandName
 
 
 def test_assistant_turn_plain_reply_has_no_action():
     t = AssistantTurn(reply="hello")
     assert t.reply == "hello"
-    assert t.action is None
+    assert t.command is None
+    assert t.args is None
 
 
-def test_action_carries_command_and_args():
-    a = Action(command=CommandName.run, args={"headline": "CPI hot"})
-    assert a.command is CommandName.run
-    assert a.args["headline"] == "CPI hot"
+def test_assistant_turn_carries_command_and_args():
+    t = AssistantTurn(reply="doing it", command=CommandName.run, args={"headline": "CPI hot"})
+    assert t.command is CommandName.run
+    assert t.args["headline"] == "CPI hot"
 
 
 def test_command_name_is_closed_set():
-    # 'none' is the explicit "just talk / no action" member
     assert CommandName.none.value == "none"
     assert "status" in {c.value for c in CommandName}

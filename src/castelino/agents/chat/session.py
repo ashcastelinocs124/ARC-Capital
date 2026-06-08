@@ -17,7 +17,6 @@ class TurnResult:
     skipped: bool = False
 
 def _default_confirm(prompt: str) -> bool:
-    """Default confirmation prompt for mutating actions"""
     import typer
     return typer.confirm(prompt)
 
@@ -40,31 +39,32 @@ class ChatSession:
         self._transcript.append(("assistant", turn.reply))
         result = TurnResult(reply=turn.reply)
 
-        if turn.action is None:
+        if turn.command is None or turn.command is CommandName.none:
             return result
 
-        spec = REGISTRY.get(turn.action.command)
-        if not spec:  # Unknown command
+        spec = REGISTRY.get(turn.command)
+        if not spec:
             return result
 
-        missing_args = [a for a in spec.required_args if not turn.action.args.get(a)]
+        args = turn.args or {}
+        missing_args = [a for a in spec.required_args if not args.get(a)]
         if missing_args:
             result.error = f"Missing args: {', '.join(missing_args)}"
             return result
 
         if spec.mutating and not self._confirm(
-            f"Run: ckm {turn.action.command.value} with args {turn.action.args}? [y/N]"
+            f"Run: ckm {turn.command.value} with args {args}? [y/N]"
         ):
-            result.command = turn.action.command
+            result.command = turn.command
             result.skipped = True
             return result
 
         try:
-            result.output = spec.run(turn.action.args)
+            result.output = spec.run(args)
             result.executed = True
-            result.command = turn.action.command
+            result.command = turn.command
             self._transcript.append(
-                ("system", f"Executed {turn.action.command.value}: {result.output[:200]}")
+                ("system", f"Executed {turn.command.value}: {result.output[:200]}")
             )
         except Exception as e:
             result.error = f"{type(e).__name__}: {e}"
