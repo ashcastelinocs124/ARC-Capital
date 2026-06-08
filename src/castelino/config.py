@@ -144,6 +144,13 @@ class OpenBBCfg(BaseModel):
     cache_ttl_minutes: int = 15
 
 
+class ChatCfg(BaseModel):
+    """`ckm chat` interactive assistant settings."""
+    enabled: bool = True
+    # how many prior (user/assistant) turns to send to the router each message
+    max_context_turns: int = 12
+
+
 class SpeechSpeakerCfg(BaseModel):
     id: str
     full_name: str
@@ -180,7 +187,7 @@ class DeepResearchCfg(BaseModel):
     max_sub_questions: int = 6        # hard cap on decomposition fan-out
     max_rounds: int = 2              # reflection rounds, incl. first
     max_sonar_calls: int = 15        # global Sonar budget per report
-    concurrency: int = 5             # asyncio semaphore over sub-agents
+    concurrency: int = 3             # asyncio semaphore over sub-agents
     clarify_max_questions: int = 3   # cap on clarifying questions
     reasoning_tier: str = "reasoning"  # tier for clarifier/lead/synthesizer
     fast_tier: str = "fast"            # tier for parallel sub-agents
@@ -315,7 +322,7 @@ class Settings(BaseModel):
     x_api: XApiCfg = XApiCfg()
     personas: PersonaCfg = PersonaCfg()
     deep_research: DeepResearchCfg = DeepResearchCfg()
-    backtest: BacktestCfg = BacktestCfg()
+    chat: ChatCfg = ChatCfg()
     paths: PathsCfg
     root: Path
 
