@@ -323,6 +323,7 @@ class Settings(BaseModel):
     personas: PersonaCfg = PersonaCfg()
     deep_research: DeepResearchCfg = DeepResearchCfg()
     chat: ChatCfg = ChatCfg()
+    backtest: BacktestCfg = BacktestCfg()
     paths: PathsCfg
     root: Path
 
