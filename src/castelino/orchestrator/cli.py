@@ -1,4 +1,4 @@
-"""Castelino Capital CLI — `castelino <command>`.
+"""Castelino Capital CLI — `ckm <command>`.
 
 Subcommands (M1 through M6):
 - `run`      Fire the pipeline once with a manual trigger or news headline.
@@ -646,7 +646,7 @@ def speech_test(
     try:
         persona = load_persona(speaker)
     except FileNotFoundError:
-        print(f"[red]No persona found for {speaker}.[/red] Run `castelino persona-refresh --speaker {speaker}` first.")
+        print(f"[red]No persona found for {speaker}.[/red] Run `ckm persona-refresh --speaker {speaker}` first.")
         raise typer.Exit(1)
 
     if transcript_file is None:
@@ -886,6 +886,18 @@ def research(
                 line += f' — "{c.rationale}"'
             print(line)
     print(f"\n[dim]Session {sess.id} saved.[/dim]")
+
+
+@app.command()
+def chat():
+    """Interactive natural-language assistant over the fund.
+
+    Read/query/research actions run freely.  Mutating or costly actions are
+    confirmed by the human first.
+    """
+    from castelino.agents.chat.repl import run_repl
+
+    run_repl()
 
 
 if __name__ == "__main__":
