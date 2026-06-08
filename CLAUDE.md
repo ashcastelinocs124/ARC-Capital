@@ -41,6 +41,13 @@ This is a starting point. The brainstorming session is exploring variations.
 
 ## Completed Work
 
+### 2026-06-07 — CLI command renamed `castelino` → `ckm`
+- The CLI is now invoked as **`ckm <command>`** (was `castelino`). All 23 commands unchanged; only the command token changed. Entry point in `pyproject.toml` is `ckm = "castelino.orchestrator.cli:app"` — the **Python package stays `castelino`** (no import changes), and the product name "Castelino Capital" stays in prose/help.
+- Surgical rename: a `perl` pass with a **command-word allowlist** rewrote only `castelino <subcommand>` → `ckm <subcommand>` across code/docs/frontend/`docs/plans/*` — never imports (`from castelino import`), the brand, the project name, or paths. CLI docstring + README tree comment fixed by hand.
+- `castelino` fully removed from PATH: deleted the `.venv/bin` shim via `uv pip install -e . --no-deps`, and uninstalled a **broken pyenv-global editable install** (3.11.10) that pointed at the deleted `~/Desktop/Castelino-Capital`, then `pyenv rehash`.
+- Left as-is (separate pre-existing bug): runtime messages reference a `figure-refresh` command that doesn't exist (real command is `persona-refresh`); only the prefix was renamed.
+- Verified: `ckm --help`/`ckm status` work; tests **564 passed / 44 failed**, where the 44 are proven pre-existing (git-stash A/B identical) and environmental (e.g. `OPENBB_PAT` set in `.env`). Design: `docs/plans/2026-06-07-ckm-cli-rename-design.md`.
+
 ### 2026-05-31 — Thesis Charts for Deep Research
 - Deep-research reports now carry **supporting charts** backed by **real OpenBB/FRED data**. The Synthesizer emits `chart_specs[]` from a closed 4-type menu (price_history, comparison, econ_indicator, yield_curve); a deterministic `ChartResolver` (`agents/research/deep/chart_resolver.py`, NO LLM) maps each spec to one OpenBB adapter call and attaches data
 - Charts are never load-bearing: bad ticker / OpenBB failure / empty frame → that chart is dropped (logged), report stays COMPLETE. Symbols sanitized via regex; comparison series rebased to 100 at t₀; `max_charts=4` cap
@@ -55,7 +62,7 @@ This is a starting point. The brainstorming session is exploring variations.
 - Plain `asyncio` orchestrator as a state machine (CREATED→AWAITING_ANSWERS→RESEARCHING→SYNTHESIZING→COMPLETE/FAILED); fan-out via `asyncio.gather` + `Semaphore`; NO LangGraph. Reuses `StructuredAgent`/`OpenAIClient`/`FakeLLMClient` and the persona-panel parallelism pattern
 - Cost caps in `config.yaml::deep_research` (max_sub_questions=6, max_rounds=2, max_sonar_calls=15, concurrency=5, clarify_max_questions=3); tiered models (reasoning for clarifier/lead/synthesizer, fast for sub-agents)
 - Reports persist to `data/research/<id>.json` (atomic write); analyst tool, NOT auto-fed into the trading pipeline
-- Surfaces: CLI `castelino research "<q>" [--no-clarify]` and dashboard (router `dashboard/endpoints/deep_research.py`: POST /research/start, POST /research/{id}/answers [background], GET /research/{id}, GET /research) + React page at `/deep-research` (`frontend/src/pages/DeepResearchPage.tsx`)
+- Surfaces: CLI `ckm research "<q>" [--no-clarify]` and dashboard (router `dashboard/endpoints/deep_research.py`: POST /research/start, POST /research/{id}/answers [background], GET /research/{id}, GET /research) + React page at `/deep-research` (`frontend/src/pages/DeepResearchPage.tsx`)
 - 15 test files (`tests/test_deep_research_*.py`), all green; deterministic via FakeLLMClient + FakeSonarClient
 - Design: `docs/plans/2026-05-30-deep-research-agent-design.md`; plan: `docs/plans/2026-05-30-deep-research-agent.md`
 
@@ -63,7 +70,7 @@ This is a starting point. The brainstorming session is exploring variations.
 - Integrated OpenBB Platform SDK as primary data source with yfinance/FRED fallback (`src/castelino/data/openbb_adapter.py`)
 - Built 6-tab OpenBB Workspace dashboard (FastAPI backend at port 7779, 22 widgets)
 - Added human-in-the-loop approval gates (post-hypothesis, post-debate) — pipeline stalls until CLI approval
-- New CLI commands: `castelino serve`, `castelino queue`, `castelino approve`, `castelino reject`, `castelino edit`
+- New CLI commands: `ckm serve`, `ckm queue`, `ckm approve`, `ckm reject`, `ckm edit`
 - Dashboard tabs: Portfolio, Macro & Signals, Research & Technicals, Risk & Attribution, Agent Decisions, Approval Queue
 - Research agents (TA, risk, web) now pull data from OpenBB with pandas fallback
 - Design doc: `docs/plans/2026-05-05-openbb-integration-design.md`
@@ -75,7 +82,7 @@ This is a starting point. The brainstorming session is exploring variations.
 - Per-turn chat: query embedded → top-k chunks → system prompt with profile card + chunks → `PersonaResponse` (text + cited_sources mapped back to `Citation` objects with snippet + score)
 - Panel mode: parallel `asyncio.gather` across N personas (no peer visibility, preserves diversity) → synthesis pass returning `PanelSynthesis` (consensus, disagreements, strongest objection, recommended modifications)
 - Conversations attach to `ApprovalItem.conversations[]`; panel discussions attach to `ApprovalItem.panel_discussions[]`. Full audit trail preserved with each approval
-- New CLI: `castelino persona-build --persona buffett --full-name "Warren Buffett" --role "Value investor"`
+- New CLI: `ckm persona-build --persona buffett --full-name "Warren Buffett" --role "Value investor"`
 - Dashboard: new `/approvals/:entryId/consult` route with three-column layout (pending-item summary + decision notes / persona picker + "Run Panel" button / chat thread); `Apply Synthesis` button copies the synthesis into the decision-notes field
 - 5 new dashboard endpoints: list/send conversation messages, run panel, list personas, get persona
 - Personas DO NOT participate in the agent pipeline — they're advisors, invoked only from the dashboard
@@ -92,7 +99,15 @@ This is a starting point. The brainstorming session is exploring variations.
 - Persona-relative deviation is the signal — a dovish Powell turning hawkish carries far more information than a hawkish Powell staying hawkish
 - Same `score_sentence()` used for both baseline construction and live scoring (load-bearing invariant; lexicon is versioned `hawkish_dovish_v1.yaml` and corpus rescored on bumps)
 - Structural enforcement of hard rules: threshold check before LLM call, cooldown caps emissions at one per `event_id`
-- New CLI commands: `castelino persona-refresh --speaker powell`, `castelino speech-test --transcript-file path --dry-run`
+- New CLI commands: `ckm persona-refresh --speaker powell`, `ckm speech-test --transcript-file path --dry-run`
 - Speakers and v2 sources extensible via `config.yaml::speech.speakers`; orchestrator graph unchanged (new `TriggerSource.SPEECH_DEVIATION` flows in at `current_event` like any other trigger)
 - Design doc: `docs/plans/2026-05-07-fed-speech-listener-design.md`
 - Implementation plan: `docs/plans/2026-05-07-fed-speech-listener-plan.md` (24 bite-sized TDD tasks across 8 waves)
+
+### 2026-06-07 — `ckm chat`: Interactive Natural-Language Assistant
+- REPL (`ckm chat`) where the user talks in natural language and the assistant dispatches to fund capabilities (status, research, forecasts, run, approve, reject, mark, reset)
+- Structured intent-router: one `LLMClient.parse()` call per turn returns `AssistantTurn{reply, command?, args?}` — no tool-calling, no new LLM path
+- Deterministic confirm gate: mutating/costly commands require explicit `y` before execution; mutating-ness read from `REGISTRY`, never trusted from the LLM
+- New module: `src/castelino/agents/chat/` (models, registry, router, session, repl) + `config.yaml::chat` block
+- Design: `docs/plans/2026-06-07-interactive-chat-cli-design.md`; plan: `docs/plans/2026-06-07-interactive-chat-cli.md`
+- 15 deterministic tests (all green); rich spinner on LLM wait

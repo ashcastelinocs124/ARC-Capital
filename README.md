@@ -260,8 +260,8 @@ The downstream pipeline (Hypothesis → Asset Selection → Research → Bull/Be
 **Why this matters:** text headlines are already priced by the time they hit RSS. Live tone shifts on policy speeches are not. A dovish Powell turning hawkish carries more information than the words themselves — the system reacts within seconds of the words being spoken.
 
 CLI:
-- `castelino persona-refresh --speaker powell` — rebuild speaker baseline from historical corpus
-- `castelino speech-test --transcript-file path --dry-run` — replay a transcript through the listener
+- `ckm persona-refresh --speaker powell` — rebuild speaker baseline from historical corpus
+- `ckm speech-test --transcript-file path --dry-run` — replay a transcript through the listener
 
 ### Persona Advisors (HITL consultation)
 
@@ -305,7 +305,7 @@ primary scrapers (RSS, YouTube, PDFs)        per-persona Chroma collection
 CLI:
 
 ```bash
-castelino persona-build --persona druckenmiller \
+ckm persona-build --persona druckenmiller \
   --full-name "Stanley Druckenmiller" --role "Top-down macro PM"
 ```
 
@@ -436,7 +436,7 @@ CKM-Capital/
 │   │   │       ├── models.py       #     FigureCard, RetrievedChunk, Chunk
 │   │   │       ├── store.py        #     Chroma-shaped per-figure store
 │   │   │       └── hypothesis_helpers.py  # Hypothesis Agent context builder
-│   │   └── runner.py               # `castelino watch` — 6 trigger paths
+│   │   └── runner.py               # `ckm watch` — 6 trigger paths
 │   ├── forecast/
 │   │   ├── regime.py               # XGBoost growth + inflation nowcasters
 │   │   ├── regime_sectors.py       # quadrant → sector/ETF mapping
@@ -445,7 +445,7 @@ CKM-Capital/
 │   │   ├── state.py                # FundState (LangGraph state)
 │   │   ├── graph.py                # the DAG + HITL gates
 │   │   ├── approval.py             # approval queue (disk-persisted)
-│   │   └── cli.py                  # `castelino` Typer app
+│   │   └── cli.py                  # `ckm` Typer app
 │   ├── dashboard/                  # FastAPI backend (port 7779)
 │   │   └── endpoints/{portfolio,macro,research,risk,agents,approvals,personas}.py
 │   └── reporting/
@@ -512,7 +512,7 @@ pytest -q
 ### Continuous trigger watcher
 
 ```bash
-castelino watch --poll-minutes 15
+ckm watch --poll-minutes 15
 ```
 
 Polls calendar + RSS every 15 min. Scores headlines, feeds the conviction ledger, and checks four trigger paths: black swan → regime shift → accumulated conviction → cron fallback.
@@ -520,7 +520,7 @@ Polls calendar + RSS every 15 min. Scores headlines, feeds the conviction ledger
 ### Fire a single pipeline pass
 
 ```bash
-castelino run "ECB cuts deposit rate by 25bp" \
+ckm run "ECB cuts deposit rate by 25bp" \
   --significance 0.85 --source news \
   --asset-classes "bond_etf,fx"
 ```
@@ -528,32 +528,33 @@ castelino run "ECB cuts deposit rate by 25bp" \
 ### Human-in-the-loop approval
 
 ```bash
-castelino queue              # see pending approvals
-castelino approve H-abc123   # approve a hypothesis
-castelino reject V-def456 --reason "too correlated to existing book"
+ckm queue              # see pending approvals
+ckm approve H-abc123   # approve a hypothesis
+ckm reject V-def456 --reason "too correlated to existing book"
 ```
 
 ### Other commands
 
 ```bash
-castelino mark                    # daily mark-to-market + stop-losses
-castelino dashboard               # live HTML dashboard
-castelino status                  # NAV + positions + journal counts
-castelino report                  # regenerate charts + trade cards
-castelino serve                   # FastAPI backend + React frontend (port 7779)
-castelino forecast-regime         # run XGBoost regime nowcaster
-castelino forecast-risk           # run XGBoost risk-off classifier
-castelino growth-search           # explore growth leading indicators
-castelino inflation-search        # explore inflation leading indicators
-castelino persona-refresh --speaker powell   # rebuild speaker baseline from corpus
-castelino speech-test --transcript-file PATH --dry-run    # replay transcript
-castelino persona-build --persona dalio --full-name "Ray Dalio" --role "Long-cycle macro"
-castelino backtest-regression                # diagnostic regression report
+ckm mark                    # daily mark-to-market + stop-losses
+ckm dashboard               # live HTML dashboard
+ckm status                  # NAV + positions + journal counts
+ckm report                  # regenerate charts + trade cards
+ckm serve                   # FastAPI backend + React frontend (port 7779)
+ckm forecast-regime         # run XGBoost regime nowcaster
+ckm forecast-risk           # run XGBoost risk-off classifier
+ckm growth-search           # explore growth leading indicators
+ckm inflation-search        # explore inflation leading indicators
+ckm persona-refresh --speaker powell   # rebuild speaker baseline from corpus
+ckm speech-test --transcript-file PATH --dry-run    # replay transcript
+ckm persona-build --persona dalio --full-name "Ray Dalio" --role "Long-cycle macro"
+ckm backtest-regression                # diagnostic regression report
+ckm chat                     # natural-language assistant over the fund
 ```
 
 ### Dashboard
 
-`castelino serve` boots a **FastAPI backend (port 7779) + Vite/React frontend** with the following routes:
+`ckm serve` boots a **FastAPI backend (port 7779) + Vite/React frontend** with the following routes:
 
 | Route | Purpose |
 |---|---|
@@ -643,8 +644,8 @@ Run it:
 
 ```bash
 pytest -m backtest                                   # CI go/no-go
-castelino backtest-regression                        # diagnostic report
-castelino backtest-regression --components risk_off  # one component
+ckm backtest-regression                        # diagnostic report
+ckm backtest-regression --components risk_off  # one component
 ```
 
 Companion to the full-pipeline backtest in `src/castelino/backtest/`
