@@ -117,7 +117,7 @@ def format_macro_block_for_prompt(state_like: Any) -> str:
     if not getattr(state_like, "macro_regime_key", ""):
         return (
             "Macro regime context (model-based, month-ahead): not loaded — "
-            "run `castelino forecast-regime` or ensure data/regime_forecast.json exists."
+            "run `ckm forecast-regime` or ensure data/regime_forecast.json exists."
         )
     sectors = getattr(state_like, "preferred_sectors", []) or []
     hints = getattr(state_like, "preferred_instrument_ids", []) or []

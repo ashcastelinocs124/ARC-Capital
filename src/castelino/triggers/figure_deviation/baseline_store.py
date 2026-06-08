@@ -9,7 +9,7 @@ The store enforces the lexicon-version invariant on every load: if the
 stored baseline was built against lexicon version N but the current lexicon
 YAML is at version M with M != N, `load()` raises `LexiconVersionMismatch`
 rather than silently producing wrong z-scores. The user is directed to run
-`castelino figure-refresh --figure <id> --lexicon <name>` to rebuild.
+`ckm figure-refresh --figure <id> --lexicon <name>` to rebuild.
 
 Path layout: `<base_dir>/<figure_id>/<lexicon_name>.json`. Parallel to the
 persona layout introduced in Task 2.3 but in a different base directory.
@@ -115,7 +115,7 @@ class BaselineStore:
         if not path.exists():
             raise FileNotFoundError(
                 f"No baseline for {figure_id} × {lexicon_name} at {path}. "
-                f"Run `castelino figure-refresh --figure {figure_id} "
+                f"Run `ckm figure-refresh --figure {figure_id} "
                 f"--lexicon {lexicon_name}` to build it.",
             )
         baseline = FigureBaseline.model_validate_json(path.read_text())
@@ -125,7 +125,7 @@ class BaselineStore:
                 f"Baseline {figure_id} × {lexicon_name} was built against "
                 f"lexicon version {baseline.lexicon_version} but the current "
                 f"lexicon is version {current_version}. Z-scores would be "
-                f"incoherent. Run `castelino figure-refresh --figure "
+                f"incoherent. Run `ckm figure-refresh --figure "
                 f"{figure_id} --lexicon {lexicon_name}` to rebuild against "
                 f"the current lexicon.",
             )

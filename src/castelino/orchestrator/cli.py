@@ -13,12 +13,22 @@ Subcommands (M1 through M6):
 from __future__ import annotations
 
 import logging
+import warnings
 from datetime import UTC, datetime
 from pathlib import Path
 
 import typer
-from rich import print
+from rich import print as rich_print
 from rich.table import Table
+
+# Suppress langchain warnings BEFORE importing anything that triggers
+# LangChainPendingDeprecationWarning. The warning fires during
+# from langchain_core.load.load import Reviver inside langgraph.
+# We import langchain_core first so it adds its "default" filter,
+# then insert our "ignore" filter after to take precedence.
+import langchain_core  # noqa: F401
+from langchain_core._api.deprecation import LangChainPendingDeprecationWarning
+warnings.simplefilter("ignore", LangChainPendingDeprecationWarning)
 
 from castelino.config import get_settings
 from castelino.execution.mark_loop import run_mark_loop

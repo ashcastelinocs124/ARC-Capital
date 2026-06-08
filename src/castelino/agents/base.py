@@ -222,7 +222,7 @@ def get_llm_client() -> LLMClient:
 
 
 def set_llm_client(client: LLMClient) -> None:
-    """Override the global LLM client (used by tests / `castelino run --mock`)."""
+    """Override the global LLM client (used by tests / `ckm run --mock`)."""
     global _LIVE_CLIENT_SINGLETON
     _LIVE_CLIENT_SINGLETON = client
 

@@ -1,4 +1,4 @@
-"""Trigger runner — `castelino watch`.
+"""Trigger runner — `ckm watch`.
 
 Polling loop with four trigger paths (priority order):
 1. Black swan — single headline materiality ≥ 0.9 → instant fire.

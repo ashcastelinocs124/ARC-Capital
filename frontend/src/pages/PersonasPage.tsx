@@ -55,7 +55,7 @@ export default function PersonasPage() {
           <div className="text-muted">
             Run{" "}
             <code className="font-mono text-xs bg-surface-3 px-1.5 py-0.5 rounded">
-              castelino persona-build --persona &lt;id&gt; --full-name "X" --role "Y"
+              ckm persona-build --persona &lt;id&gt; --full-name "X" --role "Y"
             </code>{" "}
             for each persona in the active roster (Krugman, El-Erian, Summers,
             Druckenmiller, Dalio, Tudor Jones).

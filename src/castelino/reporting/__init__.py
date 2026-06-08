@@ -1,6 +1,6 @@
 """Reporting — static HTML / PNG outputs regenerated after every state change.
 
-`regenerate_all()` is the single entry point used by `castelino report`.
+`regenerate_all()` is the single entry point used by `ckm report`.
 """
 
 from __future__ import annotations

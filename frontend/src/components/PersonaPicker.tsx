@@ -26,7 +26,7 @@ export function PersonaPicker({ selected, onChange }: Props) {
   if (personas.length === 0) {
     return (
       <div className="text-gray-500">
-        No personas built yet. Run <code>castelino persona-build</code>.
+        No personas built yet. Run <code>ckm persona-build</code>.
       </div>
     );
   }

@@ -2,7 +2,7 @@
 
 Shows: NAV/cash/exposure metrics, open positions with live P&L, recent fills,
 recent hypotheses + triggers, plus the existing PNG charts. Regenerated on
-demand via `castelino dashboard` (or as a side-effect of `castelino report`).
+demand via `ckm dashboard` (or as a side-effect of `ckm report`).
 """
 
 from __future__ import annotations
@@ -198,7 +198,7 @@ DASHBOARD = Template(
   {% endfor %}
   </tbody>
 </table>
-{% else %}<div class="empty">No hypotheses yet — run <code>castelino run "&lt;headline&gt;"</code>.</div>{% endif %}
+{% else %}<div class="empty">No hypotheses yet — run <code>ckm run "&lt;headline&gt;"</code>.</div>{% endif %}
 
 <h2>Recent triggers</h2>
 {% if triggers %}

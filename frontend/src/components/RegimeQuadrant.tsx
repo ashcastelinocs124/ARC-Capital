@@ -61,7 +61,7 @@ export function RegimeQuadrant({ growthUp, inflationUp, growthProb, inflationPro
           <div className="h-48 flex items-center justify-center text-sm text-muted">
             <div className="text-center">
               <div>No regime forecast loaded.</div>
-              <div className="text-xs mt-1 font-mono">Run: castelino forecast-regime</div>
+              <div className="text-xs mt-1 font-mono">Run: ckm forecast-regime</div>
             </div>
           </div>
         ) : (

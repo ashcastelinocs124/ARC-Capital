@@ -16,7 +16,7 @@ export function RiskOffGauge({ prob }: Props) {
           <div className="h-32 flex items-center justify-center text-sm text-muted text-center">
             <div>
               <div>No risk-off forecast.</div>
-              <div className="text-xs font-mono mt-1">castelino forecast-risk</div>
+              <div className="text-xs font-mono mt-1">ckm forecast-risk</div>
             </div>
           </div>
         </CardContent>

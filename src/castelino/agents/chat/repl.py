@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import logging
+import warnings
+
+warnings.filterwarnings("ignore", message=".*allowed_objects.*")
+
 from collections.abc import Callable
 
 from rich.console import Console
@@ -7,7 +12,15 @@ from rich.console import Console
 from castelino.agents.base import LLMClient
 from castelino.agents.chat.session import ChatSession
 
+_NOISY_LOGGERS = ["httpx", "openai", "langgraph", "castelino.agents.base", "castelino.data", "castelino.agents.research"]
+
 _EXIT = {"exit", "quit", ":q"}
+
+
+def _quiet_logging() -> None:
+    for name in _NOISY_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
+    warnings.filterwarnings("ignore", message=".*allowed_objects.*", category=DeprecationWarning)
 
 
 def _default_read_line(prompt: str) -> str:  # pragma: no cover (interactive)
@@ -17,6 +30,7 @@ def _default_read_line(prompt: str) -> str:  # pragma: no cover (interactive)
 def run_repl(*, client: LLMClient | None = None,
              confirm: Callable[[str], bool] | None = None,
              read_line: Callable[[str], str] | None = None) -> None:
+    _quiet_logging()
     console = Console()
     read_line = read_line or _default_read_line
     sess = ChatSession(client=client, confirm=confirm)
