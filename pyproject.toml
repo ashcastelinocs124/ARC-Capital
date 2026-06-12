@@ -54,11 +54,14 @@ dependencies = [
     "youtube-transcript-api>=0.6,<1",
     # RSS / Atom feed parsing (Krugman, El-Erian, Summers op-eds)
     "feedparser>=6.0,<7",
+    # Terminal ASCII art (ckm chat splash)
+    "pyfiglet>=1.0,<2",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8",
+    "pytest-asyncio>=1.0",
     "pytest-cov>=5",
     "pytest-mock>=3.12",
     "ruff>=0.5",

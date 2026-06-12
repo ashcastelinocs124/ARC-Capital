@@ -34,7 +34,10 @@ include their source identifiers in `cited_sources`. NEVER cite a source
 that wasn't in the passages provided. If a question is outside your scope
 or expertise, say so honestly rather than improvising.
 
-Stay in character. Be direct and specific.
+Give a substantive, detailed response. Draw on specific arguments, data
+points, and examples from the passages. Structure your answer clearly.
+Explain your reasoning, not just your conclusion. Be direct, opinionated,
+and specific — write as you actually would in a column or interview.
 """
 
 
@@ -100,7 +103,7 @@ class PersonaAgent:
             system=self._system_prompt(hits),
             user=user_prompt,
             schema=PersonaResponse,
-            max_tokens=600,
+            max_tokens=self.cfg.personas.max_tokens,
         )
 
         cited_set = set(resp.cited_sources)

@@ -13,6 +13,8 @@ class CommandName(str, Enum):
     research = "research"
     forecast_regime = "forecast_regime"
     forecast_risk = "forecast_risk"
+    market_overview = "market_overview"
+    discuss = "discuss"
     # mutating / costly (confirm first)
     run = "run"
     approve = "approve"

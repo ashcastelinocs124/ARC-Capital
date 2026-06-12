@@ -38,8 +38,18 @@ def _reset_singleton():
 
 @pytest.fixture()
 def adapter_no_pat(monkeypatch: pytest.MonkeyPatch) -> OpenBBAdapter:
-    """An adapter with no OPENBB_PAT configured."""
+    """An adapter with no OpenBB credentials configured."""
     monkeypatch.delenv("OPENBB_PAT", raising=False)
+    # Simulate empty credentials — the OpenBB Platform v2+ always imports
+    # successfully, so we patch the credentials object to have no fields.
+    try:
+        from openbb import obb
+
+        mock_creds = MagicMock()
+        mock_creds.model_fields = {}
+        monkeypatch.setattr(obb.user, "credentials", mock_creds)
+    except ImportError:
+        pass
     return OpenBBAdapter()
 
 
@@ -137,8 +147,16 @@ class TestAdapterInitialization:
         assert adapter_no_pat.available is False
 
     def test_unavailable_when_pat_is_empty(self, monkeypatch: pytest.MonkeyPatch):
-        """Adapter reports unavailable when OPENBB_PAT is empty string."""
+        """Adapter reports unavailable when OPENBB_PAT is empty string and no platform credentials."""
         monkeypatch.setenv("OPENBB_PAT", "   ")
+        try:
+            from openbb import obb
+
+            mock_creds = MagicMock()
+            mock_creds.model_fields = {}
+            monkeypatch.setattr(obb.user, "credentials", mock_creds)
+        except ImportError:
+            pass
         adapter = OpenBBAdapter()
         assert adapter.available is False
 
@@ -153,9 +171,7 @@ class TestAdapterInitialization:
                 adapter = OpenBBAdapter()
                 assert adapter.available is False
 
-    def test_available_with_working_sdk(
-        self, adapter_with_sdk: OpenBBAdapter
-    ):
+    def test_available_with_working_sdk(self, adapter_with_sdk: OpenBBAdapter):
         """Adapter reports available when SDK is properly configured."""
         assert adapter_with_sdk.available is True
 
@@ -308,9 +324,7 @@ class TestHistory:
 
     def test_raises_on_sdk_exception(self, adapter_with_sdk: OpenBBAdapter):
         """history wraps SDK exceptions in OpenBBError."""
-        adapter_with_sdk._sdk.equity.price.historical.side_effect = RuntimeError(
-            "timeout"
-        )
+        adapter_with_sdk._sdk.equity.price.historical.side_effect = RuntimeError("timeout")
         with pytest.raises(OpenBBError, match="Failed to fetch history"):
             adapter_with_sdk.history("AAPL")
 
@@ -346,9 +360,7 @@ class TestTechnicalIndicators:
 
     def test_unknown_indicator_skipped(self, adapter_with_sdk: OpenBBAdapter):
         """Unknown indicators are silently skipped (logged as warning)."""
-        result = adapter_with_sdk.technical_indicators(
-            "AAPL", indicators=["rsi", "unknown_ind"]
-        )
+        result = adapter_with_sdk.technical_indicators("AAPL", indicators=["rsi", "unknown_ind"])
         assert "rsi" in result
         assert "unknown_ind" not in result
 

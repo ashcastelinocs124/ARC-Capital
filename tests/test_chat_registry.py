@@ -2,7 +2,8 @@ from castelino.agents.chat.models import CommandName
 from castelino.agents.chat.registry import REGISTRY, CommandSpec
 
 READ = {CommandName.status, CommandName.queue, CommandName.research,
-        CommandName.forecast_regime, CommandName.forecast_risk}
+        CommandName.forecast_regime, CommandName.forecast_risk,
+        CommandName.market_overview}
 MUTATING = {CommandName.run, CommandName.approve, CommandName.reject,
             CommandName.reset, CommandName.mark}
 

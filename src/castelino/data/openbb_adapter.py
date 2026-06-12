@@ -77,13 +77,15 @@ class OpenBBAdapter:
         return self._available
 
     def _try_init(self) -> bool:
-        """Attempt to import OpenBB. Credentials come from ~/.openbb_platform/user_settings.json."""
+        """Attempt to import OpenBB and verify credentials.
+
+        Credentials come from ~/.openbb_platform/user_settings.json or the
+        OPENBB_PAT environment variable (legacy).
+        """
         try:
             from openbb import obb  # type: ignore[import-untyped]
 
             self._sdk = obb
-            log.info("OpenBB adapter initialized successfully")
-            return True
         except ImportError:
             log.info("OpenBB adapter disabled: openbb package not installed")
             return False
@@ -91,12 +93,28 @@ class OpenBBAdapter:
             log.warning("OpenBB adapter initialization failed: %s", exc)
             return False
 
+        if os.getenv("OPENBB_PAT", "").strip():
+            log.info("OpenBB adapter initialized successfully (OPENBB_PAT env)")
+            return True
+
+        try:
+            creds = obb.user.credentials
+            has_creds = any(
+                getattr(creds, field, None) is not None for field in type(creds).model_fields
+            )
+            if has_creds:
+                log.info("OpenBB adapter initialized successfully (user_settings)")
+                return True
+        except Exception:
+            pass
+
+        log.info("OpenBB adapter disabled: no credentials configured")
+        return False
+
     def _ensure_available(self) -> Any:
         """Return the SDK instance or raise ``OpenBBError``."""
         if not self.available:
-            raise OpenBBError(
-                "OpenBB SDK is not available. Install `openbb` and set OPENBB_PAT."
-            )
+            raise OpenBBError("OpenBB SDK is not available. Install `openbb` and set OPENBB_PAT.")
         return self._sdk
 
     # ------------------------------------------------------------------
@@ -195,9 +213,7 @@ class OpenBBAdapter:
                 f"Failed to compute technical indicators for {symbol}: {exc}"
             ) from exc
 
-    def moving_averages(
-        self, symbol: str, windows: list[int] | None = None
-    ) -> pd.DataFrame:
+    def moving_averages(self, symbol: str, windows: list[int] | None = None) -> pd.DataFrame:
         """Compute simple moving averages for *symbol*.
 
         *windows* defaults to ``[20, 50, 200]``.
@@ -215,9 +231,7 @@ class OpenBBAdapter:
         except OpenBBError:
             raise
         except Exception as exc:
-            raise OpenBBError(
-                f"Failed to compute moving averages for {symbol}: {exc}"
-            ) from exc
+            raise OpenBBError(f"Failed to compute moving averages for {symbol}: {exc}") from exc
 
     # ------------------------------------------------------------------
     # Fundamentals
@@ -235,9 +249,7 @@ class OpenBBAdapter:
         except OpenBBError:
             raise
         except Exception as exc:
-            raise OpenBBError(
-                f"Failed to fetch income statement for {symbol}: {exc}"
-            ) from exc
+            raise OpenBBError(f"Failed to fetch income statement for {symbol}: {exc}") from exc
 
     def balance_sheet(self, symbol: str) -> pd.DataFrame:
         """Fetch balance sheet data for *symbol*."""
@@ -251,9 +263,7 @@ class OpenBBAdapter:
         except OpenBBError:
             raise
         except Exception as exc:
-            raise OpenBBError(
-                f"Failed to fetch balance sheet for {symbol}: {exc}"
-            ) from exc
+            raise OpenBBError(f"Failed to fetch balance sheet for {symbol}: {exc}") from exc
 
     def analyst_estimates(self, symbol: str) -> list[dict[str, Any]]:
         """Fetch analyst estimates for *symbol*."""
@@ -267,9 +277,7 @@ class OpenBBAdapter:
         except OpenBBError:
             raise
         except Exception as exc:
-            raise OpenBBError(
-                f"Failed to fetch analyst estimates for {symbol}: {exc}"
-            ) from exc
+            raise OpenBBError(f"Failed to fetch analyst estimates for {symbol}: {exc}") from exc
 
     def earnings_calendar(
         self, start: str | None = None, end: str | None = None
@@ -328,9 +336,7 @@ class OpenBBAdapter:
     # Quantitative
     # ------------------------------------------------------------------
 
-    def correlation_matrix(
-        self, symbols: list[str], lookback_days: int = 90
-    ) -> pd.DataFrame:
+    def correlation_matrix(self, symbols: list[str], lookback_days: int = 90) -> pd.DataFrame:
         """Compute correlation matrix for *symbols* over *lookback_days*.
 
         Uses close prices from history. Returns a square DataFrame.
@@ -373,9 +379,7 @@ class OpenBBAdapter:
         except OpenBBError:
             raise
         except Exception as exc:
-            raise OpenBBError(
-                f"Failed to fetch economic indicators: {exc}"
-            ) from exc
+            raise OpenBBError(f"Failed to fetch economic indicators: {exc}") from exc
 
     def economic_calendar(
         self, start: str | None = None, end: str | None = None
@@ -402,9 +406,16 @@ class OpenBBAdapter:
         """Fetch the current US Treasury yield curve via FRED series."""
         obb = self._ensure_available()
         try:
-            tenors = {"1M": "DGS1MO", "3M": "DGS3MO", "6M": "DGS6MO",
-                      "1Y": "DGS1", "2Y": "DGS2", "5Y": "DGS5",
-                      "10Y": "DGS10", "30Y": "DGS30"}
+            tenors = {
+                "1M": "DGS1MO",
+                "3M": "DGS3MO",
+                "6M": "DGS6MO",
+                "1Y": "DGS1",
+                "2Y": "DGS2",
+                "5Y": "DGS5",
+                "10Y": "DGS10",
+                "30Y": "DGS30",
+            }
             data = {}
             for label, symbol in tenors.items():
                 result = obb.economy.fred_series(symbol=symbol, provider="fred")
@@ -460,10 +471,7 @@ class OpenBBAdapter:
             if results is None:
                 return []
             if isinstance(results, list):
-                return [
-                    r.model_dump() if hasattr(r, "model_dump") else dict(r)
-                    for r in results
-                ]
+                return [r.model_dump() if hasattr(r, "model_dump") else dict(r) for r in results]
             if hasattr(results, "model_dump"):
                 return [results.model_dump()]
             return [dict(results)]

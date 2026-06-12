@@ -28,6 +28,7 @@ from rich.table import Table
 # then insert our "ignore" filter after to take precedence.
 import langchain_core  # noqa: F401
 from langchain_core._api.deprecation import LangChainPendingDeprecationWarning
+
 warnings.simplefilter("ignore", LangChainPendingDeprecationWarning)
 
 from castelino.config import get_settings
@@ -46,9 +47,13 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(na
 
 @app.command()
 def run(
-    headline: str = typer.Argument(..., help="Headline / event description that fired the pipeline."),
+    headline: str = typer.Argument(
+        ..., help="Headline / event description that fired the pipeline."
+    ),
     significance: float = typer.Option(0.7, help="Trigger significance 0–1."),
-    source: str = typer.Option("manual", help="Trigger source: calendar | news | cron_fallback | manual."),
+    source: str = typer.Option(
+        "manual", help="Trigger source: calendar | news | cron_fallback | manual."
+    ),
     asset_classes: str = typer.Option("", help="Comma-separated asset classes affected."),
 ):
     """Fire one pipeline pass with a manually-supplied trigger."""
@@ -80,14 +85,14 @@ def mark():
     pf = Portfolio.load()
     new_pf, fills, warnings = run_mark_loop(pf)
     new_pf.save()
-    print(f"[green]NAV after mark:[/green] {new_pf.nav:,.2f}")
+    rich_print(f"[green]NAV after mark:[/green] {new_pf.nav:,.2f}")
     print(f"open positions: {len(new_pf.positions)}")
     if fills:
-        print(f"[yellow]stop-loss fills: {len(fills)}[/yellow]")
+        rich_print(f"[yellow]stop-loss fills: {len(fills)}[/yellow]")
         for f in fills:
             print(f"  - {f.instrument_id}: {f.side.value} {f.quantity} @ {f.fill_price:.4f}")
     if warnings:
-        print("[red]warnings:[/red]")
+        rich_print("[red]warnings:[/red]")
         for w in warnings:
             print(f"  - {w}")
 
@@ -107,9 +112,9 @@ def status():
     table.add_row("Net exposure", f"${pf.net_exposure:,.2f}")
     table.add_row("Open positions", str(len(pf.positions)))
     table.add_row("Realized P&L (cum)", f"${pf.realized_pnl:,.2f}")
-    print(table)
+    rich_print(table)
 
-    print("[bold]Open positions:[/bold]")
+    rich_print("[bold]Open positions:[/bold]")
     for p in pf.positions:
         print(
             f"  {p.instrument_id}: qty={p.quantity:+.2f} @ {p.avg_entry_price:.4f} "
@@ -117,10 +122,10 @@ def status():
         )
 
     counts = memio.journal_summary()
-    print(f"\n[bold]Short-term journal:[/bold] {sum(counts.values())} entries")
+    rich_print(f"\n[bold]Short-term journal:[/bold] {sum(counts.values())} entries")
     for kind, n in sorted(counts.items()):
         print(f"  {kind}: {n}")
-    print(f"\nLong-term lessons: {len(memio.read_long_term())}")
+    rich_print(f"\nLong-term lessons: {len(memio.read_long_term())}")
     print(f"Config root: {cfg.root}")
 
 
@@ -148,10 +153,14 @@ def report():
 
 @app.command()
 def dashboard(
-    open_browser: bool = typer.Option(True, "--open/--no-open",
-                                      help="Open the dashboard in the default browser."),
-    refresh_marks: bool = typer.Option(True, "--refresh-marks/--no-refresh-marks",
-                                       help="Re-price every position via live yfinance/FRED."),
+    open_browser: bool = typer.Option(
+        True, "--open/--no-open", help="Open the dashboard in the default browser."
+    ),
+    refresh_marks: bool = typer.Option(
+        True,
+        "--refresh-marks/--no-refresh-marks",
+        help="Re-price every position via live yfinance/FRED.",
+    ),
 ):
     """Render the live position dashboard and open it in a browser."""
     from castelino.reporting import dashboard as dash_mod
@@ -165,6 +174,7 @@ def dashboard(
     print(f"[green]Dashboard:[/green] {path}")
     if open_browser:
         import webbrowser
+
         webbrowser.open(f"file://{path.absolute()}")
 
 
@@ -175,11 +185,13 @@ def serve(
 ):
     """Start the OpenBB Workspace dashboard backend."""
     import uvicorn
-    print(f"[green]Starting Castelino dashboard on port {port}[/green]")
-    print("[blue]Connect in OpenBB Workspace: Settings → Data Connectors → Add http://localhost:"
-          f"{port}[/blue]")
-    uvicorn.run("castelino.dashboard.main:app", host="0.0.0.0", port=port, reload=reload)
 
+    print(f"[green]Starting Castelino dashboard on port {port}[/green]")
+    print(
+        "[blue]Connect in OpenBB Workspace: Settings → Data Connectors → Add http://localhost:"
+        f"{port}[/blue]"
+    )
+    uvicorn.run("castelino.dashboard.main:app", host="0.0.0.0", port=port, reload=reload)
 
 
 @app.command()
@@ -201,7 +213,9 @@ def forecast_regime(
     lead_months: int = typer.Option(
         1, help="Forecast horizon in months. Use 2 when current month's data hasn't been published."
     ),
-    save: bool = typer.Option(True, "--save/--no-save", help="Persist to data/regime_forecast.json."),
+    save: bool = typer.Option(
+        True, "--save/--no-save", help="Persist to data/regime_forecast.json."
+    ),
 ):
     """Train **two independent** XGBoost classifiers (growth + inflation) and print
     next-month MoM direction. Each reads its own indicator list YAML in `data/`."""
@@ -231,7 +245,8 @@ def forecast_regime(
 
     def _render(title: str, fc, indicator_yaml) -> Table:
         t = Table(title=title)
-        t.add_column("Field"); t.add_column("Value", justify="right")
+        t.add_column("Field")
+        t.add_column("Value", justify="right")
         t.add_row("target", f"{fc.target_name}  ({fc.target_id})")
         t.add_row("lead horizon", f"{fc.lead_months} month(s) ahead")
         t.add_row("indicators (incl. target)", ", ".join(fc.indicators_used) or "—")
@@ -248,7 +263,9 @@ def forecast_regime(
 
     print(_render("Growth nowcaster (next-month MoM)", bundle.growth, GROWTH_INDICATORS_YAML))
     print()
-    print(_render("Inflation nowcaster (next-month MoM)", bundle.inflation, INFLATION_INDICATORS_YAML))
+    print(
+        _render("Inflation nowcaster (next-month MoM)", bundle.inflation, INFLATION_INDICATORS_YAML)
+    )
 
     if save:
         out = write_forecast(bundle)
@@ -262,7 +279,8 @@ def forecast_risk():
 
     forecast = train_and_predict()
     table = Table(title="Risk-Off Forecast")
-    table.add_column("Field"); table.add_column("Value", justify="right")
+    table.add_column("Field")
+    table.add_column("Value", justify="right")
     table.add_row("prob_risk_off", f"{forecast.prob_risk_off:.4f}")
     table.add_row("feature month", forecast.feature_month)
     table.add_row("target month", forecast.target_month)
@@ -279,7 +297,7 @@ def forecast_risk():
         tier = "[magenta]capitulation — contrarian amplify 1.3x[/magenta]"
     table.add_row("gate tier", tier)
 
-    print(table)
+    rich_print(table)
 
 
 def _run_indicator_search(
@@ -312,7 +330,9 @@ def _run_indicator_search(
         pool = growth_candidate_pool()
     elif target_kind == "inflation":
         target = IndicatorSpec(
-            id="CPIAUCSL", source=SOURCE_FRED, fred_id="CPIAUCSL",
+            id="CPIAUCSL",
+            source=SOURCE_FRED,
+            fred_id="CPIAUCSL",
             name="CPI All Items (SA, level)",
         )
         pool = inflation_candidate_pool()
@@ -320,7 +340,9 @@ def _run_indicator_search(
         raise typer.BadParameter(f"target_kind must be growth|inflation, got {target_kind!r}")
 
     training = TrainingConfig(
-        history_start=history_start, n_lags=n_lags, cv_splits=cv_splits,
+        history_start=history_start,
+        n_lags=n_lags,
+        cv_splits=cv_splits,
         lead_months=lead_months,
     )
     print(
@@ -329,8 +351,20 @@ def _run_indicator_search(
     )
 
     table = Table(title=f"{target_kind.capitalize()} forward-selection log")
-    for col in ("step", "added", "selected", "balanced_acc", "f1_up",
-                "recall_up", "f1_dn", "recall_dn", "precision_up", "accuracy", "brier", "n_test"):
+    for col in (
+        "step",
+        "added",
+        "selected",
+        "balanced_acc",
+        "f1_up",
+        "recall_up",
+        "f1_dn",
+        "recall_dn",
+        "precision_up",
+        "accuracy",
+        "brier",
+        "n_test",
+    ):
         table.add_column(col)
 
     def _on_step(step: SearchStep) -> None:
@@ -357,7 +391,7 @@ def _run_indicator_search(
         metric=metric,
         on_step=_on_step,
     )
-    print(table)
+    rich_print(table)
 
     best = result.best_step
     print(
@@ -390,9 +424,13 @@ def growth_search(
     Uses only `growth_candidate_pool()` — **does not touch** inflation YAML.
     """
     _run_indicator_search(
-        target_kind="growth", history_start=history_start, n_lags=n_lags,
-        cv_splits=cv_splits, lead_months=lead_months,
-        max_indicators=max_indicators, metric=metric,
+        target_kind="growth",
+        history_start=history_start,
+        n_lags=n_lags,
+        cv_splits=cv_splits,
+        lead_months=lead_months,
+        max_indicators=max_indicators,
+        metric=metric,
     )
 
 
@@ -414,9 +452,13 @@ def inflation_search(
     Uses only `inflation_candidate_pool()` — **does not touch** growth YAML.
     """
     _run_indicator_search(
-        target_kind="inflation", history_start=history_start, n_lags=n_lags,
-        cv_splits=cv_splits, lead_months=lead_months,
-        max_indicators=max_indicators, metric=metric,
+        target_kind="inflation",
+        history_start=history_start,
+        n_lags=n_lags,
+        cv_splits=cv_splits,
+        lead_months=lead_months,
+        max_indicators=max_indicators,
+        metric=metric,
     )
 
 
@@ -465,7 +507,7 @@ def queue(
         elif "instrument" in item.payload:
             details = f"{item.payload.get('instrument')} → {item.payload.get('decision')}"
         table.add_row(item.entry_id, item.gate, item.submitted_at[:19], details)
-    print(table)
+    rich_print(table)
 
 
 @app.command(name="approve")
@@ -550,7 +592,9 @@ def _print_run_summary(result) -> None:
     h = _get("hypothesis")
     if h:
         print(f"[bold]Hypothesis:[/bold] {h.thesis}")
-        print(f"  regime={h.regime.value} conviction={h.conviction.value} horizon={h.horizon_days}d")
+        print(
+            f"  regime={h.regime.value} conviction={h.conviction.value} horizon={h.horizon_days}d"
+        )
         print(f"  kill criteria: {[c.description for c in h.kill_criteria]}")
 
     exps = _get("expressions") or []
@@ -562,7 +606,7 @@ def _print_run_summary(result) -> None:
     guards = _get("guard_decisions") or []
     for i, (e, v, g) in enumerate(zip(exps, verdicts, guards, strict=False)):
         print(
-            f"\n[bold]Trade {i+1} — {e.instrument_id}:[/bold]\n"
+            f"\n[bold]Trade {i + 1} — {e.instrument_id}:[/bold]\n"
             f"  verdict: {v.decision} (mult={v.size_multiplier:.2f}) — {v.decisive_factor}\n"
             f"  guard:   {g.decision} ({len(g.triggered_rules)} rules) — {g.rationale[:120]}"
         )
@@ -580,7 +624,9 @@ def _print_run_summary(result) -> None:
 
     pf = _get("portfolio")
     if pf is not None:
-        print(f"\n[bold]Post-pipeline NAV:[/bold] ${pf.nav:,.2f}  cash=${pf.cash:,.2f}  positions={len(pf.positions)}")
+        print(
+            f"\n[bold]Post-pipeline NAV:[/bold] ${pf.nav:,.2f}  cash=${pf.cash:,.2f}  positions={len(pf.positions)}"
+        )
 
 
 @app.command("persona-refresh")
@@ -592,7 +638,8 @@ def persona_refresh(
     import asyncio
     import httpx
     from castelino.triggers.figure_deviation.persona import (
-        build_persona_from_speeches, save_persona,
+        build_persona_from_speeches,
+        save_persona,
     )
     from castelino.triggers.figure_deviation.scrapers.fed import fetch_speeches_for_speaker
 
@@ -606,19 +653,26 @@ def persona_refresh(
     async def _run():
         async with httpx.AsyncClient(base_url="https://www.federalreserve.gov", timeout=30) as c:
             speeches = await fetch_speeches_for_speaker(
-                speaker_match=sp.full_name.split()[-1], year=yr, client=c,
+                speaker_match=sp.full_name.split()[-1],
+                year=yr,
+                client=c,
             )
         persona = build_persona_from_speeches(
-            speaker_id=sp.id, full_name=sp.full_name, role=sp.role,
-            speeches=speeches, lexicon_version=cfg.speech.lexicon_version,
+            speaker_id=sp.id,
+            full_name=sp.full_name,
+            role=sp.role,
+            speeches=speeches,
+            lexicon_version=cfg.speech.lexicon_version,
             baseline_window_days=cfg.speech.baseline_window_days,
             half_life_months=cfg.speech.half_life_months,
         )
         path = save_persona(persona)
         print(f"[green]Persona saved:[/green] {path}")
-        print(f"  speeches: {len(persona.speeches_in_window)}  "
-              f"mean: {persona.baseline_vector.hawkish_dovish_mean:+.3f}  "
-              f"std: {persona.baseline_vector.hawkish_dovish_std:.3f}")
+        print(
+            f"  speeches: {len(persona.speeches_in_window)}  "
+            f"mean: {persona.baseline_vector.hawkish_dovish_mean:+.3f}  "
+            f"std: {persona.baseline_vector.hawkish_dovish_std:.3f}"
+        )
 
     asyncio.run(_run())
 
@@ -627,10 +681,12 @@ def persona_refresh(
 def speech_test(
     speaker: str = typer.Option("powell", help="Speaker id."),
     transcript_file: str = typer.Option(
-        None, help="Path to a transcript .txt file to replay (skip live audio).",
+        None,
+        help="Path to a transcript .txt file to replay (skip live audio).",
     ),
     dry_run: bool = typer.Option(
-        True, "--dry-run/--live",
+        True,
+        "--dry-run/--live",
         help="Dry-run (default) — print would-be triggers, don't enqueue.",
     ),
 ):
@@ -656,7 +712,9 @@ def speech_test(
     try:
         persona = load_persona(speaker)
     except FileNotFoundError:
-        print(f"[red]No persona found for {speaker}.[/red] Run `ckm persona-refresh --speaker {speaker}` first.")
+        print(
+            f"[red]No persona found for {speaker}.[/red] Run `ckm persona-refresh --speaker {speaker}` first."
+        )
         raise typer.Exit(1)
 
     if transcript_file is None:
@@ -670,15 +728,21 @@ def speech_test(
     # Stage A only (no LLM calls in dry-run if no client available — keep it offline-friendly)
     from castelino.agents.base import FakeLLMClient
     from castelino.triggers.figure_deviation.llm_gate import SpeechShiftClassification
+
     fake = FakeLLMClient()
     fake.register(
         "SpeechShiftClassification",
         lambda system, user: SpeechShiftClassification(
-            is_shift=True, direction="hawkish", magnitude=0.7,
-            decisive_phrase="(dry-run stub)", rationale="dry-run"),
+            is_shift=True,
+            direction="hawkish",
+            magnitude=0.7,
+            decisive_phrase="(dry-run stub)",
+            rationale="dry-run",
+        ),
     )
     em = SpeechTriggerEmitter(
-        speaker_id=sp_cfg.id, full_name=sp_cfg.full_name,
+        speaker_id=sp_cfg.id,
+        full_name=sp_cfg.full_name,
         baseline=persona.baseline_vector,
         threshold_sigma=cfg.speech.deviation_threshold_sigma,
         llm_client=fake,
@@ -686,10 +750,14 @@ def speech_test(
         window_size=cfg.speech.window_size,
     )
     for s in sentences:
-        em.ingest(SpeechSegment(
-            speaker_id=sp_cfg.id, text=s,
-            timestamp=datetime.now(UTC), event_id=f"speech-test-{speaker}",
-        ))
+        em.ingest(
+            SpeechSegment(
+                speaker_id=sp_cfg.id,
+                text=s,
+                timestamp=datetime.now(UTC),
+                event_id=f"speech-test-{speaker}",
+            )
+        )
 
     if not em.triggers:
         print("[blue]No triggers fired during replay.[/blue]")
@@ -700,6 +768,7 @@ def speech_test(
         print(f"    reason: {trg.one_sentence_reason}")
     if not dry_run:
         from castelino.triggers.figure_deviation.queue import speech_trigger_queue
+
         for trg in em.triggers:
             speech_trigger_queue.offer(trg)
         print(f"[green]Pushed {len(em.triggers)} trigger(s) onto pipeline queue.[/green]")
@@ -717,10 +786,14 @@ def persona_build(
     from castelino.agents.base import get_llm_client
     from castelino.agents.personas.build import build_persona
 
-    asyncio.run(build_persona(
-        persona_id=persona_id, full_name=full_name, role=role,
-        client=get_llm_client(),
-    ))
+    asyncio.run(
+        build_persona(
+            persona_id=persona_id,
+            full_name=full_name,
+            role=role,
+            client=get_llm_client(),
+        )
+    )
     print(f"[green]Persona built:[/green] {persona_id}")
 
 
@@ -801,15 +874,22 @@ def backtest(
         print("[bold red]LIVE PIPELINE — real graph + mark loop + portfolio snapshots[/bold red]")
         print("[yellow]This burns gpt-4o credits. Ctrl-C aborts after the current day.[/yellow]")
         from castelino.backtest.execution import (
-            PortfolioHolder, append_daily_snapshot, initial_portfolio,
-            make_fire_fn, run_daily_mark, snapshot_row,
+            PortfolioHolder,
+            append_daily_snapshot,
+            initial_portfolio,
+            make_fire_fn,
+            run_daily_mark,
+            snapshot_row,
         )
+
         ig.reset_state()
         holder = PortfolioHolder(initial_portfolio())
         fire_fn = make_fire_fn(holder)
+
         def _eod(d):
             holder.set(run_daily_mark(holder.get()))
             append_daily_snapshot(run_id, snapshot_row(d, holder.get()))
+
         runner = BacktestRunner(
             score_fn=ig.real_score_fn,
             trigger_fn=ig.real_trigger_fn,
@@ -837,6 +917,7 @@ def backtest_report_cmd(
 ) -> None:
     """Build summary.json + report.html for a completed backtest run."""
     from castelino.backtest.report import write_report
+
     json_path, html_path = write_report(run_id)
     print(f"[green]summary.json[/green] → {json_path}")
     print(f"[green]report.html[/green]  → {html_path}")
@@ -846,7 +927,8 @@ def backtest_report_cmd(
 def research(
     query: str = typer.Argument(..., help="Your research question."),
     no_clarify: bool = typer.Option(
-        False, "--no-clarify",
+        False,
+        "--no-clarify",
         help="Skip clarifying questions; auto-assume context.",
     ),
 ):

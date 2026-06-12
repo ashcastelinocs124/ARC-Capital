@@ -17,3 +17,7 @@ def test_assistant_turn_carries_command_and_args():
 def test_command_name_is_closed_set():
     assert CommandName.none.value == "none"
     assert "status" in {c.value for c in CommandName}
+
+
+def test_market_overview_exists():
+    assert CommandName.market_overview.value == "market_overview"

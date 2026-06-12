@@ -29,6 +29,7 @@ class ModelsCfg(BaseModel):
     reasoning: str
     fast: str
     significance: str
+    chat_lightweight: str = "gpt-4o-mini"
 
 
 class OpenAICfg(BaseModel):
@@ -178,6 +179,7 @@ class PersonaCfg(BaseModel):
     retrieval_top_k: int = 6
     chunk_max_tokens: int = 400
     chunk_overlap_tokens: int = 50
+    max_tokens: int = 1500
     chroma_path: str = "data/personas/chroma"
     active_roster: list[str] = Field(default_factory=list)
 

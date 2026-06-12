@@ -17,6 +17,9 @@ models:
   reasoning: "gpt-5.5"
   fast: "gpt-5.4-mini"
   significance: "gpt-5.4-mini"
+  # chat_lightweight: cheap model for simple conversational queries in ckm chat.
+  # The model router in ChatSession falls back to `fast` for complex queries.
+  chat_lightweight: "gpt-4o-mini"
 
 openai:
   request_timeout_s: 60
@@ -136,7 +139,7 @@ openbb:
 
 sonar:
   cache_ttl_hours: 12
-  model: "sonar"
+  model: "sonar-pro"
   regions: ["EU", "UK", "JP", "CN", "GLOBAL"]
 
 speech:
@@ -186,7 +189,7 @@ figure_deviation:
 
 personas:
   enabled: true
-  chat_model: gpt-4o-mini
+  chat_model: gpt-4o
   synthesis_model: gpt-4o
   embedding_model: text-embedding-3-small
   retrieval_top_k: 6

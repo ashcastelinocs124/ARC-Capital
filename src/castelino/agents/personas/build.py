@@ -39,6 +39,7 @@ def _seed_registry_once() -> None:
 
     register_scraper("krugman", KrugmanScraper)
     register_scraper("el_erian", ElErianScraper)
+    register_scraper("elerian", ElErianScraper)  # alias for chat registry
     register_scraper("summers", SummersScraper)
     register_scraper("druckenmiller", DruckenmillerScraper)
     register_scraper("dalio", DalioScraper)

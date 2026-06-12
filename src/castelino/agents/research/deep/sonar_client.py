@@ -46,7 +46,11 @@ class PerplexitySonarClient(SonarClient):
         try:
             from openai import OpenAI
 
-            client = OpenAI(api_key=api_key, base_url="https://api.perplexity.ai")
+            client = OpenAI(
+                api_key=api_key,
+                base_url="https://api.perplexity.ai",
+                timeout=cfg.openai.request_timeout_s,
+            )
             resp = client.chat.completions.create(
                 model=cfg.sonar.model,
                 messages=[

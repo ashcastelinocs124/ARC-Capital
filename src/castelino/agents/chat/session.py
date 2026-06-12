@@ -7,6 +7,27 @@ from castelino.agents.chat.router import route
 from castelino.agents.chat.registry import REGISTRY
 from castelino.config import get_settings
 
+# ── model router ──────────────────────────────────────────────────────────
+
+_COMPLEX_TRIGGERS: list[str] = [
+    "research", "analyze", "explain", "recommend", "forecast",
+    "predict", "compare", "evaluate", "what if", "how would",
+    "strategy", "should i", "is it a good", "backtest",
+    "run the pipeline", "trigger the",
+]
+
+def _is_simple_query(text: str) -> bool:
+    """Heuristic classifier: short queries without complex keywords → simple."""
+    words = text.split()
+    if len(words) > 12:
+        return False
+    lower = text.lower()
+    if any(t in lower for t in _COMPLEX_TRIGGERS):
+        return False
+    return True
+
+# ── session ───────────────────────────────────────────────────────────────
+
 @dataclass
 class TurnResult:
     reply: str
@@ -25,15 +46,21 @@ class ChatSession:
                 confirm: Callable[[str], bool] | None = None):
         self._client = client or get_llm_client()
         self._confirm = confirm or _default_confirm
-        self._model = get_settings().models.fast
         self._max_context = get_settings().chat.max_context_turns
         self._transcript: list[tuple[str, str]] = []
 
+    def _select_model(self, user_input: str) -> str:
+        cfg = get_settings()
+        if _is_simple_query(user_input):
+            return cfg.models.chat_lightweight
+        return cfg.models.fast
+
     def handle_turn(self, user_input: str) -> TurnResult:
         self._transcript.append(("user", user_input))
+        model = self._select_model(user_input)
         turn = route(
             client=self._client,
-            model=self._model,
+            model=model,
             transcript=self._transcript[-self._max_context:]
         )
         self._transcript.append(("assistant", turn.reply))
