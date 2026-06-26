@@ -1,4 +1,4 @@
-# CKM Capital
+# ARC Capital
 
 A multi-asset macro hedge fund built as a **LangGraph DAG of LLM agents**, governed by a hard-coded constitution and a deterministic accounting floor. The fund trades equities, fixed income, commodities, FX, and Bitcoin (via IBIT ETF in risk-on regimes) through a **hypothesis-first** funnel: every trade traces back to a falsifiable macro thesis, and every dollar of slippage is provably accounted for.
 
