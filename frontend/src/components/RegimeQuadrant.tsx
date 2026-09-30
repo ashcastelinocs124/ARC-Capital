@@ -45,9 +45,10 @@ interface Props {
   inflationUp?: boolean | null;
   growthProb?: number | null;
   inflationProb?: number | null;
+  running?: boolean;
 }
 
-export function RegimeQuadrant({ growthUp, inflationUp, growthProb, inflationProb }: Props) {
+export function RegimeQuadrant({ growthUp, inflationUp, growthProb, inflationProb, running }: Props) {
   const noData = growthUp == null || inflationUp == null;
 
   return (
@@ -60,8 +61,10 @@ export function RegimeQuadrant({ growthUp, inflationUp, growthProb, inflationPro
         {noData ? (
           <div className="h-48 flex items-center justify-center text-sm text-muted">
             <div className="text-center">
-              <div>No regime forecast loaded.</div>
-              <div className="text-xs mt-1 font-mono">Run: ckm forecast-regime</div>
+              <div>{running ? "Running regime nowcast…" : "No regime forecast loaded."}</div>
+              <div className="text-xs mt-1 font-mono">
+                {running ? "Training growth + inflation models" : "Run: ckm forecast-regime"}
+              </div>
             </div>
           </div>
         ) : (

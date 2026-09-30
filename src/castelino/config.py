@@ -144,6 +144,19 @@ class OpenBBCfg(BaseModel):
     cache_ttl_minutes: int = 15
 
 
+class UpdateAgentCfg(BaseModel):
+    enabled: bool = True
+    gate_tolerance: float = 0.02      # max Brier worsening a refit may show and still be promoted
+    short_term_notes: int = 5
+    long_term_notes: int = 20
+    long_term_refresh_days: int = 7   # long-term trend table is rewritten at most this often
+    model_tier: str = "reasoning"
+    max_guard_retries: int = 1
+    max_output_tokens: int = 16000    # reasoning tokens share this budget (see deep_research)
+    data_dir: str = "data/update_agent"
+    updates_dir: str = "data/updates"
+
+
 class SpeechSpeakerCfg(BaseModel):
     id: str
     full_name: str
@@ -316,6 +329,7 @@ class Settings(BaseModel):
     x_api: XApiCfg = XApiCfg()
     personas: PersonaCfg = PersonaCfg()
     deep_research: DeepResearchCfg = DeepResearchCfg()
+    update_agent: UpdateAgentCfg = UpdateAgentCfg()
     backtest: BacktestCfg = BacktestCfg()
     paths: PathsCfg
     root: Path

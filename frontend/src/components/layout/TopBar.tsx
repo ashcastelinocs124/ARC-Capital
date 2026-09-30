@@ -6,6 +6,7 @@ const TITLES: Record<string, { section: string; page: string }> = {
   "/portfolio": { section: "Trading", page: "Portfolio" },
   "/macro": { section: "Trading", page: "Macro & Signals" },
   "/research": { section: "Trading", page: "Research" },
+  "/updates": { section: "Trading", page: "Daily Update" },
   "/risk": { section: "Trading", page: "Risk & Attribution" },
   "/agents": { section: "Trading", page: "Agent Decisions" },
   "/approvals": { section: "Trading", page: "Approval Center" },
@@ -14,7 +15,7 @@ const TITLES: Record<string, { section: string; page: string }> = {
 export function TopBar() {
   const location = useLocation();
   const { data: metrics } = usePortfolioMetrics();
-  const crumb = TITLES[location.pathname] || { section: "CKM", page: "Dashboard" };
+  const crumb = TITLES[location.pathname] || { section: "ARC", page: "Dashboard" };
 
   const nav = metrics?.find((m) => m.label === "NAV");
   const navDelta = nav?.delta || "";

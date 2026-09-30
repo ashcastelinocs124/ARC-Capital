@@ -88,3 +88,11 @@ frontend/.vite/
 frontend/*.tsbuildinfo
 frontend/vite.config.d.ts
 frontend/vite.config.js
+
+# Specs and plans are never committed (user rule)
+docs/superpowers/specs/
+docs/superpowers/plans/
+
+# Update agent runtime data
+data/update_agent/
+data/updates/

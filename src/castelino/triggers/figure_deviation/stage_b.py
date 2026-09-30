@@ -48,7 +48,7 @@ class DeviationConfirmation(BaseModel):
 
 
 _STAGE_B_SYSTEM_PROMPT = """\
-You are a tone-deviation classifier for the CKM Capital macro fund.
+You are a tone-deviation classifier for the ARC Research macro fund.
 
 Your job is to confirm or veto a Stage A signal about whether a tracked
 figure has materially deviated from their own rhetorical baseline along

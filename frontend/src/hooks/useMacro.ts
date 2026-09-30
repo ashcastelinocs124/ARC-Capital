@@ -4,6 +4,7 @@ import {
   fetchHypotheses,
   fetchMacroIndicators,
   fetchNewsFeed,
+  fetchRegimeForecast,
   fetchTriggers,
   fetchYieldCurveChart,
 } from "@/api/endpoints";
@@ -27,3 +28,11 @@ export const useNewsFeed = () =>
 
 export const useEconCalendar = () =>
   useQuery({ queryKey: ["econ_calendar"], queryFn: fetchEconCalendar, refetchInterval: FIVE_MINUTES });
+
+// Polls every 5s while a background retrain is running, then stops.
+export const useRegimeForecast = () =>
+  useQuery({
+    queryKey: ["regime_forecast"],
+    queryFn: fetchRegimeForecast,
+    refetchInterval: (q) => (q.state.data?.running ? 5_000 : false),
+  });

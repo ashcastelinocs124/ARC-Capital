@@ -1,12 +1,42 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import APIRouter
 
+from castelino.config import get_settings
 from castelino.data.openbb_adapter import OpenBBError, get_adapter
 from castelino.memory import io as memio
 from castelino.memory.schemas import Hypothesis, TriggerRecord
 
 router = APIRouter()
+
+
+def _update_root() -> Path:
+    cfg = get_settings()
+    return cfg.root / cfg.update_agent.data_dir
+
+
+_ACTIVE = {"checking", "refitting", "gating", "collecting", "writing", "guarding"}
+
+
+@router.get("/regime_forecast")
+def regime_forecast():
+    """Read-only: the registry's served forecast. The daily update run owns retraining."""
+    from castelino.agents.update.registry import ModelRegistry
+    from castelino.agents.update.runner import read_status
+    from castelino.forecast.regime import read_forecast
+
+    root = _update_root()
+    fc = ModelRegistry(root / "models").current() or read_forecast()  # legacy file until first run
+    return {
+        "running": read_status(root)["stage"] in _ACTIVE,
+        "asof": fc.asof.isoformat() if fc else None,
+        "growth_up": fc.growth.up if fc else None,
+        "inflation_up": fc.inflation.up if fc else None,
+        "growth_prob": fc.growth.prob_up if fc else None,
+        "inflation_prob": fc.inflation.prob_up if fc else None,
+    }
 
 
 @router.get("/macro_indicators")
