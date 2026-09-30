@@ -61,6 +61,25 @@ def _warm_openbb_adapter() -> None:
         log.warning("OpenBB adapter warm-up failed: %s", exc)
 
 
+@app.on_event("startup")
+def _start_update_agent() -> None:
+    """Kick off today's briefing in a daemon thread; the server never waits on it."""
+    import logging
+    import threading
+
+    from castelino.agents.update import runner as update_runner
+    from castelino import config
+
+    log = logging.getLogger(__name__)
+    try:
+        if not config.get_settings().update_agent.enabled:
+            return
+        runner = update_runner.build_default_runner()
+        threading.Thread(target=runner.run_if_due, name="update-agent", daemon=True).start()
+    except Exception as exc:  # never block startup on this
+        log.warning("update agent failed to start: %s", exc)
+
+
 @app.get("/widgets.json")
 def get_widgets():
     return WIDGETS
@@ -80,6 +99,7 @@ from castelino.dashboard.endpoints import (  # noqa: E402
     research,
     risk,
 )
+from castelino.dashboard.endpoints import update as update_ep  # noqa: E402
 from castelino.dashboard.endpoints import figures as figures_router  # noqa: E402
 from castelino.dashboard.endpoints import personas as personas_router  # noqa: E402
 
@@ -92,6 +112,7 @@ app.include_router(agents.router)
 app.include_router(approvals.router)
 app.include_router(personas_router.router)
 app.include_router(figures_router.router)
+app.include_router(update_ep.router)
 
 
 # ── Frontend static files ──────────────────────────────────────────────────

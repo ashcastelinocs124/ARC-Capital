@@ -1,45 +1,36 @@
 from __future__ import annotations
 
-import logging
-import threading
-from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter
 
+from castelino.config import get_settings
 from castelino.data.openbb_adapter import OpenBBError, get_adapter
 from castelino.memory import io as memio
 from castelino.memory.schemas import Hypothesis, TriggerRecord
 
 router = APIRouter()
-log = logging.getLogger(__name__)
-
-_REGIME_MAX_AGE = timedelta(hours=24)  # ponytail: fixed TTL; nowcast is monthly, so daily is plenty
-_regime_lock = threading.Lock()
 
 
-def _retrain_regime() -> None:
-    if not _regime_lock.acquire(blocking=False):
-        return  # a retrain is already running
-    try:
-        from castelino.forecast.regime import train_and_forecast, write_forecast
+def _update_root() -> Path:
+    cfg = get_settings()
+    return cfg.root / cfg.update_agent.data_dir
 
-        write_forecast(train_and_forecast())
-    except Exception:
-        log.exception("regime retrain failed")
-    finally:
-        _regime_lock.release()
+
+_ACTIVE = {"checking", "refitting", "gating", "collecting", "writing", "guarding"}
 
 
 @router.get("/regime_forecast")
-def regime_forecast(bg: BackgroundTasks):
-    """Saved forecast now; kicks off a background retrain when missing or stale."""
+def regime_forecast():
+    """Read-only: the registry's served forecast. The daily update run owns retraining."""
+    from castelino.agents.update.registry import ModelRegistry
+    from castelino.agents.update.runner import read_status
     from castelino.forecast.regime import read_forecast
 
-    fc = read_forecast()
-    if fc is None or datetime.now(UTC) - fc.asof > _REGIME_MAX_AGE:
-        bg.add_task(_retrain_regime)
+    root = _update_root()
+    fc = ModelRegistry(root / "models").current() or read_forecast()  # legacy file until first run
     return {
-        "running": _regime_lock.locked() or fc is None or datetime.now(UTC) - fc.asof > _REGIME_MAX_AGE,
+        "running": read_status(root)["stage"] in _ACTIVE,
         "asof": fc.asof.isoformat() if fc else None,
         "growth_up": fc.growth.up if fc else None,
         "inflation_up": fc.inflation.up if fc else None,
