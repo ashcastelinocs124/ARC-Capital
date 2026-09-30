@@ -131,3 +131,19 @@ export const fetchUpdateStatus = () => api.get<UpdateStatus>("/update/status");
 export const fetchLatestUpdate = () => api.get<DailyRecord>("/update/latest");
 export const fetchUpdateHistory = () => api.get<{ dates: string[] }>("/update/history");
 export const fetchUpdateByDate = (day: string) => api.get<DailyRecord>(`/update/${day}`);
+
+export interface AgentTool { name: string; does: string; }
+export interface AgentCatalogEntry {
+  id: string; name: string; group: string; summary: string;
+  tools: AgentTool[];
+  memory: { reads: string[]; writes: string[]; persists: string };
+  class_path: string | null; tier: string | null; model: string | null;
+  prompt: string | null; prompt_source: string | null;
+  output: { name: string; fields: { name: string; type: string; description: string }[] } | null;
+  error: string | null;
+}
+export interface AgentCatalog {
+  agents: AgentCatalogEntry[]; groups: string[];
+  unregistered: { class_name: string; class_path: string; file: string }[];
+}
+export const fetchAgentCatalog = () => api.get<AgentCatalog>("/agents/catalog");

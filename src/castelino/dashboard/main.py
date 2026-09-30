@@ -101,6 +101,7 @@ from castelino.dashboard.endpoints import (  # noqa: E402
     risk,
 )
 from castelino.dashboard.endpoints import update as update_ep  # noqa: E402
+from castelino.dashboard.endpoints import agent_catalog  # noqa: E402
 from castelino.dashboard.endpoints import figures as figures_router  # noqa: E402
 from castelino.dashboard.endpoints import personas as personas_router  # noqa: E402
 
@@ -115,6 +116,7 @@ app.include_router(approvals.router)
 app.include_router(personas_router.router)
 app.include_router(figures_router.router)
 app.include_router(update_ep.router)
+app.include_router(agent_catalog.router)
 
 
 # ── Frontend static files ──────────────────────────────────────────────────

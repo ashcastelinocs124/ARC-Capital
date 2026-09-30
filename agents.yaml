@@ -1,0 +1,302 @@
+# Agent registry — one entry per LLM agent, shown on the dashboard's /agents page.
+#
+# Adding an agent: add an entry here. `class` (a StructuredAgent) makes the page read the
+# live system prompt, model tier and output schema from code. For agents that aren't
+# StructuredAgents, point `prompt` at a module-level prompt constant and `schema` at the
+# output model ("module.path:NAME"). tools/memory are descriptions you maintain here.
+# tests/test_agent_catalog.py fails if a StructuredAgent class is missing from this file.
+
+agents:
+  # ── Briefings ───────────────────────────────────────────────────────────
+  - id: update_agent
+    name: Update Agent
+    group: Briefings
+    class: castelino.agents.update.agent.UpdateAgent
+    summary: >-
+      Once a day on the first dashboard start: refits the regime models behind a promotion
+      gate, then explains what moved across economic data, asset classes and sectors versus
+      prior days. Briefing lands on /updates.
+    tools:
+      - {name: "collect()", does: "Deterministic snapshot: FRED releases (CPI/PCE headline + core, y/y and m/m; unemployment; payrolls; IP), 1d/1w/1m returns for the instrument universe, short- and long-term sector trends"}
+      - {name: "train_and_forecast → gate", does: "Refits growth and inflation XGBoost; a refit is promoted only if its Brier score is not worse than the champion's by more than 0.02"}
+      - {name: "find_unsupported (guard)", does: "Rejects any %, bp or pp figure that is not in the snapshot; one retry with the errors fed back"}
+    memory:
+      reads:
+        - "MEMORY.md — top 5 themes + short-term sector trend table (1w/1m)"
+        - "long-term.md — up to 20 older notes + long-term trend table (3m/6m/12m)"
+        - "Today's MarketSnapshot and the prediction old → new"
+      writes:
+        - "Theme notes (touched and new)"
+        - "Trend tables (numbers from code, reads from the LLM)"
+        - "data/updates/<date>.json — written last, marks the day done"
+      persists: >-
+        Two-tier markdown in data/update_agent/memory/. Caps (5 short / 20 long) and eviction by
+        importance minus whole months unused are enforced in code, not the prompt. Model versions
+        live in data/update_agent/models/ with a per-model pointer for rollback.
+
+  # ── Trading pipeline ────────────────────────────────────────────────────
+  - id: current_event
+    name: Current Event
+    group: Trading pipeline
+    class: castelino.agents.current_event.CurrentEventAgent
+    summary: "First node after a trigger fires: a broad scan of what just changed in the world, as a world-state brief."
+    tools: []
+    memory:
+      reads: ["The trigger record", "Recent headlines", "Source summaries (calendar, news, speech)"]
+      writes: ["WorldStateBrief → short-term journal"]
+      persists: "Journal entry in the fund's short-term memory."
+
+  - id: hypothesis
+    name: Macro Hypothesis
+    group: Trading pipeline
+    class: castelino.agents.hypothesis.HypothesisAgent
+    summary: "Turns the world-state brief into ONE falsifiable macro thesis with kill criteria, horizon and conviction. Stops at the post-hypothesis human gate."
+    tools: []
+    memory:
+      reads: ["WorldStateBrief", "Regime nowcast context", "Figure-deviation context (Fed speakers)", "Long-term journal lessons"]
+      writes: ["Hypothesis → short-term journal", "Approval queue item (human gate)"]
+      persists: "Journal entry; the Curator later distils lessons into long-term memory."
+
+  - id: asset_selection
+    name: Asset Selection
+    group: Trading pipeline
+    class: castelino.agents.asset_selection.AssetSelectionAgent
+    summary: "Picks the 1–3 best instruments to express the approved thesis, given the current portfolio."
+    tools: []
+    memory:
+      reads: ["Hypothesis", "Portfolio state", "Regime sector playbook"]
+      writes: ["Trade expressions → Research Desk"]
+      persists: "Journal entry."
+
+  - id: bull
+    name: Bull
+    group: Trading pipeline
+    class: castelino.agents.bull.BullAgent
+    summary: "Argues FOR the proposed trade using only the shared research bundle."
+    tools: []
+    memory:
+      reads: ["Expression + hypothesis", "Research bundle (TA, web, backtest, risk)", "Regime context", "Past similar setups in short-term memory"]
+      writes: ["BullCase → Debate"]
+      persists: "Journal entry."
+
+  - id: bear
+    name: Bear
+    group: Trading pipeline
+    class: castelino.agents.bear.BearAgent
+    summary: "Argues AGAINST the proposed trade from the same research bundle."
+    tools: []
+    memory:
+      reads: ["Expression + hypothesis", "Research bundle", "Regime context"]
+      writes: ["BearCase → Debate"]
+      persists: "Journal entry."
+
+  - id: debate
+    name: Debate
+    group: Trading pipeline
+    class: castelino.agents.debate.DebateAgent
+    summary: "Adjudicates Bull vs Bear into a verdict. Stops at the post-debate human gate."
+    tools: []
+    memory:
+      reads: ["BullCase", "BearCase", "Hypothesis", "Regime context"]
+      writes: ["Verdict → Principles Guard", "Approval queue item (human gate)"]
+      persists: "Journal entry."
+
+  - id: guard_soft
+    name: Principles Guard
+    group: Trading pipeline
+    class: castelino.agents.guard.GuardSoftAgent
+    summary: "Hybrid guard: deterministic hard vetoes run first, then the LLM judges soft principles from the fund constitution."
+    tools:
+      - {name: "Deterministic hard rules", does: "Veto checks computed in code before the LLM is called; passed in as hard_warnings"}
+    memory:
+      reads: ["Verdict, expression, hypothesis", "Portfolio", "Core principles (data/core_principles.md)", "Recent journal entries"]
+      writes: ["GuardDecision → Portfolio"]
+      persists: "Journal entry."
+
+  - id: portfolio
+    name: Portfolio
+    group: Trading pipeline
+    class: castelino.agents.portfolio.PortfolioAgent
+    summary: "Translates an approved verdict plus guard decision into a sized trade order (simulation only)."
+    tools: []
+    memory:
+      reads: ["Verdict", "GuardDecision", "Expression + hypothesis", "Portfolio state"]
+      writes: ["TradeOrder → accounting layer"]
+      persists: "Order and fills in the portfolio ledger."
+
+  - id: curator
+    name: Memory Curator
+    group: Trading pipeline
+    class: castelino.agents.curator.CuratorAgent
+    summary: "Weekly job: distils recent journal entries into durable long-term lessons and trims short-term memory."
+    tools: []
+    memory:
+      reads: ["Recent short-term journal entries", "Existing long-term lessons"]
+      writes: ["New long-term lessons", "Trimmed short-term journal"]
+      persists: "The fund's long-term memory — read back by the Hypothesis agent."
+
+  # ── Research desk ───────────────────────────────────────────────────────
+  - id: web_research
+    name: Web Research
+    group: Research desk
+    class: castelino.agents.research.web.WebResearchAgent
+    summary: "Instrument-specific news and sentiment for each trade expression."
+    tools:
+      - {name: "OpenBB news", does: "Recent articles for the instrument"}
+    memory:
+      reads: ["Expression", "WorldStateBrief"]
+      writes: ["WebResearch → research bundle"]
+      persists: "None of its own."
+
+  - id: technical_analysis
+    name: Technical Analysis
+    group: Research desk
+    class: castelino.agents.research.technical.TechnicalAnalysisAgent
+    summary: "Deterministic indicators computed in code, then an LLM interpretation of the setup."
+    tools:
+      - {name: "OpenBB price history + indicators", does: "Moving averages, momentum and trend features computed before the call"}
+    memory:
+      reads: ["Expression", "Computed TA features"]
+      writes: ["TAReport → research bundle"]
+      persists: "None of its own."
+
+  - id: backtesting
+    name: Backtesting
+    group: Research desk
+    class: castelino.agents.research.backtest.BacktestingAgent
+    summary: "Finds similar historical setups for the instrument and summarises how they played out."
+    tools:
+      - {name: "Historical setup stats", does: "Analog statistics computed in code and passed in"}
+    memory:
+      reads: ["Expression + hypothesis", "Backtest stats"]
+      writes: ["BacktestReport → research bundle"]
+      persists: "None of its own."
+
+  - id: risk
+    name: Risk
+    group: Research desk
+    class: castelino.agents.research.risk.RiskAgent
+    summary: "Volatility, correlation, marginal VaR and a maximum suggested size for the expression."
+    tools:
+      - {name: "OpenBB risk features", does: "Vol, correlation and VaR computed in code before the call"}
+    memory:
+      reads: ["Expression", "Computed risk features"]
+      writes: ["RiskReport → research bundle"]
+      persists: "None of its own."
+
+  # ── Deep research ───────────────────────────────────────────────────────
+  - id: deep_clarifier
+    name: Deep Research · Clarifier
+    group: Deep research
+    class: castelino.agents.research.deep.clarifier.ClarifierAgent
+    summary: "Rewords the raw question and asks up to 3 clarifying questions before research starts."
+    tools: []
+    memory:
+      reads: ["The raw query"]
+      writes: ["Reworded query + clarifying questions"]
+      persists: "Session saved to data/research/<id>.json."
+
+  - id: deep_lead
+    name: Deep Research · Lead
+    group: Deep research
+    class: castelino.agents.research.deep.lead.LeadAgent
+    summary: "Decomposes the clarified question into at most 6 sub-questions; re-plans on gaps in later rounds."
+    tools: []
+    memory:
+      reads: ["Reworded query + answers", "Round number", "Gaps from the previous synthesis"]
+      writes: ["Sub-questions → parallel sub-agents"]
+      persists: "Session file."
+
+  - id: deep_sub_agent
+    name: Deep Research · Sub-agent
+    group: Deep research
+    prompt: "castelino.agents.research.deep.sub_agent:SYSTEM"
+    schema: "castelino.agents.research.deep.models:SubFinding"
+    tier: fast
+    summary: "One per sub-question, run in parallel: searches with Perplexity Sonar and distils cited findings."
+    tools:
+      - {name: "Perplexity Sonar", does: "Web search with citations (global budget of 15 calls per report)"}
+    memory:
+      reads: ["One sub-question"]
+      writes: ["Cited findings → Synthesizer"]
+      persists: "Session file."
+
+  - id: deep_synthesizer
+    name: Deep Research · Synthesizer
+    group: Deep research
+    prompt: "castelino.agents.research.deep.synthesizer:SYNTH_SYSTEM"
+    schema: "castelino.agents.research.deep.models:DeepResearchReport"
+    tier: reasoning
+    summary: "Writes the cited report from all findings, reflects on gaps (up to 2 rounds) and proposes supporting charts."
+    tools:
+      - {name: "ChartResolver", does: "Deterministic: maps chart specs to OpenBB/FRED data; bad specs are dropped"}
+    memory:
+      reads: ["All sub-agent findings", "Previous round's gaps"]
+      writes: ["DeepResearchReport (answer, citations, charts)"]
+      persists: "Report saved to data/research/<id>.json; not fed into the trading pipeline."
+
+  # ── Triggers ────────────────────────────────────────────────────────────
+  - id: significance
+    name: Significance Classifier
+    group: Triggers
+    class: castelino.triggers.significance.SignificanceClassifier
+    summary: "Scores each batch of RSS headlines for market significance; high scores feed the conviction ledger or fire the pipeline."
+    tools: []
+    memory:
+      reads: ["Headline batch"]
+      writes: ["Scores → conviction ledger"]
+      persists: "Conviction ledger with a 12-hour half-life."
+
+  - id: significance_rescore
+    name: Significance Re-scorer
+    group: Triggers
+    class: castelino.triggers.significance.RescoreClassifier
+    summary: "Second pass for borderline headlines (0.4–0.8), re-scored with enrichment (Polymarket, X sentiment)."
+    tools:
+      - {name: "Input enrichment", does: "Polymarket odds and X sentiment attached before the call"}
+    memory:
+      reads: ["Borderline items + enrichment"]
+      writes: ["Updated scores → conviction ledger"]
+      persists: "Conviction ledger."
+
+  - id: figure_deviation_stage_b
+    name: Fed Speaker Deviation · Stage B
+    group: Triggers
+    prompt: "castelino.triggers.figure_deviation.stage_b:_STAGE_B_SYSTEM_PROMPT"
+    schema: "castelino.triggers.figure_deviation.stage_b:DeviationConfirmation"
+    tier: fast
+    summary: "Confirms a statistical tone deviation from a speaker's 12-month baseline before it can fire the pipeline."
+    tools:
+      - {name: "Stage A z-score", does: "Deterministic lexicon score vs the speaker's baseline; the LLM is only called above 1.5σ"}
+    memory:
+      reads: ["Recent sentences", "Speaker profile card + baseline"]
+      writes: ["Confirmed SPEECH_DEVIATION trigger (once per event)"]
+      persists: "Speaker baselines rebuilt from the scored corpus."
+
+  # ── Advisors ────────────────────────────────────────────────────────────
+  - id: persona
+    name: Persona Advisor
+    group: Advisors
+    schema: "castelino.agents.personas.agent:PersonaResponse"
+    tier: fast
+    summary: "RAG-backed simulated economists and investors (Krugman, El-Erian, Summers, Druckenmiller, Dalio, Tudor Jones) for consultation; never part of the trading pipeline."
+    tools:
+      - {name: "Chroma retrieval", does: "Top-k chunks from the persona's scraped corpus (data/personas/chroma)"}
+      - {name: "Perplexity Sonar fallback", does: "Fills thin corpora with recent commentary (cached 24h)"}
+    memory:
+      reads: ["Persona profile card", "Retrieved corpus chunks", "Rolling 30-day conversation window"]
+      writes: ["Reply with cited sources"]
+      persists: "One thread per persona in data/personas/conversations/<id>.json."
+
+  - id: persona_panel
+    name: Persona Panel Synthesis
+    group: Advisors
+    prompt: "castelino.agents.personas.panel:SYNTHESIS_SYSTEM"
+    schema: "castelino.agents.personas.models:PanelSynthesis"
+    tier: reasoning
+    summary: "Runs several personas in parallel (no peer visibility) and synthesises consensus, disagreements and the strongest objection."
+    tools: []
+    memory:
+      reads: ["Each persona's independent answer"]
+      writes: ["PanelSynthesis"]
+      persists: "Attached to the approval item it was run for."

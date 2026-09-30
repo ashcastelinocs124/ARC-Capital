@@ -1,367 +1,176 @@
-import { useState } from "react";
-import { AlertTriangle, Lightbulb } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { CounterPill, FilterPills, type FilterPill } from "@/components/ui/filter-pills";
-import {
-  useAgentBear,
-  useAgentBull,
-  useAgentCurator,
-  useAgentExpressions,
-  useAgentGuard,
-  useAgentHypotheses,
-  useAgentResearch,
-  useAgentSummary,
-  useAgentTriggers,
-  useAgentVerdicts,
-  useAgentWarnings,
-  useAgentWorldState,
-} from "@/hooks/useAgents";
+import { useMemo, useState } from "react";
+import { Card } from "@/components/ui/card";
+import type { AgentCatalogEntry } from "@/api/endpoints";
+import { useAgentCatalog } from "@/hooks/useAgentCatalog";
+import { cn } from "@/lib/cn";
 
-// Pipeline stages (top-level pill row) — group agents by where they sit in the DAG
-const STAGES: FilterPill[] = [
-  { id: "all", label: "All Stages" },
-  { id: "input", label: "Input" },
-  { id: "thesis", label: "Thesis" },
-  { id: "research", label: "Research" },
-  { id: "debate", label: "Debate" },
-  { id: "control", label: "Control" },
-  { id: "memory", label: "Memory" },
-];
+const TABS = ["Prompt", "Tools", "Memory", "Output"] as const;
+type Tab = (typeof TABS)[number];
 
-const STAGE_AGENTS: Record<string, string[]> = {
-  all: ["Trigger", "Current Event", "Hypothesis", "Asset Selection", "Research Desk", "Bull", "Bear", "Debate", "Guard", "Curator"],
-  input: ["Trigger", "Current Event"],
-  thesis: ["Hypothesis", "Asset Selection"],
-  research: ["Research Desk"],
-  debate: ["Bull", "Bear", "Debate"],
-  control: ["Guard"],
-  memory: ["Curator"],
-};
-
-export default function AgentsPage() {
-  const [stage, setStage] = useState("all");
-  const [agent, setAgent] = useState("Hypothesis");
-  const { data: summary = [] } = useAgentSummary();
-
-  const summaryByAgent = Object.fromEntries(summary.map((s) => [s.agent, s.count]));
-  const totalEntries = summary.reduce((s, a) => s + a.count, 0);
-
-  const visibleAgents = STAGE_AGENTS[stage];
-  const agentPills: FilterPill[] = visibleAgents.map((a) => ({
-    id: a,
-    label: a,
-    count: summaryByAgent[a] ?? 0,
-  }));
-
-  // Make sure the selected agent is visible in the current stage filter
-  const currentAgent = visibleAgents.includes(agent) ? agent : visibleAgents[0];
-
+function TierBadge({ tier }: { tier: string | null }) {
+  if (!tier) return null;
   return (
-    <div className="p-8 space-y-6">
-      {/* Hero counter strip */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <h2 className="text-base font-semibold text-text mr-3">Agent Pipeline</h2>
-        <CounterPill label="Total Entries" count={totalEntries} accent="default" />
-        <CounterPill label="Hypotheses" count={summaryByAgent["Hypothesis"] ?? 0} accent="success" />
-        <CounterPill label="Verdicts" count={summaryByAgent["Debate"] ?? 0} accent="warning" />
-        <CounterPill label="Guard Decisions" count={summaryByAgent["Guard"] ?? 0} accent="danger" />
-        <CounterPill label="Lessons" count={summaryByAgent["Curator"] ?? 0} accent="default" />
-      </div>
+    <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-full",
+      tier === "reasoning" ? "bg-accent-soft text-accent" : "bg-surface-3 text-muted")}>
+      {tier}
+    </span>
+  );
+}
 
-      {/* Stage filter — top-level pills */}
-      <div className="space-y-3">
-        <FilterPills pills={STAGES} active={stage} onChange={setStage} size="lg" />
+function Chip({ children }: { children: React.ReactNode }) {
+  return <span className="font-mono text-xs px-2 py-0.5 border border-border rounded-md bg-surface-2 text-text-2">{children}</span>;
+}
 
-        {/* Agent sub-pills (smaller) */}
-        <FilterPills
-          pills={agentPills}
-          active={currentAgent}
-          onChange={setAgent}
-          size="sm"
-        />
-      </div>
-
-      {/* Selected agent's output feed */}
-      <AgentFeed agent={currentAgent} />
+function Lane({ title, items, core }: { title: string; items: string[]; core?: boolean }) {
+  return (
+    <div className={cn("rounded-xl border p-4 min-h-[140px]", core ? "bg-accent-soft border-accent/30" : "border-border")}>
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">{title}</div>
+      <ul className="list-disc pl-4 space-y-1 text-sm">
+        {items.length ? items.map((x) => <li key={x}>{x}</li>) : <li className="text-muted list-none -ml-4">—</li>}
+      </ul>
     </div>
   );
 }
 
-function AgentFeed({ agent }: { agent: string }) {
-  switch (agent) {
-    case "Trigger": return <TriggersFeed />;
-    case "Current Event": return <WorldStateFeed />;
-    case "Hypothesis": return <HypothesesFeed />;
-    case "Asset Selection": return <ExpressionsFeed />;
-    case "Research Desk": return <ResearchFeed />;
-    case "Bull": return <DebateFeed kind="bull" />;
-    case "Bear": return <DebateFeed kind="bear" />;
-    case "Debate": return <VerdictsFeed />;
-    case "Guard": return <GuardFeed />;
-    case "Curator": return <CuratorFeed />;
-    default: return null;
-  }
-}
-
-// ── Individual feeds ───────────────────────────────────────────────────
-
-function TriggersFeed() {
-  const { data = [] } = useAgentTriggers();
+function Detail({ a }: { a: AgentCatalogEntry }) {
+  const [tab, setTab] = useState<Tab>("Prompt");
+  const core = [a.model ? `${a.tier} · ${a.model}` : a.tier ?? "model n/a", a.output ? `→ ${a.output.name}` : "free-form output"];
   return (
-    <FeedCard title="Trigger Records" count={data.length}>
-      {data.map((t, i) => (
-        <Row key={i} timestamp={t.timestamp}>
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <Badge variant="info">{t.source}</Badge>
-            <Badge variant="muted">sig {t.significance.toFixed(2)}</Badge>
-            <span className="text-xs text-muted-2">{t.asset_classes}</span>
-          </div>
-          <div className="text-sm font-medium text-text">{t.headline}</div>
-          <div className="text-xs text-muted mt-0.5">{t.reason}</div>
-        </Row>
-      ))}
-    </FeedCard>
-  );
-}
-
-function WorldStateFeed() {
-  const { data = [] } = useAgentWorldState();
-  return (
-    <FeedCard title="World State Briefs" count={data.length}>
-      {data.map((w, i) => (
-        <Row key={i} timestamp={w.timestamp}>
-          <div className="flex items-center gap-2 mb-1.5 text-xs">
-            <span className="text-muted">{w.headline_count} headlines</span>
-            <span className="text-muted-2">·</span>
-            <span className="text-muted">{w.indicator_reads} indicators</span>
-            <span className="text-muted-2">·</span>
-            <span className="text-muted">{w.surprises} surprises</span>
-          </div>
-          <div className="text-sm text-text leading-relaxed">{w.summary}</div>
-        </Row>
-      ))}
-    </FeedCard>
-  );
-}
-
-function HypothesesFeed() {
-  const { data = [] } = useAgentHypotheses();
-  return (
-    <FeedCard title="Hypotheses" count={data.length}>
-      {data.map((h, i) => (
-        <Row key={i} timestamp={h.timestamp}>
-          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-            <Badge variant="default">{h.regime}</Badge>
-            <Badge variant={h.conviction === "high" ? "success" : h.conviction === "low" ? "warning" : "muted"}>
-              {h.conviction}
-            </Badge>
-            <Badge variant="muted">{h.horizon_days}d</Badge>
-            <Badge variant="muted">{h.kill_criteria_count} kill criteria</Badge>
-          </div>
-          <div className="text-sm font-medium text-text mb-1 leading-relaxed">{h.thesis}</div>
-          <div className="text-xs text-muted leading-relaxed">{h.rationale}</div>
-        </Row>
-      ))}
-    </FeedCard>
-  );
-}
-
-function ExpressionsFeed() {
-  const { data = [] } = useAgentExpressions();
-  return (
-    <FeedCard title="Trade Expressions" count={data.length}>
-      {data.map((e, i) => (
-        <Row key={i} timestamp={e.timestamp}>
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <Badge variant={e.direction === "long" ? "success" : "danger"}>{e.direction.toUpperCase()}</Badge>
-            <span className="font-mono font-semibold text-sm">{e.instrument}</span>
-            <span className="text-xs text-muted">size={(e.target_pct_nav * 100).toFixed(2)}% NAV</span>
-            <span className="text-xs text-muted">stop={(e.stop_pct * 100).toFixed(1)}%</span>
-          </div>
-          <div className="text-sm text-muted leading-relaxed">{e.rationale}</div>
-        </Row>
-      ))}
-    </FeedCard>
-  );
-}
-
-function ResearchFeed() {
-  const { data = [] } = useAgentResearch();
-  return (
-    <FeedCard title="Research Bundles" count={data.length}>
-      {data.map((r, i) => (
-        <Row key={i} timestamp={r.timestamp}>
-          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-            <span className="font-mono font-semibold text-sm">{r.instrument}</span>
-            <Badge variant={r.sentiment === "positive" ? "success" : r.sentiment === "negative" ? "danger" : "muted"}>
-              {r.sentiment}
-            </Badge>
-            <Badge variant="muted">{r.trend}</Badge>
-            <span className="text-xs text-muted">RSI {r.rsi_14}</span>
-            <span className="text-xs text-muted">vol {(r.vol_60d * 100).toFixed(1)}%</span>
-            <span className="text-xs text-muted">hit {(r.hit_rate * 100).toFixed(0)}% (n={r.samples})</span>
-          </div>
-          <div className="text-sm text-muted leading-relaxed">{r.summary}</div>
-        </Row>
-      ))}
-    </FeedCard>
-  );
-}
-
-function DebateFeed({ kind }: { kind: "bull" | "bear" }) {
-  const bull = useAgentBull();
-  const bear = useAgentBear();
-  const { data = [] } = kind === "bull" ? bull : bear;
-  return (
-    <FeedCard title={`${kind === "bull" ? "Bull" : "Bear"} Cases`} count={data.length}>
-      {data.map((c, i) => (
-        <Row key={i} timestamp={c.timestamp}>
-          <div className="flex items-center gap-2 mb-1.5">
-            <Badge variant={c.confidence === "high" ? "success" : c.confidence === "low" ? "warning" : "muted"}>
-              {c.confidence}
-            </Badge>
-            <Badge variant="muted">{c.argument_count} args</Badge>
-          </div>
-          <div className="text-xs uppercase tracking-wider text-muted mb-1">Strongest argument</div>
-          <div className="text-sm text-text leading-relaxed">{c.strongest}</div>
-        </Row>
-      ))}
-    </FeedCard>
-  );
-}
-
-function VerdictsFeed() {
-  const { data = [] } = useAgentVerdicts();
-  return (
-    <FeedCard title="Debate Verdicts" count={data.length}>
-      {data.map((v, i) => (
-        <Row key={i} timestamp={v.timestamp}>
-          <div className="flex items-center gap-2 mb-1.5">
-            <Badge variant={v.decision === "proceed" ? "success" : v.decision === "reject" ? "danger" : "warning"}>
-              {v.decision}
-            </Badge>
-            <span className="text-xs text-muted">×{v.size_multiplier}</span>
-          </div>
-          <div className="text-xs uppercase tracking-wider text-muted mb-0.5">Decisive factor</div>
-          <div className="text-sm text-text leading-relaxed mb-2">{v.decisive_factor}</div>
-          {v.dissent !== "—" && (
-            <>
-              <div className="text-xs uppercase tracking-wider text-muted mb-0.5">Dissent</div>
-              <div className="text-sm text-muted leading-relaxed">{v.dissent}</div>
-            </>
-          )}
-        </Row>
-      ))}
-    </FeedCard>
-  );
-}
-
-function GuardFeed() {
-  const { data: guard = [] } = useAgentGuard();
-  const { data: warnings = [] } = useAgentWarnings();
-  return (
-    <div className="grid lg:grid-cols-2 gap-4">
-      <FeedCard title="Guard Decisions" count={guard.length}>
-        {guard.map((g, i) => (
-          <Row key={i} timestamp={g.timestamp}>
-            <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <Badge variant={g.decision === "approved" ? "success" : g.decision === "hard_veto" ? "danger" : "warning"}>
-                {g.decision}
-              </Badge>
-              {g.amended_size !== 1.0 && (
-                <span className="text-xs text-muted">×{g.amended_size.toFixed(2)}</span>
-              )}
-              {g.triggered_rules !== "—" && (
-                <span className="text-xs text-warning">rules: {g.triggered_rules}</span>
-              )}
-            </div>
-            <div className="text-sm text-muted leading-relaxed">{g.rationale}</div>
-          </Row>
+    <Card className="flex flex-col min-h-0">
+      <div className="px-6 py-5 border-b border-border">
+        <div className="text-lg font-semibold">{a.name}</div>
+        <div className="flex flex-wrap gap-2 mt-2">
+          <Chip>{a.group}</Chip>
+          {a.tier && <Chip>{a.tier}{a.model ? ` · ${a.model}` : ""}</Chip>}
+          {a.output && <Chip>→ {a.output.name}</Chip>}
+          {a.class_path && <Chip>{a.class_path}</Chip>}
+        </div>
+        <div className="text-sm text-muted mt-3">{a.summary}</div>
+        {a.error && <div className="mt-3 text-xs bg-danger-soft text-danger rounded-lg px-3 py-2">Couldn't read from code: {a.error}</div>}
+      </div>
+      <div className="flex gap-1 px-4 border-b border-border">
+        {TABS.map((t) => (
+          <button key={t} onClick={() => setTab(t)}
+            className={cn("px-3 py-2.5 text-sm font-medium border-b-2 -mb-px",
+              t === tab ? "text-accent border-accent" : "text-muted border-transparent hover:text-text")}>
+            {t}
+          </button>
         ))}
-      </FeedCard>
-      <FeedCard
-        title="Principle Warnings"
-        count={warnings.length}
-        icon={<AlertTriangle className="h-3.5 w-3.5 text-warning" />}
-      >
-        {warnings.map((w, i) => (
-          <Row key={i} timestamp={w.timestamp}>
-            <div className="flex items-center gap-2 mb-1">
-              <Badge variant={w.severity === "hard" ? "danger" : "warning"}>{w.rule_id}</Badge>
-              <Badge variant="muted">{w.severity}</Badge>
-            </div>
-            <div className="text-sm text-muted leading-relaxed">{w.description}</div>
-          </Row>
-        ))}
-      </FeedCard>
-    </div>
-  );
-}
-
-function CuratorFeed() {
-  const { data = [] } = useAgentCurator();
-  return (
-    <FeedCard
-      title="Long-term Lessons"
-      count={data.length}
-      icon={<Lightbulb className="h-3.5 w-3.5 text-warning" />}
-    >
-      {data.map((l, i) => (
-        <Row key={i} timestamp={l.timestamp}>
-          <div className="flex items-center gap-2 mb-1">
-            <Badge variant="info">{l.category}</Badge>
-          </div>
-          <div className="text-sm font-semibold text-text mb-1">{l.title}</div>
-          <div className="text-sm text-muted leading-relaxed mb-1.5">{l.body}</div>
-          {l.statistical_backing !== "—" && (
-            <div className="text-xs text-muted-2 italic">{l.statistical_backing}</div>
-          )}
-        </Row>
-      ))}
-    </FeedCard>
-  );
-}
-
-// ── Shared ──────────────────────────────────────────────────────────────
-
-function FeedCard({
-  title,
-  count,
-  icon,
-  children,
-}: {
-  title: string;
-  count: number;
-  icon?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  const hasItems = Array.isArray(children) ? children.length > 0 : !!children;
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          {icon}
-          <span>{title}</span>
-          <Badge variant="muted">{count}</Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
-        {!hasItems ? (
-          <div className="px-6 py-12 text-center text-sm text-muted">No entries yet.</div>
+      </div>
+      <div className="p-6 overflow-auto">
+        {tab === "Prompt" && (a.prompt ? (
+          <>
+            <div className="text-xs text-muted mb-2">Live from <span className="font-mono">{a.prompt_source}</span> — the prompt the agent actually runs</div>
+            <pre className="whitespace-pre-wrap font-mono text-[12.5px] leading-5 bg-surface-2 border border-border rounded-xl p-4">{a.prompt}</pre>
+          </>
         ) : (
-          <div className="divide-y divide-border">{children}</div>
+          <div className="text-sm text-muted">This agent builds its prompt at runtime from its inputs (see Memory → Reads), so there is no fixed prompt to show.</div>
+        ))}
+        {tab === "Tools" && (
+          <div className="space-y-2.5">
+            {a.tools.length ? a.tools.map((t) => (
+              <div key={t.name} className="border border-border rounded-xl px-4 py-3">
+                <div className="font-mono text-sm font-semibold">{t.name}</div>
+                <div className="text-sm text-muted mt-0.5">{t.does}</div>
+              </div>
+            )) : <div className="text-sm text-muted">No tools. It reasons only over the inputs listed under Memory → Reads.</div>}
+            <div className="text-xs text-muted pt-1">From agents.yaml</div>
+          </div>
         )}
-      </CardContent>
+        {tab === "Memory" && (
+          <>
+            <div className="grid grid-cols-[1fr_40px_1fr_40px_1fr] items-center">
+              <Lane title="Reads" items={a.memory.reads} />
+              <div className="text-center text-xl text-muted-2">→</div>
+              <Lane title="Agent" items={core} core />
+              <div className="text-center text-xl text-muted-2">→</div>
+              <Lane title="Writes" items={a.memory.writes} />
+            </div>
+            <div className="mt-4 text-sm rounded-xl bg-surface-2 border border-border px-4 py-3">
+              <b>What persists:</b> {a.memory.persists || "Nothing."}
+            </div>
+          </>
+        )}
+        {tab === "Output" && (a.output ? (
+          <>
+            <div className="text-xs text-muted mb-2">Live from the <span className="font-mono">{a.output.name}</span> schema</div>
+            <table className="w-full text-sm">
+              <thead className="text-xs uppercase text-muted bg-surface-2">
+                <tr><th className="text-left px-3 py-2">Field</th><th className="text-left px-3">Type</th><th className="text-left px-3">Meaning</th></tr>
+              </thead>
+              <tbody>
+                {a.output.fields.map((f) => (
+                  <tr key={f.name} className="border-t border-border">
+                    <td className="px-3 py-2 font-mono text-xs">{f.name}</td>
+                    <td className="px-3 font-mono text-xs text-muted">{f.type}</td>
+                    <td className="px-3 text-muted">{f.description}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        ) : <div className="text-sm text-muted">Free-form text output — no schema.</div>)}
+      </div>
     </Card>
   );
 }
 
-function Row({ timestamp, children }: { timestamp: string; children: React.ReactNode }) {
+export default function AgentsPage() {
+  const { data, isLoading } = useAgentCatalog();
+  const [q, setQ] = useState("");
+  const [picked, setPicked] = useState<string | null>(null);
+  const agents = data?.agents ?? [];
+  const shown = useMemo(
+    () => agents.filter((a) => !q || JSON.stringify(a).toLowerCase().includes(q.toLowerCase())),
+    [agents, q],
+  );
+  const current = agents.find((a) => a.id === picked) ?? agents[0];
+
+  if (isLoading) return <div className="p-8 text-sm text-muted">Loading agents…</div>;
+
   return (
-    <div className="px-6 py-4 hover:bg-surface-2 transition-colors">
-      <div className="text-xs text-muted-2 mb-1.5 font-mono">{timestamp}</div>
-      {children}
+    <div className="p-8 grid grid-cols-[300px_1fr] gap-5 items-start">
+      <Card className="flex flex-col">
+        <div className="p-3.5 border-b border-border">
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search agents, tools, memory…"
+            className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-surface-2 outline-none focus:border-accent" />
+          <div className="text-xs text-muted mt-2">
+            {shown.length} of {agents.length} agents · registry: <span className="font-mono">agents.yaml</span>
+          </div>
+        </div>
+        <div className="p-1.5">
+          {(data?.groups ?? []).map((g) => {
+            const xs = shown.filter((a) => a.group === g);
+            if (!xs.length) return null;
+            return (
+              <div key={g}>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted px-2.5 pt-3 pb-1">{g}</div>
+                {xs.map((a) => (
+                  <button key={a.id} onClick={() => setPicked(a.id)}
+                    className={cn("w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-sm text-left",
+                      a.id === current?.id ? "bg-accent-soft text-accent font-semibold" : "hover:bg-surface-2")}>
+                    <span className="truncate">{a.name}</span>
+                    <span className="flex items-center gap-1">
+                      {a.error && <span className="w-1.5 h-1.5 rounded-full bg-danger" title={a.error} />}
+                      <TierBadge tier={a.tier} />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+        {!!data?.unregistered.length && (
+          <div className="m-2 p-2.5 border border-dashed border-warning bg-warning-soft rounded-lg text-xs text-warning">
+            <b>{data.unregistered.length} agent{data.unregistered.length > 1 ? "s" : ""} not in agents.yaml</b>
+            {data.unregistered.map((u) => (
+              <div key={u.class_path} className="font-mono mt-1">{u.class_name} <span className="opacity-70">({u.file})</span></div>
+            ))}
+            <div className="mt-1">Add an entry so its tools and memory show here.</div>
+          </div>
+        )}
+      </Card>
+      {current ? <Detail key={current.id} a={current} /> : <Card className="p-8 text-sm text-muted">No agents registered.</Card>}
     </div>
   );
 }
