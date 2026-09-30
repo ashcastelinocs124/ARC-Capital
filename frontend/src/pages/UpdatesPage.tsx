@@ -137,11 +137,15 @@ function Briefing({ rec }: { rec: DailyRecord }) {
 export default function UpdatesPage() {
   const { data: status } = useUpdateStatus();
   const stage = status?.stage;
-  const { data: latest, isError } = useLatestUpdate(stage);
+  // the shared API client maps 404 to [] (see api/client.ts), so "no briefing" arrives as an array
+  const isRecord = (r: unknown): r is DailyRecord => !!r && !Array.isArray(r) && typeof (r as DailyRecord).date === "string";
+  const { data: latestRaw } = useLatestUpdate(stage);
+  const latest = isRecord(latestRaw) ? latestRaw : undefined;
   const { data: history } = useUpdateHistory(stage);
   const [picked, setPicked] = useState<string | null>(null);
   const { data: other } = useUpdateByDate(picked && picked !== latest?.date ? picked : null);
-  const rec = picked && picked !== latest?.date ? other : latest;
+  const picked_ = picked && picked !== latest?.date ? other : latest;
+  const rec = isRecord(picked_) ? picked_ : undefined;
   const running = !!stage && (ACTIVE_STAGES.has(stage) || stage === "failed");
 
   return (
@@ -149,7 +153,7 @@ export default function UpdatesPage() {
       <div className="flex items-baseline justify-between mb-3">
         <div className="text-xs text-muted">{rec ? `Briefing for ${rec.date} · generated ${rec.generated_at.replace("T", " ").slice(0, 16)}` : "Daily Update"}</div>
         <div className="flex gap-1.5 flex-wrap">
-          {(history?.dates ?? []).slice(0, 8).map((d) => (
+          {(Array.isArray(history?.dates) ? history!.dates : []).slice(0, 8).map((d) => (
             <button key={d} onClick={() => setPicked(d)}
               className={cn("font-mono text-xs px-2 py-0.5 rounded-md border",
                 d === (rec?.date ?? "") ? "bg-accent-soft text-accent border-accent" : "bg-white border-border")}>{d.slice(5)}</button>
@@ -157,7 +161,7 @@ export default function UpdatesPage() {
         </div>
       </div>
       {running && <Banner stage={stage as string} error={status?.error} />}
-      {rec ? <Briefing rec={rec} /> : !running && isError && (
+      {rec ? <Briefing rec={rec} /> : !running && (
         <Card><CardContent className="py-12 text-center text-sm text-muted">
           No briefing yet. It builds automatically when the dashboard starts.
         </CardContent></Card>
