@@ -75,3 +75,20 @@ def test_collect_survives_every_source_failing():
     )
     assert snap.sectors == [] and snap.releases == []
     assert snap.data_gaps and all(isinstance(g, str) for g in snap.data_gaps)
+
+
+def test_inflation_releases_have_yoy_and_mom_for_cpi_and_pce():
+    from castelino.agents.update.collector import RELEASES
+
+    names = [name for _sid, name, _kind in RELEASES]
+    for base in ("CPI", "Core CPI", "PCE", "Core PCE"):
+        assert f"{base} y/y" in names and f"{base} m/m" in names
+
+
+def test_mom_release_is_month_over_month_percent():
+    from castelino.agents.update.collector import _release
+
+    s = pd.Series([100.0, 100.3, 100.5], index=pd.date_range("2026-06-30", periods=3, freq="ME"))
+    r = _release("CPIAUCSL", "CPI m/m", "mom", s)
+    assert r.latest == round((100.5 / 100.3 - 1) * 100, 2)
+    assert r.prior == 0.3

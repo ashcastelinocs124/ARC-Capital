@@ -26,8 +26,14 @@ EQUITY_IDS = ["SPY", "QQQ", *SECTORS]
 BARS = {"1d": 1, "1w": 5, "1m": 21, "3m": 63, "6m": 126, "12m": 252}
 # (FRED id, display name, transform)
 RELEASES = [
-    ("PCEPILFE", "Core PCE y/y", "yoy"),
+    ("CPIAUCSL", "CPI y/y", "yoy"),
+    ("CPIAUCSL", "CPI m/m", "mom"),
     ("CPILFESL", "Core CPI y/y", "yoy"),
+    ("CPILFESL", "Core CPI m/m", "mom"),
+    ("PCEPI", "PCE y/y", "yoy"),
+    ("PCEPI", "PCE m/m", "mom"),
+    ("PCEPILFE", "Core PCE y/y", "yoy"),
+    ("PCEPILFE", "Core PCE m/m", "mom"),
     ("UNRATE", "Unemployment rate", "level"),
     ("PAYEMS", "Payrolls y/y", "yoy"),
     ("INDPRO", "Industrial production y/y", "yoy"),
@@ -116,6 +122,8 @@ def _release(series_id: str, name: str, kind: str, s: pd.Series) -> Release:
     s = s.dropna()
     if kind == "yoy":
         s = (s.pct_change(12) * 100).dropna()
+    elif kind == "mom":
+        s = (s.pct_change(1) * 100).dropna()
     if len(s) < 1:
         raise ValueError("no observations")
     latest = round(float(s.iloc[-1]), 2)
@@ -157,11 +165,22 @@ def collect(
     sectors = [sector_trend(x, closes[x], spy) for x in SECTORS if x in closes]
 
     releases: list[Release] = []
+    fetched: dict[str, pd.Series | Exception] = {}
     for sid, name, kind in RELEASES:
+        if sid not in fetched:
+            try:
+                fetched[sid] = fetch_monthly(sid)
+            except Exception as exc:  # noqa: BLE001
+                fetched[sid] = exc
         try:
-            releases.append(_release(sid, name, kind, fetch_monthly(sid)))
+            src = fetched[sid]
+            if isinstance(src, Exception):
+                raise src
+            releases.append(_release(sid, name, kind, src))
         except Exception as exc:  # noqa: BLE001
-            gaps.append(_gap(sid, exc))
+            gap = _gap(sid, exc)
+            if gap not in gaps:
+                gaps.append(gap)
 
     return MarketSnapshot(
         date=today,
