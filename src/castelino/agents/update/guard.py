@@ -23,10 +23,11 @@ def _numbers(obj, out: set[float]) -> None:
             _numbers(v, out)
 
 
-def _supported(value: float, decimals: int, signed: bool, nums: set[float],
-               probs: set[float]) -> bool:
-    tol = 0.5 * 10 ** -decimals + 1e-9                 # half a unit of the displayed precision
-    cands = list(nums) + [p * 100 for p in probs]      # probabilities may be shown as percents
+def _supported(
+    value: float, decimals: int, signed: bool, nums: set[float], probs: set[float]
+) -> bool:
+    tol = 0.5 * 10**-decimals + 1e-9  # half a unit of the displayed precision
+    cands = list(nums) + [p * 100 for p in probs]  # probabilities may be shown as percents
     if signed:
         return any(abs(n - value) <= tol for n in cands)
     return any(abs(abs(n) - abs(value)) <= tol for n in cands)

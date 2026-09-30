@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class Stage(str, Enum):
+class Stage(StrEnum):
     IDLE = "idle"
     CHECKING = "checking"
     REFITTING = "refitting"
@@ -17,7 +17,7 @@ class Stage(str, Enum):
     FAILED = "failed"
 
 
-class Decision(str, Enum):
+class Decision(StrEnum):
     PROMOTED = "promoted"
     KEPT = "kept"
 
@@ -40,8 +40,8 @@ class Release(BaseModel):
     latest: float
     prior: float | None = None
     change: float | None = None
-    consensus: float | None = None   # not wired in v1
-    surprise: float | None = None    # not wired in v1
+    consensus: float | None = None  # not wired in v1
+    surprise: float | None = None  # not wired in v1
 
 
 class SectorTrend(BaseModel):
@@ -51,7 +51,7 @@ class SectorTrend(BaseModel):
     r3m: float | None = None
     r6m: float | None = None
     r12m: float | None = None
-    rel1m: float | None = None       # vs SPY, percentage points
+    rel1m: float | None = None  # vs SPY, percentage points
     rel12m: float | None = None
     short_label: str = "n/a"
     long_label: str = "n/a"
@@ -60,7 +60,7 @@ class SectorTrend(BaseModel):
 class PredictionDelta(BaseModel):
     old: float | None = None
     new: float
-    gate: str                         # promoted | kept | unchanged
+    gate: str  # promoted | kept | unchanged
 
 
 class MarketSnapshot(BaseModel):

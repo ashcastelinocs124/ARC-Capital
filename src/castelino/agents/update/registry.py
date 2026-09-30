@@ -70,5 +70,6 @@ class ModelRegistry:
         except Exception:  # noqa: BLE001 — a bad version file means "no champion", never a dead registry
             log.warning("registry version unreadable; treating as no champion", exc_info=True)
             return None
-        return RegimeForecast(asof=max(growth.asof, inflation.asof),
-                              growth=growth, inflation=inflation)
+        return RegimeForecast(
+            asof=max(growth.asof, inflation.asof), growth=growth, inflation=inflation
+        )

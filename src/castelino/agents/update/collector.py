@@ -1,15 +1,22 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable
+from collections.abc import Callable
 
 import pandas as pd
 
 from castelino.agents.update.models import (
-    MarketSnapshot, PredictionDelta, Release, SectorTrend,
+    MarketSnapshot,
+    PredictionDelta,
+    Release,
+    SectorTrend,
 )
 from castelino.data.instruments import (
-    AssetClass, Instrument, PriceSource, by_asset_class, get_instrument,
+    AssetClass,
+    Instrument,
+    PriceSource,
+    by_asset_class,
+    get_instrument,
 )
 
 log = logging.getLogger(__name__)
@@ -68,7 +75,12 @@ def _diff(a: float | None, b: float | None) -> float | None:
 def sector_trend(sector: str, closes: pd.Series, spy: pd.Series | None) -> SectorTrend:
     r = {k: pct(closes, n) for k, n in BARS.items()}
     return SectorTrend(
-        sector=sector, r1w=r["1w"], r1m=r["1m"], r3m=r["3m"], r6m=r["6m"], r12m=r["12m"],
+        sector=sector,
+        r1w=r["1w"],
+        r1m=r["1m"],
+        r3m=r["3m"],
+        r6m=r["6m"],
+        r12m=r["12m"],
         rel1m=_diff(r["1m"], pct(spy, BARS["1m"]) if spy is not None else None),
         rel12m=_diff(r["12m"], pct(spy, BARS["12m"]) if spy is not None else None),
         short_label=short_label(r["1w"], r["1m"]),
@@ -80,13 +92,15 @@ def asset_groups() -> dict[str, list[Instrument]]:
     return {
         "equities": [get_instrument(i) for i in EQUITY_IDS],
         "rates_credit": by_asset_class(AssetClass.BOND_ETF),
-        "commodities": by_asset_class(AssetClass.COMMODITY_ETF) + by_asset_class(AssetClass.FUTURES),
+        "commodities": by_asset_class(AssetClass.COMMODITY_ETF)
+        + by_asset_class(AssetClass.FUTURES),
         "fx": by_asset_class(AssetClass.FX),
     }
 
 
 def default_fetch_close(inst: Instrument) -> pd.Series:
     from castelino.forecast import regime
+
     if inst.source == PriceSource.FRED:
         return regime._fetch_fred_series(inst.symbol)
     return regime._fetch_yf_close(inst.symbol)
@@ -94,6 +108,7 @@ def default_fetch_close(inst: Instrument) -> pd.Series:
 
 def default_fetch_monthly(series_id: str) -> pd.Series:
     from castelino.forecast import regime
+
     return regime._fetch_fred_series(series_id)
 
 
@@ -105,8 +120,9 @@ def _release(series_id: str, name: str, kind: str, s: pd.Series) -> Release:
         raise ValueError("no observations")
     latest = round(float(s.iloc[-1]), 2)
     prior = round(float(s.iloc[-2]), 2) if len(s) > 1 else None
-    return Release(series=series_id, name=name, latest=latest, prior=prior,
-                   change=_diff(latest, prior))
+    return Release(
+        series=series_id, name=name, latest=latest, prior=prior, change=_diff(latest, prior)
+    )
 
 
 def _gap(label: str, exc: Exception) -> str:
@@ -148,6 +164,11 @@ def collect(
             gaps.append(_gap(sid, exc))
 
     return MarketSnapshot(
-        date=today, releases=releases, asset_returns=asset_returns, sectors=sectors,
-        prediction=prediction, data_gaps=gaps, model_note=model_note,
+        date=today,
+        releases=releases,
+        asset_returns=asset_returns,
+        sectors=sectors,
+        prediction=prediction,
+        data_gaps=gaps,
+        model_note=model_note,
     )

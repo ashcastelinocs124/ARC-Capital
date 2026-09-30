@@ -4,9 +4,9 @@ import json
 import logging
 import os
 import time
+from collections.abc import Callable
 from datetime import date, datetime
 from pathlib import Path
-from typing import Callable
 
 import pandas as pd
 
@@ -15,7 +15,12 @@ from castelino.agents.update.gate import run_gate
 from castelino.agents.update.guard import find_unsupported
 from castelino.agents.update.memory import MemoryStore
 from castelino.agents.update.models import (
-    DailyRecord, DailyUpdate, GateResult, MarketSnapshot, PredictionDelta, Stage,
+    DailyRecord,
+    DailyUpdate,
+    GateResult,
+    MarketSnapshot,
+    PredictionDelta,
+    Stage,
 )
 from castelino.agents.update.registry import MODELS, ModelRegistry
 from castelino.forecast.regime import RegimeForecast
@@ -35,8 +40,9 @@ def read_status(data_dir: Path) -> dict:
     return {"stage": Stage.IDLE.value}
 
 
-def _prediction(champion: RegimeForecast | None, current: RegimeForecast | None,
-                gate: GateResult | None) -> dict[str, PredictionDelta]:
+def _prediction(
+    champion: RegimeForecast | None, current: RegimeForecast | None, gate: GateResult | None
+) -> dict[str, PredictionDelta]:
     if current is None:
         return {}
     out: dict[str, PredictionDelta] = {}
@@ -45,14 +51,21 @@ def _prediction(champion: RegimeForecast | None, current: RegimeForecast | None,
         out[m] = PredictionDelta(
             old=round(old, 4) if old is not None else None,
             new=round(getattr(current, m).prob_up, 4),
-            gate=getattr(gate, m).decision.value if gate else "unchanged")
+            gate=getattr(gate, m).decision.value if gate else "unchanged",
+        )
     return out
 
 
 class UpdateRunner:
     def __init__(
-        self, *, data_dir: Path, updates_dir: Path, registry: ModelRegistry,
-        memory: MemoryStore, tolerance: float, max_retries: int,
+        self,
+        *,
+        data_dir: Path,
+        updates_dir: Path,
+        registry: ModelRegistry,
+        memory: MemoryStore,
+        tolerance: float,
+        max_retries: int,
         refit_fn: Callable[[], RegimeForecast],
         latest_month_fn: Callable[[], dict[str, str]],
         collect_fn: Callable[..., MarketSnapshot],
@@ -68,8 +81,10 @@ class UpdateRunner:
 
     # ── status + lock ──────────────────────────────────────────────────────
     def _set(self, stage: Stage, error: str | None = None) -> None:
-        atomic_write_text(self.data_dir / "status.json", json.dumps(
-            {"stage": stage.value, "date": self._day, "error": error}))
+        atomic_write_text(
+            self.data_dir / "status.json",
+            json.dumps({"stage": stage.value, "date": self._day, "error": error}),
+        )
 
     @staticmethod
     def _owner_alive(lock: Path) -> bool:
@@ -77,9 +92,9 @@ class UpdateRunner:
             pid = int(lock.read_text().strip())
             os.kill(pid, 0)
             return True
-        except PermissionError:          # exists, owned by another user
+        except PermissionError:  # exists, owned by another user
             return True
-        except (ValueError, OSError):    # no/garbage pid, or no such process
+        except (ValueError, OSError):  # no/garbage pid, or no such process
             return False
 
     def _acquire(self) -> bool:
@@ -96,7 +111,7 @@ class UpdateRunner:
                     fresh = time.time() - os.path.getmtime(lock) <= _STALE_LOCK_SECONDS
                     if fresh and self._owner_alive(lock):
                         return False
-                    lock.unlink()                    # owner died (killed server) or lock is stale
+                    lock.unlink()  # owner died (killed server) or lock is stale
                 except FileNotFoundError:
                     continue
         return False
@@ -177,8 +192,13 @@ class UpdateRunner:
             raise RuntimeError(f"guard failed: figures not in snapshot: {errors}")
 
         self.memory.apply(update, snapshot, today)
-        record = DailyRecord(date=self._day, generated_at=datetime.now().isoformat(timespec="seconds"),
-                             snapshot=snapshot, update=update, gate=gate)
+        record = DailyRecord(
+            date=self._day,
+            generated_at=datetime.now().isoformat(timespec="seconds"),
+            snapshot=snapshot,
+            update=update,
+            gate=gate,
+        )
         # written last: its existence is what marks the day done
         atomic_write_text(self.updates_dir / f"{self._day}.json", record.model_dump_json(indent=2))
 
@@ -190,8 +210,10 @@ def default_latest_months() -> dict[str, str]:
     from castelino.forecast import regime as r
 
     out: dict[str, str] = {}
-    for name, yaml in (("growth", r.GROWTH_INDICATORS_YAML),
-                       ("inflation", r.INFLATION_INDICATORS_YAML)):
+    for name, yaml in (
+        ("growth", r.GROWTH_INDICATORS_YAML),
+        ("inflation", r.INFLATION_INDICATORS_YAML),
+    ):
         target = r.IndicatorListConfig.from_yaml(yaml).target
         s = r._to_month_end(r._resolve_spec(target)).dropna()
         out[name] = pd.Timestamp(s.index.max()).strftime("%Y-%m")
@@ -208,11 +230,19 @@ def build_default_runner() -> UpdateRunner:
     ua = cfg.update_agent
     data_dir = cfg.root / ua.data_dir
     return UpdateRunner(
-        data_dir=data_dir, updates_dir=cfg.root / ua.updates_dir,
+        data_dir=data_dir,
+        updates_dir=cfg.root / ua.updates_dir,
         registry=ModelRegistry(data_dir / "models"),
-        memory=MemoryStore(data_dir / "memory", short_cap=ua.short_term_notes,
-                           long_cap=ua.long_term_notes, refresh_days=ua.long_term_refresh_days),
-        tolerance=ua.gate_tolerance, max_retries=ua.max_guard_retries,
-        refit_fn=train_and_forecast, latest_month_fn=default_latest_months,
-        collect_fn=collect, agent_fn=write_update,
+        memory=MemoryStore(
+            data_dir / "memory",
+            short_cap=ua.short_term_notes,
+            long_cap=ua.long_term_notes,
+            refresh_days=ua.long_term_refresh_days,
+        ),
+        tolerance=ua.gate_tolerance,
+        max_retries=ua.max_guard_retries,
+        refit_fn=train_and_forecast,
+        latest_month_fn=default_latest_months,
+        collect_fn=collect,
+        agent_fn=write_update,
     )

@@ -11,17 +11,20 @@ from tests.update_fixtures import make_forecast, make_snapshot, make_update
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     from castelino.dashboard.endpoints import macro, update
+
     monkeypatch.setattr(update, "_dirs", lambda: (tmp_path, tmp_path / "updates"))
     monkeypatch.setattr(macro, "_update_root", lambda: tmp_path)
     from castelino.dashboard.main import app
+
     return TestClient(app), tmp_path
 
 
 def write_briefing(tmp_path, day):
     d = tmp_path / "updates"
     d.mkdir(exist_ok=True)
-    rec = DailyRecord(date=day, generated_at=f"{day}T07:30:00",
-                      snapshot=make_snapshot(), update=make_update())
+    rec = DailyRecord(
+        date=day, generated_at=f"{day}T07:30:00", snapshot=make_snapshot(), update=make_update()
+    )
     (d / f"{day}.json").write_text(rec.model_dump_json())
 
 
@@ -71,6 +74,7 @@ def test_startup_hook_runs_runner_in_background(monkeypatch):
 
     monkeypatch.setattr("castelino.agents.update.runner.build_default_runner", lambda: FakeRunner())
     from castelino.dashboard.main import _start_update_agent
+
     _start_update_agent()
     assert done.wait(2)
 
@@ -83,8 +87,10 @@ def test_startup_hook_respects_disabled_flag(monkeypatch):
             enabled = False
 
     monkeypatch.setattr("castelino.config.get_settings", lambda: Cfg)
-    monkeypatch.setattr("castelino.agents.update.runner.build_default_runner",
-                        lambda: called.append(1))
+    monkeypatch.setattr(
+        "castelino.agents.update.runner.build_default_runner", lambda: called.append(1)
+    )
     from castelino.dashboard.main import _start_update_agent
+
     _start_update_agent()
     assert called == []

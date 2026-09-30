@@ -1,7 +1,12 @@
 import pandas as pd
 
 from castelino.agents.update.collector import (
-    bp, collect, long_label, pct, sector_trend, short_label,
+    bp,
+    collect,
+    long_label,
+    pct,
+    sector_trend,
+    short_label,
 )
 
 
@@ -46,9 +51,15 @@ def fake_close(inst):
 def test_collect_builds_snapshot_with_fakes():
     monthly = lambda sid: pd.Series(  # noqa: E731
         [3.0 + 0.05 * i for i in range(30)],
-        index=pd.date_range("2024-01-31", periods=30, freq="ME"))
-    snap = collect(today="2026-09-30", prediction={}, model_note=None,
-                   fetch_close=fake_close, fetch_monthly=monthly)
+        index=pd.date_range("2024-01-31", periods=30, freq="ME"),
+    )
+    snap = collect(
+        today="2026-09-30",
+        prediction={},
+        model_note=None,
+        fetch_close=fake_close,
+        fetch_monthly=monthly,
+    )
     assert snap.date == "2026-09-30"
     assert {"equities", "rates_credit", "commodities", "fx"} <= set(snap.asset_returns)
     assert any(s.sector == "XLE" for s in snap.sectors)
@@ -58,7 +69,9 @@ def test_collect_builds_snapshot_with_fakes():
 def test_collect_survives_every_source_failing():
     def boom(*_a, **_k):
         raise RuntimeError("offline")
-    snap = collect(today="2026-09-30", prediction={}, model_note=None,
-                   fetch_close=boom, fetch_monthly=boom)
+
+    snap = collect(
+        today="2026-09-30", prediction={}, model_note=None, fetch_close=boom, fetch_monthly=boom
+    )
     assert snap.sectors == [] and snap.releases == []
     assert snap.data_gaps and all(isinstance(g, str) for g in snap.data_gaps)

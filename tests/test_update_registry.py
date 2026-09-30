@@ -13,7 +13,7 @@ def test_save_and_point_both_models(tmp_path):
     v = reg.save_version(make_forecast(g_prob=0.7, i_prob=0.9))
     assert v == "v0001"
     reg.set_pointer("growth", v)
-    assert reg.current() is None          # inflation pointer still missing
+    assert reg.current() is None  # inflation pointer still missing
     reg.set_pointer("inflation", v)
     cur = reg.current()
     assert cur.growth.prob_up == 0.7 and cur.inflation.prob_up == 0.9

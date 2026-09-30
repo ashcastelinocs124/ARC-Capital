@@ -12,8 +12,12 @@ def test_config_defaults():
 
 
 def test_snapshot_and_record_roundtrip():
-    rec = DailyRecord(date="2026-09-30", generated_at="2026-09-30T07:30:00",
-                      snapshot=make_snapshot(), update=make_update())
+    rec = DailyRecord(
+        date="2026-09-30",
+        generated_at="2026-09-30T07:30:00",
+        snapshot=make_snapshot(),
+        update=make_update(),
+    )
     again = DailyRecord.model_validate_json(rec.model_dump_json())
     assert again.snapshot.prediction["growth"].new == 0.71
     assert again.update.new_themes[0].importance == 3

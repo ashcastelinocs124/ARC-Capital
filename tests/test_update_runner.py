@@ -28,8 +28,11 @@ def build(tmp_path, *, refit=None, agent=None, latest=None, calls=None, seed_cha
     calls = calls or Calls()
     reg = ModelRegistry(tmp_path / "models")
     if seed_champion:
-        v = reg.save_version(make_forecast(g_prob=0.76, g_brier=0.236, i_prob=0.87, i_brier=0.189,
-                                           feature_month="2026-07-01"))
+        v = reg.save_version(
+            make_forecast(
+                g_prob=0.76, g_brier=0.236, i_prob=0.87, i_brier=0.189, feature_month="2026-07-01"
+            )
+        )
         reg.set_pointer("growth", v)
         reg.set_pointer("inflation", v)
 
@@ -42,12 +45,17 @@ def build(tmp_path, *, refit=None, agent=None, latest=None, calls=None, seed_cha
         return grounded_update()
 
     runner = UpdateRunner(
-        data_dir=tmp_path, updates_dir=tmp_path / "updates", registry=reg,
-        memory=MemoryStore(tmp_path / "memory"), tolerance=0.02, max_retries=1,
+        data_dir=tmp_path,
+        updates_dir=tmp_path / "updates",
+        registry=reg,
+        memory=MemoryStore(tmp_path / "memory"),
+        tolerance=0.02,
+        max_retries=1,
         refit_fn=refit or default_refit,
         latest_month_fn=latest or (lambda: {"growth": "2026-08", "inflation": "2026-08"}),
         collect_fn=lambda *, today, prediction, model_note: make_snapshot().model_copy(
-            update={"date": today, "prediction": prediction, "model_note": model_note}),
+            update={"date": today, "prediction": prediction, "model_note": model_note}
+        ),
         agent_fn=agent or default_agent,
         today_fn=lambda: DAY,
     )
@@ -63,9 +71,12 @@ def test_happy_path_writes_everything(tmp_path):
     assert runner.run_if_due() == "done"
     rec = DailyRecord.model_validate_json(briefing(tmp_path).read_text())
     assert rec.date == "2026-09-30" and rec.gate.growth.decision.value == "promoted"
-    assert rec.gate.inflation.decision.value == "kept"          # 0.214 vs 0.189 > 0.02
+    assert rec.gate.inflation.decision.value == "kept"  # 0.214 vs 0.189 > 0.02
     assert reg.current().growth.prob_up == 0.71 and reg.current().inflation.prob_up == 0.87
-    assert rec.snapshot.prediction["growth"].old == 0.76 and rec.snapshot.prediction["growth"].new == 0.71
+    assert (
+        rec.snapshot.prediction["growth"].old == 0.76
+        and rec.snapshot.prediction["growth"].new == 0.71
+    )
     assert (tmp_path / "memory" / "MEMORY.md").is_file()
     assert read_status(tmp_path)["stage"] == Stage.DONE.value
 
@@ -79,8 +90,8 @@ def test_second_run_same_day_is_skipped(tmp_path):
 
 def test_no_new_data_skips_refit_and_reuses_champion(tmp_path):
     runner, reg, calls = build(
-        tmp_path, seed_champion=True,
-        latest=lambda: {"growth": "2026-07", "inflation": "2026-07"})
+        tmp_path, seed_champion=True, latest=lambda: {"growth": "2026-07", "inflation": "2026-07"}
+    )
     assert runner.run_if_due() == "done"
     assert calls.refits == 0 and reg.current().growth.prob_up == 0.76
 
@@ -94,10 +105,13 @@ def test_first_ever_run_has_no_champion_and_promotes(tmp_path):
 def test_refit_crash_keeps_champion_and_still_ships_briefing(tmp_path):
     def boom():
         raise RuntimeError("xgboost exploded")
+
     runner, reg, _ = build(tmp_path, refit=boom, seed_champion=True)
     assert runner.run_if_due() == "done"
     rec = DailyRecord.model_validate_json(briefing(tmp_path).read_text())
-    assert "not refreshed" in rec.snapshot.model_note and "xgboost exploded" in rec.snapshot.model_note
+    assert (
+        "not refreshed" in rec.snapshot.model_note and "xgboost exploded" in rec.snapshot.model_note
+    )
     assert reg.current().growth.prob_up == 0.76
 
 
@@ -163,7 +177,7 @@ def test_status_defaults_to_idle_when_missing_or_corrupt(tmp_path):
 def test_lock_from_dead_process_is_taken_over_even_if_fresh(tmp_path):
     # a killed `ckm serve` leaves a fresh lock + an active stage; the next start must run
     runner, _reg, _ = build(tmp_path)
-    (tmp_path / "run.lock").write_text("999999999")          # pid that cannot be alive
+    (tmp_path / "run.lock").write_text("999999999")  # pid that cannot be alive
     (tmp_path / "status.json").write_text('{"stage": "refitting", "date": "2026-09-30"}')
     assert runner.run_if_due() == "done"
     assert read_status(tmp_path)["stage"] == "done"

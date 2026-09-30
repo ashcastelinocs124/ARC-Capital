@@ -33,8 +33,14 @@ class UpdateAgent(StructuredAgent[DailyUpdate]):
     def system_prompt(self) -> str:
         return SYSTEM
 
-    def user_prompt(self, *, snapshot: MarketSnapshot, memory_md: str,
-                    long_term_md: str, guard_errors: list[str] | None = None) -> str:
+    def user_prompt(
+        self,
+        *,
+        snapshot: MarketSnapshot,
+        memory_md: str,
+        long_term_md: str,
+        guard_errors: list[str] | None = None,
+    ) -> str:
         parts = [
             f"## Snapshot ({snapshot.date})\n{snapshot.model_dump_json(indent=2)}",
             f"## Short-term memory (MEMORY.md)\n{memory_md or '(empty)'}",
@@ -43,11 +49,17 @@ class UpdateAgent(StructuredAgent[DailyUpdate]):
         if guard_errors:
             parts.append(
                 "## Correction\nYour previous draft cited figures that are not in the snapshot: "
-                f"{', '.join(guard_errors)}. Rewrite using only figures from the snapshot.")
+                f"{', '.join(guard_errors)}. Rewrite using only figures from the snapshot."
+            )
         return "\n\n".join(parts)
 
 
-def write_update(snapshot: MarketSnapshot, memory_md: str, long_term_md: str,
-                 guard_errors: list[str] | None = None) -> DailyUpdate:
-    return UpdateAgent()(snapshot=snapshot, memory_md=memory_md,
-                         long_term_md=long_term_md, guard_errors=guard_errors)
+def write_update(
+    snapshot: MarketSnapshot,
+    memory_md: str,
+    long_term_md: str,
+    guard_errors: list[str] | None = None,
+) -> DailyUpdate:
+    return UpdateAgent()(
+        snapshot=snapshot, memory_md=memory_md, long_term_md=long_term_md, guard_errors=guard_errors
+    )
