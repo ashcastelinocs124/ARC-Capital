@@ -26,7 +26,7 @@ export default function RiskPage() {
     .map((p) => ({ name: p.instrument_id, value: Math.abs(p.market_value), pct: p.pct_nav }));
 
   return (
-    <div className="p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-8 space-y-6">
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Exposure by class — donut */}
         <Card>

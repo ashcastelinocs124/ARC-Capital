@@ -32,7 +32,7 @@ export default function ApprovalCenterPage() {
   const rejectedTotal = history.filter((h) => h.status === "rejected").length;
 
   return (
-    <div className="p-8 space-y-6 max-w-6xl mx-auto">
+    <div className="p-8 space-y-6">
       {/* Hero counter strip */}
       <div className="flex items-center gap-2 flex-wrap">
         <h2 className="text-base font-semibold text-text mr-3">Approval Center</h2>

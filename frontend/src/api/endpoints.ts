@@ -117,10 +117,14 @@ export interface DailyRecord {
   snapshot: {
     date: string; releases: ReleaseRow[]; sectors: SectorTrendRow[];
     prediction: Record<string, PredictionDeltaRow>; data_gaps: string[]; model_note: string | null;
+    // asset class -> instrument -> window ("1d" | "1w" | "1m") -> % (bp for yields)
+    asset_returns: Record<string, Record<string, Record<string, number | null>>>;
   };
   update: {
     headline: string; economy: string; asset_classes: string; predictions_changed: string;
     sector_reads: { sector: string; text: string }[];
+    themes_touched: { title: string; text: string }[];
+    new_themes: { title: string; text: string; importance: number }[];
   };
 }
 export const fetchUpdateStatus = () => api.get<UpdateStatus>("/update/status");

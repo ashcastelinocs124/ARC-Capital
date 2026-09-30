@@ -19,7 +19,7 @@ export default function PersonasPage() {
   }, []);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">Persona advisors</h1>
         <p className="text-sm text-muted mt-1">

@@ -2,6 +2,7 @@ import { useMacroIndicators, useRegimeForecast } from "@/hooks/useMacro";
 import { RegimeQuadrant } from "@/components/RegimeQuadrant";
 import { ConvictionLedger } from "@/components/ConvictionLedger";
 import { RiskOffGauge } from "@/components/RiskOffGauge";
+import { EconomicReleasesCard } from "@/components/EconomicReleasesCard";
 import { MacroIndicatorsTable } from "@/components/MacroIndicatorsTable";
 
 // TODO: no /conviction_ledger endpoint yet — stubbed
@@ -18,7 +19,7 @@ export default function MacroPage() {
   const { data: regime } = useRegimeForecast();
 
   return (
-    <div className="p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-8 space-y-6">
       {/* Top row: regime + conviction + risk-off */}
       <div className="grid lg:grid-cols-3 gap-6">
         <RegimeQuadrant
@@ -31,6 +32,8 @@ export default function MacroPage() {
         <ConvictionLedger {...CONVICTION_STUB} />
         <RiskOffGauge prob={undefined} />
       </div>
+
+      <EconomicReleasesCard />
 
       {/* Macro indicators table */}
       <MacroIndicatorsTable data={macro} />

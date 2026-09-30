@@ -58,7 +58,7 @@ export default function AgentsPage() {
   const currentAgent = visibleAgents.includes(agent) ? agent : visibleAgents[0];
 
   return (
-    <div className="p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-8 space-y-6">
       {/* Hero counter strip */}
       <div className="flex items-center gap-2 flex-wrap">
         <h2 className="text-base font-semibold text-text mr-3">Agent Pipeline</h2>

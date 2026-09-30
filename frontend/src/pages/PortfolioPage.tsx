@@ -17,7 +17,7 @@ export default function PortfolioPage() {
   const totalUnrealized = positions.reduce((s, p) => s + p.unrealized_pnl, 0);
 
   return (
-    <div className="p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-8 space-y-6">
       {/* Hero counter strip — Decasonic-style pill row */}
       <div className="flex items-center gap-2 flex-wrap">
         <h2 className="text-base font-semibold text-text mr-3">Portfolio</h2>

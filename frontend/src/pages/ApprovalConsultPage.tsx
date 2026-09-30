@@ -22,7 +22,7 @@ export function ApprovalConsultPage() {
   }
 
   return (
-    <div className="p-4 max-w-7xl mx-auto">
+    <div className="p-4">
       <div className="mb-4">
         <Link to="/approvals" className="text-sm text-blue-600 hover:underline">
           ← Back to Approval Queue
