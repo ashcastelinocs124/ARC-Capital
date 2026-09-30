@@ -8,8 +8,8 @@ def test_grounded_update_passes():
 
 def test_invented_bp_move_is_flagged():
     upd = make_update()
-    upd.asset_classes = "2y +12bp, SPY -0.4%."
-    assert find_unsupported(upd, make_snapshot()) == ["+12bp"]
+    upd.asset_classes = "2y +17bp, SPY -0.4%."
+    assert find_unsupported(upd, make_snapshot()) == ["+17bp"]
 
 
 def test_invented_percent_is_flagged():
