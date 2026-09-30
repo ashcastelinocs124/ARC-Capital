@@ -7,6 +7,7 @@ const TITLES: Record<string, { section: string; page: string }> = {
   "/models": { section: "Trading", page: "Models" },
   "/macro": { section: "Trading", page: "Macro & Signals" },
   "/research": { section: "Trading", page: "Research" },
+  "/deep-research": { section: "Trading", page: "Deep Research" },
   "/updates": { section: "Trading", page: "Daily Update" },
   "/risk": { section: "Trading", page: "Risk & Attribution" },
   "/agents": { section: "Trading", page: "Agents" },

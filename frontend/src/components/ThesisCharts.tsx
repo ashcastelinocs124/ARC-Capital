@@ -20,7 +20,7 @@ export type ResolvedChart = {
   source?: string;
 };
 
-const COLORS = ["#2563eb", "#16a34a", "#dc2626", "#9333ea", "#ea580c"];
+const COLORS = ["#008744", "#2563eb", "#16a34a", "#dc2626", "#9333ea", "#ea580c"];
 
 // Merge N series into recharts row format: [{ x, <seriesName>: y, ... }]
 function toRows(series: ChartSeries[]): Record<string, string | number>[] {
