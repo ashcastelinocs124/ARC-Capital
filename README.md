@@ -523,6 +523,7 @@ On the first start of each day the **Update Agent** runs in the background: it r
 | Route | Purpose |
 |---|---|
 | `/portfolio` | NAV, positions, fills |
+| `/models` | Growth, inflation and risk-off forecaster state (freshness, accuracy, features) plus the latest economic releases |
 | `/macro` | Regime nowcast (served from the Update Agent's model registry), leading indicators, conviction ledger |
 | `/research` | Per-instrument TA / web / backtest / risk |
 | `/deep-research` | Multi-agent, cited deep-research reports |
