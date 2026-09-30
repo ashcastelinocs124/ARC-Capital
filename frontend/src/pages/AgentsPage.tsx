@@ -4,7 +4,7 @@ import type { AgentCatalogEntry } from "@/api/endpoints";
 import { useAgentCatalog } from "@/hooks/useAgentCatalog";
 import { cn } from "@/lib/cn";
 
-const TABS = ["Prompt", "Tools", "Memory", "Output"] as const;
+const TABS = ["Prompt", "Tools", "Memory", "Output", "Dependencies"] as const;
 type Tab = (typeof TABS)[number];
 
 function TierBadge({ tier }: { tier: string | null }) {
@@ -110,6 +110,40 @@ function Detail({ a }: { a: AgentCatalogEntry }) {
             </table>
           </>
         ) : <div className="text-sm text-muted">Free-form text output — no schema.</div>)}
+        {tab === "Dependencies" && (
+          <>
+            {a.dependencies.length ? (
+              <table className="w-full text-sm">
+                <thead className="text-xs uppercase text-muted bg-surface-2">
+                  <tr><th className="text-left px-3 py-2">API key</th><th className="text-left px-3">Needed</th><th className="text-left px-3">Status</th><th className="text-left px-3">Used for</th></tr>
+                </thead>
+                <tbody>
+                  {a.dependencies.map((d) => (
+                    <tr key={d.key} className="border-t border-border">
+                      <td className="px-3 py-2.5 font-mono text-xs">{d.key}</td>
+                      <td className="px-3">
+                        <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full",
+                          d.required ? "bg-accent-soft text-accent" : "bg-surface-2 text-muted")}>
+                          {d.required ? "Required" : "Optional"}
+                        </span>
+                      </td>
+                      <td className="px-3">
+                        <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full",
+                          d.set ? "bg-success-soft text-success" : d.required ? "bg-danger-soft text-danger" : "bg-warning-soft text-warning")}>
+                          {d.set ? "Set" : "Missing"}
+                        </span>
+                      </td>
+                      <td className="px-3 text-muted">{d.why}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : <div className="text-sm text-muted">No API keys needed.</div>}
+            <div className="text-xs text-muted pt-3">
+              Declared in agents.yaml. Status is checked live in the server's environment (<span className="font-mono">.env</span>); key values are never shown.
+            </div>
+          </>
+        )}
       </div>
     </Card>
   );

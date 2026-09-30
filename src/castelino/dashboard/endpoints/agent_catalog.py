@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import os
 import re
 from pathlib import Path
 
@@ -69,6 +70,17 @@ def _entry(raw: dict) -> dict:
         "prompt_source": None,
         "output": None,
         "error": None,
+        # presence only — a key's value never leaves the server
+        "dependencies": [
+            {
+                "key": d["key"],
+                "required": bool(d.get("required", True)),
+                "why": d.get("why", ""),
+                "set": bool(os.environ.get(d["key"], "").strip()),
+            }
+            for d in raw.get("dependencies") or []
+        ],
+        "raw_keys": sorted(raw),
     }
     try:
         if raw.get("class"):

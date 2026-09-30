@@ -54,3 +54,21 @@ def test_endpoint_serves_catalog(monkeypatch):
 
 def test_registry_file_lives_at_repo_root():
     assert cat.REGISTRY == Path(cat.ROOT) / "agents.yaml"
+
+
+def test_dependencies_report_whether_each_key_is_set(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.delenv("FRED_API_KEY", raising=False)
+    deps = {
+        d["key"]: d for d in _by_id(cat.build_catalog()["agents"])["update_agent"]["dependencies"]
+    }
+    assert deps["OPENAI_API_KEY"]["required"] is True and deps["OPENAI_API_KEY"]["set"] is True
+    assert deps["FRED_API_KEY"]["required"] is False and deps["FRED_API_KEY"]["set"] is False
+    assert "sk-test" not in str(deps)  # presence only, never the value
+
+
+def test_every_agent_declares_dependencies():
+    missing = [
+        e["id"] for e in cat.build_catalog()["agents"] if "dependencies" not in e["raw_keys"]
+    ]
+    assert missing == []

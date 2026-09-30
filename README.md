@@ -529,7 +529,7 @@ On the first start of each day the **Update Agent** runs in the background: it r
 | `/deep-research` | Multi-agent, cited deep-research reports |
 | `/updates` | Daily Update briefing: prediction changes, releases, asset classes, sector trends, data gaps |
 | `/risk` | Risk-off gate, exposures, attribution |
-| `/agents` | Agent catalog: every LLM agent's live prompt, model tier, tools, memory and output schema, from `agents.yaml` (add an entry per new agent; unregistered agents are flagged) |
+| `/agents` | Agent catalog: every LLM agent's live prompt, model tier, tools, memory, output schema and API-key dependencies (set / missing), from `agents.yaml` (add an entry per new agent; unregistered agents are flagged) |
 
 ---
 

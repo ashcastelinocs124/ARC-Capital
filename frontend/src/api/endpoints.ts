@@ -141,6 +141,7 @@ export interface AgentCatalogEntry {
   prompt: string | null; prompt_source: string | null;
   output: { name: string; fields: { name: string; type: string; description: string }[] } | null;
   error: string | null;
+  dependencies: { key: string; required: boolean; why: string; set: boolean }[];
 }
 export interface AgentCatalog {
   agents: AgentCatalogEntry[]; groups: string[];
