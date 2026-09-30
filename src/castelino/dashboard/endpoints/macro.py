@@ -1,12 +1,51 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+import logging
+import threading
+from datetime import UTC, datetime, timedelta
+
+from fastapi import APIRouter, BackgroundTasks
 
 from castelino.data.openbb_adapter import OpenBBError, get_adapter
 from castelino.memory import io as memio
 from castelino.memory.schemas import Hypothesis, TriggerRecord
 
 router = APIRouter()
+log = logging.getLogger(__name__)
+
+_REGIME_MAX_AGE = timedelta(hours=24)  # ponytail: fixed TTL; nowcast is monthly, so daily is plenty
+_regime_lock = threading.Lock()
+
+
+def _retrain_regime() -> None:
+    if not _regime_lock.acquire(blocking=False):
+        return  # a retrain is already running
+    try:
+        from castelino.forecast.regime import train_and_forecast, write_forecast
+
+        write_forecast(train_and_forecast())
+    except Exception:
+        log.exception("regime retrain failed")
+    finally:
+        _regime_lock.release()
+
+
+@router.get("/regime_forecast")
+def regime_forecast(bg: BackgroundTasks):
+    """Saved forecast now; kicks off a background retrain when missing or stale."""
+    from castelino.forecast.regime import read_forecast
+
+    fc = read_forecast()
+    if fc is None or datetime.now(UTC) - fc.asof > _REGIME_MAX_AGE:
+        bg.add_task(_retrain_regime)
+    return {
+        "running": _regime_lock.locked() or fc is None or datetime.now(UTC) - fc.asof > _REGIME_MAX_AGE,
+        "asof": fc.asof.isoformat() if fc else None,
+        "growth_up": fc.growth.up if fc else None,
+        "inflation_up": fc.inflation.up if fc else None,
+        "growth_prob": fc.growth.prob_up if fc else None,
+        "inflation_prob": fc.inflation.prob_up if fc else None,
+    }
 
 
 @router.get("/macro_indicators")

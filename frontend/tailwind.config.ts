@@ -8,7 +8,7 @@ export default {
         // Monochrome base with functional color accents (P&L green/red kept for semantics)
         background: "#ffffff",
         surface: "#ffffff",
-        "surface-2": "#f7f7f8",      // page bg / hover
+        "surface-2": "#f3f8f5",      // page bg / hover (faint logo-green tint)
         "surface-3": "#ececef",      // stronger gray
         border: "#e5e5e7",
         "border-strong": "#d4d4d7",
@@ -17,11 +17,11 @@ export default {
         muted: "#71717a",            // mid gray
         "muted-2": "#a1a1aa",        // light gray
 
-        // Primary accent: monochrome (near-black)
-        accent: "#0a0a0a",
-        "accent-hover": "#27272a",
-        "accent-soft": "#f4f4f5",    // active sidebar bg (subtle gray)
-        "accent-soft-2": "#e4e4e7",
+        // Primary accent: ARC logo green
+        accent: "#008744",
+        "accent-hover": "#006b36",
+        "accent-soft": "#e6f4ec",    // active sidebar bg (logo-green tint)
+        "accent-soft-2": "#cfe8da",
 
         // Functional colors — kept for trading data semantics
         success: "#16a34a",

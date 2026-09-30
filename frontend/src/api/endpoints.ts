@@ -21,6 +21,8 @@ export const fetchEquityCurveChart = () => api.get<PlotlyChart>("/equity_curve_c
 export const fetchRecentFills = () => api.get<Fill[]>("/recent_fills");
 
 // ── Macro ──────────────────────────────────────────────────────────────
+export interface RegimeForecastRow { running: boolean; asof: string | null; growth_up: boolean | null; inflation_up: boolean | null; growth_prob: number | null; inflation_prob: number | null; }
+export const fetchRegimeForecast = () => api.get<RegimeForecastRow>("/regime_forecast");
 export const fetchMacroIndicators = () => api.get<MacroIndicatorRow[]>("/macro_indicators");
 export const fetchYieldCurveChart = () => api.get<PlotlyChart>("/yield_curve_chart");
 export const fetchTriggers = () => api.get<unknown[]>("/triggers_table");

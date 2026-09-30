@@ -1,4 +1,4 @@
-"""Dashboard backend for CKM Capital.
+"""Dashboard backend for ARC Research.
 
 Serves both the OpenBB Workspace integration (widgets.json + apps.json) and
 the custom React frontend at frontend/dist/ when built.
@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-app = FastAPI(title="CKM Capital — Dashboard Backend")
+app = FastAPI(title="ARC Research — Dashboard Backend")
 
 # CORS: OpenBB Workspace + Vite dev server on :5173
 app.add_middleware(
@@ -124,7 +124,7 @@ else:
     @app.get("/")
     def root():
         return {
-            "name": "CKM Capital",
+            "name": "ARC Research",
             "status": "running",
             "frontend": "not built — run `cd frontend && npm run build`",
         }

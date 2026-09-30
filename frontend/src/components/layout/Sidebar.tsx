@@ -6,15 +6,11 @@ import {
   Telescope,
   ShieldAlert,
   Bot,
-  Users,
-  MessagesSquare,
-  CheckSquare,
   Settings,
   Bell,
   PanelLeftClose,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { useApprovalMetrics } from "@/hooks/useApprovals";
 
 interface NavItem {
   to: string;
@@ -29,24 +25,17 @@ const items: NavItem[] = [
   { to: "/deep-research", label: "Deep Research", icon: Telescope },
   { to: "/risk", label: "Risk", icon: ShieldAlert },
   { to: "/agents", label: "Agents", icon: Bot },
-  { to: "/personas", label: "Personas", icon: Users },
-  { to: "/rooms", label: "Rooms", icon: MessagesSquare },
-  { to: "/approvals", label: "Approvals", icon: CheckSquare },
 ];
 
 export function Sidebar() {
-  const { data: metrics } = useApprovalMetrics();
-  const pendingCount = parseInt(metrics?.[0]?.value || "0", 10);
 
   return (
     <aside className="w-60 h-screen bg-surface border-r border-border flex flex-col">
       {/* Logo */}
       <div className="px-5 py-5">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-text flex items-center justify-center text-white font-bold text-sm">
-            C
-          </div>
-          <div className="text-base font-bold tracking-tight text-text">CKM Capital</div>
+          <img src="/arc-logo.png" alt="ARC" className="h-9 w-auto" />
+          <div className="text-base font-bold tracking-tight text-text">ARC Research</div>
         </div>
       </div>
 
@@ -60,20 +49,15 @@ export function Sidebar() {
               cn(
                 "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-surface-3 text-text"
+                  ? "bg-accent-soft text-accent"
                   : "text-text-2 hover:bg-surface-2",
               )
             }
           >
             {({ isActive }) => (
               <>
-                <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-text" : "text-muted")} />
+                <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-accent" : "text-muted")} />
                 <span className="flex-1">{label}</span>
-                {to === "/approvals" && pendingCount > 0 && (
-                  <span className="text-xs font-semibold px-1.5 py-0.5 rounded-md bg-danger text-white animate-pulse-slow">
-                    {pendingCount}
-                  </span>
-                )}
               </>
             )}
           </NavLink>

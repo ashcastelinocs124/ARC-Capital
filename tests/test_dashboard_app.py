@@ -12,7 +12,7 @@ def client():
 def test_root(client):
     r = client.get("/")
     assert r.status_code == 200
-    assert r.json()["name"] == "CKM Capital"
+    assert r.json()["name"] == "ARC Research"
 
 
 def test_widgets_json_is_dict(client):
@@ -30,6 +30,6 @@ def test_apps_json_is_array(client):
     data = r.json()
     assert isinstance(data, list)
     assert len(data) == 1
-    assert data[0]["name"] == "CKM Capital"
+    assert data[0]["name"] == "ARC Research"
     assert "tabs" in data[0]
     assert len(data[0]["tabs"]) == 6
