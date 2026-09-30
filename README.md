@@ -509,64 +509,26 @@ pytest -q
 
 ## Usage
 
-### Continuous trigger watcher
+`ckm serve` is the only command. It starts the **FastAPI backend (port 7779)** and serves the React frontend:
 
 ```bash
-ckm watch --poll-minutes 15
+ckm serve                    # backend + OpenBB Workspace connector on :7779
+cd frontend && npm run dev   # Vite dev server on :5173 (proxies /api to :7779)
 ```
 
-Polls calendar + RSS every 15 min. Scores headlines, feeds the conviction ledger, and checks four trigger paths: black swan → regime shift → accumulated conviction → cron fallback.
-
-### Fire a single pipeline pass
-
-```bash
-ckm run "ECB cuts deposit rate by 25bp" \
-  --significance 0.85 --source news \
-  --asset-classes "bond_etf,fx"
-```
-
-### Human-in-the-loop approval
-
-```bash
-ckm queue              # see pending approvals
-ckm approve H-abc123   # approve a hypothesis
-ckm reject V-def456 --reason "too correlated to existing book"
-```
-
-### Other commands
-
-```bash
-ckm mark                    # daily mark-to-market + stop-losses
-ckm dashboard               # live HTML dashboard
-ckm status                  # NAV + positions + journal counts
-ckm report                  # regenerate charts + trade cards
-ckm serve                   # FastAPI backend + React frontend (port 7779)
-ckm forecast-regime         # run XGBoost regime nowcaster
-ckm forecast-risk           # run XGBoost risk-off classifier
-ckm growth-search           # explore growth leading indicators
-ckm inflation-search        # explore inflation leading indicators
-ckm persona-refresh --speaker powell   # rebuild speaker baseline from corpus
-ckm speech-test --transcript-file PATH --dry-run    # replay transcript
-ckm persona-build --persona dalio --full-name "Ray Dalio" --role "Long-cycle macro"
-ckm backtest-regression                # diagnostic regression report
-ckm chat                     # natural-language assistant over the fund
-```
+On the first start of each day the **Update Agent** runs in the background: it refits the growth and inflation regime models when new economic data has arrived (a refit is promoted only if its out-of-sample Brier score is not worse than the current model by more than `update_agent.gate_tolerance`), collects cross-asset and sector moves, and writes a daily briefing that links them to prior days via markdown memory in `data/update_agent/memory/`. Every figure in the briefing is checked against the collected data before it is saved. A failed run leaves no briefing and retries on the next start. It needs `OPENAI_API_KEY`; tune it under `update_agent:` in `config.yaml`.
 
 ### Dashboard
-
-`ckm serve` boots a **FastAPI backend (port 7779) + Vite/React frontend** with the following routes:
 
 | Route | Purpose |
 |---|---|
 | `/portfolio` | NAV, positions, fills |
-| `/macro` | Regime nowcaster, leading indicators, conviction ledger |
+| `/macro` | Regime nowcast (served from the Update Agent's model registry), leading indicators, conviction ledger |
 | `/research` | Per-instrument TA / web / backtest / risk |
+| `/deep-research` | Multi-agent, cited deep-research reports |
+| `/updates` | Daily Update briefing: prediction changes, releases, asset classes, sector trends, data gaps |
 | `/risk` | Risk-off gate, exposures, attribution |
 | `/agents` | Live agent decision feed |
-| `/personas` | Roster + per-persona standalone chat |
-| `/rooms` and `/rooms/:id` | Multi-persona debate rooms |
-| `/approvals` | Pending HITL queue |
-| `/approvals/:entryId/consult` | Three-column consultation view (item summary · persona picker + panel · chat thread + apply-synthesis) |
 
 ---
 
