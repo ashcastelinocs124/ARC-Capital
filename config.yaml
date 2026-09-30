@@ -298,3 +298,15 @@ paths:
   data_dir: "data"
   reports_dir: "reports"
   cache_dir: "data/cache"
+
+update_agent:
+  enabled: true
+  gate_tolerance: 0.02
+  short_term_notes: 5
+  long_term_notes: 20
+  long_term_refresh_days: 7
+  model_tier: reasoning
+  max_guard_retries: 1
+  max_output_tokens: 16000
+  data_dir: data/update_agent
+  updates_dir: data/updates
