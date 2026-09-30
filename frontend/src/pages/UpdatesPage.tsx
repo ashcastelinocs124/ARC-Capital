@@ -139,8 +139,8 @@ function Briefing({ rec }: { rec: DailyRecord }) {
       <Card>
         <CardHeader><CardTitle>Sector trend</CardTitle><span className="text-xs text-muted">short-term 1w/1m · long-term 3m/6m/12m · rel = vs SPY</span></CardHeader>
         <CardContent className="p-0 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-xs uppercase text-muted bg-surface-2">
+          <table className="w-full text-base">
+            <thead className="text-sm uppercase text-muted bg-surface-2">
               <tr>
                 <th className="text-left px-3 py-2">Sector</th><th className="text-right px-3">1w</th><th className="text-right px-3">1m</th>
                 <th className="text-right px-3">rel 1m</th><th className="text-left px-3">Short trend</th>
@@ -151,7 +151,7 @@ function Briefing({ rec }: { rec: DailyRecord }) {
             <tbody>
               {s.sectors.map((t) => (
                 <tr key={t.sector} className="border-t border-border">
-                  <td className="px-3 py-2 font-medium">{t.sector}</td>
+                  <td className="px-3 py-3 font-medium">{t.sector}</td>
                   <td className={cn("text-right px-3 num", tone(t.r1w))}>{pct(t.r1w)}</td>
                   <td className={cn("text-right px-3 num", tone(t.r1m))}>{pct(t.r1m)}</td>
                   <td className={cn("text-right px-3 num", tone(t.rel1m))}>{pct(t.rel1m, "pp")}</td>
@@ -161,7 +161,7 @@ function Briefing({ rec }: { rec: DailyRecord }) {
                   <td className={cn("text-right px-3 num", tone(t.r12m))}>{pct(t.r12m)}</td>
                   <td className={cn("text-right px-3 num", tone(t.rel12m))}>{pct(t.rel12m, "pp")}</td>
                   <td className="px-3 whitespace-nowrap">{t.long_label}</td>
-                  <td className="px-3 text-xs text-muted">{reads[t.sector.toUpperCase()] ?? ""}</td>
+                  <td className="px-3 py-2 text-sm text-muted">{reads[t.sector.toUpperCase()] ?? ""}</td>
                 </tr>
               ))}
               {s.sectors.length === 0 && <tr><td colSpan={11} className="px-3 py-3 text-center text-muted">No sector data today.</td></tr>}
