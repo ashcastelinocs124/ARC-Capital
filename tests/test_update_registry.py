@@ -48,3 +48,12 @@ def test_unknown_version_or_model_raises(tmp_path):
     v = reg.save_version(make_forecast())
     with pytest.raises(KeyError):
         reg.set_pointer("bogus", v)
+
+
+def test_unreadable_version_makes_current_none_instead_of_raising(tmp_path):
+    reg = ModelRegistry(tmp_path)
+    v = reg.save_version(make_forecast())
+    reg.set_pointer("growth", v)
+    reg.set_pointer("inflation", v)
+    (tmp_path / f"{v}.json").write_text('{"growth": {"train_metrics": {"brier": null}}}')
+    assert reg.current() is None

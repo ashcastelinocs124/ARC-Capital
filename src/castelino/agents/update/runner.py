@@ -71,18 +71,32 @@ class UpdateRunner:
         atomic_write_text(self.data_dir / "status.json", json.dumps(
             {"stage": stage.value, "date": self._day, "error": error}))
 
+    @staticmethod
+    def _owner_alive(lock: Path) -> bool:
+        try:
+            pid = int(lock.read_text().strip())
+            os.kill(pid, 0)
+            return True
+        except PermissionError:          # exists, owned by another user
+            return True
+        except (ValueError, OSError):    # no/garbage pid, or no such process
+            return False
+
     def _acquire(self) -> bool:
         lock = self.data_dir / "run.lock"
         self.data_dir.mkdir(parents=True, exist_ok=True)
         for _ in range(2):
             try:
-                os.close(os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+                fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                os.write(fd, str(os.getpid()).encode())
+                os.close(fd)
                 return True
             except FileExistsError:
                 try:
-                    if time.time() - os.path.getmtime(lock) <= _STALE_LOCK_SECONDS:
+                    fresh = time.time() - os.path.getmtime(lock) <= _STALE_LOCK_SECONDS
+                    if fresh and self._owner_alive(lock):
                         return False
-                    lock.unlink()                    # crashed run left it behind
+                    lock.unlink()                    # owner died (killed server) or lock is stale
                 except FileNotFoundError:
                     continue
         return False

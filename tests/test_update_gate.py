@@ -35,3 +35,11 @@ def test_models_are_judged_independently():
 def test_first_run_with_no_champion_promotes_both():
     res = run_gate(make_forecast(), None, 0.02)
     assert res.growth.decision == res.inflation.decision == Decision.PROMOTED
+
+
+def test_nan_challenger_brier_is_kept():
+    assert decide(0.2, float("nan"), 0.02).decision == Decision.KEPT
+
+
+def test_nan_champion_brier_lets_finite_challenger_promote():
+    assert decide(float("nan"), 0.25, 0.02).decision == Decision.PROMOTED

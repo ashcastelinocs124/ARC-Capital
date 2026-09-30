@@ -144,13 +144,6 @@ def test_failed_run_is_retried_on_next_call(tmp_path):
     assert runner.run_if_due() == "done"
 
 
-def test_fresh_lock_blocks_a_second_run(tmp_path):
-    runner, _reg, calls = build(tmp_path)
-    (tmp_path / "run.lock").write_text("x")
-    assert runner.run_if_due() == "locked"
-    assert calls.agent == []
-
-
 def test_stale_lock_is_cleared(tmp_path):
     runner, _reg, _ = build(tmp_path)
     lock = tmp_path / "run.lock"
@@ -165,3 +158,19 @@ def test_status_defaults_to_idle_when_missing_or_corrupt(tmp_path):
     assert read_status(tmp_path)["stage"] == "idle"
     (tmp_path / "status.json").write_text("{not json")
     assert read_status(tmp_path)["stage"] == "idle"
+
+
+def test_lock_from_dead_process_is_taken_over_even_if_fresh(tmp_path):
+    # a killed `ckm serve` leaves a fresh lock + an active stage; the next start must run
+    runner, _reg, _ = build(tmp_path)
+    (tmp_path / "run.lock").write_text("999999999")          # pid that cannot be alive
+    (tmp_path / "status.json").write_text('{"stage": "refitting", "date": "2026-09-30"}')
+    assert runner.run_if_due() == "done"
+    assert read_status(tmp_path)["stage"] == "done"
+
+
+def test_lock_held_by_live_process_still_blocks(tmp_path):
+    runner, _reg, calls = build(tmp_path)
+    (tmp_path / "run.lock").write_text(str(os.getpid()))
+    assert runner.run_if_due() == "locked"
+    assert calls.agent == []

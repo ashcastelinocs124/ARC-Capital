@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 from castelino.agents.update.fsio import atomic_write_text
 from castelino.forecast.regime import RegimeForecast
+
+log = logging.getLogger(__name__)
 
 MODELS = ("growth", "inflation")
 
@@ -61,7 +64,11 @@ class ModelRegistry:
         ptrs = self.pointers()
         if not all(ptrs.get(m) for m in MODELS):
             return None
-        growth = self._load(ptrs["growth"]).growth
-        inflation = self._load(ptrs["inflation"]).inflation
+        try:
+            growth = self._load(ptrs["growth"]).growth
+            inflation = self._load(ptrs["inflation"]).inflation
+        except Exception:  # noqa: BLE001 — a bad version file means "no champion", never a dead registry
+            log.warning("registry version unreadable; treating as no champion", exc_info=True)
+            return None
         return RegimeForecast(asof=max(growth.asof, inflation.asof),
                               growth=growth, inflation=inflation)

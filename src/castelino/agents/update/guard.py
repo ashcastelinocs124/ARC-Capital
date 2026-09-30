@@ -4,9 +4,10 @@ import re
 
 from castelino.agents.update.models import DailyUpdate, MarketSnapshot
 
-# ponytail: only figures carrying a unit (%, bp, pp) are checked; plain counts like
-# "day 10" or years pass unchecked. Extend the pattern if the model starts inventing bare numbers.
-_FIG = re.compile(r"(?<![\w.])([-+]?\d+(?:\.\d+)?)\s*(%|bp|pp)")
+# ponytail: only figures carrying a unit are checked; plain counts like "day 10" or years pass
+# unchecked. The guard verifies a figure exists in the snapshot, not which series it belongs to.
+_UNIT = r"(%|percent|per cent|percentage points?|pp|basis points?|bps|bp)"
+_FIG = re.compile(r"(?<![\w.])([-+]?)(\d+(?:\.\d+)?)\s*" + _UNIT + r"(?![a-z])", re.I)
 
 
 def _numbers(obj, out: set[float]) -> None:
@@ -22,9 +23,13 @@ def _numbers(obj, out: set[float]) -> None:
             _numbers(v, out)
 
 
-def _supported(x: float, nums: set[float]) -> bool:
-    # direct match (rounding slack) or a probability shown as a percent (0.71 -> 71%)
-    return any(abs(abs(n) - x) <= 0.051 or abs(abs(n) * 100 - x) <= 0.51 for n in nums)
+def _supported(value: float, decimals: int, signed: bool, nums: set[float],
+               probs: set[float]) -> bool:
+    tol = 0.5 * 10 ** -decimals + 1e-9                 # half a unit of the displayed precision
+    cands = list(nums) + [p * 100 for p in probs]      # probabilities may be shown as percents
+    if signed:
+        return any(abs(n - value) <= tol for n in cands)
+    return any(abs(abs(n) - abs(value)) <= tol for n in cands)
 
 
 def _texts(u: DailyUpdate) -> list[str]:
@@ -35,11 +40,18 @@ def _texts(u: DailyUpdate) -> list[str]:
 
 
 def find_unsupported(update: DailyUpdate, snapshot: MarketSnapshot) -> list[str]:
+    dump = snapshot.model_dump()
+    probs: set[float] = set()
+    _numbers(dump.pop("prediction"), probs)
     nums: set[float] = set()
-    _numbers(snapshot.model_dump(), nums)
+    _numbers(dump, nums)
+    nums |= probs
     bad: set[str] = set()
     for text in _texts(update):
         for m in _FIG.finditer(text):
-            if not _supported(abs(float(m.group(1))), nums):
+            sign, digits = m.group(1), m.group(2)
+            decimals = len(digits.split(".")[1]) if "." in digits else 0
+            value = float(sign + digits)
+            if not _supported(value, decimals, bool(sign), nums, probs):
                 bad.add(m.group(0).strip())
     return sorted(bad)

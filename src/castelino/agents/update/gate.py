@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+import math
+
 from castelino.agents.update.models import Decision, GateResult, ModelGate
 from castelino.forecast.regime import RegimeForecast
 
 
 def decide(champion_brier: float | None, challenger_brier: float | None,
            tolerance: float) -> ModelGate:
-    if challenger_brier is None:
+    if challenger_brier is None or not math.isfinite(challenger_brier):
         return ModelGate(decision=Decision.KEPT, champion_brier=champion_brier,
-                         reason="challenger has no metrics")
-    if champion_brier is None:
+                         reason="challenger has no usable metrics")
+    if champion_brier is None or not math.isfinite(champion_brier):
         return ModelGate(decision=Decision.PROMOTED, challenger_brier=challenger_brier,
                          reason="no champion yet")
     worse = round(challenger_brier - champion_brier, 6)
