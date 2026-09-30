@@ -20,6 +20,26 @@ export const fetchPositions = () => api.get<Position[]>("/positions");
 export const fetchEquityCurveChart = () => api.get<PlotlyChart>("/equity_curve_chart");
 export const fetchRecentFills = () => api.get<Fill[]>("/recent_fills");
 
+// ── Models ─────────────────────────────────────────────────────────────
+export interface ModelCard {
+  id: string;
+  name: string;
+  kind: string;
+  status: "fresh" | "stale" | "missing";
+  trained_at?: string;
+  prob?: number;
+  up?: boolean;
+  prob_label?: string;
+  feature_month?: string; // YYYY-MM, last month of input data
+  target_month?: string;
+  accuracy?: number | null;
+  brier?: number | null;
+  n_test?: number | null;
+  features?: string[];
+  model_version?: string | null;
+}
+export const fetchModels = () => api.get<ModelCard[]>("/models");
+
 // ── Macro ──────────────────────────────────────────────────────────────
 export interface RegimeForecastRow { running: boolean; asof: string | null; growth_up: boolean | null; inflation_up: boolean | null; growth_prob: number | null; inflation_prob: number | null; }
 export const fetchRegimeForecast = () => api.get<RegimeForecastRow>("/regime_forecast");

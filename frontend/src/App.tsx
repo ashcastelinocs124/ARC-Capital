@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
 import PortfolioPage from "./pages/PortfolioPage";
+import ModelsPage from "./pages/ModelsPage";
 import MacroPage from "./pages/MacroPage";
 import ResearchPage from "./pages/ResearchPage";
 import RiskPage from "./pages/RiskPage";
@@ -14,6 +15,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/portfolio" replace />} />
         <Route path="/portfolio" element={<PortfolioPage />} />
+        <Route path="/models" element={<ModelsPage />} />
         <Route path="/macro" element={<MacroPage />} />
         <Route path="/research" element={<ResearchPage />} />
         <Route path="/deep-research" element={<DeepResearchPage />} />

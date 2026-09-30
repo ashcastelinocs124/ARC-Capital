@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
+  Cpu,
   Globe,
   Microscope,
   Telescope,
@@ -21,6 +22,7 @@ interface NavItem {
 
 const items: NavItem[] = [
   { to: "/portfolio", label: "Portfolio", icon: LayoutDashboard },
+  { to: "/models", label: "Models", icon: Cpu },
   { to: "/macro", label: "Macro & Signals", icon: Globe },
   { to: "/research", label: "Research", icon: Microscope },
   { to: "/deep-research", label: "Deep Research", icon: Telescope },

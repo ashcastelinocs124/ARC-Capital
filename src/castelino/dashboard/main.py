@@ -95,6 +95,7 @@ from castelino.dashboard.endpoints import (  # noqa: E402
     approvals,
     deep_research,
     macro,
+    models,
     portfolio,
     research,
     risk,
@@ -104,6 +105,7 @@ from castelino.dashboard.endpoints import figures as figures_router  # noqa: E40
 from castelino.dashboard.endpoints import personas as personas_router  # noqa: E402
 
 app.include_router(portfolio.router)
+app.include_router(models.router)
 app.include_router(macro.router)
 app.include_router(research.router)
 app.include_router(deep_research.router)

@@ -4,6 +4,7 @@ import { usePortfolioMetrics } from "@/hooks/usePortfolio";
 
 const TITLES: Record<string, { section: string; page: string }> = {
   "/portfolio": { section: "Trading", page: "Portfolio" },
+  "/models": { section: "Trading", page: "Models" },
   "/macro": { section: "Trading", page: "Macro & Signals" },
   "/research": { section: "Trading", page: "Research" },
   "/updates": { section: "Trading", page: "Daily Update" },
