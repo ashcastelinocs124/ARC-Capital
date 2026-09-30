@@ -47,8 +47,62 @@ function Stat({ label, value, warn }: { label: string; value: string; warn?: boo
   );
 }
 
+function Details({ card }: { card: ModelCard }) {
+  const [open, setOpen] = useState<"parameters" | "sources" | null>(null);
+  const params = card.parameters ?? [];
+  const sources = card.sources ?? [];
+  return (
+    <>
+      {card.predicts && (
+        <div className="mt-3.5 rounded-lg bg-surface-2 border border-border px-3 py-2.5">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">Predicts</div>
+          <div className="text-sm text-text mt-0.5">{card.predicts.question}</div>
+          <div className="text-xs text-muted mt-0.5">Output: {card.predicts.output}</div>
+        </div>
+      )}
+      <div className="mt-3.5 border-t border-border pt-3 flex gap-4">
+        {([["parameters", `Parameters (${params.length})`], ["sources", `Sources (${sources.length})`]] as const).map(([k, label]) => (
+          <button key={k} onClick={() => setOpen(open === k ? null : k)}
+            className={cn("text-xs font-medium", open === k ? "text-accent" : "text-muted hover:text-accent")}>
+            {open === k ? "Hide" : "Show"} {label} {open === k ? "▴" : "▾"}
+          </button>
+        ))}
+      </div>
+      {open === "parameters" && (
+        <table className="w-full text-xs mt-2.5">
+          <tbody>
+            {params.map((p) => (
+              <tr key={p.name} className="border-t border-border first:border-0">
+                <td className="py-1.5 font-mono">{p.name}</td>
+                <td className="py-1.5 font-mono font-semibold text-right pr-3">{String(p.value)}</td>
+                <td className="py-1.5 text-muted">{p.note}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {open === "sources" && (
+        <table className="w-full text-xs mt-2.5">
+          <tbody>
+            {sources.map((s) => (
+              <tr key={s.id} className={cn("border-t border-border first:border-0", !s.used && "opacity-50")}>
+                <td className="py-1.5 pr-2">
+                  {s.name}
+                  {s.role === "target" && <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-accent-soft text-accent">target</span>}
+                  {!s.used && <span className="ml-1.5 text-[10px] text-muted">(skipped in last fit)</span>}
+                </td>
+                <td className="py-1.5 text-muted whitespace-nowrap pr-2">{s.provider}</td>
+                <td className="py-1.5 font-mono text-right">{s.ref}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </>
+  );
+}
+
 function Card({ card }: { card: ModelCard }) {
-  const [open, setOpen] = useState(false);
 
   const header = (
     <div className="flex items-start justify-between gap-3">
@@ -64,7 +118,8 @@ function Card({ card }: { card: ModelCard }) {
     return (
       <div className="card p-5">
         {header}
-        <div className="text-center text-sm text-muted py-9">No forecast on disk yet.</div>
+        <div className="text-center text-sm text-muted py-6">No forecast on disk yet.</div>
+        <Details card={card} />
       </div>
     );
   }
@@ -114,22 +169,7 @@ function Card({ card }: { card: ModelCard }) {
         <div className="mt-3 text-xs text-muted">This model doesn't save accuracy metrics.</div>
       )}
 
-      {!!card.features?.length && (
-        <div className="mt-3.5 border-t border-border pt-3">
-          <button onClick={() => setOpen(!open)} className="text-xs font-medium text-accent hover:text-accent-hover">
-            {open ? "Hide" : "Show"} {card.features.length} features {open ? "▴" : "▾"}
-          </button>
-          {open && (
-            <div className="flex flex-wrap gap-1.5 mt-2.5">
-              {card.features.map((f) => (
-                <span key={f} className="font-mono text-xs bg-surface-2 border border-border rounded-md px-1.5 py-0.5">
-                  {f}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      <Details card={card} />
     </div>
   );
 }

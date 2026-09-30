@@ -37,6 +37,9 @@ export interface ModelCard {
   n_test?: number | null;
   features?: string[];
   model_version?: string | null;
+  predicts?: { question: string; output: string };
+  parameters?: { name: string; value: string | number; note: string }[];
+  sources?: { id: string; name: string; role: "target" | "indicator"; provider: string; ref: string; used: boolean }[];
 }
 export const fetchModels = () => api.get<ModelCard[]>("/models");
 
