@@ -84,3 +84,26 @@ export const approveItem = (entryId: string, notes: string) =>
 
 export const rejectItem = (entryId: string, notes: string) =>
   api.post<ApprovalActionResponse>(`/approvals/${entryId}/reject`, { notes, reason: notes });
+
+export interface UpdateStatus { stage: string; date?: string; error?: string | null; has_today?: boolean; }
+export interface SectorTrendRow {
+  sector: string; r1w: number | null; r1m: number | null; r3m: number | null; r6m: number | null;
+  r12m: number | null; rel1m: number | null; rel12m: number | null; short_label: string; long_label: string;
+}
+export interface ReleaseRow { series: string; name: string; latest: number; prior: number | null; change: number | null; }
+export interface PredictionDeltaRow { old: number | null; new: number; gate: string; }
+export interface DailyRecord {
+  date: string; generated_at: string;
+  snapshot: {
+    date: string; releases: ReleaseRow[]; sectors: SectorTrendRow[];
+    prediction: Record<string, PredictionDeltaRow>; data_gaps: string[]; model_note: string | null;
+  };
+  update: {
+    headline: string; economy: string; asset_classes: string; predictions_changed: string;
+    sector_reads: { sector: string; text: string }[];
+  };
+}
+export const fetchUpdateStatus = () => api.get<UpdateStatus>("/update/status");
+export const fetchLatestUpdate = () => api.get<DailyRecord>("/update/latest");
+export const fetchUpdateHistory = () => api.get<{ dates: string[] }>("/update/history");
+export const fetchUpdateByDate = (day: string) => api.get<DailyRecord>(`/update/${day}`);

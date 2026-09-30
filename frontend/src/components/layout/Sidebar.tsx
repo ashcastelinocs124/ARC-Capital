@@ -4,6 +4,7 @@ import {
   Globe,
   Microscope,
   Telescope,
+  Newspaper,
   ShieldAlert,
   Bot,
   Settings,
@@ -23,6 +24,7 @@ const items: NavItem[] = [
   { to: "/macro", label: "Macro & Signals", icon: Globe },
   { to: "/research", label: "Research", icon: Microscope },
   { to: "/deep-research", label: "Deep Research", icon: Telescope },
+  { to: "/updates", label: "Daily Update", icon: Newspaper },
   { to: "/risk", label: "Risk", icon: ShieldAlert },
   { to: "/agents", label: "Agents", icon: Bot },
 ];

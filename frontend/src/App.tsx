@@ -6,6 +6,7 @@ import ResearchPage from "./pages/ResearchPage";
 import RiskPage from "./pages/RiskPage";
 import AgentsPage from "./pages/AgentsPage";
 import DeepResearchPage from "./pages/DeepResearchPage";
+import UpdatesPage from "./pages/UpdatesPage";
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
         <Route path="/macro" element={<MacroPage />} />
         <Route path="/research" element={<ResearchPage />} />
         <Route path="/deep-research" element={<DeepResearchPage />} />
+        <Route path="/updates" element={<UpdatesPage />} />
         <Route path="/risk" element={<RiskPage />} />
         <Route path="/agents" element={<AgentsPage />} />
       </Routes>
