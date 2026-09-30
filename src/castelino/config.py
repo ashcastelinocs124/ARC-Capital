@@ -29,7 +29,6 @@ class ModelsCfg(BaseModel):
     reasoning: str
     fast: str
     significance: str
-    chat_lightweight: str = "gpt-4o-mini"
 
 
 class OpenAICfg(BaseModel):
@@ -143,13 +142,6 @@ class OpenBBCfg(BaseModel):
     preferred_provider: str = "yfinance"
     fallback_enabled: bool = True
     cache_ttl_minutes: int = 15
-
-
-class ChatCfg(BaseModel):
-    """`ckm chat` interactive assistant settings."""
-    enabled: bool = True
-    # how many prior (user/assistant) turns to send to the router each message
-    max_context_turns: int = 12
 
 
 class SpeechSpeakerCfg(BaseModel):
@@ -324,7 +316,6 @@ class Settings(BaseModel):
     x_api: XApiCfg = XApiCfg()
     personas: PersonaCfg = PersonaCfg()
     deep_research: DeepResearchCfg = DeepResearchCfg()
-    chat: ChatCfg = ChatCfg()
     backtest: BacktestCfg = BacktestCfg()
     paths: PathsCfg
     root: Path

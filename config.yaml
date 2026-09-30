@@ -17,9 +17,6 @@ models:
   reasoning: "gpt-5.5"
   fast: "gpt-5.4-mini"
   significance: "gpt-5.4-mini"
-  # chat_lightweight: cheap model for simple conversational queries in ckm chat.
-  # The model router in ChatSession falls back to `fast` for complex queries.
-  chat_lightweight: "gpt-4o-mini"
 
 openai:
   request_timeout_s: 60
@@ -222,10 +219,6 @@ deep_research:
   # Thesis charts: cap per report (bounds OpenBB calls) + default lookback window.
   max_charts: 4
   chart_lookback_days_default: 365
-
-chat:
-  enabled: true
-  max_context_turns: 12
 
 backtest:
   # Historical backtest harness — gpt-4o, Oct 2023 onwards.
