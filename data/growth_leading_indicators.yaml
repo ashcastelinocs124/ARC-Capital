@@ -1,14 +1,12 @@
 # Leading indicators for the GROWTH forecaster (target: ISM Manufacturing PMI composite).
 #
-# FRED discontinued the ISM series (`NAPM`) in June 2024. This project keeps the
-# official **ISM Manufacturing PMI** as the modeling target via `local_csv`:
-#   `data/ism_manufacturing_pmi.csv`
-# That file is checked in as an **INDPRO-based proxy** so training works without
-# ISM redistribution rights. Replace it with the true ISM headline index from
-# ISM releases when you have a licensed / permitted series (same CSV schema:
-# `date,value`). Regenerate proxy: `python scripts/build_ism_pmi_proxy.py`
+# FRED discontinued the ISM series (`NAPM`) in June 2024. The target is the mean
+# of the Empire State (GACDISA066MSFRBNY) and Philly Fed (GACDFSA066MSFRBPHI)
+# general-business-conditions diffusion indices, snapshotted in
+# `data/ism_manufacturing_pmi.csv`. Refresh: `python scripts/build_ism_pmi_proxy.py`
+# Swap in the licensed ISM headline series (same `date,value` schema) if available.
 #
-# Direction: month-ahead level change (`lead_months` in TrainingConfig / CLI).
+# Label: next-month level > 0 (expansion), via `level_threshold` below.
 # Self-lags of the target series are always included automatically.
 
 version: 1
@@ -17,7 +15,8 @@ target:
   id: ISM_MFG_PMI
   source: local_csv
   path: data/ism_manufacturing_pmi.csv
-  name: "ISM Manufacturing PMI (composite index; see CSV header for data source)"
+  name: "Regional Fed manufacturing composite (Empire State + Philly, diffusion index; ISM proxy)"
+  level_threshold: 0  # label = expansion (>0) next month, not noisy MoM direction
 
 indicators:
   - id: DGS10
