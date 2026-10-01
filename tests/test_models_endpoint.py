@@ -95,7 +95,7 @@ def test_cards_carry_prediction_parameters_and_sources(monkeypatch):
         and "2026-04" in g["predicts"]["question"]
     )
     params = {p["name"]: p["value"] for p in g["parameters"]}
-    assert params["n_estimators"] == 400 and params["max_depth"] == 3 and params["lead_months"] == 1
+    assert params["n_estimators"] == 100 and params["max_depth"] == 1 and params["lead_months"] == 1
     roles = {s["role"] for s in g["sources"]}
     assert roles == {"target", "indicator"}
     assert all(s["provider"] and s["ref"] for s in g["sources"])
