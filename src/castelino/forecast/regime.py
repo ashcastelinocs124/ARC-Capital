@@ -434,7 +434,8 @@ def _build_feature_table(
     if pct:
         # Trending levels (CPI, PPI, house prices) are useless to trees; use changes.
         df = pd.concat(
-            {"m": df.pct_change(1, fill_method=None), "y": df.pct_change(12, fill_method=None)}, axis=1
+            {"m": df.pct_change(1, fill_method=None), "y": df.pct_change(12, fill_method=None)},
+            axis=1,
         )
         df.columns = [f"{sid}_{t}" for t, sid in df.columns]
     feats = pd.DataFrame(index=df.index)
