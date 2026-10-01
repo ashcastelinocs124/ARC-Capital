@@ -3,12 +3,16 @@
 #
 # Interpretation: combine `growth.up` and `inflation.up` from `regime_forecast.json`
 # (month-ahead directional nowcasts) to pick a quadrant.
+#
+# `growth.up` = next-month growth survey index in expansion (>0).
+# `inflation.up` = inflation ACCELERATING (next CPI MoM% > this month's), NOT merely
+# "prices rising"; `inflation_down` = steady or decelerating inflation.
 
 quadrants:
   growth_up_inflation_up:
     label: "Reflation"
     blurb: >
-      Rising activity with rising inflation pressure. Cyclicals and real assets
+      Expanding activity with accelerating inflation. Cyclicals and real assets
       often outperform; long duration can lag if yields rise with activity.
     sectors:
       - Energy
@@ -29,7 +33,7 @@ quadrants:
   growth_up_inflation_down:
     label: "Goldilocks"
     blurb: >
-      Growth with cooling inflation. Growth and momentum factors often work;
+      Growth with steady or decelerating inflation. Growth and momentum factors often work;
       long duration tends to be better supported than in reflation.
     sectors:
       - Technology
@@ -44,7 +48,7 @@ quadrants:
   growth_down_inflation_up:
     label: "Stagflation risk"
     blurb: >
-      Weak growth with sticky inflation. Real assets and defensives often
+      Weak growth with accelerating inflation. Real assets and defensives often
       outperform; cyclicals and high-duration growth can lag.
     sectors:
       - Energy
@@ -59,7 +63,7 @@ quadrants:
   growth_down_inflation_down:
     label: "Disinflation / slowdown"
     blurb: >
-      Falling growth and easing inflation. Duration and quality defensives
+      Weak growth with steady or decelerating inflation. Duration and quality defensives
       often lead until activity stabilizes.
     sectors:
       - Long-duration Treasuries

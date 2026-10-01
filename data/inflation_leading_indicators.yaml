@@ -7,6 +7,11 @@
 
 version: 1
 
+# Label = inflation ACCELERATION (CPI MoM% at t+1 > MoM% at t; ~50/50 classes), on
+# %-change features. Raw levels + "CPI MoM up?" (82% base rate) had no skill.
+label: accel
+features: pct
+
 target:
   id: CPIAUCSL
   source: fred

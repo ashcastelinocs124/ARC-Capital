@@ -120,6 +120,13 @@ class IndicatorListConfig:
     target: IndicatorSpec
     indicators: tuple[IndicatorSpec, ...]
     yaml_path: Path | None = None
+    # If set, label = `target(t+lead) > level_threshold` (expansion vs
+    # contraction) instead of the noisy month-over-month direction.
+    level_threshold: float | None = None
+    # label: "direction" (default) | "accel" = MoM% at t+lead > MoM% at t+lead-1
+    # (for level series like CPI). features: "level" | "pct" = 1m/12m %-changes.
+    label: str = "direction"
+    features: str = "level"
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> "IndicatorListConfig":
@@ -167,7 +174,15 @@ class IndicatorListConfig:
                 raise ValueError(f"{p}: duplicate indicator id {spec.id!r}")
             seen_ids.add(spec.id)
             specs.append(spec)
-        return cls(target=target_spec, indicators=tuple(specs), yaml_path=p)
+        lt = target_doc.get("level_threshold")
+        return cls(
+            target=target_spec,
+            indicators=tuple(specs),
+            yaml_path=p,
+            level_threshold=None if lt is None else float(lt),
+            label=str(doc.get("label", "direction")),
+            features=str(doc.get("features", "level")),
+        )
 
 
 def _row_to_spec(row: dict, default_source: str) -> IndicatorSpec:
@@ -198,12 +213,15 @@ def _row_to_spec(row: dict, default_source: str) -> IndicatorSpec:
 @dataclass(frozen=True)
 class TrainingConfig:
     history_start: str = "2000-01-01"
-    n_lags: int = 6
+    n_lags: int = 3
+    # 1 = strict lags only (latest observation unused); 0 also feeds the
+    # current month's value at row t (still no lookahead: label is t+lead).
+    first_lag: int = 0
     cv_splits: int = 5
     random_state: int = 0
-    n_estimators: int = 400
-    max_depth: int = 3
-    learning_rate: float = 0.05
+    n_estimators: int = 100
+    max_depth: int = 1
+    learning_rate: float = 0.1
     # Forecast horizon. lead_months=1 → predict next month MoM direction
     # (`value(t+1) > value(t)`). lead_months=2 → predict month-after-next
     # (`value(t+2) > value(t+1)`). Increasing the lead drops more recent rows
@@ -394,6 +412,8 @@ def _build_feature_table(
     series_map: dict[str, pd.Series],
     n_lags: int,
     history_start: str,
+    first_lag: int = 1,
+    pct: bool = False,
 ) -> pd.DataFrame:
     """Pure-lag feature matrix. Columns: `<id>_lag_<k>` for k in 1..n_lags."""
     monthly: dict[str, pd.Series] = {}
@@ -411,9 +431,15 @@ def _build_feature_table(
     df = df.loc[df.index >= pd.Timestamp(history_start)]
     df = df.dropna(how="all")
 
+    if pct:
+        # Trending levels (CPI, PPI, house prices) are useless to trees; use changes.
+        df = pd.concat(
+            {"m": df.pct_change(1, fill_method=None), "y": df.pct_change(12, fill_method=None)}, axis=1
+        )
+        df.columns = [f"{sid}_{t}" for t, sid in df.columns]
     feats = pd.DataFrame(index=df.index)
     for sid in df.columns:
-        for k in range(1, n_lags + 1):
+        for k in range(first_lag, first_lag + n_lags):
             feats[f"{sid}_lag_{k}"] = df[sid].shift(k)
     return feats
 
@@ -422,6 +448,8 @@ def _build_targets(
     primary: pd.Series,
     history_start: str,
     lead_months: int = 1,
+    level_threshold: float | None = None,
+    accel: bool = False,
 ) -> pd.Series:
     """Binary label at month `t`: `value(t + lead) > value(t + lead - 1)`.
 
@@ -436,6 +464,13 @@ def _build_targets(
     p.index = pd.to_datetime(p.index)
     p = _to_month_end(p)
     p = p.loc[p.index >= pd.Timestamp(history_start)]
+    if accel:
+        mom = p.pct_change()
+        nxt, cur = mom.shift(-lead_months), mom.shift(-(lead_months - 1))
+        return (nxt > cur).astype(int).where(nxt.notna() & cur.notna()).rename("y")
+    if level_threshold is not None:
+        fut = p.shift(-lead_months)
+        return (fut > level_threshold).astype(int).where(fut.notna()).rename("y")
     next_change = p.shift(-lead_months) - p.shift(-(lead_months - 1))
     return (next_change > 0).astype(int).rename("y")
 
@@ -521,11 +556,19 @@ def _train_independent(
             f"Required target series {indicator_cfg.target.id} missing from provider output."
         )
 
-    feats = _build_feature_table(series_map, training_cfg.n_lags, training_cfg.history_start)
+    feats = _build_feature_table(
+        series_map,
+        training_cfg.n_lags,
+        training_cfg.history_start,
+        training_cfg.first_lag,
+        indicator_cfg.features == "pct",
+    )
     y = _build_targets(
         series_map[indicator_cfg.target.id],
         training_cfg.history_start,
         lead_months=training_cfg.lead_months,
+        level_threshold=indicator_cfg.level_threshold,
+        accel=indicator_cfg.label == "accel",
     )
     X, y_aligned = _align(feats, y)
 
@@ -559,7 +602,9 @@ def _train_independent(
         log.warning("No feature rows for %s; falling back to base rate.", indicator_cfg.target.id)
         prob = float(y_aligned.mean())
     else:
-        last_row = feats.iloc[[-1]]
+        # Row aligned to the target's last month, so the label horizon matches
+        # `target_month` even when other series extend past the target.
+        last_row = feats.loc[[last_month]] if last_month in feats.index else feats.iloc[[-1]]
         prob = float(model.predict_proba(last_row)[0, 1])
 
     return dict(
@@ -658,11 +703,19 @@ def walk_forward_metrics(
     provider = series_provider or _default_series_provider
     specs = [indicator_cfg.target, *indicator_cfg.indicators]
     series_map = provider(specs)
-    feats = _build_feature_table(series_map, training.n_lags, training.history_start)
+    feats = _build_feature_table(
+        series_map,
+        training.n_lags,
+        training.history_start,
+        training.first_lag,
+        indicator_cfg.features == "pct",
+    )
     y = _build_targets(
         series_map[indicator_cfg.target.id],
         training.history_start,
         lead_months=training.lead_months,
+        level_threshold=indicator_cfg.level_threshold,
+        accel=indicator_cfg.label == "accel",
     )
     X, y_aligned = _align(feats, y)
     return _walk_forward_eval(X, y_aligned, training)
