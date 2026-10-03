@@ -81,7 +81,7 @@ class KrugmanScraper(PersonaScraper):
 
         # Sonar fallback: RSS only carries the 20 most recent pieces
         # globally, so any given columnist may not appear. Augment with
-        # search-grounded persona content via Perplexity Sonar.
+        # search-grounded persona content via OpenAI web search.
         if len(docs) < 3:
             docs.extend(fetch_persona_via_sonar(
                 persona_id=self.persona_id, persona_name="Paul Krugman",

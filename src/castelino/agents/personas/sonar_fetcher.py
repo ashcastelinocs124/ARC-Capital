@@ -1,10 +1,11 @@
-"""Perplexity Sonar fallback for persona corpus building.
+"""Web-search fallback for persona corpus building (OpenAI web_search;
+was Perplexity Sonar — module/function names kept for the scraper imports).
 
 Used when a primary scraper (RSS / YouTube / PDF) returns thin results.
-Sonar does web search with citations — we ask it to find recent
+OpenAI web search returns answers with citations — we ask it to find recent
 commentary by the persona and return summaries grounded in real sources.
 
-Cached aggressively (24h TTL) since Sonar calls cost money. Cache lives
+Cached aggressively (24h TTL) since web-search calls cost money. Cache lives
 under data/cache/sonar_personas/<persona_id>.json.
 """
 from __future__ import annotations
@@ -15,10 +16,9 @@ import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from openai import OpenAI
-
 from castelino.agents.personas.corpus import CorpusDoc
 from castelino.config import get_settings
+from castelino.data import web_search
 
 log = logging.getLogger(__name__)
 
@@ -96,7 +96,7 @@ _JSON_FENCE_RX = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)
 
 
 def _parse_sonar_response(raw: str) -> list[dict]:
-    """Sonar sometimes wraps JSON in markdown fences; tolerate both."""
+    """The model sometimes wraps JSON in markdown fences; tolerate both."""
     text = raw.strip()
     m = _JSON_FENCE_RX.search(text)
     if m:
@@ -105,7 +105,7 @@ def _parse_sonar_response(raw: str) -> list[dict]:
     start = text.find("[")
     end = text.rfind("]")
     if start == -1 or end == -1:
-        raise ValueError(f"no JSON array in Sonar response: {raw[:200]}")
+        raise ValueError(f"no JSON array in web-search response: {raw[:200]}")
     return json.loads(text[start : end + 1])
 
 
@@ -115,43 +115,30 @@ def fetch_persona_via_sonar(
     persona_name: str,
     max_items: int = 10,
 ) -> list[CorpusDoc]:
-    """Ask Sonar for recent persona commentary. Cached. Returns [] on failure."""
+    """Web-search recent persona commentary. Cached. Returns [] on failure."""
     cached = _read_cache(persona_id)
     if cached is not None:
         log.info("sonar persona cache hit: %s (%d docs)", persona_id, len(cached))
         return cached
 
-    cfg = get_settings()
-    api_key = cfg.perplexity_api_key
-    if not api_key:
-        log.debug("PERPLEXITY_API_KEY not set — skipping Sonar persona fallback")
+    if not web_search.has_key():
+        log.debug("OPENAI_API_KEY not set — skipping web-search persona fallback")
         return []
 
     prompt = _PROMPT_TEMPLATE.format(
         persona_name=persona_name, max_items=max_items,
     )
     try:
-        client = OpenAI(api_key=api_key, base_url="https://api.perplexity.ai")
-        resp = client.chat.completions.create(
-            model=cfg.sonar.model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a research assistant who finds and summarizes "
-                        "real published commentary by named public figures. "
-                        "Stay grounded in actual sources you can cite. Return "
-                        "JSON only."
-                    ),
-                },
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.0,
+        raw, _ = web_search.search(
+            "You are a research assistant who finds and summarizes "
+            "real published commentary by named public figures. "
+            "Stay grounded in actual sources you can cite. Return "
+            "JSON only.",
+            prompt,
         )
-        raw = (resp.choices[0].message.content or "").strip()
         items = _parse_sonar_response(raw)
     except Exception as e:
-        log.warning("Sonar persona fetch failed for %s: %s", persona_id, e)
+        log.warning("web-search persona fetch failed for %s: %s", persona_id, e)
         return []
 
     docs: list[CorpusDoc] = []

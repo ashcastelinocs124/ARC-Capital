@@ -279,14 +279,13 @@ agents:
     name: Deep Research · Sub-agent
     group: Deep research
     dependencies:
-      - {key: OPENAI_API_KEY, required: true, why: "LLM call (OpenAI)"}
-      - {key: PERPLEXITY_API_KEY, required: true, why: "Perplexity Sonar web search"}
+      - {key: OPENAI_API_KEY, required: true, why: "LLM call and web search (OpenAI web_search tool)"}
     prompt: "castelino.agents.research.deep.sub_agent:SYSTEM"
     schema: "castelino.agents.research.deep.models:SubFinding"
     tier: fast
-    summary: "One per sub-question, run in parallel: searches with Perplexity Sonar and distils cited findings."
+    summary: "One per sub-question, run in parallel: searches the web (OpenAI web_search) and distils cited findings."
     tools:
-      - {name: "Perplexity Sonar", does: "Web search with citations (global budget of 15 calls per report)"}
+      - {name: "OpenAI web_search", does: "Web search with citations (global budget of 15 calls per report)"}
     memory:
       reads: ["One sub-question"]
       writes: ["Cited findings → Synthesizer"]
@@ -361,14 +360,13 @@ agents:
     name: Persona Advisor
     group: Advisors
     dependencies:
-      - {key: OPENAI_API_KEY, required: true, why: "Chat replies and corpus embeddings (OpenAI)"}
-      - {key: PERPLEXITY_API_KEY, required: false, why: "Sonar fallback when the scraped corpus is thin"}
+      - {key: OPENAI_API_KEY, required: true, why: "Chat replies, corpus embeddings, and the web-search fallback when the scraped corpus is thin (OpenAI)"}
     schema: "castelino.agents.personas.agent:PersonaResponse"
     tier: fast
     summary: "RAG-backed simulated economists and investors (Krugman, El-Erian, Summers, Druckenmiller, Dalio, Tudor Jones) for consultation; never part of the trading pipeline."
     tools:
       - {name: "Chroma retrieval", does: "Top-k chunks from the persona's scraped corpus (data/personas/chroma)"}
-      - {name: "Perplexity Sonar fallback", does: "Fills thin corpora with recent commentary (cached 24h)"}
+      - {name: "OpenAI web_search fallback", does: "Fills thin corpora with recent commentary (cached 24h)"}
     memory:
       reads: ["Persona profile card", "Retrieved corpus chunks", "Rolling 30-day conversation window"]
       writes: ["Reply with cited sources"]

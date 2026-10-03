@@ -134,9 +134,10 @@ openbb:
   fallback_enabled: true
   cache_ttl_minutes: 15
 
-sonar:
+web_search:
+  # OpenAI Responses API + web_search tool (replaced Perplexity Sonar 2026-10-03)
   cache_ttl_hours: 12
-  model: "sonar-pro"
+  model: "gpt-5.4-mini"
   regions: ["EU", "UK", "JP", "CN", "GLOBAL"]
 
 speech:

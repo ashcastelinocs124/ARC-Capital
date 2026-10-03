@@ -1,6 +1,6 @@
 """News RSS ingestion — pulls a small set of macro feeds and de-duplicates.
 
-Includes Sonar-based deep-read enrichment for significant headlines.
+Includes web-search deep-read enrichment (OpenAI web_search) for significant headlines.
 """
 
 from __future__ import annotations
@@ -13,9 +13,9 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import feedparser
-from openai import OpenAI
 
 from castelino.config import get_settings
+from castelino.data import web_search
 
 log = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class NewsHeadline:
     link: str
     source: str
     published: datetime
-    deep_summary: str = ""  # Sonar-enriched summary (~200 words)
+    deep_summary: str = ""  # web-search-enriched summary (~200 words)
 
 
 def _news_cache_path() -> Path:
@@ -103,7 +103,7 @@ def _parse_published(entry) -> datetime:
 
 
 # ---------------------------------------------------------------------------
-# Sonar deep-read enrichment
+# Web-search deep-read enrichment
 # ---------------------------------------------------------------------------
 
 _DEEP_READ_PROMPT = """\
@@ -139,54 +139,44 @@ def _write_article_cache(headline_id: str, text: str) -> None:
     (d / f"{headline_id}.txt").write_text(text)
 
 
-def _sonar_deep_read(headline: NewsHeadline) -> str:
-    """Call Sonar for a single headline. Returns enriched summary or RSS fallback."""
+def _deep_read(headline: NewsHeadline) -> str:
+    """Web-search one headline. Returns enriched summary or RSS fallback."""
     cached = _read_article_cache(headline.id)
     if cached:
         return cached
 
-    cfg = get_settings()
-    api_key = cfg.perplexity_api_key
-    if not api_key:
+    if not web_search.has_key():
         return headline.summary
 
     prompt = _DEEP_READ_PROMPT.format(title=headline.title, source=headline.source)
     try:
-        client = OpenAI(api_key=api_key, base_url="https://api.perplexity.ai")
-        resp = client.chat.completions.create(
-            model=cfg.sonar.model,
-            messages=[
-                {"role": "system", "content": "You are a concise financial news analyst. Summarize the event factually."},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.0,
+        text, _ = web_search.search(
+            "You are a concise financial news analyst. Summarize the event factually.", prompt
         )
-        text = (resp.choices[0].message.content or "").strip()
         if text:
             _write_article_cache(headline.id, text)
             return text
     except Exception as e:
-        log.warning("Sonar deep-read failed for %r: %s", headline.title, e)
+        log.warning("web-search deep-read failed for %r: %s", headline.title, e)
 
     return headline.summary
 
 
 def enrich_significant_headlines(headlines: list[NewsHeadline]) -> list[NewsHeadline]:
-    """Enrich headlines with Sonar deep-reads. Only call on post-threshold headlines."""
-    cfg = get_settings()
-    if not cfg.perplexity_api_key:
-        log.debug("PERPLEXITY_API_KEY not set — skipping headline enrichment")
+    """Enrich headlines with web-search deep-reads. Only call on post-threshold headlines."""
+    if not web_search.has_key():
+        log.debug("OPENAI_API_KEY not set — skipping headline enrichment")
         return headlines
 
     enriched: list[NewsHeadline] = []
     for h in headlines:
-        deep = _sonar_deep_read(h)
+        deep = _deep_read(h)
         enriched.append(replace(h, deep_summary=deep))
     return enriched
 
 
 # ---------------------------------------------------------------------------
-# X/Twitter sentiment via Sonar
+# X/Twitter sentiment via web search
 # ---------------------------------------------------------------------------
 
 _X_SENTIMENT_PROMPT = """\
@@ -226,12 +216,11 @@ def _write_x_cache(headline_hash: str, text: str) -> None:
 
 
 def fetch_x_sentiment(headline: str) -> str:
-    """Ask Sonar what the financial X/Twitter community is saying about a headline."""
+    """Web-search what the financial X/Twitter community is saying about a headline."""
     cfg = get_settings()
     if not cfg.enrichment.x_sentiment_enabled:
         return ""
-    api_key = cfg.perplexity_api_key
-    if not api_key:
+    if not web_search.has_key():
         return ""
 
     h = hashlib.sha1(headline.encode()).hexdigest()
@@ -241,20 +230,13 @@ def fetch_x_sentiment(headline: str) -> str:
 
     prompt = _X_SENTIMENT_PROMPT.format(title=headline)
     try:
-        client = OpenAI(api_key=api_key, base_url="https://api.perplexity.ai")
-        resp = client.chat.completions.create(
-            model=cfg.sonar.model,
-            messages=[
-                {"role": "system", "content": "You are a social media sentiment analyst focused on financial markets."},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.0,
+        text, _ = web_search.search(
+            "You are a social media sentiment analyst focused on financial markets.", prompt
         )
-        text = (resp.choices[0].message.content or "").strip()
         if text:
             _write_x_cache(h, text)
             return text
     except Exception as e:
-        log.warning("Sonar X sentiment failed for %r: %s", headline, e)
+        log.warning("web-search X sentiment failed for %r: %s", headline, e)
 
     return ""

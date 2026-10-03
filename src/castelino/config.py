@@ -105,9 +105,11 @@ class FredCfg(BaseModel):
     cache_ttl_hours: int = 24
 
 
-class SonarCfg(BaseModel):
+class WebSearchCfg(BaseModel):
+    """OpenAI Responses-API web search (data/web_search.py)."""
+
     cache_ttl_hours: int = 12
-    model: str = "sonar"
+    model: str = "gpt-5.4-mini"
     regions: list[str] = Field(
         default_factory=lambda: ["EU", "UK", "JP", "CN", "GLOBAL"],
     )
@@ -210,7 +212,7 @@ class DeepResearchCfg(BaseModel):
     enabled: bool = True
     max_sub_questions: int = 6        # hard cap on decomposition fan-out
     max_rounds: int = 2              # reflection rounds, incl. first
-    max_sonar_calls: int = 15        # global Sonar budget per report
+    max_sonar_calls: int = 15        # global web-search budget per report (name kept: stored in reports)
     concurrency: int = 3             # asyncio semaphore over sub-agents
     clarify_max_questions: int = 3   # cap on clarifying questions
     reasoning_tier: str = "reasoning"  # tier for clarifier/lead/synthesizer
@@ -340,7 +342,7 @@ class Settings(BaseModel):
     risk_gate: RiskGateCfg = RiskGateCfg()
     conviction: ConvictionCfg = ConvictionCfg()
     openbb: OpenBBCfg = OpenBBCfg()
-    sonar: SonarCfg = SonarCfg()
+    web_search: WebSearchCfg = WebSearchCfg()
     speech: SpeechCfg = SpeechCfg()
     figure_deviation: FigureDeviationCfg = FigureDeviationCfg()
     x_api: XApiCfg = XApiCfg()
@@ -377,12 +379,6 @@ class Settings(BaseModel):
     def openbb_pat(self) -> str | None:
         """OpenBB Personal Access Token. Optional — adapter disabled if unset."""
         key = os.environ.get("OPENBB_PAT", "").strip()
-        return key or None
-
-    @property
-    def perplexity_api_key(self) -> str | None:
-        """Perplexity Sonar API key. Optional — falls back to static calendar."""
-        key = os.environ.get("PERPLEXITY_API_KEY", "").strip()
         return key or None
 
     @property

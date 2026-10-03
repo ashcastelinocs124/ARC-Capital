@@ -23,13 +23,13 @@ The system monitors macro news, economic data, prediction markets, and **live po
 
 Every headline gets scored 0–1 with growth/inflation direction (up/down/neutral). Borderline headlines (0.4–0.8) get a **second pass** enriched with:
 - **Polymarket** prediction market prices — is money actually flowing on this event?
-- **X/Twitter sentiment** (via Perplexity Sonar) — is fintwit paying attention?
+- **X/Twitter sentiment** (via OpenAI web search) — is fintwit paying attention?
 
 This separates real macro signals from noise.
 
 ### Input Enrichment
 
-Headlines that enter the pipeline are enriched via **Perplexity Sonar** with ~200-word search-grounded summaries. The Current Event Agent sees full context, not bare 10-word titles. Non-US calendar events (ECB, BoJ, OPEC) are also sourced from Sonar in real-time.
+Headlines that enter the pipeline are enriched via **OpenAI web search** with ~200-word search-grounded summaries. The Current Event Agent sees full context, not bare 10-word titles. Non-US calendar events (ECB, BoJ, OPEC) are also sourced from OpenAI web search in real-time.
 
 ### Agent Pipeline
 
@@ -61,7 +61,7 @@ The system is split into three layers — **trigger detection** (when does the p
                           TRIGGER LAYER (deterministic + LLM scorer)
 ══════════════════════════════════════════════════════════════════════════
 
-   FRED + yfinance     RSS feeds      Sonar non-US      FIGURE SOURCES
+   FRED + yfinance     RSS feeds      Web non-US        FIGURE SOURCES
    (calendar)          (headlines)    (calendar)        (audio + tweets)
         │                  │                │                │
         ▼                  ▼                ▼                ▼
@@ -129,7 +129,7 @@ The system is split into three layers — **trigger detection** (when does the p
 ══════════════════════│════════════════════════════════════════════════════
                       │
         ┌─────────────▼─────────────┐
-        │ SONAR DEEP-READS          │  ~200 word search-grounded
+        │ WEB-SEARCH DEEP-READS     │  ~200 word search-grounded
         │ (significant headlines)   │  summaries per headline
         └─────────────┬─────────────┘
                       │
@@ -284,7 +284,7 @@ Buffett is intentionally excluded (single-name value investor — wrong frame fo
 
 ```
 primary scrapers (RSS, YouTube, PDFs)        per-persona Chroma collection
-        │   ─── if < 3 docs ───▶  Sonar fallback     │
+        │   ─── if < 3 docs ───▶  web fallback       │
         ▼                              ▼             ▼
    token-window chunker  ─────▶  embed + persist  ─────▶  auto-generated PersonaCard
                                                           (belief summary, decision
@@ -326,7 +326,7 @@ Every agent's output is a **Pydantic model with hard constraints**. Examples:
 - **Persona-relative figure-deviation engine** — multi-source / multi-lexicon tone-scoring tracks named public figures (Powell + Fed officials via Deepgram audio, Trump via X API v2 tweet polling). Each figure scores against their *own* twelve-month rhetorical baseline, so a dovish Powell turning hawkish — or Trump escalating from "considering tariffs" to "starting Monday" — produces a signal that absolute-tone scoring would miss. Trump scores on three lexicons in parallel (`trade_protectionist_v1`, `fed_pressure_v1`, `regulatory_stance_v1` with crypto/oil/defence/tech sub-axes); a single tweet can fire on multiple dimensions independently.
 - **FigureProfile RAG layer** — per-figure Chroma corpus (track record, behavioural patterns, tweet→outcome examples, current cabinet, rhetorical tells) retrieved into Stage B confirmation and the Hypothesis Agent's analogy reasoning. Stage B sees behavioural-pattern slices ("starting Monday" → 71% follow-through with named advisors); the Hypothesis Agent sees outcome examples and track record for analogy-based horizon/conviction calibration.
 - **Two-pass significance scoring** — borderline headlines get re-scored with Polymarket prediction market data and X/Twitter sentiment to separate real signals from noise.
-- **Perplexity Sonar integration** — headlines enriched with ~200-word search-grounded summaries. Non-US calendar events (ECB, BoJ, OPEC) fetched in real-time.
+- **OpenAI web search** (Responses API `web_search` tool, `data/web_search.py`) — headlines enriched with ~200-word search-grounded summaries. Non-US calendar events (ECB, BoJ, OPEC) fetched in real-time.
 - **Regime-aware pipeline** — XGBoost nowcasters (growth + inflation) label the macro environment. Agents receive regime context; asset selection prioritizes regime-aligned instruments.
 - **Bitcoin in risk-on** — IBIT (BlackRock Bitcoin Trust ETF) available as a trade expression in Reflation regimes only.
 - **Human-in-the-loop gates** — pipeline stalls after hypothesis and after debate verdicts until human approves via CLI or dashboard.
@@ -380,7 +380,7 @@ CKM-Capital/
 │   │   └── io.py                   # WriterIdentity-gated R/W matrix
 │   ├── agents/
 │   │   ├── base.py                 # OpenAI structured-output client
-│   │   ├── current_event.py        # + Sonar deep-reads + indicator catalog
+│   │   ├── current_event.py        # + web-search deep-reads + indicator catalog
 │   │   ├── hypothesis.py           # + macro_context + indicator reads
 │   │   ├── asset_selection.py      # + regime-preferred instruments
 │   │   ├── research/{web,technical,backtest,risk}.py
@@ -398,8 +398,8 @@ CKM-Capital/
 │   │       ├── sonar_fetcher.py    #   thin-source fallback (< 3 RSS docs)
 │   │       └── scrapers/{krugman,elerian,summers,dalio,tudor_jones,druckenmiller,buffett}.py
 │   ├── triggers/
-│   │   ├── calendar.py             # FRED US + Sonar non-US calendar
-│   │   ├── news.py                 # RSS + Sonar deep-reads + X sentiment
+│   │   ├── calendar.py             # FRED US + web-search non-US calendar
+│   │   ├── news.py                 # RSS + web-search deep-reads + X sentiment
 │   │   ├── significance.py         # two-pass scorer (directional + enriched)
 │   │   ├── conviction.py           # directional conviction ledger (12h decay)
 │   │   ├── readiness.py            # technical readiness multiplier (RSI/MACD/OBV)
@@ -474,7 +474,6 @@ CKM-Capital/
 
 - Python 3.11+
 - An OpenAI API key (`gpt-5.5` + `gpt-5.4-mini`, or override in `config.yaml`)
-- A Perplexity API key (for Sonar deep-reads, X sentiment, non-US calendar)
 - A FRED API key (optional — for US economic calendar)
 - `uv` recommended for dependency management
 
@@ -495,7 +494,6 @@ uv pip install -e ".[dev]"
 # Configure secrets (.env is gitignored)
 cat > .env <<EOF
 OPENAI_API_KEY=sk-...
-PERPLEXITY_API_KEY=pplx-...
 FRED_API_KEY=...             # optional
 DEEPGRAM_API_KEY=...         # optional — for the live speech listener
 EOF
@@ -621,7 +619,7 @@ Companion to the full-pipeline backtest in `src/castelino/backtest/`
 A typical pipeline run is ~$0.15–0.40 in OpenAI spend. The architecture minimizes waste:
 - Hard-rule violations short-circuit the Portfolio Agent (no LLM call on vetoed trades)
 - Two-pass scoring only enriches borderline headlines (2-5 per tick, not all 20-30)
-- Sonar calls are cached (articles 24h, X sentiment 1h, calendar 12h)
+- Web-search calls are cached (articles 24h, X sentiment 1h, calendar 12h)
 - Polymarket API is free and public (no auth required)
 - Pricing is cached (15-min LRU + on-disk)
 
@@ -633,4 +631,4 @@ This repository is a portfolio piece. No commercial use intended.
 
 ## Acknowledgements
 
-Built on `langgraph`, `openai`, `pydantic`, `yfinance`, FRED, OpenBB, Perplexity Sonar, Polymarket CLOB API, `xgboost`, `scikit-learn`.
+Built on `langgraph`, `openai`, `pydantic`, `yfinance`, FRED, OpenBB, Polymarket CLOB API, `xgboost`, `scikit-learn`.

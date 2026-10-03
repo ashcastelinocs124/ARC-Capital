@@ -1,4 +1,7 @@
-"""Build the Trump-events half of `historical_news.parquet` via Perplexity Sonar.
+"""Build the Trump-events half of `historical_news.parquet` via OpenAI web search.
+
+(Was Perplexity Sonar; the `sonar_trump` source label and config flags are kept
+so existing archives and the backtest reader stay compatible.)
 
 NYT undercounts political/policy chatter that drives markets — tariff
 threats, executive orders, social-media policy posts, SCOTUS-related
@@ -31,7 +34,6 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pandas as pd
-from openai import OpenAI
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -41,6 +43,7 @@ from castelino.backtest.news_archive import (  # noqa: E402
     merge_source_archives,
 )
 from castelino.config import get_settings  # noqa: E402
+from castelino.data import web_search  # noqa: E402
 
 log = logging.getLogger("build_sonar_trump_archive")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
@@ -98,31 +101,20 @@ _MONTH_NAMES = [
 ]
 
 
-def _query_month(client: OpenAI, year: int, month: int, max_items: int, model: str) -> list[dict]:
+def _query_month(year: int, month: int, max_items: int) -> list[dict]:
     prompt = _PROMPT.format(
         month_label=_MONTH_NAMES[month - 1],
         year=year, month=month, max_items=max_items,
     )
     try:
-        resp = client.chat.completions.create(
-            model=model,
-            temperature=0.0,
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a research assistant who finds and "
-                        "summarizes real published events. Stay grounded "
-                        "in actual sources you can cite. Return JSON only."
-                    ),
-                },
-                {"role": "user", "content": prompt},
-            ],
+        raw, _ = web_search.search(
+            "You are a research assistant who finds and summarizes real published "
+            "events. Stay grounded in actual sources you can cite. Return JSON only.",
+            prompt,
         )
     except Exception as e:
-        log.warning("Sonar Trump %s/%02d call failed: %s", year, month, e)
+        log.warning("Trump %s/%02d web search failed: %s", year, month, e)
         return []
-    raw = (resp.choices[0].message.content or "").strip()
     try:
         items = _parse_response(raw)
     except Exception as e:
@@ -153,25 +145,18 @@ def build(start: date, end: date) -> Path:
     if not cfg.backtest.sonar_trump_enabled:
         raise SystemExit("backtest.sonar_trump_enabled = false; nothing to do")
 
-    api_key = cfg.perplexity_api_key
-    if not api_key:
-        raise SystemExit(
-            "PERPLEXITY_API_KEY is not set. Add it to .env, then re-run.\n"
-            "(Persona system already uses this key; cost for backtest "
-            "Trump archive is ~$1.50 over 30 months.)"
-        )
+    if not web_search.has_key():
+        raise SystemExit("OPENAI_API_KEY is not set. Add it to .env, then re-run.")
 
-    client = OpenAI(api_key=api_key, base_url="https://api.perplexity.ai")
     months = _months_between(start, end)
     max_items = cfg.backtest.sonar_trump_max_per_month
-    model = cfg.sonar.model
 
     log.info("Sonar Trump pull: %d months × ≤%d items each", len(months), max_items)
 
     rows: list[dict] = []
     for (y, m) in months:
         log.info("Sonar Trump %s/%02d", y, m)
-        rows.extend(_query_month(client, y, m, max_items, model))
+        rows.extend(_query_month(y, m, max_items))
 
     if not rows:
         raise SystemExit("Sonar returned zero usable rows — check key / model / network")

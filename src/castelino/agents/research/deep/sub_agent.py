@@ -15,7 +15,7 @@ in how well the text answers the sub-question.
 
 class SubAgent:
     """One parallel researcher. Not a StructuredAgent subclass because it
-    composes a Sonar call + an LLM distillation; it takes injectable clients
+    composes a web-search call + an LLM distillation; it takes injectable clients
     so tests stay deterministic."""
 
     def __init__(self, *, llm: LLMClient | None = None, sonar: SonarClient):
@@ -29,7 +29,7 @@ class SubAgent:
             return SubFinding(
                 sub_question_id=sub_q.id,
                 summary="",
-                error="no research content returned (Sonar empty or unavailable)",
+                error="no research content returned (web search empty or unavailable)",
                 confidence=0.0,
             )
         tier = cfg.deep_research.fast_tier
@@ -48,7 +48,7 @@ class SubAgent:
             # the structured finding isn't truncated.
             max_tokens=cfg.deep_research.max_output_tokens,
         )
-        # Force the id (LLMs drift) and merge Sonar's real source URLs.
+        # Force the id (LLMs drift) and merge the web search's real source URLs.
         merged = list(finding.citations) + list(res.sources)
         return finding.model_copy(update={
             "sub_question_id": sub_q.id,

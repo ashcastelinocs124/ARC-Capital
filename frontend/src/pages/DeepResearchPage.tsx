@@ -214,8 +214,8 @@ export default function DeepResearchPage() {
   const [startError, setStartError] = useState<string | null>(null);
 
   const { data: catalog } = useAgentCatalog();
-  const sonarMissing = catalog?.agents
-    .find((a) => a.id === "deep_sub_agent")?.dependencies.find((d) => d.key === "PERPLEXITY_API_KEY")?.set === false;
+  const keyMissing = catalog?.agents
+    .find((a) => a.id === "deep_sub_agent")?.dependencies.find((d) => d.key === "OPENAI_API_KEY")?.set === false;
 
   const { data: listRaw } = useQuery({
     queryKey: ["research_list"],
@@ -278,9 +278,9 @@ export default function DeepResearchPage() {
       </Card>
 
       <div className="space-y-4 min-w-0">
-        {sonarMissing && (
+        {keyMissing && (
           <div className="rounded-xl border border-warning bg-warning-soft px-4 py-2.5 text-sm text-warning">
-            <b>PERPLEXITY_API_KEY is missing.</b> Research sub-agents search the web through Perplexity Sonar, so new research
+            <b>OPENAI_API_KEY is missing.</b> Research sub-agents search the web through OpenAI web search, so new research
             will fail until it's added to <span className="font-mono">.env</span>. Past reports still open.
           </div>
         )}

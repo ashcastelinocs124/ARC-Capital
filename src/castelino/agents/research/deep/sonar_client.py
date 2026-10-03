@@ -1,8 +1,7 @@
-"""Sonar search client. Real impl hits Perplexity via the OpenAI SDK
-(base_url=https://api.perplexity.ai); FakeSonarClient is for tests.
-
-Perplexity returns the answer text in choices[0].message.content and a
-top-level `citations` list of URLs on the response object.
+"""Web search client for Deep Research sub-agents. Real impl is OpenAI's
+Responses API `web_search` tool (data/web_search.py); FakeSonarClient is for
+tests. (Sonar* names kept from the Perplexity version so callers/tests are
+unchanged.)
 """
 from __future__ import annotations
 
@@ -10,7 +9,7 @@ import logging
 from abc import ABC, abstractmethod
 
 from castelino.agents.research.deep.models import SourceRef
-from castelino.config import get_settings
+from castelino.data import web_search
 
 log = logging.getLogger(__name__)
 
@@ -33,38 +32,20 @@ _SONAR_SYSTEM = (
 )
 
 
-class PerplexitySonarClient(SonarClient):
+class OpenAIWebSearchClient(SonarClient):
     """Real impl. Returns an empty result (no raise) when the key is unset
     or the call fails — matches the codebase 'returns [] on failure' rule."""
 
     def search(self, query: str) -> SonarResult:
-        cfg = get_settings()
-        api_key = cfg.perplexity_api_key
-        if not api_key:
-            log.debug("PERPLEXITY_API_KEY not set — Sonar search skipped")
+        if not web_search.has_key():
+            log.debug("OPENAI_API_KEY not set — web search skipped")
             return SonarResult(content="", sources=[])
         try:
-            from openai import OpenAI
-
-            client = OpenAI(
-                api_key=api_key,
-                base_url="https://api.perplexity.ai",
-                timeout=cfg.openai.request_timeout_s,
-            )
-            resp = client.chat.completions.create(
-                model=cfg.sonar.model,
-                messages=[
-                    {"role": "system", "content": _SONAR_SYSTEM},
-                    {"role": "user", "content": query},
-                ],
-                temperature=0.0,
-            )
-            content = (resp.choices[0].message.content or "").strip()
-            urls = getattr(resp, "citations", None) or []
-            sources = [SourceRef(title=u, url=u, snippet="") for u in urls]
+            content, cited = web_search.search(_SONAR_SYSTEM, query)
+            sources = [SourceRef(title=t, url=u, snippet="") for t, u in cited]
             return SonarResult(content=content, sources=sources)
         except Exception as e:  # noqa: BLE001
-            log.warning("Sonar search failed for %r: %s", query[:80], e)
+            log.warning("web search failed for %r: %s", query[:80], e)
             return SonarResult(content="", sources=[])
 
 

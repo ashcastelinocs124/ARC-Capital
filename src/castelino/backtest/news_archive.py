@@ -2,7 +2,7 @@
 
 Sources supported in v1:
   - `nyt`         : NYT Article Search API (broad macro coverage)
-  - `sonar_trump` : Perplexity Sonar one-call-per-month for Trump events
+  - `sonar_trump` : OpenAI web search one-call-per-month for Trump events (label kept from Sonar)
                     (cheap, cited, fills the gap NYT undercounts)
 
 The archive is a single parquet (`historical_news.parquet`) with one row

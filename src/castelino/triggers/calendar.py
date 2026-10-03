@@ -2,7 +2,7 @@
 
 US events are sourced from the FRED API (/releases/dates endpoint) with a
 configurable TTL cache. Non-US events (ECB, BoJ, BoE, OPEC, etc.) are fetched
-via the Perplexity Sonar API (search-grounded LLM) and cached locally; a static
+via OpenAI web search (search-grounded LLM) and cached locally; a static
 fallback list is used when the API key is missing or the call fails.
 
 `pull_calendar()` returns the next N days of high-impact events, merging both
@@ -18,9 +18,9 @@ from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 
 import requests
-from openai import OpenAI
 
 from castelino.config import get_settings
+from castelino.data import web_search
 
 log = logging.getLogger(__name__)
 
@@ -119,7 +119,7 @@ def _fetch_fred_releases() -> list[CalendarEvent]:
 
 
 # ---------------------------------------------------------------------------
-# Non-US events via Perplexity Sonar API (with static fallback)
+# Non-US events via OpenAI web search (with static fallback)
 # ---------------------------------------------------------------------------
 
 _STATIC_NON_US_EVENTS: list[dict] = [
@@ -157,7 +157,7 @@ def _sonar_cache_is_fresh() -> bool:
     if not p.exists():
         return False
     mtime = datetime.fromtimestamp(p.stat().st_mtime, tz=UTC)
-    ttl = timedelta(hours=get_settings().sonar.cache_ttl_hours)
+    ttl = timedelta(hours=get_settings().web_search.cache_ttl_hours)
     return (datetime.now(UTC) - mtime) < ttl
 
 
@@ -170,9 +170,8 @@ def _parse_sonar_response(raw_text: str) -> list[dict]:
 
 def _fetch_sonar_events(window_days: int) -> list[CalendarEvent]:
     cfg = get_settings()
-    api_key = cfg.perplexity_api_key
-    if not api_key:
-        log.debug("PERPLEXITY_API_KEY not set — skipping Sonar calendar fetch")
+    if not web_search.has_key():
+        log.debug("OPENAI_API_KEY not set — skipping web-search calendar fetch")
         return []
 
     cache_path = _sonar_cache_path()
@@ -183,35 +182,25 @@ def _fetch_sonar_events(window_days: int) -> list[CalendarEvent]:
         except (json.JSONDecodeError, KeyError):
             log.warning("sonar cache corrupt — refetching")
 
-    sonar_cfg = cfg.sonar
+    ws_cfg = cfg.web_search
     today = date.today()
     prompt = _SONAR_PROMPT.format(
         window_days=window_days,
         today=today.isoformat(),
-        regions=", ".join(sonar_cfg.regions),
+        regions=", ".join(ws_cfg.regions),
     )
 
     try:
-        client = OpenAI(
-            api_key=api_key,
-            base_url="https://api.perplexity.ai",
+        content, _ = web_search.search(
+            "You are a macro-economic calendar data provider. Return only valid JSON.", prompt
         )
-        resp = client.chat.completions.create(
-            model=sonar_cfg.model,
-            messages=[
-                {"role": "system", "content": "You are a macro-economic calendar data provider. Return only valid JSON."},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.0,
-        )
-        content = resp.choices[0].message.content or ""
         parsed = _parse_sonar_response(content)
 
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         cache_path.write_text(json.dumps(parsed, indent=2))
         return _dicts_to_events(parsed, window_days)
     except Exception as e:
-        log.warning("Sonar API call failed: %s — falling back to cache/static", e)
+        log.warning("web-search calendar call failed: %s — falling back to cache/static", e)
         if cache_path.exists():
             try:
                 raw = json.loads(cache_path.read_text())

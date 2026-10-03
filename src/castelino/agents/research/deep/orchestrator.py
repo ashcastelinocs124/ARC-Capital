@@ -15,7 +15,7 @@ from castelino.agents.research.deep.models import (
     ResearchStatus,
 )
 from castelino.agents.research.deep.sonar_client import (
-    PerplexitySonarClient,
+    OpenAIWebSearchClient,
     SonarClient,
 )
 from castelino.agents.research.deep.store import ResearchStore
@@ -34,7 +34,7 @@ class DeepResearchOrchestrator:
         store: ResearchStore | None = None,
     ):
         self.llm = llm or get_llm_client()
-        self.sonar = sonar or PerplexitySonarClient()
+        self.sonar = sonar or OpenAIWebSearchClient()
         self.store = store or ResearchStore()
 
     def _new_id(self) -> str:
@@ -67,7 +67,7 @@ class DeepResearchOrchestrator:
 
         async def _one(sub_q):
             async with sem:
-                # SubAgent.run is sync (Sonar SDK + LLM are sync) — offload.
+                # SubAgent.run is sync (web search + LLM are sync) — offload.
                 return await asyncio.to_thread(sub_agent.run, sub_q)
 
         return list(await asyncio.gather(*[_one(q) for q in to_run]))
@@ -92,7 +92,7 @@ class DeepResearchOrchestrator:
         sess.rounds.append(ResearchRound(round=1, sub_questions=sub_qs, findings=findings))
         if findings and all(f.error for f in findings):
             sess.status = ResearchStatus.FAILED
-            sess.error = "all sub-agents failed to gather research (Sonar unavailable?)"
+            sess.error = "all sub-agents failed to gather research (web search unavailable?)"
         else:
             sess.status = ResearchStatus.SYNTHESIZING
         sess.updated_at = datetime.now(UTC)
