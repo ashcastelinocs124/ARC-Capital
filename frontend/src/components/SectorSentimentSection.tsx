@@ -164,13 +164,35 @@ function Td({ children }: { children: React.ReactNode }) {
   return <td className="px-2.5 py-1.5 text-right font-mono">{children}</td>;
 }
 
-function SectorTable({ s, rows }: { s: SectorScore; rows: SectorStockRow[] }) {
+function SectorTable({
+  s,
+  rows,
+  sectors,
+  onPick,
+}: {
+  s: SectorScore;
+  rows: SectorStockRow[];
+  sectors: SectorScore[];
+  onPick: (sector: string) => void;
+}) {
   const pe = wavg(rows, (r) => r.pe_rel);
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-card">
-      <div className="border-b border-border px-5 py-3">
-        <span className="text-sm font-semibold">{s.sector} — top {rows.length} by market cap</span>
-        <span className="ml-2.5 text-xs text-muted">cap-weighted {fmt(s.divergence)} · {s.label}</span>
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 border-b border-border px-5 py-3">
+        <select
+          value={s.sector}
+          onChange={(e) => onPick(e.target.value)}
+          aria-label="Sector"
+          className="rounded-lg border border-border-strong bg-surface px-2.5 py-1.5 text-sm font-semibold text-text hover:bg-surface-2 focus:outline-none focus:ring-2 focus:ring-accent/30"
+        >
+          {sectors.map((x) => (
+            <option key={x.sector} value={x.sector}>
+              {x.sector} ({fmt(x.divergence)})
+            </option>
+          ))}
+        </select>
+        <span className="text-sm font-semibold">top {rows.length} by market cap</span>
+        <span className="text-xs text-muted">cap-weighted {fmt(s.divergence)} · {s.label}</span>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
@@ -223,7 +245,10 @@ function SectorTable({ s, rows }: { s: SectorScore; rows: SectorStockRow[] }) {
 export function SectorSentimentSection() {
   const { data: snap, isLoading } = useSectorSentiment();
   const [open, setOpen] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
   const openSector = snap?.sectors.find((s) => s.sector === open) ?? null;
+  // default to the top-ranked sector (sectors arrive sorted by divergence)
+  const tableSector = snap?.sectors.find((s) => s.sector === picked) ?? snap?.sectors[0];
 
   return (
     <div className="space-y-5">
@@ -264,13 +289,16 @@ export function SectorSentimentSection() {
             {snap.sectors.map((s) => <SectorTile key={s.sector} s={s} onOpen={setOpen} />)}
           </div>
           {openSector && <SectorDrawer s={openSector} onClose={() => setOpen(null)} />}
-          {snap.sectors.map((s) => (
+          {tableSector && (
             <SectorTable
-              key={s.sector}
-              s={s}
-              rows={snap.stocks.filter((r) => r.sector === s.sector).sort((a, b) => b.market_cap - a.market_cap)}
+              s={tableSector}
+              sectors={snap.sectors}
+              onPick={setPicked}
+              rows={snap.stocks
+                .filter((r) => r.sector === tableSector.sector)
+                .sort((a, b) => b.market_cap - a.market_cap)}
             />
-          ))}
+          )}
         </>
       )}
     </div>
