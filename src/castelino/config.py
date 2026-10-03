@@ -157,6 +157,23 @@ class UpdateAgentCfg(BaseModel):
     updates_dir: str = "data/updates"
 
 
+class SectorSentimentCfg(BaseModel):
+    """Sector sentiment indicator (signals/sector_sentiment.py)."""
+
+    enabled: bool = True
+    euphoric_threshold: float = 0.3
+    fearful_threshold: float = -0.3
+    # Per-sector explainer verdict rule (signals/sector_sentiment.py::explain_concentration)
+    stock_specific_top_share: float = 0.5  # top contributor >= this share -> stock_specific
+    sector_wide_min_agree: int = 7  # >= this many of 10 share the sign -> sector_wide
+    universe_cache_hours: int = 24
+    fundamentals_cache_hours: int = 24
+    top_n_per_sector: int = 10
+    min_history_for_zscore: int = 20
+    # A full refresh is ~110 yfinance lookups; refresh() self-throttles to this interval.
+    refresh_interval_hours: int = 24
+
+
 class SpeechSpeakerCfg(BaseModel):
     id: str
     full_name: str
@@ -330,6 +347,7 @@ class Settings(BaseModel):
     personas: PersonaCfg = PersonaCfg()
     deep_research: DeepResearchCfg = DeepResearchCfg()
     update_agent: UpdateAgentCfg = UpdateAgentCfg()
+    sector_sentiment: SectorSentimentCfg = SectorSentimentCfg()
     backtest: BacktestCfg = BacktestCfg()
     paths: PathsCfg
     root: Path

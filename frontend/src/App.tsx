@@ -20,6 +20,7 @@ export default function App() {
         <Route path="/research" element={<ResearchPage />} />
         <Route path="/deep-research" element={<DeepResearchPage />} />
         <Route path="/updates" element={<UpdatesPage />} />
+        <Route path="/sector-sentiment" element={<Navigate to="/models" replace />} />
         <Route path="/risk" element={<RiskPage />} />
         <Route path="/agents" element={<AgentsPage />} />
       </Routes>

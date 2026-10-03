@@ -303,3 +303,17 @@ update_agent:
   max_output_tokens: 16000
   data_dir: data/update_agent
   updates_dir: data/updates
+
+sector_sentiment:
+  # Divergence = technical score - fundamental score, per sector, -1..+1.
+  enabled: true
+  euphoric_threshold: 0.3    # divergence >= this -> "euphoric"
+  fearful_threshold: -0.3    # divergence <= this -> "fearful"
+  # Sector explainer verdict: is a sector's divergence one stock or the whole sector?
+  stock_specific_top_share: 0.5  # top contributor supplies >= 50% -> stock_specific
+  sector_wide_min_agree: 7       # >= 7 of 10 stocks share the sign (and top < 50%) -> sector_wide
+  universe_cache_hours: 24   # top-10-by-mktcap screener cache
+  fundamentals_cache_hours: 24
+  top_n_per_sector: 10
+  min_history_for_zscore: 20 # sector needs this many daily obs before z-score
+  refresh_interval_hours: 24  # refresh on `ckm serve` start self-throttles to once a day

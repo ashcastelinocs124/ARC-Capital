@@ -12,6 +12,7 @@ import type {
   MacroIndicatorRow,
   PlotlyChart,
   Position,
+  SectorSentimentSnapshot,
 } from "./types";
 
 // ── Portfolio ──────────────────────────────────────────────────────────
@@ -151,3 +152,9 @@ export interface AgentCatalog {
   unregistered: { class_name: string; class_path: string; file: string }[];
 }
 export const fetchAgentCatalog = () => api.get<AgentCatalog>("/agents/catalog");
+
+// ── Sector Sentiment ───────────────────────────────────────────────────
+export const fetchSectorSentiment = async (): Promise<SectorSentimentSnapshot | null> => {
+  const data = await api.get<SectorSentimentSnapshot | Record<string, never>>("/sector_sentiment");
+  return data && "sectors" in data ? (data as SectorSentimentSnapshot) : null;
+};

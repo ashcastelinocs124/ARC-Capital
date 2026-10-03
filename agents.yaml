@@ -38,6 +38,37 @@ agents:
         importance minus whole months unused are enforced in code, not the prompt. Model versions
         live in data/update_agent/models/ with a per-model pointer for rollback.
 
+  - id: sector_narrative
+    name: Sector Sentiment Narrative
+    group: Briefings
+    dependencies:
+      - {key: OPENAI_API_KEY, required: false, why: "LLM call (OpenAI); without it the Sector Sentiment numbers still ship, just without the narrative"}
+    class: castelino.agents.sector_explainer.SectorNarrativeAgent
+    summary: >-
+      Once a day after the Sector Sentiment refresh on dashboard start: a 3-5 sentence read
+      of the sector divergence table, shown on /models. Describes only; never recommends.
+    tools: []
+    memory:
+      reads: ["Today's SectorSentimentSnapshot (sectors, verdicts, notable stocks)", "The previous snapshot's narrative"]
+      writes: ["snapshot.narrative in data/sector_sentiment.json"]
+      persists: "The narrative is stored on the snapshot; the next day's run reads it for continuity."
+
+  - id: sector_prose
+    name: Sector Explainer
+    group: Briefings
+    dependencies:
+      - {key: OPENAI_API_KEY, required: false, why: "LLM call (OpenAI); without it each sector drawer shows only the computed stats"}
+    class: castelino.agents.sector_explainer.SectorProseAgent
+    summary: >-
+      One call per sector (11/day): 2-3 sentences explaining whether a sector's divergence is
+      one stock's story or the whole sector's. The verdict is computed in code; the agent only
+      explains it.
+    tools: []
+    memory:
+      reads: ["One SectorScore + its 10 constituents' metrics and contributions"]
+      writes: ["sector.explanation.prose in data/sector_sentiment.json"]
+      persists: "None of its own."
+
   # ── Trading pipeline ────────────────────────────────────────────────────
   - id: current_event
     name: Current Event

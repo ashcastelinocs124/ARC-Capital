@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useModels } from "@/hooks/useModels";
 import type { ModelCard } from "@/api/endpoints";
 import { cn } from "@/lib/cn";
-import { EconomicReleasesCard } from "@/components/EconomicReleasesCard";
+import { SectorSentimentSection } from "@/components/SectorSentimentSection";
 
 const WEAK_ACCURACY = 0.55; // near coin-flip for a binary up/down call
 const MAX_DATA_LAG_MONTHS = 3;
@@ -182,7 +182,7 @@ export default function ModelsPage() {
       <div>
         <h2 className="text-base font-semibold text-text">Models</h2>
         <p className="text-xs text-muted mt-0.5">
-          Current state of the XGBoost forecasters feeding the pipeline. Read-only; forecasts older than 24h are
+          Current state of the XGBoost forecasters feeding the pipeline, plus the Sector Sentiment indicator below. Read-only; forecasts older than 24h are
           marked stale.
         </p>
       </div>
@@ -195,7 +195,9 @@ export default function ModelsPage() {
           ))}
         </div>
       )}
-      <EconomicReleasesCard subtitle="inputs the growth and inflation models read, from the latest Daily Update" />
+      <div className="pt-4">
+        <SectorSentimentSection />
+      </div>
     </div>
   );
 }
