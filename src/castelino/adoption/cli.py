@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import date
 from pathlib import Path
 
 import typer
@@ -55,33 +54,12 @@ def run(period: str | None = typer.Option(None, help="YYYY-MM-DD; defaults to to
     except Exception as e:  # noqa: BLE001
         raise typer.BadParameter(f"OpenAI key unavailable: {e}") from e
 
-    from castelino.adoption import pipeline, universe
-    from castelino.adoption.extract import extract_claims
-    from castelino.adoption.sources.edgar import EdgarClient
-    from castelino.adoption.sources.financials import fetch_financials
-    from castelino.adoption.sources.jobs import JobsFetcher, load_boards
+    from castelino.adoption.live import run_live
 
-    d = _dir()
-    upath = d / "universe.csv"
-    if not upath.exists():
-        raise typer.BadParameter(f"missing {upath}; run `ckm adoption universe-refresh` first")
-    edgar = EdgarClient(a.sec_user_agent, min_interval=a.request_interval_s)
-    boards = d / "job_boards.csv"
-    jobs = JobsFetcher(load_boards(boards) if boards.exists() else {})
-    deps = pipeline.Deps(
-        companies=universe.load_universe(upath),
-        filing_for=edgar.latest_filing,
-        text_for=edgar.filing_text,
-        extract=lambda t, text: extract_claims(
-            t, text, max_passages=a.max_passages, window=a.passage_window_chars
-        ),
-        jobs_for=jobs.counts,
-        financials_for=fetch_financials,
-        store=_store(),
-        smoothing_periods=a.hire_smoothing_periods,
-        thin_below=a.thin_cell_below,
-    )
-    s = pipeline.run_period(period or date.today().isoformat(), deps)
+    try:
+        s = run_live(period, store=_store())
+    except ValueError as e:
+        raise typer.BadParameter(str(e)) from e
     rich_print(
         f"[green]{s.period}: scored {s.n_scored}/{s.n_companies}, excluded {s.n_excluded}, "
         f"errors {s.n_errors}[/green]"

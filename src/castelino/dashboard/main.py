@@ -61,52 +61,8 @@ def _warm_openbb_adapter() -> None:
         log.warning("OpenBB adapter warm-up failed: %s", exc)
 
 
-@app.on_event("startup")
-def _start_update_agent() -> None:
-    """Kick off today's briefing in a daemon thread; the server never waits on it."""
-    import logging
-    import threading
-
-    from castelino.agents.update import runner as update_runner
-    from castelino import config
-
-    log = logging.getLogger(__name__)
-    try:
-        if not config.get_settings().update_agent.enabled:
-            return
-        runner = update_runner.build_default_runner()
-        threading.Thread(target=runner.run_if_due, name="update-agent", daemon=True).start()
-    except Exception as exc:  # never block startup on this
-        log.warning("update agent failed to start: %s", exc)
-
-
-@app.on_event("startup")
-def _start_sector_sentiment() -> None:
-    """Refresh the sector sentiment snapshot in a daemon thread (self-throttles to daily),
-    then add the OpenAI narrative + per-sector prose when OPENAI_API_KEY is set."""
-    import logging
-    import os
-    import threading
-
-    from castelino import config
-    from castelino.signals import sector_sentiment as ss
-
-    log = logging.getLogger(__name__)
-
-    def _run() -> None:
-        try:
-            prev = ss.load_snapshot()
-            snap = ss.refresh()
-            if snap.narrative is None and os.environ.get("OPENAI_API_KEY", "").strip():
-                from castelino.agents.sector_explainer import explain_snapshot
-
-                prev_text = prev.narrative if prev and prev.as_of != snap.as_of else None
-                ss.save_snapshot(explain_snapshot(snap, prev_text))
-        except Exception as exc:
-            log.warning("sector sentiment refresh failed: %s", exc)
-
-    if config.get_settings().sector_sentiment.enabled:
-        threading.Thread(target=_run, name="sector-sentiment", daemon=True).start()
+# Update Agent and Sector Sentiment refreshes run from the dashboard Refresh button
+# (POST /refresh, endpoints/refresh.py), not at server start.
 
 
 @app.get("/widgets.json")
@@ -127,6 +83,7 @@ from castelino.dashboard.endpoints import (  # noqa: E402
     macro,
     models,
     portfolio,
+    refresh,
     research,
     risk,
 )
@@ -150,6 +107,7 @@ app.include_router(update_ep.router)
 app.include_router(agent_catalog.router)
 app.include_router(sector_sentiment_router.router)
 app.include_router(adoption.router)
+app.include_router(refresh.router)
 
 
 # ── Frontend static files ──────────────────────────────────────────────────

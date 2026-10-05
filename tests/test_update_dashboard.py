@@ -1,4 +1,3 @@
-import threading
 
 import pytest
 from fastapi.testclient import TestClient
@@ -64,33 +63,4 @@ def test_regime_forecast_reads_registry_and_never_retrains(client, monkeypatch):
     assert c.get("/regime_forecast").json()["running"] is True
 
 
-def test_startup_hook_runs_runner_in_background(monkeypatch):
-    done = threading.Event()
-
-    class FakeRunner:
-        def run_if_due(self):
-            done.set()
-            return "done"
-
-    monkeypatch.setattr("castelino.agents.update.runner.build_default_runner", lambda: FakeRunner())
-    from castelino.dashboard.main import _start_update_agent
-
-    _start_update_agent()
-    assert done.wait(2)
-
-
-def test_startup_hook_respects_disabled_flag(monkeypatch):
-    called = []
-
-    class Cfg:
-        class update_agent:  # noqa: N801
-            enabled = False
-
-    monkeypatch.setattr("castelino.config.get_settings", lambda: Cfg)
-    monkeypatch.setattr(
-        "castelino.agents.update.runner.build_default_runner", lambda: called.append(1)
-    )
-    from castelino.dashboard.main import _start_update_agent
-
-    _start_update_agent()
-    assert called == []
+# Startup refresh moved to the dashboard Refresh button: see tests/test_refresh_endpoint.py
