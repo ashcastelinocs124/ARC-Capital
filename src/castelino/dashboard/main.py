@@ -120,6 +120,7 @@ def get_apps():
 
 
 from castelino.dashboard.endpoints import (  # noqa: E402
+    adoption,
     agents,
     approvals,
     deep_research,
@@ -148,6 +149,7 @@ app.include_router(figures_router.router)
 app.include_router(update_ep.router)
 app.include_router(agent_catalog.router)
 app.include_router(sector_sentiment_router.router)
+app.include_router(adoption.router)
 
 
 # ── Frontend static files ──────────────────────────────────────────────────
