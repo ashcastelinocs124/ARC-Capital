@@ -52,3 +52,9 @@ def test_company_score_needs_two_pillars():
     assert company_score({"talk": 30.0, "hire": None, "spend": 70.0}) == (pytest.approx(50.0), 2)
     assert company_score({"talk": 30.0, "hire": None, "spend": None}) == (None, 1)
     assert company_score({"talk": None, "hire": None, "spend": None}) == (None, 0)
+
+
+def test_pillar_scores_zero_variance_with_inexact_floats():
+    for v, n in [(0.1, 3), (1 / 3, 200)]:
+        raw = {f"T{i}": {"talk": v, "hire": None, "spend": None} for i in range(n)}
+        assert pillar_scores(raw)["T0"]["talk"] == pytest.approx(50.0)

@@ -10,7 +10,9 @@ _QUOTES = str.maketrans({"‘": "'", "’": "'", "“": '"', "”": '"'})
 
 
 def _norm(s: str) -> str:
-    return re.sub(r"\s+", " ", s.translate(_QUOTES)).strip().casefold()
+    s = re.sub(r"\s+", " ", s.translate(_QUOTES))
+    s = re.sub(r" ([.,;:!?)\]])", r"\1", s)  # html.parser puts a space at tag boundaries ("learning .")
+    return s.strip().casefold()
 
 
 def keep_verified(claims: list[Claim], text: str) -> tuple[list[Claim], list[Claim]]:

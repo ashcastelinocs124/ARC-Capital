@@ -40,7 +40,12 @@ def load_seed(path: Path) -> list[tuple[str, str]]:
 
 def build_universe(seed: list[tuple[str, str]], info_fn: Callable[[str], dict], top_n: int) -> list[Company]:
     by_bucket: dict[str, list[Company]] = {b: [] for b in BUCKETS}
+    seen: set[str] = set()
     for ticker, bucket in seed:
+        if ticker.upper() in seen:  # a duplicate would collide on the store's (period, ticker) key
+            log.warning("universe: duplicate ticker %s (bucket %s) ignored", ticker, bucket)
+            continue
+        seen.add(ticker.upper())
         try:
             info = info_fn(ticker)
         except Exception as e:  # one bad ticker never blocks the rest

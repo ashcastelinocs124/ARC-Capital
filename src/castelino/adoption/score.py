@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import math
+import statistics
 
 from castelino.adoption.models import PILLARS
 
@@ -39,8 +39,9 @@ def pillar_scores(raw: dict[str, dict[str, float | None]]) -> dict[str, dict[str
         vals = {t: r[k] for t, r in raw.items() if r.get(k) is not None}
         if not vals:
             continue
-        mu = sum(vals.values()) / len(vals)
-        sigma = math.sqrt(sum((v - mu) ** 2 for v in vals.values()) / len(vals))
+        # statistics is exact for identical values; a hand-rolled mean leaves sigma ~1e-17 for 0.1, 0.1, 0.1
+        mu = statistics.fmean(vals.values())
+        sigma = statistics.pstdev(vals.values())
         for t, v in vals.items():
             z = 0.0 if sigma == 0 else max(-CLIP, min(CLIP, (v - mu) / sigma))
             out[t][k] = 50 + (50 / CLIP) * z

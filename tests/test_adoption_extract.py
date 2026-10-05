@@ -61,3 +61,17 @@ def test_extract_claims_skips_llm_without_ai_mentions(monkeypatch):
     fake = _fake(monkeypatch, [])
     assert extract_claims("ACME", "nothing relevant here", max_passages=5, window=100) == ([], [])
     assert fake.call_log == []
+
+
+def test_extractor_has_reasoning_sized_output_budget_and_claim_cap():
+    from castelino.adoption.extract import AdoptionExtractor
+
+    agent = AdoptionExtractor()
+    assert agent.max_output_tokens is not None and agent.max_output_tokens >= 16000
+    assert "at most 20 claims" in agent.system_prompt()
+
+
+def test_guard_ignores_space_before_punctuation_from_html_spans():
+    text = "We deployed machine learning . It works ."
+    kept, _ = keep_verified([Claim(quote="We deployed machine learning.", depth=2)], text)
+    assert len(kept) == 1

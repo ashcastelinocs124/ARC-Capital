@@ -31,6 +31,8 @@ class AdoptionExtractor(StructuredAgent[ExtractedClaims]):
     name = "adoption_extractor"
     output_schema = ExtractedClaims
     tier = "fast"
+    # gpt-5.x reasoning tokens share this budget; the global 2048 truncates the parse (see deep_research)
+    max_output_tokens = 16000
 
     def system_prompt(self) -> str:
         return (
@@ -41,6 +43,7 @@ class AdoptionExtractor(StructuredAgent[ExtractedClaims]):
             "2 = AI deployed in operations or products today; "
             "3 = AI tied to revenue, cost savings, or customer results with a number or named outcome. "
             "Skip generic risk language that only says AI may affect the industry. "
+            "Return at most 20 claims, strongest first. "
             "Never paraphrase. If nothing qualifies, return an empty list."
         )
 

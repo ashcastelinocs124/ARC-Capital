@@ -44,3 +44,10 @@ def test_save_and_load_roundtrip(tmp_path):
     p = tmp_path / "universe.csv"
     save_universe(p, cos)
     assert load_universe(p) == cos
+
+
+def test_build_universe_drops_duplicate_tickers():
+    seed = [("A", "large"), ("A", "large"), ("A", "small"), ("B", "large")]
+    out = build_universe(seed, info_fn, top_n=10)
+    assert [c.ticker for c in out] == ["A", "B"]
+    assert out[0].bucket == "large"
