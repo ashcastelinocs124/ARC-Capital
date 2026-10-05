@@ -3,6 +3,7 @@
 Serves both the OpenBB Workspace integration (widgets.json + apps.json) and
 the custom React frontend at frontend/dist/ when built.
 """
+
 from __future__ import annotations
 
 import json
@@ -77,6 +78,7 @@ def get_apps():
 
 from castelino.dashboard.endpoints import (  # noqa: E402
     adoption,
+    agent_catalog,  # noqa: E402
     agents,
     approvals,
     deep_research,
@@ -87,11 +89,10 @@ from castelino.dashboard.endpoints import (  # noqa: E402
     research,
     risk,
 )
-from castelino.dashboard.endpoints import update as update_ep  # noqa: E402
-from castelino.dashboard.endpoints import agent_catalog  # noqa: E402
 from castelino.dashboard.endpoints import figures as figures_router  # noqa: E402
 from castelino.dashboard.endpoints import personas as personas_router  # noqa: E402
 from castelino.dashboard.endpoints import sector_sentiment as sector_sentiment_router  # noqa: E402
+from castelino.dashboard.endpoints import update as update_ep  # noqa: E402
 
 app.include_router(portfolio.router)
 app.include_router(models.router)
@@ -137,6 +138,7 @@ if _FRONTEND_DIST.exists():
         return FileResponse(str(_FRONTEND_DIST / "index.html"))
 
 else:
+
     @app.get("/")
     def root():
         return {
