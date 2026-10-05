@@ -202,6 +202,17 @@ personas:
     - dalio
     - tudor_jones
 
+adoption:
+  enabled: true
+  data_dir: data/adoption
+  top_n: 100
+  sec_user_agent: ""   # set to "ARC Research you@example.com" before `ckm adoption run`
+  hire_smoothing_periods: 7
+  thin_cell_below: 5
+  max_passages: 40
+  passage_window_chars: 300
+  request_interval_s: 0.12
+
 deep_research:
   enabled: true
   max_sub_questions: 6

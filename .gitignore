@@ -71,6 +71,7 @@ data/sector_universe.json
 data/approval_queue.json
 data/research/
 data/personas/chroma/
+data/adoption/*.db
 reports/
 
 # Worktrees

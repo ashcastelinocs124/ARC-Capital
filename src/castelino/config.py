@@ -328,6 +328,18 @@ class BacktestCfg(BaseModel):
     runs_dir: str = "data/backtest_runs"
 
 
+class AdoptionCfg(BaseModel):
+    enabled: bool = True
+    data_dir: str = "data/adoption"
+    top_n: int = 100                  # companies per size bucket
+    sec_user_agent: str = ""          # SEC requires a contact string, e.g. "ARC Research you@example.com"
+    hire_smoothing_periods: int = 7   # ~90 days of bi-weekly snapshots
+    thin_cell_below: int = 5          # sector x bucket cells with fewer companies are flagged
+    max_passages: int = 40            # AI passages sent to the extractor per filing
+    passage_window_chars: int = 300   # context kept around each AI keyword hit
+    request_interval_s: float = 0.12  # SEC allows 10 requests/second
+
+
 class Settings(BaseModel):
     fund: FundCfg
     models: ModelsCfg
@@ -350,6 +362,7 @@ class Settings(BaseModel):
     deep_research: DeepResearchCfg = DeepResearchCfg()
     update_agent: UpdateAgentCfg = UpdateAgentCfg()
     sector_sentiment: SectorSentimentCfg = SectorSentimentCfg()
+    adoption: AdoptionCfg = AdoptionCfg()
     backtest: BacktestCfg = BacktestCfg()
     paths: PathsCfg
     root: Path
