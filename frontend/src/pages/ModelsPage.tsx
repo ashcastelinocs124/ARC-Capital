@@ -3,6 +3,7 @@ import { useModels } from "@/hooks/useModels";
 import type { ModelCard } from "@/api/endpoints";
 import { cn } from "@/lib/cn";
 import { SectorSentimentSection } from "@/components/SectorSentimentSection";
+import { AdoptionSection } from "@/components/AdoptionSection";
 
 const WEAK_ACCURACY = 0.55; // near coin-flip for a binary up/down call
 const MAX_DATA_LAG_MONTHS = 3;
@@ -198,6 +199,7 @@ export default function ModelsPage() {
       <div className="pt-4">
         <SectorSentimentSection />
       </div>
+      <AdoptionSection />
     </div>
   );
 }
