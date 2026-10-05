@@ -77,3 +77,20 @@ def test_series_has_none_for_missing_bucket(store):
     sc = make_scores()
     store.save_period("2026-10-01", sc, aggregate(sc))
     assert store.series() == [{"period": "2026-10-01", "large_ew": 70.0, "small_ew": None}]
+
+
+def test_period_stats_counts_companies_claims_and_pillar_coverage(store):
+    sc = make_scores()
+    store.save_period("2026-10-01", sc, aggregate(sc))
+    store.put_filing(
+        "A", "acc-A", 1000, 2.0, [Claim(quote="q1", depth=2), Claim(quote="q2", depth=3)]
+    )
+    store.put_filing(
+        "Z", "acc-Z", 1000, 1.0, [Claim(quote="other company", depth=1)]
+    )  # not in period
+    assert store.period_stats("2026-10-01") == {
+        "n_companies": 2,
+        "n_scored": 1,
+        "n_claims": 2,
+        "pillar_coverage": {"talk": 1, "hire": 1, "spend": 1},
+    }

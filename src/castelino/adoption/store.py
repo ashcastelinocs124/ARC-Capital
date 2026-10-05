@@ -168,6 +168,26 @@ class AdoptionStore:
         with self._conn() as c:
             return [dict(r) for r in c.execute(sql, args).fetchall()]
 
+    def period_stats(self, period: str) -> dict:
+        """Universe size, scored count, verified claims and per-pillar coverage for one period."""
+        with self._conn() as c:
+            r = c.execute(
+                "SELECT COUNT(*) n, COUNT(score) scored, COUNT(talk_raw) talk, COUNT(hire_raw) hire,"
+                " COUNT(spend_raw) spend FROM company_period WHERE period=?",
+                (period,),
+            ).fetchone()
+            n_claims = c.execute(
+                "SELECT COUNT(*) FROM claims cl JOIN company_period cp"
+                " ON cp.ticker=cl.ticker AND cp.accession=cl.accession WHERE cp.period=?",
+                (period,),
+            ).fetchone()[0]
+        return {
+            "n_companies": r["n"],
+            "n_scored": r["scored"],
+            "n_claims": n_claims,
+            "pillar_coverage": {"talk": r["talk"], "hire": r["hire"], "spend": r["spend"]},
+        }
+
     def series(self) -> list[dict]:
         with self._conn() as c:
             rows = c.execute(

@@ -30,6 +30,7 @@ def adoption_summary():
         "period": period,
         "headline": headline(cells),
         "series": st.series(),
+        "stats": st.period_stats(period),
         "cells": [
             {
                 "sector": c.sector,
@@ -46,8 +47,9 @@ def adoption_summary():
 
 
 @router.get("/adoption/companies")
-def adoption_companies(sector: str, bucket: str):
-    if bucket not in BUCKETS:
+def adoption_companies(sector: str | None = None, bucket: str | None = None):
+    """Latest-period companies, optionally narrowed to one sector and/or bucket."""
+    if bucket is not None and bucket not in BUCKETS:
         raise HTTPException(status_code=400, detail=f"bucket must be one of {BUCKETS}")
     st = _store()
     periods = st.periods()

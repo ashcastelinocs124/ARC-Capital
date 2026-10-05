@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
-import { Sparkles, X } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useSectorSentiment } from "@/hooks/useSectorSentiment";
-import type { SectorExplanation, SectorScore, SectorStockRow } from "@/api/types";
+import type { SectorExplanation, SectorScore, SectorSentimentSnapshot, SectorStockRow } from "@/api/types";
+import {
+  CardHead, ExpandableCard, Headline, HowItWorks, Measures, Panel, StatCell, StatGrid, StatusBadge, Toggles, ago,
+} from "@/components/modelCard";
 
 // Sector Sentiment tool on the Models page, ported from Arc-Investment-Research/arc-dashboard. Positive divergence =
 // price ahead of fundamentals (red), negative = fundamentals nobody is buying (green).
@@ -10,19 +13,10 @@ import type { SectorExplanation, SectorScore, SectorStockRow } from "@/api/types
 const fmt = (v: number | null | undefined, digits = 2) =>
   v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(digits)}`;
 
-const pct = (v: number | null | undefined) =>
-  v == null ? "—" : `${v > 0 ? "+" : ""}${(v * 100).toFixed(0)}%`;
-
 const cap = (v: number) => (v >= 1e12 ? `$${(v / 1e12).toFixed(1)}T` : `$${(v / 1e9).toFixed(0)}B`);
 
 const tone = (v: number | null | undefined) => (v == null || v === 0 ? "" : v > 0 ? "text-danger" : "text-success");
 
-// Cap-weighted average over the rows that have the metric (weights renormalized).
-const wavg = (rows: SectorStockRow[], get: (r: SectorStockRow) => number | null): number | null => {
-  const xs = rows.filter((r) => get(r) != null && r.market_cap > 0);
-  const total = xs.reduce((a, r) => a + r.market_cap, 0);
-  return total > 0 ? xs.reduce((a, r) => a + get(r)! * r.market_cap, 0) / total : null;
-};
 
 function DivergenceChip({ v }: { v: number | null }) {
   if (v === null) return <span className="text-muted-2">—</span>;
@@ -40,42 +34,6 @@ function DivergenceChip({ v }: { v: number | null }) {
   );
 }
 
-function Legend() {
-  return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-muted">
-      <span className="flex items-center gap-1.5">
-        <span className="h-2.5 w-2.5 rounded-full bg-danger" aria-hidden />
-        positive — price running ahead of fundamentals (euphoric at ≥ +0.30)
-      </span>
-      <span className="flex items-center gap-1.5">
-        <span className="h-2.5 w-2.5 rounded-full bg-success" aria-hidden />
-        negative — strong fundamentals nobody is buying (fearful at ≤ −0.30)
-      </span>
-    </div>
-  );
-}
-
-function SectorTile({ s, onOpen }: { s: SectorScore; onOpen: (sector: string) => void }) {
-  return (
-    <button
-      onClick={() => onOpen(s.sector)}
-      aria-label={`${s.sector}: divergence ${fmt(s.divergence)}, ${s.label} — open breakdown`}
-      className={cn(
-        "text-left rounded-xl border p-3.5 shadow-card transition-shadow hover:shadow-card-hover",
-        s.label === "euphoric" && "bg-danger-soft border-danger/40",
-        s.label === "fearful" && "bg-success-soft border-success/40",
-        s.label === "fair" && "bg-surface border-border",
-      )}
-    >
-      <div className="text-sm font-semibold text-text">{s.sector}</div>
-      <div className={cn("font-mono mt-1.5 text-lg font-semibold", tone(s.divergence))}>{fmt(s.divergence)}</div>
-      <div className="mt-0.5 text-xs text-muted">
-        {s.label}
-        {s.zscore !== null && ` · z ${fmt(s.zscore, 1)}`}
-      </div>
-    </button>
-  );
-}
 
 const VERDICT: Record<SectorExplanation["verdict"], { label: string; cls: string }> = {
   sector_wide: { label: "Sector-wide", cls: "bg-warning-soft text-warning border-warning/40" },
@@ -160,147 +118,222 @@ function SectorDrawer({ s, onClose }: { s: SectorScore; onClose: () => void }) {
   );
 }
 
-function Td({ children }: { children: React.ReactNode }) {
-  return <td className="px-2.5 py-1.5 text-right font-mono">{children}</td>;
+
+const FRESH_HOURS = 24;
+const count = (n: number) => `${n} sector${n === 1 ? "" : "s"}`;
+const pct = (v: number | null | undefined) => (v == null ? "—" : `${v > 0 ? "+" : ""}${(v * 100).toFixed(0)}%`);
+const KIND = "Technical − fundamental divergence · 11 GICS sectors, top 10 stocks each";
+
+const HOW: { short: string; steps: ReactNode[] } = {
+  short:
+    "Scores each sector's top 10 stocks on technicals and on fundamentals; the gap between the two shows where price has run ahead of the business, or fallen behind it.",
+  steps: [
+    <><b>Technical score:</b> RSI-14, MACD histogram, price vs 50- and 200-day averages and 3-month return. Each metric is z-scored across all stocks, clipped at ±3σ, scaled to −1…+1 and averaged.</>,
+    <><b>Fundamental score:</b> revenue growth, earnings growth and P/E relative to the sector median (cheaper scores higher), scored the same way.</>,
+    <><b>Divergence</b> = technical − fundamental per stock, then cap-weighted across the sector's top 10.</>,
+    <><b>Labels:</b> ≥ +0.30 euphoric (price ahead of fundamentals), ≤ −0.30 fearful (fundamentals nobody is buying), otherwise fair.</>,
+    <><b>Explainer:</b> code works out whether a reading is sector-wide or driven by one stock; an LLM writes the prose, which describes and does not recommend.</>,
+  ],
+};
+
+function Summary({ snap, expanded, onToggle }: { snap: SectorSentimentSnapshot; expanded: boolean; onToggle: () => void }) {
+  const sectors = snap.sectors;
+  // headline = the sector furthest from fair, either direction
+  const top = sectors.reduce((a, b) => (Math.abs(b.divergence) > Math.abs(a.divergence) ? b : a), sectors[0]);
+  const lowest = sectors.reduce((a, b) => (b.divergence < a.divergence ? b : a), sectors[0]);
+  const fresh = (Date.now() - new Date(snap.as_of).getTime()) / 3_600_000 <= FRESH_HOURS;
+  const e = top?.explanation;
+  return (
+    <>
+      <CardHead
+        name="Sector Sentiment"
+        kind={KIND}
+        badge={<StatusBadge status={fresh ? "fresh" : "stale"} text={`${fresh ? "Fresh" : "Stale"} · ${ago(snap.as_of)}`} />}
+        expanded={expanded}
+        onCollapse={onToggle}
+      />
+      {top && (
+        <Headline
+          value={`${top.divergence >= 0 ? "▲" : "▼"} ${fmt(top.divergence)}`}
+          label={`${top.sector} — most stretched · ${top.label}`}
+          tone={top.divergence >= 0 ? "danger" : "success"}
+          fill={(Math.abs(top.divergence) / 0.5) * 100}
+        />
+      )}
+      <StatGrid>
+        <StatCell label="Euphoric (≥ +0.30)" value={count(sectors.filter((s) => s.label === "euphoric").length)} />
+        <StatCell label="Fearful (≤ −0.30)" value={count(sectors.filter((s) => s.label === "fearful").length)} />
+        {lowest && <StatCell label="Most negative" value={`${lowest.sector} ${fmt(lowest.divergence)}`} />}
+        <StatCell label="Stocks scored" value={String(snap.stocks.length)} />
+        <StatCell
+          label="As of"
+          value={new Date(snap.as_of).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+          warn={!fresh}
+        />
+        {e && <StatCell label={`Breadth (${top.sector})`} value={`${e.n_agree}/${e.n_total} same sign`} />}
+      </StatGrid>
+      <HowItWorks short={HOW.short} steps={HOW.steps} expanded={expanded} />
+      <Measures
+        question="Where price has run ahead of fundamentals (red) or fundamentals nobody is buying (green)."
+        output="divergence per sector, −1 to +1; describes, does not recommend"
+      />
+    </>
+  );
 }
 
-function SectorTable({
-  s,
-  rows,
-  sectors,
-  onPick,
-}: {
-  s: SectorScore;
-  rows: SectorStockRow[];
-  sectors: SectorScore[];
-  onPick: (sector: string) => void;
-}) {
-  const pe = wavg(rows, (r) => r.pe_rel);
+function SectorRows({ sectors, onOpen }: { sectors: SectorScore[]; onOpen: (s: string) => void }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-card">
-      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 border-b border-border px-5 py-3">
-        <select
-          value={s.sector}
-          onChange={(e) => onPick(e.target.value)}
-          aria-label="Sector"
-          className="rounded-lg border border-border-strong bg-surface px-2.5 py-1.5 text-sm font-semibold text-text hover:bg-surface-2 focus:outline-none focus:ring-2 focus:ring-accent/30"
-        >
-          {sectors.map((x) => (
-            <option key={x.sector} value={x.sector}>
-              {x.sector} ({fmt(x.divergence)})
-            </option>
+    <>
+      <table className="w-full text-xs">
+        <thead className="text-muted">
+          <tr>
+            <th className="text-left py-1 font-medium">Sector</th>
+            <th className="text-right font-medium">Tech</th>
+            <th className="text-right font-medium">Fund</th>
+            <th className="text-right font-medium">Divergence</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sectors.map((s) => (
+            <tr key={s.sector} data-stop onClick={() => onOpen(s.sector)} className="border-t border-border cursor-pointer hover:bg-surface-2">
+              <td className="py-1.5">{s.sector}</td>
+              <td className="text-right font-mono">{fmt(s.tech_score)}</td>
+              <td className="text-right font-mono">{fmt(s.fund_score)}</td>
+              <td className="text-right"><DivergenceChip v={s.divergence} /></td>
+            </tr>
           ))}
-        </select>
-        <span className="text-sm font-semibold">top {rows.length} by market cap</span>
-        <span className="text-xs text-muted">cap-weighted {fmt(s.divergence)} · {s.label}</span>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="border-b border-border text-[10px] uppercase tracking-wide text-muted">
-              <th className="px-5 py-2 text-left font-medium">Symbol</th>
-              {["Mkt cap", "RSI 14", "vs SMA200", "3-mo ret", "Rev YoY", "P/E vs sector", "Tech", "Fund"].map((h) => (
-                <th key={h} className="px-2.5 py-2 text-right font-medium">{h}</th>
-              ))}
-              <th className="px-5 py-2 text-right font-medium">Divergence</th>
+        </tbody>
+      </table>
+      <div className="text-[11px] text-muted mt-1.5">Click a sector for its constituents and the explainer.</div>
+    </>
+  );
+}
+
+function Narrative({ snap }: { snap: SectorSentimentSnapshot }) {
+  return (
+    <>
+      <p className="text-xs leading-relaxed text-text-2">{snap.narrative}</p>
+      <p className="mt-1.5 text-[11px] text-muted">
+        Sector Sentiment Narrative
+        {snap.narrative_generated_at && ` · generated ${new Date(snap.narrative_generated_at).toLocaleString()}`} · describes, does not recommend
+      </p>
+    </>
+  );
+}
+
+function SectorPicker({ sectors, value, onPick }: { sectors: SectorScore[]; value?: string; onPick: (s: string) => void }) {
+  return (
+    <select
+      value={value}
+      onChange={(ev) => onPick(ev.target.value)}
+      aria-label="Sector"
+      className="mb-1.5 rounded-lg border border-border-strong bg-surface px-2 py-1 text-xs font-semibold text-text"
+    >
+      {sectors.map((x) => (
+        <option key={x.sector} value={x.sector}>{x.sector} ({fmt(x.divergence)})</option>
+      ))}
+    </select>
+  );
+}
+
+// full = every metric column (expanded view); otherwise the narrow card version
+function Stocks({ rows, full }: { rows: SectorStockRow[]; full: boolean }) {
+  const cols: [string, (r: SectorStockRow) => string][] = full
+    ? [
+        ["Cap", (r) => cap(r.market_cap)],
+        ["RSI 14", (r) => r.rsi14?.toFixed(0) ?? "—"],
+        ["vs SMA200", (r) => pct(r.vs_sma200)],
+        ["3-mo ret", (r) => pct(r.ret_3m)],
+        ["Rev YoY", (r) => pct(r.rev_yoy)],
+        ["P/E vs sector", (r) => (r.pe_rel != null ? `${r.pe_rel.toFixed(1)}×` : "—")],
+        ["Tech", (r) => fmt(r.tech_score)],
+        ["Fund", (r) => fmt(r.fund_score)],
+      ]
+    : [
+        ["Cap", (r) => cap(r.market_cap)],
+        ["Tech", (r) => fmt(r.tech_score)],
+        ["Fund", (r) => fmt(r.fund_score)],
+      ];
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead className="text-muted">
+          <tr>
+            <th className="text-left py-1 font-medium">Ticker</th>
+            {cols.map(([h]) => <th key={h} className="text-right font-medium px-1">{h}</th>)}
+            <th className="text-right font-medium">Div</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.symbol} className="border-t border-border" title={r.name}>
+              <td className="py-1.5 font-mono font-semibold">
+                {r.symbol}
+                {full && <span className="ml-1.5 font-sans font-normal text-muted">{r.name}</span>}
+              </td>
+              {cols.map(([h, get]) => <td key={h} className="text-right font-mono px-1">{get(r)}</td>)}
+              <td className="text-right"><DivergenceChip v={r.divergence} /></td>
             </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.symbol} className="border-b border-border/60">
-                <td className="px-5 py-1.5">
-                  <span className="font-semibold">{r.symbol}</span> <span className="text-muted">{r.name}</span>
-                  {r.fundamentals_missing && <span className="text-muted-2"> · fundamentals unavailable</span>}
-                </td>
-                <Td>{cap(r.market_cap)}</Td>
-                <Td>{r.rsi14?.toFixed(0) ?? "—"}</Td>
-                <Td>{pct(r.vs_sma200)}</Td>
-                <Td>{pct(r.ret_3m)}</Td>
-                <Td>{pct(r.rev_yoy)}</Td>
-                <Td>{r.pe_rel !== null ? `${r.pe_rel.toFixed(1)}×` : "—"}</Td>
-                <Td>{fmt(r.tech_score)}</Td>
-                <Td>{fmt(r.fund_score)}</Td>
-                <td className="px-5 py-1.5 text-right"><DivergenceChip v={r.divergence} /></td>
-              </tr>
-            ))}
-            <tr className="bg-surface-2 font-semibold">
-              <td className="px-5 py-2">Average (cap-weighted)</td>
-              <Td>{""}</Td>
-              <Td>{wavg(rows, (r) => r.rsi14)?.toFixed(0) ?? "—"}</Td>
-              <Td>{pct(wavg(rows, (r) => r.vs_sma200))}</Td>
-              <Td>{pct(wavg(rows, (r) => r.ret_3m))}</Td>
-              <Td>{pct(wavg(rows, (r) => r.rev_yoy))}</Td>
-              <Td>{pe !== null ? `${pe.toFixed(1)}×` : "—"}</Td>
-              <Td>{fmt(s.tech_score)}</Td>
-              <Td>{fmt(s.fund_score)}</Td>
-              <td className="px-5 py-2 text-right"><DivergenceChip v={s.divergence} /></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
-export function SectorSentimentSection() {
+export function SectorSentimentSection({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) {
   const { data: snap, isLoading } = useSectorSentiment();
   const [open, setOpen] = useState<string | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
-  const openSector = snap?.sectors.find((s) => s.sector === open) ?? null;
-  // default to the top-ranked sector (sectors arrive sorted by divergence)
-  const tableSector = snap?.sectors.find((s) => s.sector === picked) ?? snap?.sectors[0];
+
+  if (!snap) {
+    return (
+      <div className="card p-5">
+        <CardHead name="Sector Sentiment" kind={KIND} badge={<StatusBadge status="missing" text="No snapshot" />} />
+        <div className="text-center text-sm text-muted py-6">
+          {isLoading ? "Loading…" : <>No snapshot yet — it builds in the background when <code className="font-mono">ckm serve</code> starts.</>}
+        </div>
+      </div>
+    );
+  }
+
+  const sectors = snap.sectors;
+  const openSector = sectors.find((s) => s.sector === open) ?? null;
+  const tableSector = sectors.find((s) => s.sector === picked) ?? sectors[0];
+  const rows = snap.stocks.filter((r) => r.sector === tableSector?.sector).sort((a, b) => b.market_cap - a.market_cap);
+  const picker = <SectorPicker sectors={sectors} value={tableSector?.sector} onPick={setPicked} />;
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="text-base font-semibold text-text">Sector Sentiment</h2>
-        <p className="text-xs text-muted mt-0.5">
-          Divergence = technical score − fundamental score across each GICS sector's top 10 stocks.
-          {snap && ` As of ${new Date(snap.as_of).toLocaleString()}.`}
-        </p>
-        <div className="mt-1.5"><Legend /></div>
-      </div>
-
-      {isLoading && <div className="text-sm text-muted">Loading…</div>}
-      {!isLoading && !snap && (
-        <div className="rounded-xl border border-border bg-surface p-6 text-sm text-muted">
-          No snapshot yet — it builds in the background when <code className="font-mono">ckm serve</code> starts
-          (a minute or two), and this page updates itself.
-        </div>
-      )}
-      {snap && (
-        <>
-          {snap.narrative && (
-            <div className="flex gap-3 rounded-xl border border-border bg-surface px-5 py-4 shadow-card">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent-soft">
-                <Sparkles className="h-3.5 w-3.5 text-accent" aria-hidden />
-              </div>
-              <div>
-                <p className="text-sm leading-relaxed text-text-2">{snap.narrative}</p>
-                <p className="mt-1.5 text-xs text-muted">
-                  Sector Sentiment Narrative
-                  {snap.narrative_generated_at && ` · generated ${new Date(snap.narrative_generated_at).toLocaleString()}`}
-                  {" "}· describes, does not recommend
-                </p>
+    <>
+      <ExpandableCard
+        expanded={expanded}
+        onToggle={onToggle}
+        collapsed={
+          <>
+            <Summary snap={snap} expanded={false} onToggle={onToggle} />
+            <Toggles
+              tabs={[
+                { key: "sectors", label: `Sectors (${sectors.length})`, render: () => <SectorRows sectors={sectors} onOpen={setOpen} /> },
+                ...(snap.narrative ? [{ key: "narrative", label: "Narrative", render: () => <Narrative snap={snap} /> }] : []),
+                { key: "stocks", label: `Stocks (${snap.stocks.length})`, render: () => <>{picker}<Stocks rows={rows} full={false} /></> },
+              ]}
+            />
+          </>
+        }
+        full={{
+          left: <Summary snap={snap} expanded onToggle={onToggle} />,
+          right: (
+            <div className="grid xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-3.5 items-start">
+              <Panel title={`Sectors (${sectors.length})`}><SectorRows sectors={sectors} onOpen={setOpen} /></Panel>
+              <div className="space-y-3.5 min-w-0">
+                {snap.narrative && <Panel title="Narrative"><Narrative snap={snap} /></Panel>}
+                <Panel title={`Stocks · top ${rows.length} by market cap`}>{picker}<Stocks rows={rows} full /></Panel>
               </div>
             </div>
-          )}
-          <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4 xl:grid-cols-6">
-            {snap.sectors.map((s) => <SectorTile key={s.sector} s={s} onOpen={setOpen} />)}
-          </div>
-          {openSector && <SectorDrawer s={openSector} onClose={() => setOpen(null)} />}
-          {tableSector && (
-            <SectorTable
-              s={tableSector}
-              sectors={snap.sectors}
-              onPick={setPicked}
-              rows={snap.stocks
-                .filter((r) => r.sector === tableSector.sector)
-                .sort((a, b) => b.market_cap - a.market_cap)}
-            />
-          )}
-        </>
-      )}
-    </div>
+          ),
+        }}
+      />
+      {openSector && <SectorDrawer s={openSector} onClose={() => setOpen(null)} />}
+    </>
   );
 }

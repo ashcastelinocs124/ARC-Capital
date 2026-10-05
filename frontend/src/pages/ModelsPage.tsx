@@ -1,12 +1,49 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useModels } from "@/hooks/useModels";
 import type { ModelCard } from "@/api/endpoints";
 import { cn } from "@/lib/cn";
 import { SectorSentimentSection } from "@/components/SectorSentimentSection";
 import { AdoptionSection } from "@/components/AdoptionSection";
+import { CardHead, ExpandableCard, HowItWorks, Panel } from "@/components/modelCard";
 
 const WEAK_ACCURACY = 0.55; // near coin-flip for a binary up/down call
 const MAX_DATA_LAG_MONTHS = 3;
+
+// "How it works" copy per forecaster id (see castelino/forecast/regime.py and risk_off.py).
+const HOW: Record<string, { short: string; steps: ReactNode[] }> = {
+  growth: {
+    short:
+      "An XGBoost classifier reads the last 3 months of five leading indicators and outputs the probability that the Regional Fed manufacturing composite rises next month.",
+    steps: [
+      <><b>Target:</b> Empire State + Philly Fed manufacturing diffusion index (an ISM proxy). Label = 1 if next month's value is higher.</>,
+      <><b>Inputs:</b> 10-year Treasury yield, initial jobless claims, the Philly Fed leading index, cyclicals vs defensives (XLY/XLP) and real disposable income, each with 3 monthly lags.</>,
+      <><b>Model:</b> 100 depth-1 boosted trees on monthly data since 2000; the output is P(up), and the call is "up" at 50% or more.</>,
+      <><b>Scoring:</b> walk-forward over 5 folds (train on the past, test on the next block) for accuracy and Brier score.</>,
+      <><b>Refresh:</b> the Update Agent refits daily and only promotes a refit whose Brier score is not worse than the current model by more than 0.02.</>,
+    ],
+  },
+  inflation: {
+    short:
+      "The same XGBoost setup predicts whether CPI All Items rises next month from price, wage, energy, currency and inflation-expectations series.",
+    steps: [
+      <><b>Target:</b> CPI All Items (seasonally adjusted). Label = 1 if next month's CPI change is up.</>,
+      <><b>Inputs:</b> PPI, WTI and Brent crude, 5-year and 10-year breakevens, the trade-weighted dollar, UMich 1-year expectations, rent CPI, hourly earnings and Case-Shiller home prices, each with 3 monthly lags.</>,
+      <><b>Model:</b> 100 depth-1 boosted trees on monthly data since 2000; the output is P(up).</>,
+      <><b>Scoring:</b> 5-fold walk-forward accuracy and Brier score.</>,
+      <><b>Refresh:</b> daily refit behind the same Brier-score promotion gate.</>,
+    ],
+  },
+  risk_off: {
+    short:
+      "Predicts whether the S&P 500 falls more than 5% peak-to-trough in the 30 days after month-end, from credit spreads, volatility and the dollar.",
+    steps: [
+      <><b>Label:</b> 1 if SPY's peak-to-trough drop in the next 30 days exceeds 5%.</>,
+      <><b>Inputs:</b> high-yield and investment-grade spreads, VIX, MOVE bond volatility, the broad dollar and the HYG/IEF credit ratio, each with 1–3 monthly lags.</>,
+      <><b>Model:</b> 200 depth-4 boosted trees with row and feature sampling; class weights rebalance the rare drawdowns.</>,
+      <><b>Output:</b> probability of a risk-off drawdown; shows "Not trained" until a model is saved.</>,
+    ],
+  },
+};
 
 function ago(iso: string) {
   const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
@@ -48,19 +85,59 @@ function Stat({ label, value, warn }: { label: string; value: string; warn?: boo
   );
 }
 
-function Details({ card }: { card: ModelCard }) {
+function ParamsTable({ card }: { card: ModelCard }) {
+  return (
+    <table className="w-full text-xs">
+      <tbody>
+        {(card.parameters ?? []).map((p) => (
+          <tr key={p.name} className="border-t border-border first:border-0">
+            <td className="py-1.5 font-mono">{p.name}</td>
+            <td className="py-1.5 font-mono font-semibold text-right pr-3">{String(p.value)}</td>
+            <td className="py-1.5 text-muted">{p.note}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function SourcesTable({ card }: { card: ModelCard }) {
+  return (
+    <table className="w-full text-xs">
+      <tbody>
+        {(card.sources ?? []).map((s) => (
+          <tr key={s.id} className={cn("border-t border-border first:border-0", !s.used && "opacity-50")}>
+            <td className="py-1.5 pr-2">
+              {s.name}
+              {s.role === "target" && <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-accent-soft text-accent">target</span>}
+              {!s.used && <span className="ml-1.5 text-[10px] text-muted">(skipped in last fit)</span>}
+            </td>
+            <td className="py-1.5 text-muted whitespace-nowrap pr-2">{s.provider}</td>
+            <td className="py-1.5 font-mono text-right">{s.ref}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function Predicts({ card }: { card: ModelCard }) {
+  if (!card.predicts) return null;
+  return (
+    <div className="mt-3.5 rounded-lg bg-surface-2 border border-border px-3 py-2.5">
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">Predicts</div>
+      <div className="text-sm text-text mt-0.5">{card.predicts.question}</div>
+      <div className="text-xs text-muted mt-0.5">Output: {card.predicts.output}</div>
+    </div>
+  );
+}
+
+function Toggles({ card }: { card: ModelCard }) {
   const [open, setOpen] = useState<"parameters" | "sources" | null>(null);
   const params = card.parameters ?? [];
   const sources = card.sources ?? [];
   return (
     <>
-      {card.predicts && (
-        <div className="mt-3.5 rounded-lg bg-surface-2 border border-border px-3 py-2.5">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">Predicts</div>
-          <div className="text-sm text-text mt-0.5">{card.predicts.question}</div>
-          <div className="text-xs text-muted mt-0.5">Output: {card.predicts.output}</div>
-        </div>
-      )}
       <div className="mt-3.5 border-t border-border pt-3 flex gap-4">
         {([["parameters", `Parameters (${params.length})`], ["sources", `Sources (${sources.length})`]] as const).map(([k, label]) => (
           <button key={k} onClick={() => setOpen(open === k ? null : k)}
@@ -69,59 +146,25 @@ function Details({ card }: { card: ModelCard }) {
           </button>
         ))}
       </div>
-      {open === "parameters" && (
-        <table className="w-full text-xs mt-2.5">
-          <tbody>
-            {params.map((p) => (
-              <tr key={p.name} className="border-t border-border first:border-0">
-                <td className="py-1.5 font-mono">{p.name}</td>
-                <td className="py-1.5 font-mono font-semibold text-right pr-3">{String(p.value)}</td>
-                <td className="py-1.5 text-muted">{p.note}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      {open === "sources" && (
-        <table className="w-full text-xs mt-2.5">
-          <tbody>
-            {sources.map((s) => (
-              <tr key={s.id} className={cn("border-t border-border first:border-0", !s.used && "opacity-50")}>
-                <td className="py-1.5 pr-2">
-                  {s.name}
-                  {s.role === "target" && <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-accent-soft text-accent">target</span>}
-                  {!s.used && <span className="ml-1.5 text-[10px] text-muted">(skipped in last fit)</span>}
-                </td>
-                <td className="py-1.5 text-muted whitespace-nowrap pr-2">{s.provider}</td>
-                <td className="py-1.5 font-mono text-right">{s.ref}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      {open === "parameters" && <div className="mt-2.5"><ParamsTable card={card} /></div>}
+      {open === "sources" && <div className="mt-2.5"><SourcesTable card={card} /></div>}
     </>
   );
 }
 
-function Card({ card }: { card: ModelCard }) {
-
-  const header = (
-    <div className="flex items-start justify-between gap-3">
-      <div>
-        <div className="text-base font-semibold text-text">{card.name}</div>
-        <div className="text-xs text-muted">{card.kind}</div>
-      </div>
-      <Badge card={card} />
-    </div>
-  );
+function Summary({ card, expanded, onToggle }: { card: ModelCard; expanded: boolean; onToggle: () => void }) {
+  const how = HOW[card.id];
+  const head = <CardHead name={card.name} kind={card.kind} badge={<Badge card={card} />} expanded={expanded} onCollapse={onToggle} />;
+  const howBlock = how && <HowItWorks short={how.short} steps={how.steps} expanded={expanded} />;
 
   if (card.status === "missing") {
     return (
-      <div className="card p-5">
-        {header}
+      <>
+        {head}
         <div className="text-center text-sm text-muted py-6">No forecast on disk yet.</div>
-        <Details card={card} />
-      </div>
+        {howBlock}
+        <Predicts card={card} />
+      </>
     );
   }
 
@@ -134,8 +177,8 @@ function Card({ card }: { card: ModelCard }) {
   ].filter(Boolean) as string[];
 
   return (
-    <div className="card p-5">
-      {header}
+    <>
+      {head}
 
       <div className="mt-4 flex items-baseline gap-2.5">
         <span className={cn("font-mono text-2xl font-bold", card.up ? "text-success" : "text-danger")}>
@@ -169,37 +212,59 @@ function Card({ card }: { card: ModelCard }) {
       {card.accuracy == null && (
         <div className="mt-3 text-xs text-muted">This model doesn't save accuracy metrics.</div>
       )}
+      {howBlock}
+      <Predicts card={card} />
+    </>
+  );
+}
 
-      <Details card={card} />
-    </div>
+function Card({ card, expanded, onToggle }: { card: ModelCard; expanded: boolean; onToggle: () => void }) {
+  return (
+    <ExpandableCard
+      expanded={expanded}
+      onToggle={onToggle}
+      collapsed={
+        <>
+          <Summary card={card} expanded={false} onToggle={onToggle} />
+          <Toggles card={card} />
+        </>
+      }
+      full={{
+        left: <Summary card={card} expanded onToggle={onToggle} />,
+        right: (
+          <div className="grid md:grid-cols-2 gap-3.5">
+            <Panel title={`Parameters (${card.parameters?.length ?? 0})`}><ParamsTable card={card} /></Panel>
+            <Panel title={`Sources (${card.sources?.length ?? 0})`}><SourcesTable card={card} /></Panel>
+          </div>
+        ),
+      }}
+    />
   );
 }
 
 export default function ModelsPage() {
   const { data: cards = [], isLoading } = useModels();
+  const [expanded, setExpanded] = useState<string | null>(null); // one card open at a time
+  const toggle = (id: string) => setExpanded((cur) => (cur === id ? null : id));
 
   return (
     <div className="p-8 space-y-5">
       <div>
         <h2 className="text-base font-semibold text-text">Models</h2>
         <p className="text-xs text-muted mt-0.5">
-          Current state of the XGBoost forecasters feeding the pipeline, plus the Sector Sentiment indicator below. Read-only; forecasts older than 24h are
-          marked stale.
+          Current state of the XGBoost forecasters feeding the pipeline, the Sector Sentiment indicator and the AI
+          Adoption Index. Click any card for the full view. Read-only; forecasts older than 24h are marked stale.
         </p>
       </div>
-      {isLoading ? (
-        <div className="text-sm text-muted">Loading…</div>
-      ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {cards.map((c) => (
-            <Card key={c.id} card={c} />
-          ))}
-        </div>
-      )}
-      <div className="pt-4">
-        <SectorSentimentSection />
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+        {isLoading ? (
+          <div className="text-sm text-muted">Loading…</div>
+        ) : (
+          cards.map((c) => <Card key={c.id} card={c} expanded={expanded === c.id} onToggle={() => toggle(c.id)} />)
+        )}
+        <SectorSentimentSection expanded={expanded === "sector_sentiment"} onToggle={() => toggle("sector_sentiment")} />
+        <AdoptionSection expanded={expanded === "adoption"} onToggle={() => toggle("adoption")} />
       </div>
-      <AdoptionSection />
     </div>
   );
 }

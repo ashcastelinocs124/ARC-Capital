@@ -83,3 +83,16 @@ def test_companies_rejects_bad_bucket_and_handles_empty_store(client):
         client.get("/adoption/companies", params={"sector": "Energy", "bucket": "large"}).json()
         == []
     )
+
+
+def test_summary_carries_period_stats(client, tmp_path):
+    seed(tmp_path / "a.db")
+    stats = client.get("/adoption/summary").json()["stats"]
+    assert stats["n_companies"] == 3 and stats["n_scored"] == 3 and stats["n_claims"] == 1
+    assert set(stats["pillar_coverage"]) == {"talk", "hire", "spend"}
+
+
+def test_companies_without_filters_lists_every_company(client, tmp_path):
+    seed(tmp_path / "a.db")
+    rows = client.get("/adoption/companies").json()
+    assert [r["ticker"] for r in rows] == ["A", "B", "C"]

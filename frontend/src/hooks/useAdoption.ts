@@ -10,3 +10,6 @@ export const useAdoptionCompanies = (sector: string | null, bucket: Bucket) =>
     queryFn: () => fetchAdoptionCompanies(sector as string, bucket),
     enabled: !!sector,
   });
+
+export const useAllAdoptionCompanies = () =>
+  useQuery({ queryKey: ["adoption_companies", "all"], queryFn: () => fetchAdoptionCompanies() });

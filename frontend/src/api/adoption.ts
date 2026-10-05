@@ -26,6 +26,12 @@ export interface AdoptionSummary {
   headline: Partial<AdoptionHeadline>;
   series: { period: string; large_ew: number | null; small_ew: number | null }[];
   cells: AdoptionCell[];
+  stats?: {
+    n_companies: number;
+    n_scored: number;
+    n_claims: number;
+    pillar_coverage: { talk: number; hire: number; spend: number };
+  };
 }
 
 export interface AdoptionCompany {
@@ -41,5 +47,11 @@ export interface AdoptionCompany {
 }
 
 export const fetchAdoptionSummary = () => api.get<AdoptionSummary>("/adoption/summary");
-export const fetchAdoptionCompanies = (sector: string, bucket: Bucket) =>
-  api.get<AdoptionCompany[]>(`/adoption/companies?sector=${encodeURIComponent(sector)}&bucket=${bucket}`);
+// No filters = every company in the latest period.
+export const fetchAdoptionCompanies = (sector?: string, bucket?: Bucket) => {
+  const q = new URLSearchParams();
+  if (sector) q.set("sector", sector);
+  if (bucket) q.set("bucket", bucket);
+  const qs = q.toString();
+  return api.get<AdoptionCompany[]>(`/adoption/companies${qs ? `?${qs}` : ""}`);
+};
