@@ -1,6 +1,16 @@
+/// <reference types="vite/client" />
 /** Fetch wrapper. Treats 404 as empty data, surfaces other errors. */
 
 const BASE = "/api"; // proxied to localhost:7779 in dev (vite.config.ts)
+
+// Public build (VITE_STATIC=1): reads the JSON files scripts/export_snapshot.py wrote; writes are off.
+export const STATIC = import.meta.env.VITE_STATIC === "1";
+
+// Must match snapshot_file() in scripts/export_snapshot.py.
+function staticUrl(path: string): string {
+  const [p, qs] = path.split("?");
+  return `${BASE}${p}${qs ? `__${qs.replace(/[^A-Za-z0-9]+/g, "_")}` : ""}.json`;
+}
 
 export class ApiError extends Error {
   constructor(public status: number, public path: string, message: string) {
@@ -10,7 +20,11 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const url = `${BASE}${path.startsWith("/") ? path : `/${path}`}`;
+  path = path.startsWith("/") ? path : `/${path}`;
+  if (STATIC && init.method && init.method !== "GET") {
+    throw new ApiError(403, path, "This public dashboard is read-only.");
+  }
+  const url = STATIC ? staticUrl(path) : `${BASE}${path}`;
   const resp = await fetch(url, {
     ...init,
     headers: {

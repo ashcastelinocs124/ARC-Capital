@@ -99,3 +99,8 @@ docs/superpowers/plans/
 # Update agent runtime data
 data/update_agent/
 data/updates/
+
+# Public Vercel snapshot (scripts/publish_snapshot.sh)
+frontend/public/api/
+.vercel/
+data/publish.log

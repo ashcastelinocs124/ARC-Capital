@@ -2,6 +2,7 @@ import { useLocation } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Activity } from "lucide-react";
 import { usePortfolioMetrics } from "@/hooks/usePortfolio";
 import { RefreshButton } from "@/components/layout/RefreshButton";
+import { STATIC } from "@/api/client";
 
 const TITLES: Record<string, { section: string; page: string }> = {
   "/portfolio": { section: "Trading", page: "Portfolio" },
@@ -63,7 +64,7 @@ export function TopBar() {
             )}
           </div>
         )}
-        <RefreshButton />
+        {!STATIC && <RefreshButton />}
         <div className="flex items-center gap-1.5 text-muted">
           <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse-slow" />
           <Activity className="h-3.5 w-3.5" />

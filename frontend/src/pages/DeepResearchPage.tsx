@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ThesisCharts, type ResolvedChart } from "@/components/ThesisCharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { api } from "@/api/client";
+import { api, STATIC } from "@/api/client";
 import { useAgentCatalog } from "@/hooks/useAgentCatalog";
 import { cn } from "@/lib/cn";
 
@@ -263,8 +263,8 @@ export default function DeepResearchPage() {
       <Card>
         <div className="px-4 py-3 border-b border-border flex justify-between items-center">
           <span className="text-sm font-semibold">Reports</span>
-          <button onClick={() => { open(null); setQuery(""); }}
-            className="text-xs font-semibold text-white bg-accent hover:bg-accent-hover rounded-lg px-2.5 py-1">+ New</button>
+          {!STATIC && <button onClick={() => { open(null); setQuery(""); }}
+            className="text-xs font-semibold text-white bg-accent hover:bg-accent-hover rounded-lg px-2.5 py-1">+ New</button>}
         </div>
         {list.map((r) => (
           <button key={r.id} onClick={() => open(r.id)}
@@ -278,14 +278,14 @@ export default function DeepResearchPage() {
       </Card>
 
       <div className="space-y-4 min-w-0">
-        {keyMissing && (
+        {keyMissing && !STATIC && (
           <div className="rounded-xl border border-warning bg-warning-soft px-4 py-2.5 text-sm text-warning">
             <b>OPENAI_API_KEY is missing.</b> Research sub-agents search the web through OpenAI web search, so new research
             will fail until it's added to <span className="font-mono">.env</span>. Past reports still open.
           </div>
         )}
 
-        {!id && (
+        {!id && !STATIC && (
           <Card className="p-4">
             <textarea value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Ask a research question…"
               className="w-full h-16 px-3 py-2.5 text-sm border border-border rounded-xl bg-surface-2 resize-none outline-none focus:border-accent" />
