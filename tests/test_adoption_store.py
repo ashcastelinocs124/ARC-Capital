@@ -9,11 +9,22 @@ def make_scores(a_snapshot=0.1):
     a = Company("A", "large", "Information Technology", 300.0)
     b = Company("B", "small", "Health Care", 8.0)
     return [
-        CompanyScore(a, {"talk": 2.0, "hire": a_snapshot, "spend": 0.3},
-                     {"talk": 70.0, "hire": 60.0, "spend": 80.0}, 70.0, 3,
-                     hire_snapshot=a_snapshot, accession="acc-A"),
-        CompanyScore(b, {"talk": None, "hire": None, "spend": None},
-                     {"talk": None, "hire": None, "spend": None}, None, 0),
+        CompanyScore(
+            a,
+            {"talk": 2.0, "hire": a_snapshot, "spend": 0.3},
+            {"talk": 70.0, "hire": 60.0, "spend": 80.0},
+            70.0,
+            3,
+            hire_snapshot=a_snapshot,
+            accession="acc-A",
+        ),
+        CompanyScore(
+            b,
+            {"talk": None, "hire": None, "spend": None},
+            {"talk": None, "hire": None, "spend": None},
+            None,
+            0,
+        ),
     ]
 
 
@@ -29,7 +40,7 @@ def test_roundtrip_and_ordering(store):
     assert store.periods() == ["2026-10-01"]
     assert store.cells("2026-10-01") == cells
     rows = store.companies("2026-10-01")
-    assert [r["ticker"] for r in rows] == ["A", "B"]          # unscored last
+    assert [r["ticker"] for r in rows] == ["A", "B"]  # unscored last
     assert rows[0]["score"] == 70.0 and rows[0]["accession"] == "acc-A" and rows[1]["score"] is None
     only_b = store.companies("2026-10-01", sector="Health Care", bucket="small")
     assert [r["ticker"] for r in only_b] == ["B"]
@@ -56,7 +67,9 @@ def test_filing_cache_and_claims(store):
     assert store.get_filing("A", "acc-A") is None
     store.put_filing("A", "acc-A", 1000, 2.5, [Claim(quote="q", depth=2)])
     assert store.get_filing("A", "acc-A") == {"words": 1000, "talk_raw": 2.5}
-    store.put_filing("A", "acc-A", 1000, 2.5, [Claim(quote="q", depth=2)])   # replaces, not duplicates
+    store.put_filing(
+        "A", "acc-A", 1000, 2.5, [Claim(quote="q", depth=2)]
+    )  # replaces, not duplicates
     assert store.claims_for("A", "acc-A") == [{"depth": 2, "quote": "q"}]
 
 

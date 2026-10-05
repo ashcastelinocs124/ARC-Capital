@@ -8,8 +8,8 @@ INFO = {
     "B": {"marketCap": 200, "sector": "Healthcare"},
     "C": {"marketCap": 100, "sector": "Financial Services"},
     "D": {"marketCap": 10, "sector": "Technology"},
-    "E": {"marketCap": 8, "sector": "Weird Sector"},      # unmappable -> skipped
-    "F": {"marketCap": None, "sector": "Energy"},          # no market cap -> skipped
+    "E": {"marketCap": 8, "sector": "Weird Sector"},  # unmappable -> skipped
+    "F": {"marketCap": None, "sector": "Energy"},  # no market cap -> skipped
 }
 
 
@@ -20,8 +20,15 @@ def info_fn(t):
 
 
 def test_build_universe_ranks_top_n_per_bucket_and_skips_bad_rows():
-    seed = [("A", "large"), ("B", "large"), ("C", "large"),
-            ("D", "small"), ("E", "small"), ("F", "small"), ("G", "small")]
+    seed = [
+        ("A", "large"),
+        ("B", "large"),
+        ("C", "large"),
+        ("D", "small"),
+        ("E", "small"),
+        ("F", "small"),
+        ("G", "small"),
+    ]
     out = build_universe(seed, info_fn, top_n=2)
     assert out == [
         Company("A", "large", "Information Technology", 300.0),

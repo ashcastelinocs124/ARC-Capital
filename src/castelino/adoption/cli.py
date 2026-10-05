@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich import print as rich_print
@@ -29,19 +28,21 @@ def _dir() -> Path:
 @app.command("universe-refresh")
 def universe_refresh() -> None:
     """Rank the seed list by market cap (yfinance) and keep the top N per size bucket."""
-    from castelino.adoption import universe as U
+    from castelino.adoption import universe
 
     d = _dir()
     seed = d / "universe_seed.csv"
     if not seed.exists():
         raise typer.BadParameter(f"missing {seed} (CSV with columns: ticker,bucket)")
-    companies = U.build_universe(U.load_seed(seed), U.yf_info, get_settings().adoption.top_n)
-    U.save_universe(d / "universe.csv", companies)
+    companies = universe.build_universe(
+        universe.load_seed(seed), universe.yf_info, get_settings().adoption.top_n
+    )
+    universe.save_universe(d / "universe.csv", companies)
     rich_print(f"[green]saved {len(companies)} companies to {d / 'universe.csv'}[/green]")
 
 
 @app.command()
-def run(period: Optional[str] = typer.Option(None, help="YYYY-MM-DD; defaults to today.")) -> None:
+def run(period: str | None = typer.Option(None, help="YYYY-MM-DD; defaults to today.")) -> None:
     """Run one bi-weekly period: fetch, extract, score, aggregate, store."""
     cfg = get_settings()
     a = cfg.adoption
@@ -50,12 +51,11 @@ def run(period: Optional[str] = typer.Option(None, help="YYYY-MM-DD; defaults to
             "set adoption.sec_user_agent in config.yaml (SEC requires a contact string)"
         )
     try:
-        cfg.openai_api_key
+        _ = cfg.openai_api_key  # raises when the key is missing
     except Exception as e:  # noqa: BLE001
-        raise typer.BadParameter(f"OpenAI key unavailable: {e}")
+        raise typer.BadParameter(f"OpenAI key unavailable: {e}") from e
 
-    from castelino.adoption import pipeline as P
-    from castelino.adoption import universe as U
+    from castelino.adoption import pipeline, universe
     from castelino.adoption.extract import extract_claims
     from castelino.adoption.sources.edgar import EdgarClient
     from castelino.adoption.sources.financials import fetch_financials
@@ -68,8 +68,8 @@ def run(period: Optional[str] = typer.Option(None, help="YYYY-MM-DD; defaults to
     edgar = EdgarClient(a.sec_user_agent, min_interval=a.request_interval_s)
     boards = d / "job_boards.csv"
     jobs = JobsFetcher(load_boards(boards) if boards.exists() else {})
-    deps = P.Deps(
-        companies=U.load_universe(upath),
+    deps = pipeline.Deps(
+        companies=universe.load_universe(upath),
         filing_for=edgar.latest_filing,
         text_for=edgar.filing_text,
         extract=lambda t, text: extract_claims(
@@ -81,7 +81,7 @@ def run(period: Optional[str] = typer.Option(None, help="YYYY-MM-DD; defaults to
         smoothing_periods=a.hire_smoothing_periods,
         thin_below=a.thin_cell_below,
     )
-    s = P.run_period(period or date.today().isoformat(), deps)
+    s = pipeline.run_period(period or date.today().isoformat(), deps)
     rich_print(
         f"[green]{s.period}: scored {s.n_scored}/{s.n_companies}, excluded {s.n_excluded}, "
         f"errors {s.n_errors}[/green]"

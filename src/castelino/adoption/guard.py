@@ -11,7 +11,9 @@ _QUOTES = str.maketrans({"‘": "'", "’": "'", "“": '"', "”": '"'})
 
 def _norm(s: str) -> str:
     s = re.sub(r"\s+", " ", s.translate(_QUOTES))
-    s = re.sub(r" ([.,;:!?)\]])", r"\1", s)  # html.parser puts a space at tag boundaries ("learning .")
+    s = re.sub(
+        r" ([.,;:!?)\]])", r"\1", s
+    )  # html.parser puts a space at tag boundaries ("learning .")
     return s.strip().casefold()
 
 

@@ -4,8 +4,13 @@ from castelino.adoption.sources.jobs import JobCounts, JobsFetcher, is_ai_ml_rol
 
 
 def test_is_ai_ml_role():
-    for t in ["Senior Machine Learning Engineer", "Research Scientist, NLP", "Data Scientist",
-              "Staff AI Engineer", "LLM Applied Scientist"]:
+    for t in [
+        "Senior Machine Learning Engineer",
+        "Research Scientist, NLP",
+        "Data Scientist",
+        "Staff AI Engineer",
+        "LLM Applied Scientist",
+    ]:
         assert is_ai_ml_role(t), t
     for t in ["Account Executive", "Software Engineer", "AI Sales Manager", "Maintenance Engineer"]:
         assert not is_ai_ml_role(t), t
@@ -14,17 +19,30 @@ def test_is_ai_ml_role():
 def handler(request: httpx.Request) -> httpx.Response:
     u = str(request.url)
     if "boards-api.greenhouse.io/v1/boards/acme/jobs" in u:
-        return httpx.Response(200, json={"jobs": [
-            {"title": "Senior Machine Learning Engineer"}, {"title": "Account Executive"},
-            {"title": "Software Engineer"}]})
+        return httpx.Response(
+            200,
+            json={
+                "jobs": [
+                    {"title": "Senior Machine Learning Engineer"},
+                    {"title": "Account Executive"},
+                    {"title": "Software Engineer"},
+                ]
+            },
+        )
     if "api.lever.co/v0/postings/lvr" in u:
-        return httpx.Response(200, json=[{"text": "Research Scientist, NLP"}, {"text": "Recruiter"}])
+        return httpx.Response(
+            200, json=[{"text": "Research Scientist, NLP"}, {"text": "Recruiter"}]
+        )
     return httpx.Response(404)
 
 
 def fetcher():
-    boards = {"ACME": ("greenhouse", "acme"), "LVR": ("lever", "lvr"),
-              "BAD": ("workday", "x"), "GONE": ("greenhouse", "missing")}
+    boards = {
+        "ACME": ("greenhouse", "acme"),
+        "LVR": ("lever", "lvr"),
+        "BAD": ("workday", "x"),
+        "GONE": ("greenhouse", "missing"),
+    }
     return JobsFetcher(boards, http=httpx.Client(transport=httpx.MockTransport(handler)))
 
 

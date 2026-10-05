@@ -33,12 +33,16 @@ def load_seed(path: Path) -> list[tuple[str, str]]:
         for r in csv.DictReader(f):
             bucket = r["bucket"].strip().lower()
             if bucket not in BUCKETS:
-                raise ValueError(f"unknown bucket {bucket!r} for {r['ticker']} (expected one of {BUCKETS})")
+                raise ValueError(
+                    f"unknown bucket {bucket!r} for {r['ticker']} (expected one of {BUCKETS})"
+                )
             out.append((r["ticker"].strip().upper(), bucket))
     return out
 
 
-def build_universe(seed: list[tuple[str, str]], info_fn: Callable[[str], dict], top_n: int) -> list[Company]:
+def build_universe(
+    seed: list[tuple[str, str]], info_fn: Callable[[str], dict], top_n: int
+) -> list[Company]:
     by_bucket: dict[str, list[Company]] = {b: [] for b in BUCKETS}
     seen: set[str] = set()
     for ticker, bucket in seed:
@@ -53,7 +57,9 @@ def build_universe(seed: list[tuple[str, str]], info_fn: Callable[[str], dict], 
             continue
         cap, sector = info.get("marketCap"), SECTOR_MAP.get(info.get("sector"))
         if not cap or not sector:
-            log.warning("universe: skipping %s (marketCap=%s sector=%s)", ticker, cap, info.get("sector"))
+            log.warning(
+                "universe: skipping %s (marketCap=%s sector=%s)", ticker, cap, info.get("sector")
+            )
             continue
         by_bucket[bucket].append(Company(ticker.upper(), bucket, sector, float(cap)))
     out: list[Company] = []
@@ -78,5 +84,7 @@ def save_universe(path: Path, companies: list[Company]) -> None:
 
 def load_universe(path: Path) -> list[Company]:
     with open(path, newline="") as f:
-        return [Company(r["ticker"], r["bucket"], r["sector"], float(r["market_cap"]))
-                for r in csv.DictReader(f)]
+        return [
+            Company(r["ticker"], r["bucket"], r["sector"], float(r["market_cap"]))
+            for r in csv.DictReader(f)
+        ]

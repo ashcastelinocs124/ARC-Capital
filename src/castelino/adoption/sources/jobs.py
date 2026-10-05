@@ -36,8 +36,10 @@ class JobCounts:
 
 def load_boards(path: Path) -> dict[str, tuple[str, str]]:
     with open(path, newline="") as f:
-        return {r["ticker"].strip().upper(): (r["ats"].strip().lower(), r["token"].strip())
-                for r in csv.DictReader(f)}
+        return {
+            r["ticker"].strip().upper(): (r["ats"].strip().lower(), r["token"].strip())
+            for r in csv.DictReader(f)
+        }
 
 
 class JobsFetcher:

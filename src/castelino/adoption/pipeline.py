@@ -90,8 +90,17 @@ def run_period(period: str, deps: Deps) -> RunSummary:
     rows: list[CompanyScore] = []
     for co in deps.companies:
         score, used = company_score(pillar[co.ticker])
-        rows.append(CompanyScore(co, raw[co.ticker], pillar[co.ticker], score, used,
-                                 hire_snapshot=snapshots[co.ticker], accession=accessions[co.ticker]))
+        rows.append(
+            CompanyScore(
+                co,
+                raw[co.ticker],
+                pillar[co.ticker],
+                score,
+                used,
+                hire_snapshot=snapshots[co.ticker],
+                accession=accessions[co.ticker],
+            )
+        )
 
     deps.store.save_period(period, rows, aggregate(rows, deps.thin_below))
     scored = sum(r.score is not None for r in rows)

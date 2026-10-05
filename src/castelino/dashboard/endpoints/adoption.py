@@ -31,7 +31,14 @@ def adoption_summary():
         "headline": headline(cells),
         "series": st.series(),
         "cells": [
-            {"sector": c.sector, "bucket": c.bucket, "n": c.n, "ew": c.ew, "cw": c.cw, "thin": c.thin}
+            {
+                "sector": c.sector,
+                "bucket": c.bucket,
+                "n": c.n,
+                "ew": c.ew,
+                "cw": c.cw,
+                "thin": c.thin,
+            }
             for c in cells
             if c.sector is not None
         ],
@@ -48,9 +55,14 @@ def adoption_companies(sector: str, bucket: str):
         return []
     return [
         {
-            "ticker": r["ticker"], "bucket": r["bucket"], "sector": r["sector"],
-            "market_cap": r["market_cap"], "score": r["score"],
-            "s_talk": r["s_talk"], "s_hire": r["s_hire"], "s_spend": r["s_spend"],
+            "ticker": r["ticker"],
+            "bucket": r["bucket"],
+            "sector": r["sector"],
+            "market_cap": r["market_cap"],
+            "score": r["score"],
+            "s_talk": r["s_talk"],
+            "s_hire": r["s_hire"],
+            "s_spend": r["s_spend"],
             "claims": st.claims_for(r["ticker"], r["accession"]),
         }
         for r in st.companies(periods[-1], sector=sector, bucket=bucket)

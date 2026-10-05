@@ -59,14 +59,19 @@ class AdoptionStore:
             ).fetchone()
         return dict(r) if r else None
 
-    def put_filing(self, ticker: str, accession: str, words: int, talk_raw: float | None,
-                   claims: list[Claim]) -> None:
+    def put_filing(
+        self, ticker: str, accession: str, words: int, talk_raw: float | None, claims: list[Claim]
+    ) -> None:
         with self._conn() as c:
-            c.execute("INSERT OR REPLACE INTO filing_cache VALUES(?,?,?,?)",
-                      (ticker, accession, words, talk_raw))
+            c.execute(
+                "INSERT OR REPLACE INTO filing_cache VALUES(?,?,?,?)",
+                (ticker, accession, words, talk_raw),
+            )
             c.execute("DELETE FROM claims WHERE ticker=? AND accession=?", (ticker, accession))
-            c.executemany("INSERT INTO claims VALUES(?,?,?,?)",
-                          [(ticker, accession, cl.depth, cl.quote) for cl in claims])
+            c.executemany(
+                "INSERT INTO claims VALUES(?,?,?,?)",
+                [(ticker, accession, cl.depth, cl.quote) for cl in claims],
+            )
 
     def claims_for(self, ticker: str, accession: str | None, limit: int = 5) -> list[dict]:
         if accession is None:
@@ -95,15 +100,41 @@ class AdoptionStore:
             c.execute("DELETE FROM index_cell WHERE period=?", (period,))
             c.executemany(
                 "INSERT INTO company_period VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                [(period, s.company.ticker, s.company.bucket, s.company.sector, s.company.market_cap,
-                  s.accession, s.raw.get("talk"), s.hire_snapshot, s.raw.get("hire"), s.raw.get("spend"),
-                  s.s.get("talk"), s.s.get("hire"), s.s.get("spend"), s.score, s.pillars_used)
-                 for s in scores],
+                [
+                    (
+                        period,
+                        s.company.ticker,
+                        s.company.bucket,
+                        s.company.sector,
+                        s.company.market_cap,
+                        s.accession,
+                        s.raw.get("talk"),
+                        s.hire_snapshot,
+                        s.raw.get("hire"),
+                        s.raw.get("spend"),
+                        s.s.get("talk"),
+                        s.s.get("hire"),
+                        s.s.get("spend"),
+                        s.score,
+                        s.pillars_used,
+                    )
+                    for s in scores
+                ],
             )
             c.executemany(
                 "INSERT INTO index_cell VALUES(?,?,?,?,?,?,?)",
-                [(period, cell.sector or "", cell.bucket, cell.n, cell.ew, cell.cw, int(cell.thin))
-                 for cell in cells],
+                [
+                    (
+                        period,
+                        cell.sector or "",
+                        cell.bucket,
+                        cell.n,
+                        cell.ew,
+                        cell.cw,
+                        int(cell.thin),
+                    )
+                    for cell in cells
+                ],
             )
 
     def periods(self) -> list[str]:
@@ -117,9 +148,14 @@ class AdoptionStore:
                 "SELECT sector,bucket,n,ew,cw,thin FROM index_cell WHERE period=? ORDER BY bucket, sector",
                 (period,),
             ).fetchall()
-        return [Cell(r["sector"] or None, r["bucket"], r["n"], r["ew"], r["cw"], bool(r["thin"])) for r in rows]
+        return [
+            Cell(r["sector"] or None, r["bucket"], r["n"], r["ew"], r["cw"], bool(r["thin"]))
+            for r in rows
+        ]
 
-    def companies(self, period: str, sector: str | None = None, bucket: str | None = None) -> list[dict]:
+    def companies(
+        self, period: str, sector: str | None = None, bucket: str | None = None
+    ) -> list[dict]:
         sql = f"SELECT {_COMPANY_COLS} FROM company_period WHERE period=?"
         args: list = [period]
         if sector is not None:

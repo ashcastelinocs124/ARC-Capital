@@ -5,8 +5,8 @@ from castelino.adoption.score import company_score, hire_raw, pillar_scores, spe
 
 def test_talk_raw():
     assert talk_raw([1, 2, 3], 2000) == pytest.approx(3.0)
-    assert talk_raw([], 1000) == 0.0          # no AI claims is a valid zero
-    assert talk_raw([2], 0) is None           # no text is missing, not zero
+    assert talk_raw([], 1000) == 0.0  # no AI claims is a valid zero
+    assert talk_raw([2], 0) is None  # no text is missing, not zero
 
 
 def test_hire_raw():
@@ -28,8 +28,8 @@ def test_pillar_scores_golden():
         "B": {"talk": 3.0, "hire": None, "spend": None},
     }
     s = pillar_scores(raw)
-    assert s["A"]["talk"] == pytest.approx(50 - 50 / 3)   # z = -1
-    assert s["B"]["talk"] == pytest.approx(50 + 50 / 3)   # z = +1
+    assert s["A"]["talk"] == pytest.approx(50 - 50 / 3)  # z = -1
+    assert s["B"]["talk"] == pytest.approx(50 + 50 / 3)  # z = +1
     assert s["A"]["hire"] is None
 
 
@@ -37,7 +37,7 @@ def test_pillar_scores_clip_at_three_sigma():
     raw = {f"T{i}": {"talk": 0.0, "hire": None, "spend": None} for i in range(19)}
     raw["OUT"] = {"talk": 100.0, "hire": None, "spend": None}
     s = pillar_scores(raw)
-    assert s["OUT"]["talk"] == pytest.approx(100.0)       # z ~ 4.4 clipped to 3
+    assert s["OUT"]["talk"] == pytest.approx(100.0)  # z ~ 4.4 clipped to 3
 
 
 def test_pillar_scores_zero_variance_and_single_company():

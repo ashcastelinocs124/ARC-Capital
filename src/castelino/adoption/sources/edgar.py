@@ -36,8 +36,13 @@ def _html_to_text(html: str) -> str:
 
 
 class EdgarClient:
-    def __init__(self, user_agent: str, http: httpx.Client | None = None,
-                 min_interval: float = 0.12, sleep=time.sleep):
+    def __init__(
+        self,
+        user_agent: str,
+        http: httpx.Client | None = None,
+        min_interval: float = 0.12,
+        sleep=time.sleep,
+    ):
         if not user_agent.strip():
             raise EdgarError(
                 "adoption.sec_user_agent is empty: SEC requires a contact string such as "
@@ -70,8 +75,9 @@ class EdgarClient:
         for i, form in enumerate(recent["form"]):
             if form in _FORMS:
                 accession = recent["accessionNumber"][i]
-                url = _DOC_URL.format(cik=cik, acc=accession.replace("-", ""),
-                                      doc=recent["primaryDocument"][i])
+                url = _DOC_URL.format(
+                    cik=cik, acc=accession.replace("-", ""), doc=recent["primaryDocument"][i]
+                )
                 return Filing(ticker.upper(), accession, form, url)
         return None
 
