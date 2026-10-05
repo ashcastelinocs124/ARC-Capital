@@ -48,10 +48,10 @@ function Detail({ a }: { a: AgentCatalogEntry }) {
         <div className="text-sm text-muted mt-3">{a.summary}</div>
         {a.error && <div className="mt-3 text-xs bg-danger-soft text-danger rounded-lg px-3 py-2">Couldn't read from code: {a.error}</div>}
       </div>
-      <div className="flex gap-1 px-4 border-b border-border">
+      <div className="flex gap-1 px-4 border-b border-border overflow-x-auto">
         {TABS.map((t) => (
           <button key={t} onClick={() => setTab(t)}
-            className={cn("px-3 py-2.5 text-sm font-medium border-b-2 -mb-px",
+            className={cn("px-3 py-2.5 text-sm font-medium border-b-2 -mb-px whitespace-nowrap",
               t === tab ? "text-accent border-accent" : "text-muted border-transparent hover:text-text")}>
             {t}
           </button>
@@ -60,7 +60,7 @@ function Detail({ a }: { a: AgentCatalogEntry }) {
       <div className="p-6 overflow-auto">
         {tab === "Prompt" && (a.prompt ? (
           <>
-            <div className="text-xs text-muted mb-2">Live from <span className="font-mono">{a.prompt_source}</span> — the prompt the agent actually runs</div>
+            <div className="text-xs text-muted mb-2">Live from <span className="font-mono break-all">{a.prompt_source}</span> — the prompt the agent actually runs</div>
             <pre className="whitespace-pre-wrap font-mono text-[12.5px] leading-5 bg-surface-2 border border-border rounded-xl p-4">{a.prompt}</pre>
           </>
         ) : (
@@ -79,11 +79,11 @@ function Detail({ a }: { a: AgentCatalogEntry }) {
         )}
         {tab === "Memory" && (
           <>
-            <div className="grid grid-cols-[1fr_40px_1fr_40px_1fr] items-center">
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_40px_1fr_40px_1fr] items-center gap-y-2 sm:gap-y-0">
               <Lane title="Reads" items={a.memory.reads} />
-              <div className="text-center text-xl text-muted-2">→</div>
+              <div className="text-center text-xl text-muted-2 rotate-90 sm:rotate-0">→</div>
               <Lane title="Agent" items={core} core />
-              <div className="text-center text-xl text-muted-2">→</div>
+              <div className="text-center text-xl text-muted-2 rotate-90 sm:rotate-0">→</div>
               <Lane title="Writes" items={a.memory.writes} />
             </div>
             <div className="mt-4 text-sm rounded-xl bg-surface-2 border border-border px-4 py-3">
@@ -160,10 +160,10 @@ export default function AgentsPage() {
   );
   const current = agents.find((a) => a.id === picked) ?? agents[0];
 
-  if (isLoading) return <div className="p-8 text-sm text-muted">Loading agents…</div>;
+  if (isLoading) return <div className="p-4 md:p-8 text-sm text-muted">Loading agents…</div>;
 
   return (
-    <div className="p-8 grid grid-cols-[300px_1fr] gap-5 items-start">
+    <div className="p-4 md:p-8 grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
       <Card className="flex flex-col">
         <div className="p-3.5 border-b border-border">
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search agents, tools, memory…"
@@ -204,7 +204,7 @@ export default function AgentsPage() {
           </div>
         )}
       </Card>
-      {current ? <Detail key={current.id} a={current} /> : <Card className="p-8 text-sm text-muted">No agents registered.</Card>}
+      {current ? <Detail key={current.id} a={current} /> : <Card className="p-4 md:p-8 text-sm text-muted">No agents registered.</Card>}
     </div>
   );
 }

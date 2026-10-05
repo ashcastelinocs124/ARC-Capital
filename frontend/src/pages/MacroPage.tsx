@@ -19,7 +19,7 @@ export default function MacroPage() {
   const { data: regime } = useRegimeForecast();
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6">
       {/* Top row: regime + conviction + risk-off */}
       <div className="grid lg:grid-cols-3 gap-6">
         <RegimeQuadrant

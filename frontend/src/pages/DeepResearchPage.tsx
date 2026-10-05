@@ -259,7 +259,7 @@ export default function DeepResearchPage() {
   }
 
   return (
-    <div className="p-8 grid grid-cols-[280px_1fr] gap-5 items-start">
+    <div className="p-4 md:p-8 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5 items-start">
       <Card>
         <div className="px-4 py-3 border-b border-border flex justify-between items-center">
           <span className="text-sm font-semibold">Reports</span>

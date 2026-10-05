@@ -35,7 +35,7 @@ const items: NavItem[] = [
 export function Sidebar() {
 
   return (
-    <aside className="w-60 h-screen bg-surface border-r border-border flex flex-col">
+    <aside className="w-60 h-full bg-surface border-r border-border flex flex-col">
       {/* Logo */}
       <div className="px-5 py-5">
         <div className="flex items-center gap-2.5">

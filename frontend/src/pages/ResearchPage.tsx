@@ -10,7 +10,7 @@ export default function ResearchPage() {
   const { data: sectors = [] } = useSectorPerf();
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6">
       {/* Symbol picker + TA chart */}
       <Card>
         <CardHeader>

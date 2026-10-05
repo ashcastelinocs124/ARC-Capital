@@ -206,7 +206,7 @@ export default function UpdatesPage() {
   const running = !!stage && (ACTIVE_STAGES.has(stage) || stage === "failed");
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="flex items-baseline justify-between mb-3">
         <div className="text-xs text-muted">{rec ? `Briefing for ${rec.date} · generated ${rec.generated_at.replace("T", " ").slice(0, 16)}` : "Daily Update"}</div>
         <div className="flex gap-1.5 flex-wrap">

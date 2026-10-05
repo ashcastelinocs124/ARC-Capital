@@ -40,3 +40,15 @@
     @apply bg-surface border border-border rounded-xl shadow-card;
   }
 }
+
+/* Phone layout: a grid item may shrink below its content (else one wide table stretches the
+   whole column past the screen), and tables scroll sideways instead of widening the page. */
+.grid > * {
+  min-width: 0;
+}
+@media (max-width: 767px) {
+  main table {
+    display: block;
+    overflow-x: auto;
+  }
+}

@@ -248,7 +248,7 @@ export default function ModelsPage() {
   const toggle = (id: string) => setExpanded((cur) => (cur === id ? null : id));
 
   return (
-    <div className="p-8 space-y-5">
+    <div className="p-4 md:p-8 space-y-5">
       <div>
         <h2 className="text-base font-semibold text-text">Models</h2>
         <p className="text-xs text-muted mt-0.5">
