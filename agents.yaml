@@ -309,6 +309,25 @@ agents:
       writes: ["DeepResearchReport (answer, citations, charts)"]
       persists: "Report saved to data/research/<id>.json; not fed into the trading pipeline."
 
+  # ── Research metrics ────────────────────────────────────────────────────
+  - id: adoption_extractor
+    name: AI Adoption · Claim extractor
+    group: Research metrics
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "LLM call (OpenAI)"}
+    class: castelino.adoption.extract.AdoptionExtractor
+    summary: >-
+      Reads AI passages from a company's latest 10-K/10-Q and returns verbatim quotes rated
+      1 pilot, 2 deployed, 3 revenue-linked. Feeds the Talk pillar of the AI Adoption Index
+      (`ckm adoption run`); research metric, not wired into the trading pipeline.
+    tools:
+      - {name: "ai_passages", does: "Deterministic keyword prefilter: only text windows around AI mentions are sent"}
+      - {name: "keep_verified (quote guard)", does: "Drops any claim whose quote is not in the filing text, has a depth outside 1-3, or repeats"}
+    memory:
+      reads: ["AI passages from one filing"]
+      writes: ["Guard-passed claims → Talk score"]
+      persists: "Claims and Talk cached per filing in data/adoption/adoption.db; an unchanged filing is never re-sent."
+
   # ── Triggers ────────────────────────────────────────────────────────────
   - id: significance
     name: Significance Classifier
