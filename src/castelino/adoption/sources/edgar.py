@@ -19,7 +19,7 @@ class Filing:
     ticker: str
     accession: str
     form: str
-    text: str
+    url: str  # primary document; fetched only when the filing is not cached yet
 
 
 _TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
@@ -72,5 +72,8 @@ class EdgarClient:
                 accession = recent["accessionNumber"][i]
                 url = _DOC_URL.format(cik=cik, acc=accession.replace("-", ""),
                                       doc=recent["primaryDocument"][i])
-                return Filing(ticker.upper(), accession, form, _html_to_text(self._get(url).text))
+                return Filing(ticker.upper(), accession, form, url)
         return None
+
+    def filing_text(self, filing: Filing) -> str:
+        return _html_to_text(self._get(filing.url).text)

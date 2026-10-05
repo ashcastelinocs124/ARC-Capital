@@ -71,6 +71,7 @@ def run(period: Optional[str] = typer.Option(None, help="YYYY-MM-DD; defaults to
     deps = P.Deps(
         companies=U.load_universe(upath),
         filing_for=edgar.latest_filing,
+        text_for=edgar.filing_text,
         extract=lambda t, text: extract_claims(
             t, text, max_passages=a.max_passages, window=a.passage_window_chars
         ),

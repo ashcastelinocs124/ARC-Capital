@@ -27,11 +27,20 @@ def client():
     return EdgarClient("ARC Research test@example.com", http=http, min_interval=0, sleep=lambda s: None)
 
 
-def test_latest_filing_picks_newest_10q_and_strips_html():
-    f = client().latest_filing("aapl")
+def test_latest_filing_picks_newest_10q_without_downloading_it():
+    seen = []
+
+    def spy(request):
+        seen.append(str(request.url))
+        return handler(request)
+
+    http = httpx.Client(transport=httpx.MockTransport(spy), headers={"User-Agent": "test"})
+    c = EdgarClient("ARC Research test@example.com", http=http, min_interval=0, sleep=lambda s: None)
+    f = c.latest_filing("aapl")
     assert f is not None
     assert (f.ticker, f.form, f.accession) == ("AAPL", "10-Q", "0000320193-26-000010")
-    assert f.text == "We use machine learning."
+    assert not any(u.endswith(".htm") for u in seen)          # metadata only; the document is fetched on demand
+    assert c.filing_text(f) == "We use machine learning."
 
 
 def test_unknown_ticker_and_no_annual_or_quarterly_filing():

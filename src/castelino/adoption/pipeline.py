@@ -20,6 +20,7 @@ log = logging.getLogger(__name__)
 class Deps:
     companies: list[Company]
     filing_for: Callable[[str], Filing | None]
+    text_for: Callable[[Filing], str]
     extract: Callable[[str, str], tuple[list[Claim], list[Claim]]]
     jobs_for: Callable[[str], JobCounts | None]
     financials_for: Callable[[str], tuple[float | None, float | None, float | None]]
@@ -57,10 +58,11 @@ def run_period(period: str, deps: Deps) -> RunSummary:
                 if cached is not None:
                     raw[t]["talk"] = cached["talk_raw"]
                 else:
-                    kept, dropped = deps.extract(t, filing.text)
+                    text = deps.text_for(filing)  # download only on a cache miss
+                    kept, dropped = deps.extract(t, text)
                     if dropped:
                         log.info("%s: guard dropped %d claim(s)", t, len(dropped))
-                    words = len(filing.text.split())
+                    words = len(text.split())
                     talk = talk_raw([c.depth for c in kept], words)
                     deps.store.put_filing(t, filing.accession, words, talk, kept)
                     raw[t]["talk"] = talk

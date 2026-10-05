@@ -19,13 +19,18 @@ JOBS = {"A": (10, 100), "B": (5, 100), "C": (1, 100), "D": (3, 30)}   # E, F hav
 FIN = {"A": (10.0, 20.0, 100.0), "B": (5.0, 5.0, 100.0), "D": (1.0, 1.0, 50.0)}
 
 
-def make_deps(store, jobs=None, calls=None) -> Deps:
+def make_deps(store, jobs=None, calls=None, fetched=None) -> Deps:
     jobs = jobs or JOBS
 
     def filing_for(t):
         if t not in DEPTHS:
             return None
-        return Filing(t, f"acc-{t}", "10-K", " ".join(["word"] * 1000))
+        return Filing(t, f"acc-{t}", "10-K", f"https://sec.example/{t}.htm")
+
+    def text_for(filing):
+        if fetched is not None:
+            fetched.append(filing.ticker)
+        return " ".join(["word"] * 1000)
 
     def extract(t, text):
         if calls is not None:
@@ -35,6 +40,7 @@ def make_deps(store, jobs=None, calls=None) -> Deps:
     return Deps(
         companies=COMPANIES,
         filing_for=filing_for,
+        text_for=text_for,
         extract=extract,
         jobs_for=lambda t: JobCounts(*jobs[t]) if t in jobs else None,
         financials_for=lambda t: FIN.get(t, (None, None, None)),
@@ -104,3 +110,11 @@ def test_filing_without_ai_claims_is_zero_not_missing(store):
     deps.extract = lambda t, text: ([], [])
     run_period("2026-10-01", deps)
     assert row(store, "2026-10-01", "A")["talk_raw"] == 0.0
+
+
+def test_cached_filing_is_not_downloaded_again(store):
+    fetched: list[str] = []
+    run_period("2026-10-01", make_deps(store, fetched=fetched))
+    assert len(fetched) == 5
+    run_period("2026-10-15", make_deps(store, fetched=fetched))
+    assert len(fetched) == 5                                     # same accessions: no second download
