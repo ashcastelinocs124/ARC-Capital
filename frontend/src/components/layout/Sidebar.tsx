@@ -13,6 +13,7 @@ import {
   PanelLeftClose,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { pageEnabled } from "@/pages/visibility";
 
 interface NavItem {
   to: string;
@@ -45,7 +46,7 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-2 space-y-0.5">
-        {items.map(({ to, label, icon: Icon }) => (
+        {items.filter((i) => pageEnabled(i.to)).map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}

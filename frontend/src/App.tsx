@@ -8,21 +8,28 @@ import RiskPage from "./pages/RiskPage";
 import AgentsPage from "./pages/AgentsPage";
 import DeepResearchPage from "./pages/DeepResearchPage";
 import UpdatesPage from "./pages/UpdatesPage";
+import { HOME, pageEnabled } from "./pages/visibility";
+
+const PAGES: [string, React.ReactNode][] = [
+  ["/portfolio", <PortfolioPage />],
+  ["/models", <ModelsPage />],
+  ["/macro", <MacroPage />],
+  ["/research", <ResearchPage />],
+  ["/deep-research", <DeepResearchPage />],
+  ["/updates", <UpdatesPage />],
+  ["/risk", <RiskPage />],
+  ["/agents", <AgentsPage />],
+];
 
 export default function App() {
   return (
     <AppShell>
       <Routes>
-        <Route path="/" element={<Navigate to="/portfolio" replace />} />
-        <Route path="/portfolio" element={<PortfolioPage />} />
-        <Route path="/models" element={<ModelsPage />} />
-        <Route path="/macro" element={<MacroPage />} />
-        <Route path="/research" element={<ResearchPage />} />
-        <Route path="/deep-research" element={<DeepResearchPage />} />
-        <Route path="/updates" element={<UpdatesPage />} />
+        {PAGES.filter(([path]) => pageEnabled(path)).map(([path, el]) => (
+          <Route key={path} path={path} element={el} />
+        ))}
         <Route path="/sector-sentiment" element={<Navigate to="/models" replace />} />
-        <Route path="/risk" element={<RiskPage />} />
-        <Route path="/agents" element={<AgentsPage />} />
+        <Route path="*" element={<Navigate to={HOME} replace />} />
       </Routes>
     </AppShell>
   );

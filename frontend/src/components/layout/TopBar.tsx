@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Activity } from "lucide-react";
 import { usePortfolioMetrics } from "@/hooks/usePortfolio";
 import { RefreshButton } from "@/components/layout/RefreshButton";
 import { STATIC } from "@/api/client";
+import { pageEnabled } from "@/pages/visibility";
 
 const TITLES: Record<string, { section: string; page: string }> = {
   "/portfolio": { section: "Trading", page: "Portfolio" },
@@ -21,7 +22,7 @@ export function TopBar() {
   const { data: metrics } = usePortfolioMetrics();
   const crumb = TITLES[location.pathname] || { section: "ARC", page: "Dashboard" };
 
-  const nav = metrics?.find((m) => m.label === "NAV");
+  const nav = pageEnabled("/portfolio") ? metrics?.find((m) => m.label === "NAV") : undefined;
   const navDelta = nav?.delta || "";
   const navIsUp = navDelta.startsWith("+");
   const navIsDown = navDelta.startsWith("-");
