@@ -7,6 +7,10 @@ from rich import print as rich_print
 
 app = typer.Typer(help="ARC Capital — multi-agent macro fund.", no_args_is_help=True)
 
+from castelino.adoption.cli import app as adoption_app  # noqa: E402
+
+app.add_typer(adoption_app, name="adoption")
+
 
 @app.callback()
 def main() -> None:
