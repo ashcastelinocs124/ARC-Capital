@@ -427,3 +427,102 @@ agents:
       reads: ["Each persona's independent answer"]
       writes: ["PanelSynthesis"]
       persists: "Attached to the approval item it was run for."
+
+# System architecture diagrams on /agents: one entry per `group` above. The first entry is
+# the page's default view. A lane is a list of steps (left → right) and each step is a list
+# of boxes drawn stacked (parallel). Box string = "kind:text|caption", where kind is
+# agent (text = an agent id; opens it), code (deterministic), gate (waits for a human),
+# end (output), system (text = another group; opens its diagram), or no kind = an input.
+# loops/regions use 0-based step indexes. Keep lanes ≤ 5 steps (so they fit the card); split long ones into
+# numbered stages. tests/test_agent_catalog.py checks every reference.
+systems:
+  - group: Trading pipeline
+    trigger: "A trigger fires (headlines, Fed speech, calendar)"
+    output: "A sized trade order in the simulated portfolio"
+    blurb: >-
+      A LangGraph DAG of LLM agents with two human approval gates. Hard risk rules run in code
+      before the Principles Guard's LLM is asked.
+    lanes:
+      - title: "1 · Idea"
+        flow: [["Trigger"], ["agent:current_event"], ["agent:hypothesis"], ["gate:Human gate|approve thesis"], ["end:↓ to stage 2"]]
+      - title: "2 · Research & debate"
+        flow: [["Approved thesis"], ["agent:asset_selection"], ["system:Research desk|4 in parallel"], ["agent:bull", "agent:bear"], ["agent:debate"]]
+        regions: [{from: 3, to: 4, label: "Adversarial debate"}]
+      - title: "3 · Execution"
+        flow: [["gate:Human gate|approve verdict"], ["code:Hard rules|veto in code"], ["agent:guard_soft"], ["agent:portfolio"], ["end:Trade order|→ ledger"]]
+      - title: "Weekly"
+        flow: [["Short-term journal"], ["agent:curator"], ["end:Long-term lessons|read by Hypothesis"]]
+
+  - group: Research desk
+    trigger: "Asset Selection proposes a trade expression"
+    output: "One research bundle shared by Bull and Bear"
+    blurb: >-
+      Four specialists run in parallel. Each one's numbers are computed in code first; the LLM
+      only interprets them.
+    lanes:
+      - title: "Per expression"
+        flow: [["Trade expression"], ["code:OpenBB data|prices, news, analogs, VaR"], ["agent:web_research", "agent:technical_analysis", "agent:backtesting", "agent:risk"], ["end:Research bundle|→ Bull / Bear"]]
+
+  - group: Deep research
+    trigger: "A question asked on /deep-research"
+    output: "A cited report with charts in data/research/"
+    blurb: >-
+      A plain asyncio state machine. Sub-agents search the web in parallel and the Synthesizer
+      can send gaps back to the Lead. Capped at 15 web searches per report.
+    lanes:
+      - title: "1 · Clarify"
+        flow: [["Your question"], ["agent:deep_clarifier"], ["gate:You answer|or skip"], ["end:↓ to stage 2"]]
+      - title: "2 · Research"
+        flow: [["agent:deep_lead"], ["agent:deep_sub_agent|web_search", "agent:deep_sub_agent|web_search", "agent:deep_sub_agent|≤6 in parallel"], ["agent:deep_synthesizer"], ["code:ChartResolver|OpenBB / FRED"], ["end:Cited report"]]
+        regions: [{from: 0, to: 2, label: "Loop · max 2 rounds"}]
+        loops: [{from: 2, to: 0, label: "gaps → re-plan"}]
+
+  - group: Briefings
+    trigger: "Top-bar Refresh button (once a day)"
+    output: "The /updates briefing and the Sector Sentiment card on /models"
+    blurb: >-
+      Code gathers and scores the data; the agents only explain it. Every number in the
+      briefing is checked against the snapshot before it is saved.
+    lanes:
+      - title: "Daily Update"
+        flow: [["Refresh"], ["code:FRED + Yahoo|snapshot", "code:Refit Pulse / Pressure|promotion gate"], ["agent:update_agent"], ["code:Number guard|1 retry"], ["end:/updates|+ 2-tier memory"]]
+        loops: [{from: 3, to: 2, label: "retry with errors"}]
+      - title: "Sector Sentiment"
+        flow: [["Refresh"], ["code:Divergence scores|top-10 per sector"], ["agent:sector_narrative|1 call", "agent:sector_prose|11 calls"], ["end:Card on /models"]]
+
+  - group: Research metrics
+    trigger: "Refresh (AI Adoption Index); recipes are written by hand"
+    output: "Talk and Hire scores in the AI Adoption Index"
+    blurb: >-
+      The LLM is fenced in by code on both sides: a quote is kept only if it is really in the
+      filing, and a recipe only if our own replay returns real job titles.
+    lanes:
+      - title: "Talk pillar"
+        flow: [["10-K / 10-Q"], ["code:AI-passage prefilter"], ["agent:adoption_extractor"], ["code:Quote guard|quote must be in filing"], ["end:Talk score|cached per filing"]]
+      - title: "Hire pillar · layer 3"
+        flow: [["Custom careers site"], ["agent:recipe_writer|≤15 steps, $3"], ["code:Replay test|≥90% coverage"], ["end:Saved recipe|replayed, no model"]]
+        loops: [{from: 2, to: 1, label: "rejected → try again"}]
+
+  - group: Triggers
+    trigger: "News feeds and live Fed speeches, continuously"
+    output: "Fires the Trading pipeline"
+    blurb: >-
+      Cheap filters first, LLM second. Borderline headlines get a second, enriched look; a
+      speech must deviate more than 1.5σ from the speaker's baseline before any LLM is asked.
+    lanes:
+      - title: "Headlines"
+        flow: [["RSS headlines"], ["agent:significance"], ["agent:significance_rescore|borderline 0.4–0.8"], ["code:Conviction ledger|12h half-life"], ["system:Trading pipeline"]]
+      - title: "Fed speech"
+        flow: [["Live audio|Deepgram STT"], ["code:Stage A z-score|vs 12-month baseline"], ["agent:figure_deviation_stage_b|only above 1.5σ"], ["system:Trading pipeline"]]
+
+  - group: Advisors
+    trigger: "A user consults a persona"
+    output: "A cited reply, or a panel synthesis"
+    blurb: >-
+      RAG over each persona's own scraped writing. Panel members answer independently without
+      seeing each other, then one call synthesises them. Never part of the trading pipeline.
+    lanes:
+      - title: "Chat"
+        flow: [["Your question"], ["code:Chroma top-k|persona corpus"], ["agent:persona"], ["end:Reply|with sources"]]
+      - title: "Panel"
+        flow: [["Your question"], ["agent:persona|Krugman", "agent:persona|Dalio", "agent:persona|El-Erian"], ["agent:persona_panel"], ["end:Synthesis|consensus, objections"]]

@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import type { AgentCatalogEntry } from "@/api/endpoints";
 import { useAgentCatalog } from "@/hooks/useAgentCatalog";
 import { cn } from "@/lib/cn";
+import { SystemDiagram } from "@/components/SystemDiagram";
 
 const TABS = ["Prompt", "Tools", "Memory", "Output", "Dependencies"] as const;
 type Tab = (typeof TABS)[number];
@@ -152,13 +153,19 @@ function Detail({ a }: { a: AgentCatalogEntry }) {
 export default function AgentsPage() {
   const { data, isLoading } = useAgentCatalog();
   const [q, setQ] = useState("");
-  const [picked, setPicked] = useState<string | null>(null);
+  // an agent id, or a group name for its architecture diagram; null = the first system
+  const [picked, setPicked] = useState<{ agent?: string; group?: string } | null>(null);
   const agents = data?.agents ?? [];
+  const systems = data?.systems ?? [];
   const shown = useMemo(
     () => agents.filter((a) => !q || JSON.stringify(a).toLowerCase().includes(q.toLowerCase())),
     [agents, q],
   );
-  const current = agents.find((a) => a.id === picked) ?? agents[0];
+  const system = picked ? systems.find((s) => s.group === picked.group) : systems[0];
+  const current = system ? undefined : agents.find((a) => a.id === picked?.agent) ?? agents[0];
+  const names = useMemo(() => Object.fromEntries(agents.map((a) => [a.id, a.name])), [agents]);
+  const right = useRef<HTMLDivElement>(null);
+  const open = (p: { agent?: string; group?: string }) => { setPicked(p); right.current?.scrollIntoView({ block: "start" }); };
 
   if (isLoading) return <div className="p-4 md:p-8 text-sm text-muted">Loading agents…</div>;
 
@@ -178,9 +185,15 @@ export default function AgentsPage() {
             if (!xs.length) return null;
             return (
               <div key={g}>
-                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted px-2.5 pt-3 pb-1">{g}</div>
+                {systems.some((s) => s.group === g) ? (
+                  <button onClick={() => open({ group: g })}
+                    className={cn("w-full flex items-center justify-between mt-1 px-2.5 pt-2 pb-1 rounded-lg text-[11px] font-semibold uppercase tracking-wider text-left",
+                      g === system?.group ? "bg-accent-soft text-accent" : "text-muted hover:bg-surface-2")}>
+                    {g}<span className="text-[10px] font-medium normal-case tracking-normal text-accent">Architecture</span>
+                  </button>
+                ) : <div className="text-[11px] font-semibold uppercase tracking-wider text-muted px-2.5 pt-3 pb-1">{g}</div>}
                 {xs.map((a) => (
-                  <button key={a.id} onClick={() => setPicked(a.id)}
+                  <button key={a.id} onClick={() => open({ agent: a.id })}
                     className={cn("w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-sm text-left",
                       a.id === current?.id ? "bg-accent-soft text-accent font-semibold" : "hover:bg-surface-2")}>
                     <span className="truncate">{a.name}</span>
@@ -204,7 +217,13 @@ export default function AgentsPage() {
           </div>
         )}
       </Card>
-      {current ? <Detail key={current.id} a={current} /> : <Card className="p-4 md:p-8 text-sm text-muted">No agents registered.</Card>}
+      <div ref={right} className="min-w-0 scroll-mt-4">
+      {system ? (
+        <Card className="flex flex-col min-w-0">
+          <SystemDiagram system={system} names={names} onAgent={(id) => open({ agent: id })} onSystem={(group) => open({ group })} />
+        </Card>
+      ) : current ? <Detail key={current.id} a={current} /> : <Card className="p-4 md:p-8 text-sm text-muted">No agents registered.</Card>}
+      </div>
     </div>
   );
 }

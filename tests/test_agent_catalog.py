@@ -72,3 +72,26 @@ def test_every_agent_declares_dependencies():
         e["id"] for e in cat.build_catalog()["agents"] if "dependencies" not in e["raw_keys"]
     ]
     assert missing == []
+
+
+def test_system_diagrams_reference_real_agents_and_groups():
+    body = cat.build_catalog()
+    ids = {e["id"] for e in body["agents"]}
+    groups = set(body["groups"])
+    systems = body["systems"]
+    assert {s["group"] for s in systems} == groups, "every group needs exactly one system diagram"
+    for s in systems:
+        for lane in s["lanes"]:
+            where = f"{s['group']} / {lane['title']}"
+            assert 1 <= len(lane["flow"]) <= 5, f"{where}: keep lanes to 5 steps or split them"
+            for step in lane["flow"]:
+                for box in step:
+                    kind, _, rest = box.partition(":")
+                    target = rest.split("|")[0]
+                    if kind == "agent":
+                        assert target in ids, f"{where}: unknown agent {target!r}"
+                    if kind == "system":
+                        assert target in groups, f"{where}: unknown system {target!r}"
+            for ref in lane.get("loops", []) + lane.get("regions", []):
+                assert 0 <= ref["from"] < len(lane["flow"]), where
+                assert 0 <= ref["to"] < len(lane["flow"]), where

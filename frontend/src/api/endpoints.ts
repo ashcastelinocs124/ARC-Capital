@@ -152,8 +152,15 @@ export interface AgentCatalogEntry {
   error: string | null;
   dependencies: { key: string; required: boolean; why: string; set: boolean }[];
 }
+export interface SystemLane {
+  title: string;
+  flow: string[][]; // steps left → right; each step's boxes stack. Box = "kind:text|caption"
+  loops?: { from: number; to: number; label: string }[];
+  regions?: { from: number; to: number; label: string }[];
+}
+export interface AgentSystem { group: string; trigger: string; output: string; blurb: string; lanes: SystemLane[] }
 export interface AgentCatalog {
-  agents: AgentCatalogEntry[]; groups: string[];
+  agents: AgentCatalogEntry[]; groups: string[]; systems?: AgentSystem[];
   unregistered: { class_name: string; class_path: string; file: string }[];
 }
 export const fetchAgentCatalog = () => api.get<AgentCatalog>("/agents/catalog");

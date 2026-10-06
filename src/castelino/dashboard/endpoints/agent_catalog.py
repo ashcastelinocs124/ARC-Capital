@@ -130,6 +130,7 @@ def build_catalog(registry: Path | None = None) -> dict:
     return {
         "agents": entries,
         "groups": groups,
+        "systems": raw.get("systems") or [],
         "unregistered": [c for c in _agent_classes() if c["class_path"] not in registered],
     }
 
