@@ -95,3 +95,20 @@ def test_system_diagrams_reference_real_agents_and_groups():
             for ref in lane.get("loops", []) + lane.get("regions", []):
                 assert 0 <= ref["from"] < len(lane["flow"]), where
                 assert 0 <= ref["to"] < len(lane["flow"]), where
+
+
+def test_every_agent_appears_in_its_groups_diagram():
+    """Each agent's Arch tab on /agents shows the lanes it appears in, so none may be missing."""
+    body = cat.build_catalog()
+    drawn = {
+        s["group"]: {
+            b.partition(":")[2].split("|")[0]
+            for lane in s["lanes"]
+            for step in lane["flow"]
+            for b in step
+            if b.startswith("agent:")
+        }
+        for s in body["systems"]
+    }
+    missing = [e["id"] for e in body["agents"] if e["id"] not in drawn.get(e["group"], set())]
+    assert not missing, f"add these agents to their group's diagram in agents.yaml: {missing}"

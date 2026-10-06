@@ -1,11 +1,11 @@
 import { useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
-import type { AgentCatalogEntry } from "@/api/endpoints";
+import type { AgentCatalogEntry, AgentSystem } from "@/api/endpoints";
 import { useAgentCatalog } from "@/hooks/useAgentCatalog";
 import { cn } from "@/lib/cn";
-import { SystemDiagram } from "@/components/SystemDiagram";
+import { AgentArch, SystemDiagram } from "@/components/SystemDiagram";
 
-const TABS = ["Prompt", "Tools", "Memory", "Output", "Dependencies"] as const;
+const TABS = ["Arch", "Prompt", "Tools", "Memory", "Output", "Dependencies"] as const;
 type Tab = (typeof TABS)[number];
 
 function TierBadge({ tier }: { tier: string | null }) {
@@ -33,8 +33,11 @@ function Lane({ title, items, core }: { title: string; items: string[]; core?: b
   );
 }
 
-function Detail({ a }: { a: AgentCatalogEntry }) {
-  const [tab, setTab] = useState<Tab>("Prompt");
+function Detail({ a, system, names, open }: {
+  a: AgentCatalogEntry; system?: AgentSystem; names: Record<string, string>;
+  open: (p: { agent?: string; group?: string }) => void;
+}) {
+  const [tab, setTab] = useState<Tab>(system ? "Arch" : "Prompt");
   const core = [a.model ? `${a.tier} · ${a.model}` : a.tier ?? "model n/a", a.output ? `→ ${a.output.name}` : "free-form output"];
   return (
     <Card className="flex flex-col min-h-0">
@@ -59,6 +62,10 @@ function Detail({ a }: { a: AgentCatalogEntry }) {
         ))}
       </div>
       <div className="p-6 overflow-auto">
+        {tab === "Arch" && (system ? (
+          <AgentArch agentId={a.id} system={system} names={names}
+            onAgent={(id) => open({ agent: id })} onSystem={(group) => open({ group })} />
+        ) : <div className="text-sm text-muted">No architecture diagram for this agent's group yet (add it under <span className="font-mono">systems:</span> in agents.yaml).</div>)}
         {tab === "Prompt" && (a.prompt ? (
           <>
             <div className="text-xs text-muted mb-2">Live from <span className="font-mono break-all">{a.prompt_source}</span> — the prompt the agent actually runs</div>
@@ -222,7 +229,8 @@ export default function AgentsPage() {
         <Card className="flex flex-col min-w-0">
           <SystemDiagram system={system} names={names} onAgent={(id) => open({ agent: id })} onSystem={(group) => open({ group })} />
         </Card>
-      ) : current ? <Detail key={current.id} a={current} /> : <Card className="p-4 md:p-8 text-sm text-muted">No agents registered.</Card>}
+      ) : current ? <Detail key={current.id} a={current} names={names} open={open}
+        system={systems.find((s) => s.group === current.group)} /> : <Card className="p-4 md:p-8 text-sm text-muted">No agents registered.</Card>}
       </div>
     </div>
   );

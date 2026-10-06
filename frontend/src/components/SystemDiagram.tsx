@@ -26,9 +26,10 @@ const BOX: Record<Kind, string> = {
   input: "bg-surface border-border text-text-2",
 };
 
-function Lane({ lane, width, names, onAgent, onSystem }: {
+function Lane({ lane, width, names, onAgent, onSystem, highlight }: {
   lane: SystemLane; width: number; names: Record<string, string>;
   onAgent: (id: string) => void; onSystem: (group: string) => void;
+  highlight?: string; // an agent id: outline its boxes, fade the other agents
 }) {
   // shrink to fit the card; below the minimum the lane scrolls sideways (phones)
   const n = lane.flow.length;
@@ -87,7 +88,8 @@ function Lane({ lane, width, names, onAgent, onSystem }: {
           const label = b.kind === "agent" ? (names[b.text] ?? b.text).replace(/^.*· /, "") : b.text;
           return (
             <div key={k} onClick={click} title={b.kind === "agent" ? names[b.text] : undefined}
-              className={cn("absolute flex flex-col items-center justify-center text-center rounded-[10px] border px-1.5 overflow-hidden text-xs leading-[15px]", BOX[b.kind])}
+              className={cn("absolute flex flex-col items-center justify-center text-center rounded-[10px] border px-1.5 overflow-hidden text-xs leading-[15px]", BOX[b.kind],
+                highlight && b.kind === "agent" && (b.text === highlight ? "ring-2 ring-accent ring-offset-2" : "opacity-45"))}
               style={{ left: b.x, top: b.y, width: W, height: H }}>
               <span>{b.kind === "system" && "⬚ "}{label}</span>
               {b.caption && <span className="text-[10.5px] leading-[13px] font-normal opacity-75 mt-0.5">{b.caption}</span>}
@@ -99,14 +101,7 @@ function Lane({ lane, width, names, onAgent, onSystem }: {
   );
 }
 
-function Key({ cls, children }: { cls: string; children: React.ReactNode }) {
-  return <span className="flex items-center gap-1.5"><i className={cn("inline-block w-3.5 h-2.5 rounded-[3px] border", cls)} />{children}</span>;
-}
-
-export function SystemDiagram({ system, names, onAgent, onSystem }: {
-  system: AgentSystem; names: Record<string, string>;
-  onAgent: (id: string) => void; onSystem: (group: string) => void;
-}) {
+function useWidth() {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(800);
   useEffect(() => {
@@ -116,6 +111,18 @@ export function SystemDiagram({ system, names, onAgent, onSystem }: {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  return [ref, width] as const;
+}
+
+function Key({ cls, children }: { cls: string; children: React.ReactNode }) {
+  return <span className="flex items-center gap-1.5"><i className={cn("inline-block w-3.5 h-2.5 rounded-[3px] border", cls)} />{children}</span>;
+}
+
+export function SystemDiagram({ system, names, onAgent, onSystem }: {
+  system: AgentSystem; names: Record<string, string>;
+  onAgent: (id: string) => void; onSystem: (group: string) => void;
+}) {
+  const [ref, width] = useWidth();
 
   return (
     <>
@@ -134,13 +141,43 @@ export function SystemDiagram({ system, names, onAgent, onSystem }: {
           <Lane lane={lane} width={width} names={names} onAgent={onAgent} onSystem={onSystem} />
         </div>
       ))}
-      <div className="flex flex-wrap gap-x-4 gap-y-1.5 px-6 py-3 text-xs text-muted">
+<Legend className="px-6 py-3" />
+    </>
+  );
+}
+
+function Legend({ className }: { className?: string }) {
+  return (
+    <div className={cn("flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted", className)}>
         <Key cls="bg-accent-soft border-accent">LLM agent: click to open</Key>
         <Key cls="bg-surface-2 border-dashed border-muted-2">deterministic code</Key>
         <Key cls="bg-warning-soft border-warning">waits for a human</Key>
         <Key cls="border-accent">⬚ another system: click</Key>
         <span className="text-accent">⇢ dashed green = loop back</span>
       </div>
-    </>
+  );
+}
+
+/** One agent's place in its system: the lanes it appears in, with its boxes outlined. */
+export function AgentArch({ agentId, system, names, onAgent, onSystem }: {
+  agentId: string; system: AgentSystem; names: Record<string, string>;
+  onAgent: (id: string) => void; onSystem: (group: string) => void;
+}) {
+  const [ref, width] = useWidth();
+  const mine = system.lanes.filter((l) => l.flow.flat().some((b) => b.split("|")[0] === `agent:${agentId}`));
+  return (
+    <div ref={ref}>
+      <div className="text-sm text-muted mb-4">
+        Part of <b className="text-text-2">{system.group}</b>: {system.trigger.charAt(0).toLowerCase() + system.trigger.slice(1)} → {system.output.charAt(0).toLowerCase() + system.output.slice(1)}.{" "}
+        <button onClick={() => onSystem(system.group)} className="text-accent font-medium hover:underline">See the whole system →</button>
+      </div>
+      {mine.map((lane) => (
+        <div key={lane.title} className="mb-5">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">{lane.title}</div>
+          <Lane lane={lane} width={width} names={names} onAgent={onAgent} onSystem={onSystem} highlight={agentId} />
+        </div>
+      ))}
+      <Legend className="pt-3 border-t border-border" />
+    </div>
   );
 }
