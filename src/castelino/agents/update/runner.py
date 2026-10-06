@@ -164,6 +164,7 @@ class UpdateRunner:
                 log.warning("refit failed", exc_info=True)
                 model_note = f"model not refreshed today: {exc}"
             if challenger is not None:
+                self.registry.save_history(challenger)
                 self._set(Stage.GATING)
                 gate = run_gate(challenger, champion, self.tolerance)
                 promoted = [m for m in MODELS if getattr(gate, m).decision.value == "promoted"]

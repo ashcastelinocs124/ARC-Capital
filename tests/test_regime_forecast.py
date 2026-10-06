@@ -32,12 +32,12 @@ from castelino.forecast.regime import (
     walk_forward_metrics,
 )
 
-
 # ───────────────────────── synthetic series factory ────────────────────
 
 
-def _ar1(level: float, phi: float, sigma: float, rng: np.random.Generator,
-         n_months: int) -> pd.Series:
+def _ar1(
+    level: float, phi: float, sigma: float, rng: np.random.Generator, n_months: int
+) -> pd.Series:
     idx = pd.date_range("2000-01-31", periods=n_months, freq="ME")
     x = np.empty(n_months)
     x[0] = level
@@ -50,16 +50,16 @@ def _make_synthetic(seed: int = 0, n_months: int = 25 * 12) -> dict[str, pd.Seri
     rng = np.random.default_rng(seed)
     idx = pd.date_range("2000-01-31", periods=n_months, freq="ME")
     return {
-        "NAPM":          _ar1(51.0, 0.85, 1.4, rng, n_months),
-        "CPIAUCSL":      pd.Series(np.cumsum(rng.normal(0.25, 0.3, size=n_months)) + 170.0, index=idx),
+        "NAPM": _ar1(51.0, 0.85, 1.4, rng, n_months),
+        "CPIAUCSL": pd.Series(np.cumsum(rng.normal(0.25, 0.3, size=n_months)) + 170.0, index=idx),
         # Growth side
-        "T10Y3M":        _ar1(1.5, 0.8, 0.4, rng, n_months),
-        "AMTMNO":        _ar1(450.0, 0.7, 6.0, rng, n_months),
-        "BUSINV":        _ar1(700.0, 0.85, 4.0, rng, n_months),
+        "T10Y3M": _ar1(1.5, 0.8, 0.4, rng, n_months),
+        "AMTMNO": _ar1(450.0, 0.7, 6.0, rng, n_months),
+        "BUSINV": _ar1(700.0, 0.85, 4.0, rng, n_months),
         "cyclicals_def": _ar1(1.2, 0.85, 0.05, rng, n_months),
         # Inflation side
-        "PPIACO":        _ar1(200.0, 0.8, 2.0, rng, n_months),
-        "BCOM":          _ar1(100.0, 0.85, 1.5, rng, n_months),
+        "PPIACO": _ar1(200.0, 0.8, 2.0, rng, n_months),
+        "BCOM": _ar1(100.0, 0.85, 1.5, rng, n_months),
     }
 
 
@@ -86,8 +86,9 @@ def _make_provider(series_map: dict[str, pd.Series]):
 def test_growth_forecast_runs_with_only_target():
     series_map = _make_synthetic()
     cfg = IndicatorListConfig(
-        target=IndicatorSpec(id="NAPM", source=SOURCE_FRED, fred_id="NAPM",
-                             name="ISM Manufacturing PMI"),
+        target=IndicatorSpec(
+            id="NAPM", source=SOURCE_FRED, fred_id="NAPM", name="ISM Manufacturing PMI"
+        ),
         indicators=(),
     )
     fc = train_growth_forecast(
@@ -99,13 +100,34 @@ def test_growth_forecast_runs_with_only_target():
     assert fc.target_id == "NAPM"
     assert fc.indicators_used == ["NAPM"]
     assert 0.0 <= fc.prob_up <= 1.0
+    # level label → the chart history is the target's own monthly level, last 60 months
+    assert len(fc.history) == 60
+    assert fc.history[-1]["month"] == fc.feature_month[:7]
+
+
+def test_accel_label_history_is_month_over_month_percent():
+    series_map = _make_synthetic()
+    cfg = IndicatorListConfig(
+        target=IndicatorSpec(id="CPIAUCSL", source=SOURCE_FRED, fred_id="CPIAUCSL"),
+        indicators=(),
+        label="accel",
+    )
+    fc = train_inflation_forecast(
+        indicator_cfg=cfg,
+        training_cfg=TrainingConfig(history_start="2000-01-01", n_lags=4, cv_splits=4),
+        series_provider=_make_provider(series_map),
+    )
+    cpi = series_map["CPIAUCSL"].resample("ME").last()
+    expected = (cpi.iloc[-1] / cpi.iloc[-2] - 1) * 100
+    assert abs(fc.history[-1]["value"] - expected) < 1e-3
 
 
 def test_inflation_forecast_with_custom_indicator_list():
     series_map = _make_synthetic()
     cfg = IndicatorListConfig(
-        target=IndicatorSpec(id="CPIAUCSL", source=SOURCE_FRED, fred_id="CPIAUCSL",
-                             name="CPI All Items"),
+        target=IndicatorSpec(
+            id="CPIAUCSL", source=SOURCE_FRED, fred_id="CPIAUCSL", name="CPI All Items"
+        ),
         indicators=(
             IndicatorSpec(id="PPIACO", source=SOURCE_FRED, fred_id="PPIACO"),
             IndicatorSpec(id="BCOM", source=SOURCE_YF_CLOSE, yf_symbol="^BCOM"),
@@ -128,8 +150,9 @@ def test_independent_forecasts_use_different_indicator_lists():
         target=IndicatorSpec(id="NAPM", source=SOURCE_FRED, fred_id="NAPM"),
         indicators=(
             IndicatorSpec(id="T10Y3M", source=SOURCE_FRED, fred_id="T10Y3M"),
-            IndicatorSpec(id="cyclicals_def", source=SOURCE_YF_RATIO,
-                          yf_numerator="XLY", yf_denominator="XLP"),
+            IndicatorSpec(
+                id="cyclicals_def", source=SOURCE_YF_RATIO, yf_numerator="XLY", yf_denominator="XLP"
+            ),
         ),
     )
     inflation_cfg = IndicatorListConfig(
@@ -275,7 +298,9 @@ def test_fetch_local_csv_parses_comments(monkeypatch, tmp_path):
 
 def test_indicator_spec_validates_requirements():
     IndicatorSpec(
-        id="ok", source=SOURCE_LOCAL_CSV, csv_relpath="data/ism_manufacturing_pmi.csv",
+        id="ok",
+        source=SOURCE_LOCAL_CSV,
+        csv_relpath="data/ism_manufacturing_pmi.csv",
     ).validate()
     with pytest.raises(ValueError):
         IndicatorSpec(id="x", source=SOURCE_LOCAL_CSV).validate()  # missing path
@@ -299,14 +324,16 @@ def test_two_month_ahead_target_shifts_correctly():
 
     fc1 = train_growth_forecast(
         indicator_cfg=cfg,
-        training_cfg=TrainingConfig(history_start="2000-01-01", n_lags=4,
-                                    cv_splits=4, lead_months=1),
+        training_cfg=TrainingConfig(
+            history_start="2000-01-01", n_lags=4, cv_splits=4, lead_months=1
+        ),
         series_provider=_make_provider(series_map),
     )
     fc2 = train_growth_forecast(
         indicator_cfg=cfg,
-        training_cfg=TrainingConfig(history_start="2000-01-01", n_lags=4,
-                                    cv_splits=4, lead_months=2),
+        training_cfg=TrainingConfig(
+            history_start="2000-01-01", n_lags=4, cv_splits=4, lead_months=2
+        ),
         series_provider=_make_provider(series_map),
     )
 
@@ -327,14 +354,14 @@ def test_search_returns_history_with_at_least_baseline():
     )
 
     series_map = _make_synthetic()
-    target = IndicatorSpec(id="CPIAUCSL", source=SOURCE_FRED, fred_id="CPIAUCSL",
-                           name="CPI All Items")
+    target = IndicatorSpec(
+        id="CPIAUCSL", source=SOURCE_FRED, fred_id="CPIAUCSL", name="CPI All Items"
+    )
     candidates = [
         IndicatorSpec(id="PPIACO", source=SOURCE_FRED, fred_id="PPIACO"),
         IndicatorSpec(id="BCOM", source=SOURCE_YF_CLOSE, yf_symbol="^BCOM"),
     ]
-    cfg = TrainingConfig(history_start="2000-01-01", n_lags=4, cv_splits=4,
-                         lead_months=2)
+    cfg = TrainingConfig(history_start="2000-01-01", n_lags=4, cv_splits=4, lead_months=2)
 
     result = greedy_forward_search(
         target=target,

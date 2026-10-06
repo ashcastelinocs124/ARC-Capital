@@ -31,6 +31,15 @@ def _registry_forecast():
     return ModelRegistry(cfg.root / cfg.update_agent.data_dir / "models").current()
 
 
+def _registry_history() -> dict[str, list[dict]]:
+    """Chart history saved by the latest refit, promoted or not ({} until the first refit)."""
+    from castelino.agents.update.registry import ModelRegistry
+    from castelino.config import get_settings
+
+    cfg = get_settings()
+    return ModelRegistry(cfg.root / cfg.update_agent.data_dir / "models").history()
+
+
 def _regime_parameters() -> list[dict]:
     t = regime.TrainingConfig()  # the refit always uses these defaults; nothing is tuned at runtime
     return [
@@ -189,6 +198,7 @@ def _direction_card(model_id: str, name: str, label: str, fc) -> dict:
         "predicts": _regime_predicts(model_id, fc),
         "parameters": _regime_parameters(),
         "sources": _regime_sources(_MODELS[model_id][2], fc.indicators_used),
+        "history": _registry_history().get(model_id, []),
     }
 
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Maximize2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/cn";
@@ -113,6 +113,43 @@ export function ExpandableCard({
   );
 }
 
+export const TILE_CHART_HEIGHT = 230;
+
+// Collapsed /models tile: the graph is the tile; clicking it opens the model's full card.
+export function GraphTile({
+  name,
+  value,
+  caption,
+  children,
+}: {
+  name: string;
+  value: ReactNode;
+  caption: string;
+  children: ReactNode; // the chart, TILE_CHART_HEIGHT tall
+}) {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="text-base font-semibold text-text">{name}</div>
+        <div className="font-mono text-lg font-bold whitespace-nowrap">{value}</div>
+      </div>
+      <div className="mt-2 flex-1">{children}</div>
+      <div className="mt-2 text-xs text-muted">
+        {caption} · <span className="group-hover:text-accent">Open card →</span>
+      </div>
+    </div>
+  );
+}
+
+// Placeholder the size of a tile chart.
+export function NoChart({ text }: { text: string }) {
+  return (
+    <div className="grid place-items-center text-xs text-muted" style={{ height: TILE_CHART_HEIGHT }}>
+      {text}
+    </div>
+  );
+}
+
 export function HowItWorks({
   short,
   steps,
@@ -205,27 +242,5 @@ export function Measures({ question, output }: { question: string; output: strin
       <div className="text-sm text-text mt-0.5">{question}</div>
       <div className="text-xs text-muted mt-0.5">Output: {output}</div>
     </div>
-  );
-}
-
-// "Show X ▾" footer toggles; one pane open at a time, same styling as Parameters / Sources.
-export function Toggles({ tabs }: { tabs: { key: string; label: string; render: () => ReactNode }[] }) {
-  const [open, setOpen] = useState<string | null>(null);
-  const current = tabs.find((t) => t.key === open);
-  return (
-    <>
-      <div className="mt-3.5 border-t border-border pt-3 flex flex-wrap gap-x-4 gap-y-1">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setOpen(open === t.key ? null : t.key)}
-            className={cn("text-xs font-medium", open === t.key ? "text-accent" : "text-muted hover:text-accent")}
-          >
-            {open === t.key ? "Hide" : "Show"} {t.label} {open === t.key ? "▴" : "▾"}
-          </button>
-        ))}
-      </div>
-      {current && <div className="mt-2.5">{current.render()}</div>}
-    </>
   );
 }

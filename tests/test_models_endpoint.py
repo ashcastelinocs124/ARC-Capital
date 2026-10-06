@@ -33,6 +33,9 @@ def test_models_reports_fresh_stale_and_missing(monkeypatch):
         inflation=_dir(InflationForecast, now - timedelta(days=2)),
     )
     monkeypatch.setattr(ep, "_registry_forecast", lambda: None)
+    monkeypatch.setattr(
+        ep, "_registry_history", lambda: {"growth": [{"month": "2026-03", "value": 4.2}]}
+    )
     monkeypatch.setattr(ep.regime, "read_forecast", lambda: rf)
     monkeypatch.setattr(ep.risk_off, "read_forecast", lambda: None)
 
@@ -44,6 +47,8 @@ def test_models_reports_fresh_stale_and_missing(monkeypatch):
     assert cards["growth"]["kind"] == "XGBoost · ISM Manufacturing PMI, 1-month lead"
     assert cards["inflation"]["status"] == "stale"
     assert cards["risk_off"]["status"] == "missing"
+    assert cards["growth"]["history"] == [{"month": "2026-03", "value": 4.2}]
+    assert cards["inflation"]["history"] == []  # no refit has saved one yet
 
 
 def test_models_risk_off_card(monkeypatch):

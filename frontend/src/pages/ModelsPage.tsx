@@ -4,7 +4,8 @@ import type { ModelCard } from "@/api/endpoints";
 import { cn } from "@/lib/cn";
 import { SectorSentimentSection } from "@/components/SectorSentimentSection";
 import { AdoptionSection } from "@/components/AdoptionSection";
-import { CardHead, ExpandableCard, HowItWorks, Panel } from "@/components/modelCard";
+import { Line, LineChart, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { CardHead, ExpandableCard, GraphTile, HowItWorks, NoChart, Panel, TILE_CHART_HEIGHT } from "@/components/modelCard";
 import { ENABLED_MODELS, type ModelId } from "@/models/registry";
 
 const WEAK_ACCURACY = 0.55; // near coin-flip for a binary up/down call
@@ -138,25 +139,6 @@ function Predicts({ card }: { card: ModelCard }) {
   );
 }
 
-function Toggles({ card }: { card: ModelCard }) {
-  const [open, setOpen] = useState<"parameters" | "sources" | null>(null);
-  const params = card.parameters ?? [];
-  const sources = card.sources ?? [];
-  return (
-    <>
-      <div className="mt-3.5 border-t border-border pt-3 flex gap-4">
-        {([["parameters", `Parameters (${params.length})`], ["sources", `Sources (${sources.length})`]] as const).map(([k, label]) => (
-          <button key={k} onClick={() => setOpen(open === k ? null : k)}
-            className={cn("text-xs font-medium", open === k ? "text-accent" : "text-muted hover:text-accent")}>
-            {open === k ? "Hide" : "Show"} {label} {open === k ? "▴" : "▾"}
-          </button>
-        ))}
-      </div>
-      {open === "parameters" && <div className="mt-2.5"><ParamsTable card={card} /></div>}
-      {open === "sources" && <div className="mt-2.5"><SourcesTable card={card} /></div>}
-    </>
-  );
-}
 
 function Summary({ card, expanded, onToggle }: { card: ModelCard; expanded: boolean; onToggle: () => void }) {
   const how = HOW[card.id];
@@ -224,17 +206,58 @@ function Summary({ card, expanded, onToggle }: { card: ModelCard; expanded: bool
   );
 }
 
+// What each forecaster's tile chart plots (the series its label is built from).
+const SERIES: Record<string, { name: string; unit: string }> = {
+  growth: { name: "Empire State + Philly Fed composite, 0 = neutral", unit: "" },
+  inflation: { name: "CPI month-over-month", unit: "%" },
+};
+const TILE_MONTHS = 36;
+
+function HistoryChart({ card }: { card: ModelCard }) {
+  const rows = (card.history ?? []).slice(-TILE_MONTHS);
+  if (rows.length < 2) return <NoChart text="History appears after the next Refresh." />;
+  const unit = SERIES[card.id]?.unit ?? "";
+  const last = rows[rows.length - 1];
+  const color = card.up ? "#16a34a" : "#dc2626";
+  const call = `${card.target_month ? monthLabel(card.target_month).split(" ")[0] : "Next"}: ${Math.round((card.prob ?? 0) * 100)}% ${card.up ? "▲" : "▼"}`;
+  return (
+    <ResponsiveContainer width="100%" height={TILE_CHART_HEIGHT}>
+      <LineChart data={rows} margin={{ top: 8, right: 72, left: 0, bottom: 0 }}>
+        <XAxis dataKey="month" tick={{ fontSize: 10 }} tickFormatter={(m: string) => m.slice(0, 4)}
+          ticks={rows.filter((r) => r.month.endsWith("-01")).map((r) => r.month)} />
+        <YAxis tick={{ fontSize: 10 }} width={40} tickFormatter={(v: number) => `${+v.toFixed(1)}${unit}`} />
+        <ReferenceLine y={0} stroke="#d4d4d7" strokeDasharray="3 3" />
+        <Tooltip formatter={(v: number) => `${v.toFixed(2)}${unit}`} labelFormatter={(m: string) => monthLabel(m)} />
+        <Line dataKey="value" name={SERIES[card.id]?.name} stroke="#52525b" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+        <ReferenceDot x={last.month} y={last.value} r={4} fill={color} stroke="none"
+          label={{ value: call, position: "right", fill: color, fontSize: 11, fontWeight: 600 }} />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+function Tile({ card }: { card: ModelCard }) {
+  if (card.status === "missing") {
+    return <GraphTile name={card.name} value={<span className="text-muted">—</span>} caption="Not trained yet"><NoChart text="No forecast on disk yet." /></GraphTile>;
+  }
+  const pct = Math.round((card.prob ?? 0) * 100);
+  return (
+    <GraphTile
+      name={card.name}
+      value={<span className={card.up ? "text-success" : "text-danger"}>{card.up ? "▲" : "▼"} {pct}%</span>}
+      caption={`${SERIES[card.id]?.name ?? card.kind} · dot = ${card.prob_label}${card.target_month ? ` for ${monthLabel(card.target_month)}` : ""}`}
+    >
+      <HistoryChart card={card} />
+    </GraphTile>
+  );
+}
+
 function Card({ card, expanded, onToggle }: { card: ModelCard; expanded: boolean; onToggle: () => void }) {
   return (
     <ExpandableCard
       expanded={expanded}
       onToggle={onToggle}
-      collapsed={
-        <>
-          <Summary card={card} expanded={false} onToggle={onToggle} />
-          <Toggles card={card} />
-        </>
-      }
+      collapsed={<Tile card={card} />}
       full={{
         left: <Summary card={card} expanded onToggle={onToggle} />,
         right: (
@@ -279,11 +302,11 @@ export default function ModelsPage() {
         <h2 className="text-base font-semibold text-text">Models</h2>
         <p className="text-xs text-muted mt-0.5">
           Current state of the XGBoost forecasters feeding the pipeline, the Sector Sentiment indicator and the AI
-          Adoption Index. Click any card for the full view. Read-only; forecasts older than 24h are marked stale.
+          Adoption Index, each as a graph. Click a graph for that model's card. Read-only; forecasts older than 24h are marked stale.
         </p>
       </div>
       {/* equal-height rows so every card is the same size; off while one is expanded */}
-      <div className={cn("grid md:grid-cols-2 lg:grid-cols-3 gap-6", !expanded && "auto-rows-fr")}>
+      <div className={cn("grid md:grid-cols-2 gap-6", !expanded && "auto-rows-fr")}>
         {isLoading && <div className="text-sm text-muted">Loading…</div>}
         {ENABLED_MODELS.map((m) => {
           const Model = COMPONENTS[m.id];

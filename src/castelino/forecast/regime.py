@@ -34,11 +34,11 @@ Design rules
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from io import StringIO
 from pathlib import Path
-from typing import Callable, Optional
 
 import numpy as np
 import pandas as pd
@@ -51,9 +51,7 @@ from sklearn.model_selection import TimeSeriesSplit
 try:
     from xgboost import XGBClassifier
 except ImportError as e:  # pragma: no cover - exercised only if dep is missing
-    raise ImportError(
-        "xgboost is required for forecast.regime; pip install xgboost"
-    ) from e
+    raise ImportError("xgboost is required for forecast.regime; pip install xgboost") from e
 
 from castelino.config import ROOT, get_settings
 
@@ -87,11 +85,11 @@ class IndicatorSpec:
     id: str
     source: str
     name: str = ""
-    fred_id: Optional[str] = None
-    yf_symbol: Optional[str] = None
-    yf_numerator: Optional[str] = None
-    yf_denominator: Optional[str] = None
-    csv_relpath: Optional[str] = None  # path relative to repo ROOT (for SOURCE_LOCAL_CSV)
+    fred_id: str | None = None
+    yf_symbol: str | None = None
+    yf_numerator: str | None = None
+    yf_denominator: str | None = None
+    csv_relpath: str | None = None  # path relative to repo ROOT (for SOURCE_LOCAL_CSV)
 
     def validate(self) -> None:
         if self.source == SOURCE_FRED:
@@ -129,7 +127,7 @@ class IndicatorListConfig:
     features: str = "level"
 
     @classmethod
-    def from_yaml(cls, path: str | Path) -> "IndicatorListConfig":
+    def from_yaml(cls, path: str | Path) -> IndicatorListConfig:
         p = Path(path)
         with p.open("r", encoding="utf-8") as f:
             doc = yaml.safe_load(f) or {}
@@ -229,6 +227,9 @@ class TrainingConfig:
     lead_months: int = 1
 
 
+HISTORY_MONTHS = 60
+
+
 class _ModelMetrics(BaseModel):
     accuracy: float
     brier: float
@@ -250,6 +251,9 @@ class _DirectionForecast(BaseModel):
     train_metrics: _ModelMetrics | None = None
     history_start: str
     n_obs: int
+    # last HISTORY_MONTHS of what the label is built from, for the Models page chart;
+    # empty on versions saved before this field existed
+    history: list[dict] = Field(default_factory=list)
 
     def to_json(self, indent: int | None = 2) -> str:
         return self.model_dump_json(indent=indent)
@@ -357,6 +361,7 @@ def _fetch_local_csv(rel_path: str) -> pd.Series:
 def _fetch_yf_close(symbol: str) -> pd.Series:
     """Daily close series from yfinance (full available history)."""
     import yfinance as yf
+
     t = yf.Ticker(symbol)
     df = t.history(period="max", auto_adjust=True)
     if df is None or df.empty:
@@ -491,9 +496,7 @@ def _make_model(cfg: TrainingConfig) -> XGBClassifier:
     )
 
 
-def _walk_forward_eval(
-    X: pd.DataFrame, y: pd.Series, cfg: TrainingConfig
-) -> _ModelMetrics:
+def _walk_forward_eval(X: pd.DataFrame, y: pd.Series, cfg: TrainingConfig) -> _ModelMetrics:  # noqa: N803 — X is the ML convention for the feature matrix
     if len(X) < cfg.cv_splits + 5:
         return _ModelMetrics(accuracy=float("nan"), brier=float("nan"), n_test=0)
 
@@ -502,7 +505,7 @@ def _walk_forward_eval(
     briers: list[float] = []
     n_test_total = 0
     for tr, te in tscv.split(X):
-        Xtr, Xte = X.iloc[tr], X.iloc[te]
+        Xtr, Xte = X.iloc[tr], X.iloc[te]  # noqa: N806
         ytr, yte = y.iloc[tr], y.iloc[te]
         if ytr.nunique() < 2 or yte.nunique() < 1:
             continue
@@ -533,7 +536,9 @@ def _align(feats: pd.DataFrame, y: pd.Series) -> tuple[pd.DataFrame, pd.Series]:
     df = feats.join(y, how="inner")
     df = df.dropna(subset=["y"])
     if df.empty:
-        return df.drop(columns=["y"]), df["y"].astype(int) if not df.empty else df.get("y", pd.Series(dtype=int))
+        return df.drop(columns=["y"]), df["y"].astype(int) if not df.empty else df.get(
+            "y", pd.Series(dtype=int)
+        )
     feat_cols = [c for c in df.columns if c != "y"]
     has_any_feature = df[feat_cols].notna().any(axis=1)
     df = df.loc[has_any_feature]
@@ -571,7 +576,7 @@ def _train_independent(
         level_threshold=indicator_cfg.level_threshold,
         accel=indicator_cfg.label == "accel",
     )
-    X, y_aligned = _align(feats, y)
+    X, y_aligned = _align(feats, y)  # noqa: N806
 
     metrics = _walk_forward_eval(X, y_aligned, training_cfg)
 
@@ -579,7 +584,13 @@ def _train_independent(
     if target_monthly.empty:
         raise RuntimeError(f"Target {indicator_cfg.target.id} produced no monthly observations.")
     last_month = pd.Timestamp(target_monthly.index.max())
-    target_month = (last_month + pd.offsets.MonthEnd(training_cfg.lead_months))
+    target_month = last_month + pd.offsets.MonthEnd(training_cfg.lead_months)
+    # accel labels are about the m/m change, so chart that (in %); level labels chart the level
+    shown = target_monthly.pct_change() * 100 if indicator_cfg.label == "accel" else target_monthly
+    history = [
+        {"month": d.strftime("%Y-%m"), "value": round(float(v), 4)}
+        for d, v in shown.dropna().iloc[-HISTORY_MONTHS:].items()
+    ]
 
     if y_aligned.nunique() < 2:
         log.warning("Single-class target for %s; cannot train classifier.", indicator_cfg.target.id)
@@ -592,6 +603,7 @@ def _train_independent(
             indicators_used=list(series_map.keys()),
             feature_month=last_month.strftime("%Y-%m-01"),
             target_month=target_month.strftime("%Y-%m-01"),
+            history=history,
         )
 
     model = _make_model(training_cfg)
@@ -616,6 +628,7 @@ def _train_independent(
         indicators_used=list(series_map.keys()),
         feature_month=last_month.strftime("%Y-%m-01"),
         target_month=target_month.strftime("%Y-%m-01"),
+        history=history,
     )
 
 
@@ -644,6 +657,7 @@ def train_growth_forecast(
         train_metrics=res["metrics"],
         history_start=training.history_start,
         n_obs=res["n_obs"],
+        history=res["history"],
     )
 
 
@@ -669,6 +683,7 @@ def train_inflation_forecast(
         train_metrics=res["metrics"],
         history_start=training.history_start,
         n_obs=res["n_obs"],
+        history=res["history"],
     )
 
 
@@ -718,7 +733,7 @@ def walk_forward_metrics(
         level_threshold=indicator_cfg.level_threshold,
         accel=indicator_cfg.label == "accel",
     )
-    X, y_aligned = _align(feats, y)
+    X, y_aligned = _align(feats, y)  # noqa: N806
     return _walk_forward_eval(X, y_aligned, training)
 
 

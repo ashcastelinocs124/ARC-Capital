@@ -188,3 +188,15 @@ def test_lock_held_by_live_process_still_blocks(tmp_path):
     (tmp_path / "run.lock").write_text(str(os.getpid()))
     assert runner.run_if_due() == "locked"
     assert calls.agent == []
+
+
+def test_refit_history_is_saved_even_when_nothing_is_promoted(tmp_path):
+    def worse_refit():
+        fc = make_forecast(g_prob=0.6, g_brier=0.9, i_prob=0.6, i_brier=0.9)
+        fc.growth.history = [{"month": "2026-08", "value": 34.0}]
+        return fc
+
+    runner, reg, _ = build(tmp_path, refit=worse_refit, seed_champion=True)
+    runner.run_if_due()
+    assert reg.pointers() == {"growth": "v0001", "inflation": "v0001"}  # champion kept
+    assert reg.history()["growth"] == [{"month": "2026-08", "value": 34.0}]

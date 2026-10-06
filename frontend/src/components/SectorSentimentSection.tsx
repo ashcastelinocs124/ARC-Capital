@@ -2,10 +2,11 @@ import { useEffect, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { company } from "@/lib/company";
 import { cn } from "@/lib/cn";
+import { Bar, BarChart, Cell, LabelList, ReferenceLine, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import { useSectorSentiment } from "@/hooks/useSectorSentiment";
 import type { SectorExplanation, SectorScore, SectorSentimentSnapshot, SectorStockRow } from "@/api/types";
 import {
-  CardHead, ExpandableCard, Headline, HowItWorks, Measures, Panel, StatCell, StatGrid, StatusBadge, Toggles, ago,
+  CardHead, ExpandableCard, GraphTile, Headline, TILE_CHART_HEIGHT, HowItWorks, Measures, Panel, StatCell, StatGrid, StatusBadge, ago,
 } from "@/components/modelCard";
 
 // Sector Sentiment tool on the Models page, ported from Arc-Investment-Research/arc-dashboard. Positive divergence =
@@ -182,6 +183,25 @@ function Summary({ snap, expanded, onToggle }: { snap: SectorSentimentSnapshot; 
   );
 }
 
+// Tile chart: one bar per sector, coloured like the card (red = price ahead of fundamentals, green = the reverse).
+function SectorBars({ sectors }: { sectors: SectorScore[] }) {
+  const rows = [...sectors].sort((a, b) => b.divergence - a.divergence);
+  const color = (v: number) => (v >= 0.3 ? "#dc2626" : v <= -0.3 ? "#16a34a" : "#a1a1aa");
+  return (
+    <ResponsiveContainer width="100%" height={TILE_CHART_HEIGHT}>
+      <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 40, left: 0, bottom: 0 }} barCategoryGap={3}>
+        <XAxis type="number" domain={[-0.5, 0.5]} hide />
+        <YAxis type="category" dataKey="sector" width={140} tick={{ fontSize: 10, width: 200 }} interval={0} tickLine={false} axisLine={false} />
+        <ReferenceLine x={0} stroke="#d4d4d7" />
+        <Bar dataKey="divergence" isAnimationActive={false}>
+          {rows.map((r) => <Cell key={r.sector} fill={color(r.divergence)} />)}
+          <LabelList dataKey="divergence" position="right" formatter={fmt} style={{ fontSize: 10, fill: "#71717a" }} />
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
 function SectorRows({ sectors, onOpen }: { sectors: SectorScore[]; onOpen: (s: string) => void }) {
   return (
     <>
@@ -301,6 +321,7 @@ export function SectorSentimentSection({ expanded, onToggle }: { expanded: boole
   const openSector = sectors.find((s) => s.sector === open) ?? null;
   const tableSector = sectors.find((s) => s.sector === picked) ?? sectors[0];
   const rows = snap.stocks.filter((r) => r.sector === tableSector?.sector).sort((a, b) => b.market_cap - a.market_cap);
+  const top = sectors.reduce((a, b) => (Math.abs(b.divergence) > Math.abs(a.divergence) ? b : a), sectors[0]);
   const picker = <SectorPicker sectors={sectors} value={tableSector?.sector} onPick={setPicked} />;
 
   return (
@@ -309,16 +330,13 @@ export function SectorSentimentSection({ expanded, onToggle }: { expanded: boole
         expanded={expanded}
         onToggle={onToggle}
         collapsed={
-          <>
-            <Summary snap={snap} expanded={false} onToggle={onToggle} />
-            <Toggles
-              tabs={[
-                { key: "sectors", label: `Sectors (${sectors.length})`, render: () => <SectorRows sectors={sectors} onOpen={setOpen} /> },
-                ...(snap.narrative ? [{ key: "narrative", label: "Narrative", render: () => <Narrative snap={snap} /> }] : []),
-                { key: "stocks", label: `Stocks (${snap.stocks.length})`, render: () => <>{picker}<Stocks rows={rows} full={false} /></> },
-              ]}
-            />
-          </>
+          <GraphTile
+            name="Sector Sentiment"
+            value={<span className={top.divergence >= 0 ? "text-danger" : "text-success"}>{fmt(top.divergence)}</span>}
+            caption={`Divergence by sector · ${top.sector} most stretched`}
+          >
+            <SectorBars sectors={sectors} />
+          </GraphTile>
         }
         full={{
           left: <Summary snap={snap} expanded onToggle={onToggle} />,

@@ -57,3 +57,12 @@ def test_unreadable_version_makes_current_none_instead_of_raising(tmp_path):
     reg.set_pointer("inflation", v)
     (tmp_path / f"{v}.json").write_text('{"growth": {"train_metrics": {"brier": null}}}')
     assert reg.current() is None
+
+
+def test_history_is_empty_until_saved_then_round_trips(tmp_path):
+    reg = ModelRegistry(tmp_path)
+    assert reg.history() == {}
+    fc = make_forecast(g_prob=0.7, i_prob=0.9)
+    fc.inflation.history = [{"month": "2026-08", "value": 0.4}]
+    reg.save_history(fc)
+    assert reg.history() == {"growth": [], "inflation": [{"month": "2026-08", "value": 0.4}]}

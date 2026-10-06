@@ -36,6 +36,16 @@ class ModelRegistry:
         atomic_write_text(self._version_path(version), bundle.to_json())
         return version
 
+    def save_history(self, bundle: RegimeForecast) -> None:
+        """Chart history from the latest refit, kept whether or not it was promoted (it's data, not a model)."""
+        atomic_write_text(
+            self.root / "history.json", json.dumps({m: getattr(bundle, m).history for m in MODELS})
+        )
+
+    def history(self) -> dict[str, list[dict]]:
+        p = self.root / "history.json"
+        return json.loads(p.read_text()) if p.exists() else {}
+
     def pointers(self) -> dict[str, str]:
         p = self.root / "current.json"
         if not p.is_file():

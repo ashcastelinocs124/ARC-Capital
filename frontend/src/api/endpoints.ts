@@ -41,6 +41,7 @@ export interface ModelCard {
   predicts?: { question: string; output: string };
   parameters?: { name: string; value: string | number; note: string }[];
   sources?: { id: string; name: string; role: "target" | "indicator"; provider: string; ref: string; used: boolean }[];
+  history?: { month: string; value: number }[]; // YYYY-MM; what the label is built from, for the tile chart
 }
 export const fetchModels = () => api.get<ModelCard[]>("/models");
 

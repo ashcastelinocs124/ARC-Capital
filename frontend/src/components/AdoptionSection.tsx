@@ -6,7 +6,7 @@ import { useAdoptionCompanies, useAdoptionSummary, useAllAdoptionCompanies } fro
 import type { AdoptionCell, AdoptionCompany, AdoptionSummary, Bucket } from "@/api/adoption";
 import { cn } from "@/lib/cn";
 import {
-  CardHead, ExpandableCard, Headline, HowItWorks, Measures, Panel, StatCell, StatGrid, StatusBadge, Toggles, ago,
+  CardHead, ExpandableCard, GraphTile, Headline, NoChart, TILE_CHART_HEIGHT, HowItWorks, Measures, Panel, StatCell, StatGrid, StatusBadge, ago,
 } from "@/components/modelCard";
 
 const SECTORS = [
@@ -301,6 +301,26 @@ function Trend({ data }: { data: AdoptionSummary }) {
   );
 }
 
+// Tile chart: the Trend panel's level view without its toggle.
+function TileTrend({ data }: { data: AdoptionSummary }) {
+  const rows = data.series.map((p) => ({ period: p.period, Large: p.large_ew, Small: p.small_ew }));
+  if (rows.length < 2) return <NoChart text="A trend needs at least two runs." />;
+  return (
+    <ResponsiveContainer width="100%" height={TILE_CHART_HEIGHT}>
+      <LineChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <CartesianGrid stroke="#ececef" />
+        <XAxis dataKey="period" tick={{ fontSize: 10 }} />
+        <YAxis domain={["auto", "auto"]} tick={{ fontSize: 10 }} width={32} />
+        <ReferenceLine y={50} stroke="#a1a1aa" strokeDasharray="3 3" />
+        <Tooltip />
+        <Legend />
+        <Line type="monotone" dataKey="Large" stroke="#008744" strokeWidth={2} dot={{ r: 3 }} connectNulls isAnimationActive={false} />
+        <Line type="monotone" dataKey="Small" stroke="#71717a" strokeWidth={2} strokeDasharray="4 3" dot={{ r: 3 }} connectNulls isAnimationActive={false} />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
 export function AdoptionSection({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) {
   const { data, isLoading } = useAdoptionSummary();
   const [open, setOpen] = useState<string | null>(null);
@@ -317,22 +337,20 @@ export function AdoptionSection({ expanded, onToggle }: { expanded: boolean; onT
   }
 
   const s = data.stats;
+  const large = data.headline?.large_ew;
   return (
     <>
       <ExpandableCard
         expanded={expanded}
         onToggle={onToggle}
         collapsed={
-          <>
-            <Summary data={data} expanded={false} onToggle={onToggle} />
-            <Toggles
-              tabs={[
-                { key: "sectors", label: `Sectors (${SECTORS.length})`, render: () => <SectorGrid data={data} onOpen={setOpen} /> },
-                { key: "companies", label: `Companies${s ? ` (${s.n_scored})` : ""}`, render: () => <AllCompanies full={false} /> },
-                { key: "trend", label: "Trend", render: () => <Trend data={data} /> },
-              ]}
-            />
-          </>
+          <GraphTile
+            name="AI Adoption Index"
+            value={<span className={(large ?? 0) >= 50 ? "text-success" : "text-danger"}>{large != null ? large.toFixed(1) : "—"}</span>}
+            caption={`Large vs small caps, equal-weighted · ${data.series.length} run${data.series.length === 1 ? "" : "s"}`}
+          >
+            <TileTrend data={data} />
+          </GraphTile>
         }
         full={{
           left: <Summary data={data} expanded onToggle={onToggle} />,
