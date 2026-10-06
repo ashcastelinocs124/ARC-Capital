@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { company } from "@/lib/company";
-import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useAdoptionCompanies, useAdoptionSummary, useAllAdoptionCompanies } from "@/hooks/useAdoption";
 import type { AdoptionCell, AdoptionCompany, AdoptionSummary, Bucket } from "@/api/adoption";
 import { cn } from "@/lib/cn";
@@ -247,21 +247,57 @@ function SectorGrid({ data, onOpen }: { data: AdoptionSummary; onOpen: (s: strin
   );
 }
 
+// % change since the previous run; null when either side is missing.
+const pctChange = (cur: number | null, prev: number | null) =>
+  cur != null && prev != null && prev !== 0 ? ((cur - prev) / prev) * 100 : null;
+const pct = (v: unknown) => (typeof v === "number" ? `${v >= 0 ? "+" : ""}${v.toFixed(2)}%` : "—");
+
 function Trend({ data }: { data: AdoptionSummary }) {
+  const [view, setView] = useState<"level" | "change">("level");
   const rows = data.series.map((p) => ({ period: p.period, Large: p.large_ew, Small: p.small_ew }));
   if (rows.length < 2) return <div className="text-xs text-muted">A trend needs at least two periods; the next run adds the line.</div>;
+  const changes = rows.slice(1).map((r, i) => ({
+    period: r.period,
+    Large: pctChange(r.Large, rows[i].Large),
+    Small: pctChange(r.Small, rows[i].Small),
+  }));
   return (
-    <ResponsiveContainer width="100%" height={180}>
-      <LineChart data={rows}>
-        <CartesianGrid stroke="#ececef" />
-        <XAxis dataKey="period" tick={{ fontSize: 10 }} />
-        <YAxis domain={["auto", "auto"]} tick={{ fontSize: 10 }} width={32} />
-        <Tooltip />
-        <Legend />
-        <Line type="monotone" dataKey="Large" stroke="#008744" strokeWidth={2} dot={false} connectNulls />
-        <Line type="monotone" dataKey="Small" stroke="#71717a" strokeWidth={2} strokeDasharray="4 3" dot={false} connectNulls />
-      </LineChart>
-    </ResponsiveContainer>
+    <>
+      <div className="mb-2 flex items-center gap-1">
+        {(["level", "change"] as const).map((v) => (
+          <button key={v} onClick={() => setView(v)}
+            className={cn("text-[11px] font-medium px-2 py-0.5 rounded-full border",
+              view === v ? "border-accent bg-accent-soft text-accent" : "border-border text-muted hover:text-text")}>
+            {v === "level" ? "Level" : "Change"}
+          </button>
+        ))}
+        {view === "change" && <span className="ml-2 text-[11px] text-muted">% change vs the previous run</span>}
+      </div>
+      <ResponsiveContainer width="100%" height={180}>
+        {view === "level" ? (
+          <LineChart data={rows}>
+            <CartesianGrid stroke="#ececef" />
+            <XAxis dataKey="period" tick={{ fontSize: 10 }} />
+            <YAxis domain={["auto", "auto"]} tick={{ fontSize: 10 }} width={32} />
+            <Tooltip />
+            <Legend />
+            <Line type="monotone" dataKey="Large" stroke="#008744" strokeWidth={2} dot={false} connectNulls />
+            <Line type="monotone" dataKey="Small" stroke="#71717a" strokeWidth={2} strokeDasharray="4 3" dot={false} connectNulls />
+          </LineChart>
+        ) : (
+          <LineChart data={changes}>
+            <CartesianGrid stroke="#ececef" />
+            <XAxis dataKey="period" tick={{ fontSize: 10 }} />
+            <YAxis tick={{ fontSize: 10 }} width={40} tickFormatter={(v: number) => `${v}%`} />
+            <ReferenceLine y={0} stroke="#a1a1aa" />
+            <Tooltip formatter={pct} />
+            <Legend />
+            <Line type="monotone" dataKey="Large" stroke="#008744" strokeWidth={2} dot={{ r: 3 }} connectNulls />
+            <Line type="monotone" dataKey="Small" stroke="#71717a" strokeWidth={2} strokeDasharray="4 3" dot={{ r: 3 }} connectNulls />
+          </LineChart>
+        )}
+      </ResponsiveContainer>
+    </>
   );
 }
 
