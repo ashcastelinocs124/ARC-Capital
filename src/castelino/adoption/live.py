@@ -35,7 +35,7 @@ def run_live(period: str | None = None, store: AdoptionStore | None = None) -> p
 
     edgar = EdgarClient(a.sec_user_agent, min_interval=a.request_interval_s)
     boards = d / "job_boards.csv"
-    jobs = JobsFetcher(load_boards(boards) if boards.exists() else {})
+    jobs = JobsFetcher(load_boards(boards) if boards.exists() else {}, recipes_dir=d / "recipes")
     deps = pipeline.Deps(
         companies=universe.load_universe(upath),
         filing_for=edgar.latest_filing,

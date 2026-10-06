@@ -338,6 +338,10 @@ class AdoptionCfg(BaseModel):
     max_passages: int = 40            # AI passages sent to the extractor per filing
     passage_window_chars: int = 300   # context kept around each AI keyword hit
     request_interval_s: float = 0.12  # SEC allows 10 requests/second
+    # Recipe Writer (adoption/recipe_agent.py): writes job-board recipes for custom careers sites.
+    recipe_model: str = "gpt-6-astra"
+    recipe_max_steps: int = 15        # model turns per company
+    recipe_max_usd: float = 3.0       # hard spend cap per company
 
 
 class Settings(BaseModel):

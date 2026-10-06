@@ -328,6 +328,28 @@ agents:
       writes: ["Guard-passed claims → Talk score"]
       persists: "Claims and Talk cached per filing in data/adoption/adoption.db; an unchanged filing is never re-sent."
 
+  - id: recipe_writer
+    name: AI Adoption · Job-board recipe writer
+    group: Research metrics
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "GPT-6 Astra tool loop (OpenAI Responses API)"}
+    prompt: "castelino.adoption.recipe_agent:SYSTEM"
+    schema: "castelino.adoption.sources.recipes:Recipe"
+    summary: >-
+      Layer 3 of the Hire pillar. For a company whose careers site has no known data address,
+      GPT-6 Astra explores it once in a headless browser and proposes a Recipe saying where the
+      job titles live. Our replay code tests and saves it; every refresh replays the recipe with
+      no model. Run by hand (scripts/write_recipes.py), capped at 15 steps and $3 per company.
+    tools:
+      - {name: "open_page", does: "Headless Chromium load: visible text, job links, and the JSON requests the page made"}
+      - {name: "sample_selector", does: "Texts matching a CSS selector, to check a page-element recipe"}
+      - {name: "test_recipe", does: "Runs the recipe with our replay code; returns count and 10 sample titles"}
+      - {name: "submit_recipe (guard)", does: "Accepted only if our replay returns titles from the company's site or a known hiring platform"}
+    memory:
+      reads: ["Ticker, company name, careers start URL", "Its own tool results within one company"]
+      writes: ["Recipe → data/adoption/recipes/<TICKER>.json (saved by the script)"]
+      persists: "Only the accepted recipe file; nothing carries over between companies."
+
   # ── Triggers ────────────────────────────────────────────────────────────
   - id: significance
     name: Significance Classifier
