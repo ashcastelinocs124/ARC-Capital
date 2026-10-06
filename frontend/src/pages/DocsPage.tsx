@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/cn";
+import { isEnabled } from "@/models/registry";
 
 // Long-form "how it works" for every model on /models. The cards keep a short version and
 // link here via `/docs#<id>`. No live numbers on purpose, so this page can't go stale.
@@ -30,7 +31,7 @@ const WALK_FORWARD = (
   </p>
 );
 
-const DOCS: Doc[] = [
+const ALL_DOCS: Doc[] = [
   {
     id: "pulse",
     group: "Regime nowcasters",
@@ -149,6 +150,9 @@ const DOCS: Doc[] = [
     ],
   },
 ];
+
+// only models switched on in models/registry.ts
+const DOCS = ALL_DOCS.filter((d) => isEnabled(d.id));
 
 const GROUPS = [...new Set(DOCS.map((d) => d.group))];
 

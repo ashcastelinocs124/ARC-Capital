@@ -5,6 +5,7 @@ import { cn } from "@/lib/cn";
 import { SectorSentimentSection } from "@/components/SectorSentimentSection";
 import { AdoptionSection } from "@/components/AdoptionSection";
 import { CardHead, ExpandableCard, HowItWorks, Panel } from "@/components/modelCard";
+import { ENABLED_MODELS, type ModelId } from "@/models/registry";
 
 const WEAK_ACCURACY = 0.55; // near coin-flip for a binary up/down call
 const MAX_DATA_LAG_MONTHS = 3;
@@ -247,8 +248,28 @@ function Card({ card, expanded, onToggle }: { card: ModelCard; expanded: boolean
   );
 }
 
+interface CardProps {
+  expanded: boolean;
+  onToggle: () => void;
+}
+
+// One /models forecaster card, by its backend id; renders nothing until /models has loaded.
+function ForecastCard({ id, ...p }: CardProps & { id: string }) {
+  const card = useModels().data?.find((c) => c.id === id);
+  return card ? <Card card={card} {...p} /> : null;
+}
+
+// One component per model; which ones show is decided in models/registry.ts.
+const COMPONENTS: Record<ModelId, (p: CardProps) => ReactNode> = {
+  pulse: (p) => <ForecastCard id="growth" {...p} />,
+  pressure: (p) => <ForecastCard id="inflation" {...p} />,
+  "risk-off": (p) => <ForecastCard id="risk_off" {...p} />,
+  "sector-sentiment": (p) => <SectorSentimentSection {...p} />,
+  adoption: (p) => <AdoptionSection {...p} />,
+};
+
 export default function ModelsPage() {
-  const { data: cards = [], isLoading } = useModels();
+  const { isLoading } = useModels();
   const [expanded, setExpanded] = useState<string | null>(null); // one card open at a time
   const toggle = (id: string) => setExpanded((cur) => (cur === id ? null : id));
 
@@ -262,13 +283,11 @@ export default function ModelsPage() {
         </p>
       </div>
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
-        {isLoading ? (
-          <div className="text-sm text-muted">Loading…</div>
-        ) : (
-          cards.map((c) => <Card key={c.id} card={c} expanded={expanded === c.id} onToggle={() => toggle(c.id)} />)
-        )}
-        <SectorSentimentSection expanded={expanded === "sector_sentiment"} onToggle={() => toggle("sector_sentiment")} />
-        <AdoptionSection expanded={expanded === "adoption"} onToggle={() => toggle("adoption")} />
+        {isLoading && <div className="text-sm text-muted">Loading…</div>}
+        {ENABLED_MODELS.map((m) => {
+          const Model = COMPONENTS[m.id];
+          return <Model key={m.id} expanded={expanded === m.id} onToggle={() => toggle(m.id)} />;
+        })}
       </div>
     </div>
   );
