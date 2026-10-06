@@ -115,7 +115,7 @@ export function Sidebar({ collapsible = true }: { collapsible?: boolean }) {
           {!collapsed && (
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold text-text truncate">Ashleyn Castelino</div>
-              <div className="text-xs text-muted truncate">ashleyn4@illinois.edu</div>
+              <div className="text-xs text-muted truncate">ashleyncastelino@gmail.com</div>
             </div>
           )}
         </div>
