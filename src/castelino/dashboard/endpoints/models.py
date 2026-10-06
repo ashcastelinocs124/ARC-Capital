@@ -17,8 +17,8 @@ _PROVIDER = {
     regime.SOURCE_LOCAL_CSV: "Local CSV",
 }
 _MODELS = {
-    "growth": ("Growth nowcaster", "P(growth up)", regime.GROWTH_INDICATORS_YAML),
-    "inflation": ("Inflation nowcaster", "P(inflation up)", regime.INFLATION_INDICATORS_YAML),
+    "growth": ("Pulse", "P(expansion)", regime.GROWTH_INDICATORS_YAML),
+    "inflation": ("Pressure", "P(CPI accelerates)", regime.INFLATION_INDICATORS_YAML),
 }
 
 
@@ -83,8 +83,13 @@ def _regime_predicts(model_id: str, fc) -> dict:
     )
     month = fc.target_month[:7] if fc else "next month"
     name = name.split(" (")[0]  # drop source notes like "(composite index; see CSV header ...)"
+    question = (
+        f"Will {name} be above 0 (expansion) in {month}?"
+        if model_id == "growth"
+        else f"Will {name} month-over-month change be larger in {month} than the month before (accelerating)?"
+    )
     return {
-        "question": f"Will {name} rise month-over-month in {month}?",
+        "question": question,
         "output": 'Probability of "up" (0–1); the call is up when it is 50% or higher',
     }
 

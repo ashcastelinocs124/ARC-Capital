@@ -13,9 +13,9 @@ const MAX_DATA_LAG_MONTHS = 3;
 const HOW: Record<string, { short: string; steps: ReactNode[] }> = {
   growth: {
     short:
-      "An XGBoost classifier reads the last 3 months of five leading indicators and outputs the probability that the Regional Fed manufacturing composite rises next month.",
+      "An XGBoost classifier reads the last 3 months of five leading indicators and outputs the probability that manufacturing is in expansion next month.",
     steps: [
-      <><b>Target:</b> Empire State + Philly Fed manufacturing diffusion index (an ISM proxy). Label = 1 if next month's value is higher.</>,
+      <><b>Target:</b> mean of the Empire State and Philly Fed manufacturing diffusion indexes (an ISM proxy; 0 = neutral). Label = 1 if next month's value is above 0 (expansion).</>,
       <><b>Inputs:</b> 10-year Treasury yield, initial jobless claims, the Philly Fed leading index, cyclicals vs defensives (XLY/XLP) and real disposable income, each with 3 monthly lags.</>,
       <><b>Model:</b> 100 depth-1 boosted trees on monthly data since 2000; the output is P(up), and the call is "up" at 50% or more.</>,
       <><b>Scoring:</b> walk-forward over 5 folds (train on the past, test on the next block) for accuracy and Brier score.</>,
@@ -24,10 +24,10 @@ const HOW: Record<string, { short: string; steps: ReactNode[] }> = {
   },
   inflation: {
     short:
-      "The same XGBoost setup predicts whether CPI All Items rises next month from price, wage, energy, currency and inflation-expectations series.",
+      "The same XGBoost setup predicts whether CPI inflation accelerates next month, from price, wage, energy, commodity, currency and inflation-expectations series.",
     steps: [
-      <><b>Target:</b> CPI All Items (seasonally adjusted). Label = 1 if next month's CPI change is up.</>,
-      <><b>Inputs:</b> PPI, WTI and Brent crude, 5-year and 10-year breakevens, the trade-weighted dollar, UMich 1-year expectations, rent CPI, hourly earnings and Case-Shiller home prices, each with 3 monthly lags.</>,
+      <><b>Target:</b> CPI All Items (seasonally adjusted). Label = 1 if next month's CPI m/m change is larger than this month's (accelerating).</>,
+      <><b>Inputs:</b> PPI, WTI and Brent crude, the Bloomberg Commodity Index, 5-year and 10-year breakevens, the trade-weighted dollar, UMich 1-year expectations, rent CPI, hourly earnings and Case-Shiller home prices, as 1-month and 12-month % changes with 3 monthly lags.</>,
       <><b>Model:</b> 100 depth-1 boosted trees on monthly data since 2000; the output is P(up).</>,
       <><b>Scoring:</b> 5-fold walk-forward accuracy and Brier score.</>,
       <><b>Refresh:</b> daily refit behind the same Brier-score promotion gate.</>,
@@ -107,13 +107,15 @@ function SourcesTable({ card }: { card: ModelCard }) {
       <tbody>
         {(card.sources ?? []).map((s) => (
           <tr key={s.id} className={cn("border-t border-border first:border-0", !s.used && "opacity-50")}>
-            <td className="py-1.5 pr-2">
+            {/* ponytail: provider + ref stacked under the name so long refs (CSV paths) can't overflow the panel */}
+            <td className="py-1.5">
               {s.name}
               {s.role === "target" && <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-accent-soft text-accent">target</span>}
               {!s.used && <span className="ml-1.5 text-[10px] text-muted">(skipped in last fit)</span>}
+              <div className="text-muted mt-0.5">
+                {s.provider} · <span className="font-mono break-all">{s.ref}</span>
+              </div>
             </td>
-            <td className="py-1.5 text-muted whitespace-nowrap pr-2">{s.provider}</td>
-            <td className="py-1.5 font-mono text-right">{s.ref}</td>
           </tr>
         ))}
       </tbody>
