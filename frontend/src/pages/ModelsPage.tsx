@@ -282,7 +282,8 @@ export default function ModelsPage() {
           Adoption Index. Click any card for the full view. Read-only; forecasts older than 24h are marked stale.
         </p>
       </div>
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+      {/* equal-height rows so every card is the same size; off while one is expanded */}
+      <div className={cn("grid md:grid-cols-2 lg:grid-cols-3 gap-6", !expanded && "auto-rows-fr")}>
         {isLoading && <div className="text-sm text-muted">Loading…</div>}
         {ENABLED_MODELS.map((m) => {
           const Model = COMPONENTS[m.id];
