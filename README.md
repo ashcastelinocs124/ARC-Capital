@@ -165,6 +165,15 @@ tests/
 
 ---
 
+## Disclaimer
+
+ARC Research is for informational and educational purposes only. Nothing in this repository or on
+[arcresearch.markets](https://arcresearch.markets) is investment, financial, legal or tax advice, or an offer or
+solicitation to buy or sell any security. Its figures come from simulated models, AI-generated text and third-party
+data that may be incomplete, delayed or wrong, and past performance does not predict future results. Do your own
+research or consult a licensed professional before making any investment decision. You use it at your own risk; the
+authors accept no liability for any loss arising from its use.
+
 ## License
 
 A portfolio piece; no commercial use intended.
