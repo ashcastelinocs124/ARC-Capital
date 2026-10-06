@@ -158,7 +158,7 @@ const GROUPS = [...new Set(DOCS.map((d) => d.group))];
 
 function Article({ d }: { d: Doc }) {
   return (
-    <article id={d.id} className="scroll-mt-4 rounded-xl border border-border bg-surface px-5 py-5 md:px-6 max-w-3xl">
+    <article id={d.id} className="scroll-mt-4 rounded-xl border border-border bg-surface px-5 py-5 md:px-6">
       <h3 className="text-lg font-semibold text-text flex items-center gap-2">
         {d.name}
         {d.tag && <span className="text-[10.5px] font-semibold px-2 py-px rounded-full bg-accent-soft text-accent">{d.tag}</span>}
