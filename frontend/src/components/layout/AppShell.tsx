@@ -18,7 +18,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setMenuOpen(false)} />
           <div className="relative h-full w-60 shadow-xl">
-            <Sidebar />
+            <Sidebar collapsible={false} />
           </div>
         </div>
       )}
