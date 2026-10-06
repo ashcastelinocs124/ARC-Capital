@@ -14,6 +14,7 @@ const TITLES: Record<string, { section: string; page: string }> = {
   "/updates": { section: "Trading", page: "Daily Update" },
   "/risk": { section: "Trading", page: "Risk & Attribution" },
   "/agents": { section: "Trading", page: "Agents" },
+  "/docs": { section: "Trading", page: "Documentation" },
   "/approvals": { section: "Trading", page: "Approval Center" },
 };
 

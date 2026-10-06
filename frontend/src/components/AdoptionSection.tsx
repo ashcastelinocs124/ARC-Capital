@@ -162,7 +162,7 @@ const HOW: { short: string; steps: ReactNode[] } = {
     "Scores each company 0–100 on how far it has adopted AI, from what its filings say, who it is hiring and what it spends, then rolls the scores up by sector and size.",
   steps: [
     <><b>Talk:</b> an LLM rates AI passages in the latest 10-K/10-Q as 1 pilot, 2 deployed or 3 revenue-linked; every quote must appear verbatim in the filing or it is dropped. Score = rated claims per 1,000 words.</>,
-    <><b>Hire:</b> share of open roles that are AI/ML engineering, from Greenhouse/Lever job boards, averaged over the last 7 bi-weekly snapshots.</>,
+    <><b>Hire:</b> share of open roles that are AI/ML engineering, read from Greenhouse, Lever, Workday, Oracle, UKG and Amazon job boards plus saved per-company recipes, averaged over the last 7 bi-weekly snapshots.</>,
     <><b>Spend:</b> capex + R&amp;D as a share of revenue, trailing twelve months.</>,
     <><b>Score:</b> each pillar is z-scored across all companies, clipped at ±3σ and mapped to 0–100 (average 50); a company needs at least 2 of the 3 pillars.</>,
     <><b>Roll-up:</b> equal-weighted (headline) and market-cap-weighted per sector and size bucket; cells with fewer than 5 companies are flagged thin.</>,
@@ -208,7 +208,7 @@ function Summary({ data, expanded, onToggle }: { data: AdoptionSummary; expanded
           Hire pillar is off (no job_boards.csv yet), so companies are scored on Talk and Spend only.
         </div>
       )}
-      <HowItWorks short={HOW.short} steps={HOW.steps} expanded={expanded} />
+      <HowItWorks short={HOW.short} steps={HOW.steps} expanded={expanded} docsId="adoption" />
       <Measures
         question="How far companies have adopted AI, from filing language, AI/ML hiring and capex + R&D."
         output="0–100 score per company, rolled up by sector and size; research metric, not in the trading pipeline"

@@ -45,6 +45,9 @@ const HOW: Record<string, { short: string; steps: ReactNode[] }> = {
   },
 };
 
+// model id -> section anchor on /docs
+const DOCS_ID: Record<string, string> = { growth: "pulse", inflation: "pressure", risk_off: "risk-off" };
+
 function ago(iso: string) {
   const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
   if (mins < 60) return `${mins}m ago`;
@@ -157,7 +160,7 @@ function Toggles({ card }: { card: ModelCard }) {
 function Summary({ card, expanded, onToggle }: { card: ModelCard; expanded: boolean; onToggle: () => void }) {
   const how = HOW[card.id];
   const head = <CardHead name={card.name} kind={card.kind} badge={<Badge card={card} />} expanded={expanded} onCollapse={onToggle} />;
-  const howBlock = how && <HowItWorks short={how.short} steps={how.steps} expanded={expanded} />;
+  const howBlock = how && <HowItWorks short={how.short} steps={how.steps} expanded={expanded} docsId={DOCS_ID[card.id]} />;
 
   if (card.status === "missing") {
     return (

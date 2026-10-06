@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Maximize2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/cn";
 
 // Building blocks that mirror the forecaster cards on the Models page (pages/ModelsPage.tsx),
@@ -112,10 +113,28 @@ export function ExpandableCard({
   );
 }
 
-export function HowItWorks({ short, steps, expanded }: { short: string; steps: ReactNode[]; expanded: boolean }) {
+export function HowItWorks({
+  short,
+  steps,
+  expanded,
+  docsId,
+}: {
+  short: string;
+  steps: ReactNode[];
+  expanded: boolean;
+  docsId?: string; // anchor on /docs
+}) {
   return (
     <div className="mt-3.5 rounded-r-lg border-l-[3px] border-accent bg-accent-soft px-3 py-2.5">
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-accent">How it works</div>
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-accent">How it works</div>
+        {docsId && (
+          <Link to={`/docs#${docsId}`} onClick={(e) => e.stopPropagation()}
+            className="text-[11px] font-medium text-accent hover:underline whitespace-nowrap">
+            Full documentation →
+          </Link>
+        )}
+      </div>
       {expanded ? (
         <ol className="mt-1 list-decimal pl-4 space-y-1 text-[13px] leading-snug text-text-2">
           {steps.map((s, i) => (

@@ -8,6 +8,7 @@ import {
   Newspaper,
   ShieldAlert,
   Bot,
+  BookOpen,
   Settings,
   Bell,
   PanelLeftClose,
@@ -32,6 +33,7 @@ const items: NavItem[] = [
   { to: "/updates", label: "Daily Update", icon: Newspaper },
   { to: "/risk", label: "Risk", icon: ShieldAlert },
   { to: "/agents", label: "Agents", icon: Bot },
+  { to: "/docs", label: "Documentation", icon: BookOpen },
 ];
 
 const COLLAPSED_KEY = "arc.sidebar.collapsed";

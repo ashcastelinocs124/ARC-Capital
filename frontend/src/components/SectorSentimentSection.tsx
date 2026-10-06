@@ -172,7 +172,7 @@ function Summary({ snap, expanded, onToggle }: { snap: SectorSentimentSnapshot; 
         />
         {e && <StatCell label={`Breadth (${top.sector})`} value={`${e.n_agree}/${e.n_total} same sign`} />}
       </StatGrid>
-      <HowItWorks short={HOW.short} steps={HOW.steps} expanded={expanded} />
+      <HowItWorks short={HOW.short} steps={HOW.steps} expanded={expanded} docsId="sector-sentiment" />
       <Measures
         question="Where price has run ahead of fundamentals (red) or fundamentals nobody is buying (green)."
         output="divergence per sector, −1 to +1; describes, does not recommend"

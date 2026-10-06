@@ -8,6 +8,7 @@ import RiskPage from "./pages/RiskPage";
 import AgentsPage from "./pages/AgentsPage";
 import DeepResearchPage from "./pages/DeepResearchPage";
 import UpdatesPage from "./pages/UpdatesPage";
+import DocsPage from "./pages/DocsPage";
 import { HOME, pageEnabled } from "./pages/visibility";
 
 const PAGES: [string, React.ReactNode][] = [
@@ -19,6 +20,7 @@ const PAGES: [string, React.ReactNode][] = [
   ["/updates", <UpdatesPage />],
   ["/risk", <RiskPage />],
   ["/agents", <AgentsPage />],
+  ["/docs", <DocsPage />],
 ];
 
 export default function App() {
