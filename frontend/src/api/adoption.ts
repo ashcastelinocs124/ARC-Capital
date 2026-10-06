@@ -36,6 +36,7 @@ export interface AdoptionSummary {
 
 export interface AdoptionCompany {
   ticker: string;
+  name?: string; // empty/missing until universe.csv has names
   bucket: Bucket;
   sector: string;
   market_cap: number;

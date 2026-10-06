@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
+from castelino import config
 from castelino.adoption.index import headline
 from castelino.adoption.models import BUCKETS
 from castelino.adoption.store import AdoptionStore
+from castelino.adoption.universe import load_universe
 
 router = APIRouter()
 
@@ -16,6 +18,13 @@ _store_path = None
 
 def _store() -> AdoptionStore:
     return AdoptionStore(_store_path) if _store_path else AdoptionStore()
+
+
+def _names() -> dict[str, str]:
+    """ticker -> company name from universe.csv; empty when the file is missing."""
+    cfg = config.get_settings()
+    path = cfg.root / cfg.adoption.data_dir / "universe.csv"
+    return {c.ticker: c.name for c in load_universe(path)} if path.exists() else {}
 
 
 @router.get("/adoption/summary")
@@ -55,9 +64,11 @@ def adoption_companies(sector: str | None = None, bucket: str | None = None):
     periods = st.periods()
     if not periods:
         return []
+    names = _names()
     return [
         {
             "ticker": r["ticker"],
+            "name": names.get(r["ticker"], ""),
             "bucket": r["bucket"],
             "sector": r["sector"],
             "market_cap": r["market_cap"],

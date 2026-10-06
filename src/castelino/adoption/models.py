@@ -40,6 +40,7 @@ class Company:
     bucket: str
     sector: str
     market_cap: float
+    name: str = ""  # company name for display, e.g. "Apple Inc."
 
 
 @dataclass

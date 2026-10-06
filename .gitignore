@@ -105,3 +105,6 @@ frontend/public/api/
 .vercel/
 data/publish.log
 data/publish_last_sha
+
+# per-project Claude memory (local only)
+.claude/memory/

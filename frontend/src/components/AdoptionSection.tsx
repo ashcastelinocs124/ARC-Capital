@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
+import { company } from "@/lib/company";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useAdoptionCompanies, useAdoptionSummary, useAllAdoptionCompanies } from "@/hooks/useAdoption";
 import type { AdoptionCell, AdoptionCompany, AdoptionSummary, Bucket } from "@/api/adoption";
@@ -47,7 +48,7 @@ function CompanyRows({ rows }: { rows: AdoptionCompany[] }) {
       <tbody>
         {rows.map((r) => (
           <tr key={r.ticker} className="border-t border-border first:border-0 align-top">
-            <td className="py-1.5 pr-2 font-mono font-semibold">{r.ticker}</td>
+            <td className="py-1.5 pr-2 font-semibold">{company(r.name, r.ticker)}</td>
             <td className="py-1.5 pr-3 font-mono text-right">{f(r.score, 0)}</td>
             <td className="py-1.5 text-muted">{r.claims[0] ? `"${r.claims[0].quote.slice(0, 90)}…"` : "—"}</td>
           </tr>
@@ -73,7 +74,7 @@ function AdoptionDrawer({ sector, onClose }: { sector: string; onClose: () => vo
       <table className="w-full text-xs">
         <thead className="text-muted">
           <tr>
-            <th className="text-left py-1 font-medium">Ticker</th>
+            <th className="text-left py-1 font-medium">Company</th>
             <th className="text-right font-medium">Score</th>
             <th className="text-right font-medium">Talk</th>
             <th className="text-right font-medium">Hire</th>
@@ -83,7 +84,7 @@ function AdoptionDrawer({ sector, onClose }: { sector: string; onClose: () => vo
         <tbody>
           {rows.map((r) => (
             <tr key={r.ticker} className="border-t border-border">
-              <td className="py-1.5 font-mono font-semibold">{r.ticker}</td>
+              <td className="py-1.5 font-semibold">{company(r.name, r.ticker)}</td>
               <td className="text-right font-mono font-semibold">{f(r.score, 0)}</td>
               <td className="text-right font-mono">{f(r.s_talk, 0)}</td>
               <td className="text-right font-mono">{f(r.s_hire, 0)}</td>
@@ -97,7 +98,7 @@ function AdoptionDrawer({ sector, onClose }: { sector: string; onClose: () => vo
       </table>
       {rows.filter((r) => r.claims[0]).map((r) => (
         <p key={r.ticker} className="mt-2 text-xs text-text-2">
-          <span className="font-mono font-semibold">{r.ticker}</span> — "{r.claims[0].quote}"
+          <span className="font-semibold">{company(r.name, r.ticker)}</span> — "{r.claims[0].quote}"
         </p>
       ))}
     </div>
@@ -130,7 +131,7 @@ function AllCompanies({ full }: { full: boolean }) {
       <table className="w-full text-xs">
         <thead className="text-muted sticky top-0 bg-surface">
           <tr>
-            <th className="text-left py-1 font-medium">Ticker</th>
+            <th className="text-left py-1 font-medium">Company</th>
             <th className="text-right font-medium px-1">Score</th>
             <th className="text-right font-medium px-1">Talk</th>
             <th className="text-right font-medium px-1">Hire</th>
@@ -141,7 +142,7 @@ function AllCompanies({ full }: { full: boolean }) {
         <tbody>
           {rows.map((r) => (
             <tr key={r.ticker} className="border-t border-border align-top">
-              <td className="py-1.5 font-mono font-semibold">{r.ticker}</td>
+              <td className="py-1.5 font-semibold">{company(r.name, r.ticker)}</td>
               <td className="text-right font-mono font-semibold px-1">{f(r.score, 0)}</td>
               <td className="text-right font-mono px-1">{f(r.s_talk, 0)}</td>
               <td className="text-right font-mono px-1">{f(r.s_hire, 0)}</td>

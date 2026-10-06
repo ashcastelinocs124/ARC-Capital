@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
+import { company } from "@/lib/company";
 import { cn } from "@/lib/cn";
 import { useSectorSentiment } from "@/hooks/useSectorSentiment";
 import type { SectorExplanation, SectorScore, SectorSentimentSnapshot, SectorStockRow } from "@/api/types";
@@ -51,7 +52,7 @@ function Stat({ k, v }: { k: string; v: string }) {
 }
 
 // Right-hand drawer: verdict + stats + contribution bars, all computed in Python.
-function SectorDrawer({ s, onClose }: { s: SectorScore; onClose: () => void }) {
+function SectorDrawer({ s, names, onClose }: { s: SectorScore; names: Record<string, string>; onClose: () => void }) {
   const e = s.explanation;
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => ev.key === "Escape" && onClose();
@@ -83,15 +84,15 @@ function SectorDrawer({ s, onClose }: { s: SectorScore; onClose: () => void }) {
           <>
             <div className="mt-4 grid grid-cols-2 gap-2.5">
               <Stat k="stocks sharing sign" v={`${e.n_agree} / ${e.n_total}`} />
-              <Stat k="largest contributor" v={`${e.top_symbol} · ${(e.top_share * 100).toFixed(0)}%`} />
+              <Stat k="largest contributor" v={`${company(names[e.top_symbol], e.top_symbol)} · ${(e.top_share * 100).toFixed(0)}%`} />
               <Stat k="cap-wt vs equal-wt" v={`${fmt(s.divergence)} / ${fmt(e.equal_weight_divergence)}`} />
               <Stat k="drivers" v={e.drivers.join(" · ")} />
             </div>
             <div className="mt-4 text-xs uppercase tracking-wide text-muted">Contribution to sector divergence</div>
             <div className="mt-1.5 space-y-1">
               {e.contributions.map((c) => (
-                <div key={c.symbol} className="grid grid-cols-[56px_1fr_64px] items-center gap-2.5 text-xs">
-                  <span className="font-mono font-semibold">{c.symbol}</span>
+                <div key={c.symbol} className="grid grid-cols-[150px_1fr_64px] items-center gap-2.5 text-xs">
+                  <span className="font-semibold truncate" title={company(names[c.symbol], c.symbol)}>{company(names[c.symbol], c.symbol)}</span>
                   <div className="h-1.5 rounded bg-surface-3">
                     <div
                       className={cn("h-1.5 rounded", c.contribution >= 0 ? "bg-danger" : "bg-success")}
@@ -259,7 +260,7 @@ function Stocks({ rows, full }: { rows: SectorStockRow[]; full: boolean }) {
       <table className="w-full text-xs">
         <thead className="text-muted">
           <tr>
-            <th className="text-left py-1 font-medium">Ticker</th>
+            <th className="text-left py-1 font-medium">Company</th>
             {cols.map(([h]) => <th key={h} className="text-right font-medium px-1">{h}</th>)}
             <th className="text-right font-medium">Div</th>
           </tr>
@@ -267,9 +268,8 @@ function Stocks({ rows, full }: { rows: SectorStockRow[]; full: boolean }) {
         <tbody>
           {rows.map((r) => (
             <tr key={r.symbol} className="border-t border-border" title={r.name}>
-              <td className="py-1.5 font-mono font-semibold">
-                {r.symbol}
-                {full && <span className="ml-1.5 font-sans font-normal text-muted">{r.name}</span>}
+              <td className="py-1.5 pr-2 font-semibold">
+                {company(r.name, r.symbol)}
               </td>
               {cols.map(([h, get]) => <td key={h} className="text-right font-mono px-1">{get(r)}</td>)}
               <td className="text-right"><DivergenceChip v={r.divergence} /></td>
@@ -333,7 +333,7 @@ export function SectorSentimentSection({ expanded, onToggle }: { expanded: boole
           ),
         }}
       />
-      {openSector && <SectorDrawer s={openSector} onClose={() => setOpen(null)} />}
+      {openSector && <SectorDrawer s={openSector} names={Object.fromEntries(snap.stocks.map((r) => [r.symbol, r.name]))} onClose={() => setOpen(null)} />}
     </>
   );
 }

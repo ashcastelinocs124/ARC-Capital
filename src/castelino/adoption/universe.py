@@ -61,7 +61,8 @@ def build_universe(
                 "universe: skipping %s (marketCap=%s sector=%s)", ticker, cap, info.get("sector")
             )
             continue
-        by_bucket[bucket].append(Company(ticker.upper(), bucket, sector, float(cap)))
+        name = info.get("shortName") or info.get("longName") or ""
+        by_bucket[bucket].append(Company(ticker.upper(), bucket, sector, float(cap), name))
     out: list[Company] = []
     for b in BUCKETS:
         out += sorted(by_bucket[b], key=lambda c: -c.market_cap)[:top_n]
@@ -78,13 +79,15 @@ def save_universe(path: Path, companies: list[Company]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["ticker", "bucket", "sector", "market_cap"])
-        w.writerows([[c.ticker, c.bucket, c.sector, c.market_cap] for c in companies])
+        w.writerow(["ticker", "bucket", "sector", "market_cap", "name"])
+        w.writerows([[c.ticker, c.bucket, c.sector, c.market_cap, c.name] for c in companies])
 
 
 def load_universe(path: Path) -> list[Company]:
     with open(path, newline="") as f:
         return [
-            Company(r["ticker"], r["bucket"], r["sector"], float(r["market_cap"]))
+            Company(
+                r["ticker"], r["bucket"], r["sector"], float(r["market_cap"]), r.get("name") or ""
+            )
             for r in csv.DictReader(f)
         ]
