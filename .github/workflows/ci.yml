@@ -1,0 +1,63 @@
+# CI for every push to main and every pull request. scripts/publish_snapshot.sh (the 7:00 cron)
+# only deploys a main commit whose run of this workflow succeeded, so this is the gate for the
+# public site at arcresearch.markets.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # needed to diff against the base commit
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --python 3.12 --extra dev
+
+      # The repo predates its lint config, so only the Python files a change touches are checked:
+      # nothing new adds lint debt, and old files get cleaned as they are edited.
+      - name: Lint changed Python files
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then BASE=HEAD~1; fi
+          files=$(git diff --name-only --diff-filter=d "$BASE" HEAD -- '*.py')
+          if [ -z "$files" ]; then echo "No Python files changed."; exit 0; fi
+          echo "$files"
+          uv run ruff check $files
+          uv run ruff format --check $files
+
+      - name: Tests
+        # The suite makes no network or LLM calls, but a few endpoints build their client at
+        # import time and refuse to start without a key, so CI gets a dummy one.
+        env:
+          OPENAI_API_KEY: ci-dummy-not-a-real-key
+        run: uv run pytest -p no:warnings
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint # tsc --noEmit
+      - run: VITE_STATIC=1 npx vite build # the public build that publish_snapshot.sh ships

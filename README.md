@@ -116,6 +116,18 @@ uv run --extra browser python scripts/write_recipes.py AAPL=https://jobs.apple.c
 - `scripts/publish_snapshot.sh` builds with `VITE_STATIC=1` and deploys. A daily 7:00 cron job runs it.
 - Portfolio, Risk and Research are private-only. To publish one, remove it from `frontend/src/pages/visibility.ts` and add its endpoints back in the export script.
 
+### CI/CD
+
+- **CI** (`.github/workflows/ci.yml`) runs on every push to `main` and every pull request:
+  - the full test suite;
+  - ruff lint and format checks, on the Python files the change touches only, since the older code predates the lint config;
+  - the frontend type check and the public build.
+- **CD** is the 7:00 publish job. It takes the data from the machine running the backend, but builds the code from a clean copy of `origin/main`, and only from a commit whose CI passed.
+  - If the newest `main` isn't green, it rebuilds the last deployed good commit with fresh data.
+  - Uncommitted or failing code never reaches the public site.
+  - The last deployed commit is recorded in `data/publish_last_sha`.
+- **Don't connect Vercel's GitHub auto-deploy.** The snapshot data is gitignored, so a deploy straight from GitHub would publish a site with no data.
+
 ---
 
 ## Tests

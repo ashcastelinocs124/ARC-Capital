@@ -104,3 +104,4 @@ data/updates/
 frontend/public/api/
 .vercel/
 data/publish.log
+data/publish_last_sha
