@@ -133,7 +133,11 @@ export interface DailyRecord {
 }
 export const fetchUpdateStatus = () => api.get<UpdateStatus>("/update/status");
 export const fetchLatestUpdate = () => api.get<DailyRecord>("/update/latest");
-export const fetchUpdateHistory = () => api.get<{ dates: string[] }>("/update/history");
+export interface UpdateHistory {
+  dates: string[];
+  items?: { date: string; headline: string }[]; // newest first; absent from older backends
+}
+export const fetchUpdateHistory = () => api.get<UpdateHistory>("/update/history");
 export const fetchUpdateByDate = (day: string) => api.get<DailyRecord>(`/update/${day}`);
 
 export interface AgentTool { name: string; does: string; }

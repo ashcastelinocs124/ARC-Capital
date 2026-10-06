@@ -44,7 +44,13 @@ def test_history_newest_first_and_by_date(client):
     c, tmp = client
     write_briefing(tmp, "2026-09-29")
     write_briefing(tmp, "2026-09-30")
-    assert c.get("/update/history").json()["dates"] == ["2026-09-30", "2026-09-29"]
+    hist = c.get("/update/history").json()
+    assert hist["dates"] == ["2026-09-30", "2026-09-29"]
+    headline = make_update().headline
+    assert hist["items"] == [
+        {"date": "2026-09-30", "headline": headline},
+        {"date": "2026-09-29", "headline": headline},
+    ]
     assert c.get("/update/2026-09-29").json()["date"] == "2026-09-29"
     assert c.get("/update/2026-01-01").status_code == 404
     assert c.get("/update/not-a-date").status_code == 404
@@ -63,3 +69,12 @@ def test_regime_forecast_reads_registry_and_never_retrains(client, monkeypatch):
 
 
 # Startup refresh moved to the dashboard Refresh button: see tests/test_refresh_endpoint.py
+
+
+def test_history_survives_a_malformed_briefing(client):
+    c, tmp = client
+    write_briefing(tmp, "2026-09-29")
+    (tmp / "updates" / "2026-09-30.json").write_text("{not json")
+    items = c.get("/update/history").json()["items"]
+    assert items[0] == {"date": "2026-09-30", "headline": ""}
+    assert items[1]["headline"]

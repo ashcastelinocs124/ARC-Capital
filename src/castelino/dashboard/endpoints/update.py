@@ -37,7 +37,17 @@ def update_status():
 
 @router.get("/update/history")
 def update_history():
-    return {"dates": _days(_dirs()[1])}
+    """Newest first. `items` carries each day's headline for the Past updates list."""
+    updates_dir = _dirs()[1]
+    days = _days(updates_dir)
+    items = []
+    for day in days:
+        try:
+            headline = (_load(updates_dir, day).get("update") or {}).get("headline") or ""
+        except (OSError, ValueError, AttributeError):  # a half-written or malformed file
+            headline = ""
+        items.append({"date": day, "headline": headline})
+    return {"dates": days, "items": items}
 
 
 @router.get("/update/latest")

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Link2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { DailyRecord } from "@/api/endpoints";
 import { ACTIVE_STAGES, useLatestUpdate, useUpdateByDate, useUpdateHistory, useUpdateStatus } from "@/hooks/useUpdate";
@@ -90,7 +92,7 @@ function Briefing({ rec }: { rec: DailyRecord }) {
         <div className="text-sm text-muted">{u.economy}</div>
       </CardContent></Card>
 
-      <div className="grid lg:grid-cols-3 gap-4 items-start">
+      <div className="grid 2xl:grid-cols-3 gap-4 items-start">
         <div className="space-y-4">
         <Card>
           <CardHeader><CardTitle>Prediction changes</CardTitle></CardHeader>
@@ -117,7 +119,7 @@ function Briefing({ rec }: { rec: DailyRecord }) {
           </CardContent>
         </Card>
         </div>
-        <Card className="lg:col-span-2">
+        <Card className="2xl:col-span-2">
           <CardHeader><CardTitle>Economic releases</CardTitle></CardHeader>
           <CardContent className="p-0">
             <EconomicReleasesTable releases={s.releases} />
@@ -131,7 +133,7 @@ function Briefing({ rec }: { rec: DailyRecord }) {
       </Card>
 
       {classes.length > 0 && (
-        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
+        <div className="grid md:grid-cols-2 2xl:grid-cols-4 gap-4 items-start">
           {classes.map(([name, rows]) => <AssetClassTable key={name} name={name} rows={rows} />)}
         </div>
       )}
@@ -192,6 +194,42 @@ function Briefing({ rec }: { rec: DailyRecord }) {
   );
 }
 
+const WEEKDAY = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "UTC" });
+const MONTH_DAY = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+const fmtDay = (d: string) => {
+  const t = new Date(`${d}T00:00:00Z`);
+  return `${MONTH_DAY.format(t)} · ${WEEKDAY.format(t)}`;
+};
+
+// Every stored briefing, newest first: date, weekday and that day's headline.
+function PastUpdates({ items, current, onPick }: {
+  items: { date: string; headline: string }[];
+  current?: string;
+  onPick: (d: string) => void;
+}) {
+  return (
+    <Card className="overflow-hidden">
+      <div className="px-4 py-3 border-b border-border flex justify-between items-center">
+        <span className="text-sm font-semibold">Past updates</span>
+        <span className="text-[11px] text-muted">{items.length} briefing{items.length === 1 ? "" : "s"}</span>
+      </div>
+      <div className="max-h-56 lg:max-h-[calc(100dvh-12rem)] overflow-y-auto">
+        {items.map((it, i) => (
+          <button key={it.date} onClick={() => onPick(it.date)}
+            className={cn("w-full text-left px-4 py-2.5 border-t border-border first:border-0",
+              it.date === current ? "bg-accent-soft" : "hover:bg-surface-2")}>
+            <div className={cn("text-xs font-semibold flex items-center gap-1.5", it.date === current ? "text-accent" : "text-text-2")}>
+              {fmtDay(it.date)}
+              {i === 0 && <span className="text-[10px] font-semibold text-accent border border-accent rounded-full px-1.5 bg-white">Latest</span>}
+            </div>
+            {it.headline && <div className="text-[12.5px] leading-snug text-muted mt-0.5 line-clamp-2">{it.headline}</div>}
+          </button>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 export default function UpdatesPage() {
   const { data: status } = useUpdateStatus();
   const stage = status?.stage;
@@ -199,30 +237,51 @@ export default function UpdatesPage() {
   const { data: latestRaw } = useLatestUpdate(stage);
   const latest = isRecord(latestRaw) ? latestRaw : undefined;
   const { data: history } = useUpdateHistory(stage);
-  const [picked, setPicked] = useState<string | null>(null);
-  const { data: other } = useUpdateByDate(picked && picked !== latest?.date ? picked : null);
-  const picked_ = picked && picked !== latest?.date ? other : latest;
-  const rec = isRecord(picked_) ? picked_ : undefined;
+  // A 404 arrives as [] (api/client.ts), and older backends send dates without items.
+  const items = history && !Array.isArray(history)
+    ? history.items ?? (Array.isArray(history.dates) ? history.dates.map((date) => ({ date, headline: "" })) : [])
+    : [];
+  // ?date=YYYY-MM-DD opens a past day, so a briefing can be linked to; an unknown date shows the latest.
+  const [params, setParams] = useSearchParams();
+  const wanted = params.get("date");
+  const picked = wanted && wanted !== latest?.date && items.some((it) => it.date === wanted) ? wanted : null;
+  const { data: other } = useUpdateByDate(picked);
+  const rec = picked ? (isRecord(other) ? other : undefined) : latest;
   const running = !!stage && (ACTIVE_STAGES.has(stage) || stage === "failed");
+  const [copied, setCopied] = useState(false);
+
+  const open = (d: string) => setParams(d === items[0]?.date ? {} : { date: d });
+  const copyLink = async () => {
+    if (!rec) return;
+    const url = `${window.location.origin}/updates?date=${rec.date}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      window.prompt("Copy this link", url); // clipboard blocked (e.g. not https)
+    }
+  };
 
   return (
-    <div className="p-4 md:p-8">
-      <div className="flex items-baseline justify-between mb-3">
-        <div className="text-xs text-muted">{rec ? `Briefing for ${rec.date} · generated ${rec.generated_at.replace("T", " ").slice(0, 16)}` : "Daily Update"}</div>
-        <div className="flex gap-1.5 flex-wrap">
-          {(Array.isArray(history?.dates) ? history!.dates : []).slice(0, 8).map((d) => (
-            <button key={d} onClick={() => setPicked(d)}
-              className={cn("font-mono text-xs px-2 py-0.5 rounded-md border",
-                d === (rec?.date ?? "") ? "bg-accent-soft text-accent border-accent" : "bg-white border-border")}>{d.slice(5)}</button>
-          ))}
+    <div className="p-4 md:p-8 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5 items-start">
+      {items.length > 0 && <PastUpdates items={items} current={rec?.date} onPick={open} />}
+      <div className="min-w-0">
+        <div className="flex items-baseline justify-between gap-3 mb-3">
+          <div className="text-xs text-muted">{rec ? `Briefing for ${rec.date} · generated ${rec.generated_at.replace("T", " ").slice(0, 16)}` : "Daily Update"}</div>
+          {rec && (
+            <button onClick={copyLink} className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent-hover">
+              <Link2 className="h-3.5 w-3.5" />{copied ? "Link copied" : "Copy link to this day"}
+            </button>
+          )}
         </div>
+        {running && <Banner stage={stage as string} error={status?.error} />}
+        {rec ? <Briefing rec={rec} /> : !running && (
+          <Card><CardContent className="py-12 text-center text-sm text-muted">
+            {picked ? "Loading briefing…" : "No briefing yet. Click Refresh in the top bar to build today's."}
+          </CardContent></Card>
+        )}
       </div>
-      {running && <Banner stage={stage as string} error={status?.error} />}
-      {rec ? <Briefing rec={rec} /> : !running && (
-        <Card><CardContent className="py-12 text-center text-sm text-muted">
-          No briefing yet. It builds automatically when the dashboard starts.
-        </CardContent></Card>
-      )}
     </div>
   );
 }
