@@ -30,8 +30,10 @@ def default_fetch(ref: SeriesRef) -> list[tuple[str, float]]:
     if ref.provider == "polymarket":
         from castelino.agents.update.sources import polymarket
 
-        hist = polymarket.price_history(ref.id)[-WINDOW:]
-        return [(datetime.fromtimestamp(t, UTC).strftime("%b %d"), p * 100) for t, p in hist]
+        by_day: dict[str, float] = {}  # the feed adds an intraday point; keep each day's last
+        for t, p in polymarket.price_history(ref.id):
+            by_day[datetime.fromtimestamp(t, UTC).strftime("%b %d")] = p * 100
+        return list(by_day.items())[-WINDOW:]
     from castelino.forecast import regime
 
     fn = regime._fetch_fred_series if ref.provider == "fred" else regime._fetch_yf_close
@@ -56,6 +58,17 @@ def _end_label(ref: SeriesRef, v: float) -> str:
     if ref.provider == "polymarket":
         return f"{v:.0f}%"
     return f"{v:,.2f}"
+
+
+TITLE_MAX = 60  # wider titles run under the logo
+
+
+def title_for(n: int, ref: SeriesRef, n_pts: int) -> str:
+    suffix = "" if ref.kind == "release" else f" · last {n_pts} obs"
+    head = f"Exhibit {n}: "
+    room = TITLE_MAX - len(head) - len(suffix)
+    label = ref.label if len(ref.label) <= room else ref.label[: room - 1].rstrip() + "…"
+    return head + label + suffix
 
 
 def footer_lines(f: Finding) -> tuple[str, str]:
@@ -89,9 +102,7 @@ def _render(n: int, f: Finding, pts: list[tuple[str, float]], path: Path) -> Exh
             "savefig.dpi": 240,
         }
     )
-    title = f"Exhibit {n}: {ref.label}"
-    if ref.kind != "release":
-        title += f", last {len(pts)} observations"
+    title = title_for(n, ref, len(pts))
     sub = subtitle(ref, pts)
     fig, ax = plt.subplots(figsize=(6.4, 3.9))
     fig.subplots_adjust(left=0.1, right=0.88, top=0.76, bottom=0.2)

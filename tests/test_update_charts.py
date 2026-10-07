@@ -51,7 +51,7 @@ def test_exhibits_numbered_in_order_and_failures_dropped(tmp_path):
         (2, "macro-4", "exhibit_2.png"),
     ]
     assert (tmp_path / "exhibit_1.png").stat().st_size > 10_000
-    assert out[0].title == "Exhibit 1: 10-year Treasury yield, last 7 observations"
+    assert out[0].title == "Exhibit 1: 10-year Treasury yield · last 7 obs"
     assert out[1].title == "Exhibit 2: CPI y/y"
 
 
@@ -80,3 +80,19 @@ def test_chart_renders_even_when_settings_root_points_elsewhere(tmp_path, monkey
     monkeypatch.setattr(get_settings(), "root", tmp_path)
     out = charts.make_exhibits([finding("macro-4", REL)], tmp_path)
     assert [e.n for e in out] == [1]
+
+
+def test_long_titles_are_shortened_to_clear_the_logo():
+    long = "Will the 30-year Treasury yield hit 5.80% before 2027?"
+    t = charts.title_for(3, SeriesRef(kind="daily", provider="polymarket", id="t", label=long), 7)
+    assert len(t) <= 60 and t.startswith("Exhibit 3: ") and "?," not in t
+
+
+def test_polymarket_history_keeps_one_point_per_day(monkeypatch):
+    from castelino.agents.update.sources import polymarket
+
+    day = 86400
+    hist = [(i * day, 0.4 + i / 100) for i in range(7)] + [(6 * day + 3600, 0.55)]
+    monkeypatch.setattr(polymarket, "price_history", lambda tok: hist)
+    pts = charts.default_fetch(SeriesRef(kind="daily", provider="polymarket", id="t", label="q"))
+    assert len({lbl for lbl, _ in pts}) == len(pts) == 7 and round(pts[-1][1], 6) == 55.0
