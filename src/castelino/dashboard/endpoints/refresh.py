@@ -38,6 +38,24 @@ def job_update_agent() -> str:
     return "briefing written"
 
 
+def job_model_refit() -> str:
+    from castelino import config
+    from castelino.agents.update import refit
+    from castelino.agents.update.registry import ModelRegistry
+    from castelino.forecast.regime import train_and_forecast
+
+    cfg = config.get_settings()
+    out = refit.run_refit(
+        registry=ModelRegistry(cfg.root / cfg.update_agent.data_dir / "models"),
+        tolerance=cfg.model_refit.gate_tolerance,
+        refit_fn=train_and_forecast,
+        latest_month_fn=refit.latest_months,
+    )
+    if out is None:
+        raise Skipped("no new data since the last refit")
+    return out
+
+
 def job_sector_sentiment() -> str:
     from castelino import config
     from castelino.signals import sector_sentiment as ss
@@ -63,12 +81,14 @@ def job_adoption() -> str:
 
 LABELS = {
     "update_agent": "Update Agent briefing",
+    "model_refit": "Model refit",
     "sector_sentiment": "Sector Sentiment",
     "adoption": "AI Adoption Index",
 }
 # Overridable in tests.
 _RUNNERS: dict[str, Callable[[], str]] = {
     "update_agent": job_update_agent,
+    "model_refit": job_model_refit,
     "sector_sentiment": job_sector_sentiment,
     "adoption": job_adoption,
 }

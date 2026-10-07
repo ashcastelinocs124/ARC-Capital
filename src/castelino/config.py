@@ -78,7 +78,7 @@ class PathsCfg(BaseModel):
     reports_dir: str
     cache_dir: str
 
-    def resolve(self, root: Path) -> "ResolvedPaths":
+    def resolve(self, root: Path) -> ResolvedPaths:
         return ResolvedPaths(
             data=root / self.data_dir,
             reports=root / self.reports_dir,
@@ -148,15 +148,19 @@ class OpenBBCfg(BaseModel):
 
 class UpdateAgentCfg(BaseModel):
     enabled: bool = True
-    gate_tolerance: float = 0.02      # max Brier worsening a refit may show and still be promoted
+    gate_tolerance: float = 0.02  # max Brier worsening a refit may show and still be promoted
     short_term_notes: int = 5
     long_term_notes: int = 20
-    long_term_refresh_days: int = 7   # long-term trend table is rewritten at most this often
+    long_term_refresh_days: int = 7  # long-term trend table is rewritten at most this often
     model_tier: str = "reasoning"
     max_guard_retries: int = 1
-    max_output_tokens: int = 16000    # reasoning tokens share this budget (see deep_research)
+    max_output_tokens: int = 16000  # reasoning tokens share this budget (see deep_research)
     data_dir: str = "data/update_agent"
     updates_dir: str = "data/updates"
+
+
+class ModelRefitCfg(BaseModel):
+    gate_tolerance: float = 0.02  # max Brier worsening a refit may show and still be promoted
 
 
 class SectorSentimentCfg(BaseModel):
@@ -210,13 +214,13 @@ class PersonaCfg(BaseModel):
 
 class DeepResearchCfg(BaseModel):
     enabled: bool = True
-    max_sub_questions: int = 6        # hard cap on decomposition fan-out
-    max_rounds: int = 2              # reflection rounds, incl. first
-    max_sonar_calls: int = 15        # global web-search budget per report (name kept: stored in reports)
-    concurrency: int = 3             # asyncio semaphore over sub-agents
-    clarify_max_questions: int = 3   # cap on clarifying questions
+    max_sub_questions: int = 6  # hard cap on decomposition fan-out
+    max_rounds: int = 2  # reflection rounds, incl. first
+    max_sonar_calls: int = 15  # global web-search budget per report (name kept: stored in reports)
+    concurrency: int = 3  # asyncio semaphore over sub-agents
+    clarify_max_questions: int = 3  # cap on clarifying questions
     reasoning_tier: str = "reasoning"  # tier for clarifier/lead/synthesizer
-    fast_tier: str = "fast"            # tier for parallel sub-agents
+    fast_tier: str = "fast"  # tier for parallel sub-agents
     reports_dir: str = "data/research"
     # Per-call output ceiling for deep-research LLM calls. MUST be generous:
     # the gpt-5.x reasoning models spend hidden reasoning tokens out of this
@@ -319,8 +323,14 @@ class BacktestCfg(BaseModel):
     universe: list[str] = Field(default_factory=list)
     nyt_topics: list[str] = Field(
         default_factory=lambda: [
-            "federal reserve", "inflation", "ecb", "fomc", "cpi",
-            "interest rates", "recession", "gdp",
+            "federal reserve",
+            "inflation",
+            "ecb",
+            "fomc",
+            "cpi",
+            "interest rates",
+            "recession",
+            "gdp",
         ],
     )
     sonar_trump_enabled: bool = True
@@ -331,17 +341,17 @@ class BacktestCfg(BaseModel):
 class AdoptionCfg(BaseModel):
     enabled: bool = True
     data_dir: str = "data/adoption"
-    top_n: int = 100                  # companies per size bucket
-    sec_user_agent: str = ""          # SEC requires a contact string, e.g. "ARC Research you@example.com"
-    hire_smoothing_periods: int = 7   # ~90 days of bi-weekly snapshots
-    thin_cell_below: int = 5          # sector x bucket cells with fewer companies are flagged
-    max_passages: int = 40            # AI passages sent to the extractor per filing
-    passage_window_chars: int = 300   # context kept around each AI keyword hit
+    top_n: int = 100  # companies per size bucket
+    sec_user_agent: str = ""  # SEC requires a contact string, e.g. "ARC Research you@example.com"
+    hire_smoothing_periods: int = 7  # ~90 days of bi-weekly snapshots
+    thin_cell_below: int = 5  # sector x bucket cells with fewer companies are flagged
+    max_passages: int = 40  # AI passages sent to the extractor per filing
+    passage_window_chars: int = 300  # context kept around each AI keyword hit
     request_interval_s: float = 0.12  # SEC allows 10 requests/second
     # Recipe Writer (adoption/recipe_agent.py): writes job-board recipes for custom careers sites.
     recipe_model: str = "gpt-6-astra"
-    recipe_max_steps: int = 15        # model turns per company
-    recipe_max_usd: float = 3.0       # hard spend cap per company
+    recipe_max_steps: int = 15  # model turns per company
+    recipe_max_usd: float = 3.0  # hard spend cap per company
 
 
 class Settings(BaseModel):
@@ -365,6 +375,7 @@ class Settings(BaseModel):
     personas: PersonaCfg = PersonaCfg()
     deep_research: DeepResearchCfg = DeepResearchCfg()
     update_agent: UpdateAgentCfg = UpdateAgentCfg()
+    model_refit: ModelRefitCfg = ModelRefitCfg()
     sector_sentiment: SectorSentimentCfg = SectorSentimentCfg()
     adoption: AdoptionCfg = AdoptionCfg()
     backtest: BacktestCfg = BacktestCfg()
@@ -381,9 +392,7 @@ class Settings(BaseModel):
     def openai_api_key(self) -> str:
         key = os.environ.get("OPENAI_API_KEY", "").strip()
         if not key:
-            raise RuntimeError(
-                "OPENAI_API_KEY is not set. Add it to .env or export it."
-            )
+            raise RuntimeError("OPENAI_API_KEY is not set. Add it to .env or export it.")
         return key
 
     @property

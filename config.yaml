@@ -316,6 +316,9 @@ update_agent:
   data_dir: data/update_agent
   updates_dir: data/updates
 
+model_refit:
+  gate_tolerance: 0.02
+
 sector_sentiment:
   # Divergence = technical score - fundamental score, per sector, -1..+1.
   enabled: true
