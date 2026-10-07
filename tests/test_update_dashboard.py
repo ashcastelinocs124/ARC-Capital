@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -78,3 +80,71 @@ def test_history_survives_a_malformed_briefing(client):
     items = c.get("/update/history").json()["items"]
     assert items[0] == {"date": "2026-09-30", "headline": ""}
     assert items[1]["headline"]
+
+
+def _v2(day, headline="Morning headline"):
+    return {
+        "version": 2,
+        "date": day,
+        "generated_at": f"{day}T07:00:00",
+        "findings": [],
+        "note": {
+            "headline": headline,
+            "takeaways": ["a", "b", "c"],
+            "items": [],
+            "themes_touched": [],
+            "new_themes": [],
+        },
+        "exhibits": [
+            {
+                "n": 1,
+                "finding_id": "macro-1",
+                "title": "t",
+                "subtitle": "s",
+                "file": "exhibit_1.png",
+            }
+        ],
+        "releases": [],
+        "rounds": 0,
+        "data_gaps": [],
+    }
+
+
+def test_history_reads_v2_headline(client):
+    c, tmp = client
+    (tmp / "updates").mkdir()
+    (tmp / "updates" / "2026-10-07.json").write_text(json.dumps(_v2("2026-10-07")))
+    items = c.get("/update/history").json()["items"]
+    assert items[0] == {"date": "2026-10-07", "headline": "Morning headline"}
+
+
+def test_chart_png_served_and_bad_names_404(client):
+    c, tmp = client
+    d = tmp / "updates" / "charts" / "2026-10-07"
+    d.mkdir(parents=True)
+    (d / "exhibit_1.png").write_bytes(b"\x89PNG fake")
+    r = c.get("/update/2026-10-07/charts/exhibit_1.png")
+    assert r.status_code == 200 and r.headers["content-type"] == "image/png"
+    assert c.get("/update/2026-10-07/charts/exhibit_2.png").status_code == 404
+    # ".." is normalised before routing; it must never reach the chart route as a file name
+    r = c.get("/update/2026-10-07/charts/..%2Fsecret.png")
+    assert r.headers.get("content-type") != "image/png"
+    assert c.get("/update/bad-day/charts/exhibit_1.png").status_code == 404
+
+
+def test_export_copies_chart_pngs(tmp_path, monkeypatch):
+    import importlib.util
+    from pathlib import Path
+
+    spec = importlib.util.spec_from_file_location(
+        "export_snapshot", Path(__file__).resolve().parents[1] / "scripts" / "export_snapshot.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    monkeypatch.setattr(mod, "OUT", tmp_path / "out")
+    d = tmp_path / "updates" / "charts" / "2026-10-07"
+    d.mkdir(parents=True)
+    (d / "exhibit_1.png").write_bytes(b"png")
+    assert mod.copy_charts("2026-10-07", _v2("2026-10-07"), updates_dir=tmp_path / "updates") == 1
+    out = tmp_path / "out" / "update" / "2026-10-07" / "charts" / "exhibit_1.png"
+    assert out.read_bytes() == b"png"

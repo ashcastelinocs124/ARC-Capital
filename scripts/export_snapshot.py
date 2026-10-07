@@ -67,6 +67,25 @@ def snapshot_file(path: str) -> Path:
     return OUT / f"{p.lstrip('/')}{suffix}.json"
 
 
+def copy_charts(day: str, rec: dict, updates_dir: Path | None = None) -> int:
+    """Morning Note exhibits are PNGs, not JSON: copy them next to the day's snapshot."""
+    if updates_dir is None:
+        from castelino.config import get_settings
+
+        cfg = get_settings()
+        updates_dir = cfg.root / cfg.update_agent.updates_dir
+    src = updates_dir / "charts" / day
+    n = 0
+    for ex in rec.get("exhibits") or []:
+        f = src / ex["file"]
+        if f.is_file():
+            dst = OUT / "update" / day / "charts" / ex["file"]
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(f, dst)
+            n += 1
+    return n
+
+
 def run_refresh() -> None:
     for key, fn in refresh._RUNNERS.items():
         try:
@@ -94,6 +113,8 @@ def export() -> int:
         f.parent.mkdir(parents=True, exist_ok=True)
         f.write_text(json.dumps(data))
         written += 1
+        if re.fullmatch(r"/update/\d{4}-\d{2}-\d{2}", path) and data.get("version") == 2:
+            copy_charts(path.rsplit("/", 1)[1], data)
         # Fan out to the parameterised GETs the pages make.
         if path == "/update/history":
             queue += [f"/update/{d}" for d in data.get("dates", [])]

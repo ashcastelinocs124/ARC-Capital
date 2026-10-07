@@ -6,12 +6,14 @@ from datetime import date
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 
 from castelino.agents.update.runner import read_status
 from castelino.config import get_settings
 
 router = APIRouter()
 _DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_EXHIBIT = re.compile(r"^exhibit_\d{1,2}\.png$")
 
 
 def _dirs() -> tuple[Path, Path]:
@@ -43,7 +45,8 @@ def update_history():
     items = []
     for day in days:
         try:
-            headline = (_load(updates_dir, day).get("update") or {}).get("headline") or ""
+            rec = _load(updates_dir, day)
+            headline = ((rec.get("note") or rec.get("update")) or {}).get("headline") or ""
         except (OSError, ValueError, AttributeError):  # a half-written or malformed file
             headline = ""
         items.append({"date": day, "headline": headline})
@@ -57,6 +60,14 @@ def update_latest():
     if not days:
         raise HTTPException(404, "no briefing yet")
     return _load(updates_dir, days[0])
+
+
+@router.get("/update/{day}/charts/{name}")
+def update_chart(day: str, name: str):
+    p = _dirs()[1] / "charts" / day / name
+    if not _DAY.match(day) or not _EXHIBIT.match(name) or not p.is_file():
+        raise HTTPException(404, "no such chart")
+    return FileResponse(p, media_type="image/png")
 
 
 @router.get("/update/{day}")
