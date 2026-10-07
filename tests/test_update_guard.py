@@ -1,66 +1,80 @@
-from castelino.agents.update.guard import find_unsupported
-from tests.update_fixtures import make_snapshot, make_update
+from castelino.agents.update.guard import check_note, unsupported
+from castelino.agents.update.models import Fact, Finding, MorningNote, NoteItem
 
 
-def test_grounded_update_passes():
-    assert find_unsupported(make_update(), make_snapshot()) == []
-
-
-def test_invented_bp_move_is_flagged():
-    upd = make_update()
-    upd.asset_classes = "2y +17bp, SPY -0.4%."
-    assert find_unsupported(upd, make_snapshot()) == ["+17bp"]
-
-
-def test_invented_percent_is_flagged():
-    upd = make_update()
-    upd.economy = "Core PCE 9.9% vs 3.5% prior."
-    assert find_unsupported(upd, make_snapshot()) == ["9.9%"]
-
-
-def test_probability_formats_are_accepted():
-    upd = make_update()
-    upd.predictions_changed = "Growth P(up) 76.0% → 71% and inflation 87%."
-    assert find_unsupported(upd, make_snapshot()) == []
-
-
-def test_plain_counts_without_units_are_ignored():
-    upd = make_update()
-    upd.headline = "Day 10 of outperformance, the 4th upside surprise in 2026."
-    assert find_unsupported(upd, make_snapshot()) == []
-
-
-def test_sector_reads_and_theme_text_are_checked():
-    upd = make_update()
-    upd.sector_reads[0].text = "Up 42% in a week."
-    upd.themes_touched[0].text = "Core PCE 3.7%."
-    assert find_unsupported(upd, make_snapshot()) == ["42%"]
-
-
-# ── final-review regressions ──────────────────────────────────────────────
-
-
-def test_spelled_out_units_are_checked():
-    upd = make_update()
-    upd.asset_classes = "Core PCE 3.7 percent, up 17 basis points."
-    assert find_unsupported(upd, make_snapshot()) == ["17 basis points"]
-
-
-def test_explicit_sign_must_match():
-    upd = make_update()
-    upd.asset_classes = "SPY +0.4% on the day."  # snapshot has -0.4
-    assert find_unsupported(upd, make_snapshot()) == ["+0.4%"]
-
-
-def test_times_100_only_applies_to_predictions():
-    upd = make_update()
-    upd.economy = (
-        "SPY moved 40% of its range."  # only SPY -0.4 ×100 could match; it is not a probability
+def fact(fid, nums, text="t"):
+    return Fact(
+        id=fid, text=text, numbers=nums, provenance="data", source_title="s", source_url="u"
     )
-    assert find_unsupported(upd, make_snapshot()) == ["40%"]
 
 
-def test_tolerance_follows_displayed_precision():
-    upd = make_update()
-    upd.economy = "Core PCE 3.74% vs 3.5% prior."  # snapshot 3.7: 3.74 is a different number
-    assert find_unsupported(upd, make_snapshot()) == ["3.74%"]
+def finding(fid, fact_ids):
+    return Finding(
+        id=fid,
+        agent="macro",
+        claim="c",
+        provenance="data",
+        source_title="s",
+        source_url="u",
+        fact_ids=fact_ids,
+    )
+
+
+def note(items, headline="Inflation firmer", takeaways=("a", "b", "c")):
+    return MorningNote(
+        headline=headline,
+        takeaways=list(takeaways),
+        items=items,
+        themes_touched=[],
+        new_themes=[],
+    )
+
+
+def item(rank, body, fids, chart=None):
+    return NoteItem(rank=rank, title="T", body=body, finding_ids=fids, chart=chart)
+
+
+FACTS = [fact("M1", [3.71, 3.54, 0.17]), fact("M2", [5.27, 3.0])]
+FINDS = [finding("macro-1", ["M1"]), finding("macro-2", ["M2"])]
+OK_ITEMS = [
+    item(1, "CPI 3.71% vs 3.54%, +0.17pp.", ["macro-1"]),
+    item(2, "10y at 5.27%, +3bp.", ["macro-2"], chart="macro-2"),
+    item(3, "No numbers here.", ["macro-1"]),
+]
+
+
+def test_grounded_note_passes():
+    assert check_note(note(OK_ITEMS), FINDS, FACTS) == []
+
+
+def test_number_from_another_items_finding_is_rejected():
+    bad = [item(1, "CPI 3.71% and 10y 5.27%.", ["macro-1"]), *OK_ITEMS[1:]]
+    assert check_note(note(bad), FINDS, FACTS) == ["item 1: 5.27%"]
+
+
+def test_headline_may_use_any_cited_fact():
+    assert check_note(note(OK_ITEMS, headline="10y hits 5.27%"), FINDS, FACTS) == []
+    assert check_note(note(OK_ITEMS, headline="10y hits 5.5%"), FINDS, FACTS) == [
+        "headline/takeaways: 5.5%"
+    ]
+
+
+def test_dangling_finding_and_foreign_chart_rejected():
+    bad = [item(1, "x", ["macro-9"]), item(2, "y", ["macro-1"], chart="macro-2"), OK_ITEMS[2]]
+    errs = check_note(note(bad), FINDS, FACTS)
+    assert "item 1: unknown finding macro-9" in errs
+    assert "item 2: chart macro-2 is not one of its findings" in errs
+
+
+def test_shape_rules():
+    assert "need exactly 3 takeaways" in check_note(note(OK_ITEMS, takeaways=("a",)), FINDS, FACTS)
+    assert "need 3-5 items" in check_note(note(OK_ITEMS[:2]), FINDS, FACTS)
+
+
+def test_unsupported_precision_sign_and_units():
+    nums = {3.74, 17.0, 0.4}
+    assert unsupported(["CPI 3.7%"], nums) == []  # 3.74 shown at 1dp
+    assert unsupported(["CPI 3.70%"], nums) == ["3.70%"]  # 2dp must match 3.74
+    assert unsupported(["+17 basis points"], nums) == []
+    assert unsupported(["-0.4%"], nums) == ["-0.4%"]  # explicit sign must match
+    assert unsupported(["day 10 of the strike"], nums) == []  # no unit, not checked
