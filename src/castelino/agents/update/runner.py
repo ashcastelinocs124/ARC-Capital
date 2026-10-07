@@ -150,13 +150,13 @@ class UpdateRunner:
         return any(latest[m] > getattr(champion, m).feature_month[:7] for m in MODELS)
 
     def _run(self, today: date) -> None:
-        self._set(Stage.CHECKING)
+        self._set(Stage.PLANNING)
         champion = self.registry.current()
         gate: GateResult | None = None
         model_note: str | None = None
 
         if self._new_data(champion):
-            self._set(Stage.REFITTING)
+            self._set(Stage.RESEARCHING)
             challenger = None
             try:
                 challenger = self.refit_fn()
@@ -165,7 +165,7 @@ class UpdateRunner:
                 model_note = f"model not refreshed today: {exc}"
             if challenger is not None:
                 self.registry.save_history(challenger)
-                self._set(Stage.GATING)
+                self._set(Stage.REVIEWING)
                 gate = run_gate(challenger, champion, self.tolerance)
                 promoted = [m for m in MODELS if getattr(gate, m).decision.value == "promoted"]
                 if promoted:
@@ -173,7 +173,7 @@ class UpdateRunner:
                     for m in promoted:
                         self.registry.set_pointer(m, version)
 
-        self._set(Stage.COLLECTING)
+        self._set(Stage.CHARTING)
         prediction = _prediction(champion, self.registry.current(), gate)
         snapshot = self.collect_fn(today=self._day, prediction=prediction, model_note=model_note)
 
@@ -240,7 +240,7 @@ def build_default_runner() -> UpdateRunner:
             long_cap=ua.long_term_notes,
             refresh_days=ua.long_term_refresh_days,
         ),
-        tolerance=ua.gate_tolerance,
+        tolerance=cfg.model_refit.gate_tolerance,
         max_retries=ua.max_guard_retries,
         refit_fn=train_and_forecast,
         latest_month_fn=default_latest_months,

@@ -148,13 +148,19 @@ class OpenBBCfg(BaseModel):
 
 class UpdateAgentCfg(BaseModel):
     enabled: bool = True
-    gate_tolerance: float = 0.02  # max Brier worsening a refit may show and still be promoted
+    orchestrator_model: str = "gpt-6-sol"
+    editor_model: str = "gpt-6-sol"
+    agent_model: str = "gpt-6-luna"  # Macro / News / Alt pickers
+    search_model: str = "gpt-6-luna"  # web_search calls by News / Alt
+    # ponytail: no separate search-call cap; max_rounds bounds it at 2 * (1 + max_rounds) = 6
+    max_rounds: int = 2  # orchestrator follow-up rounds
+    max_findings_per_agent: int = 6
+    items: int = 5
+    max_guard_retries: int = 1
+    max_output_tokens: int = 16000  # reasoning tokens share this budget
     short_term_notes: int = 5
     long_term_notes: int = 20
-    long_term_refresh_days: int = 7  # long-term trend table is rewritten at most this often
-    model_tier: str = "reasoning"
-    max_guard_retries: int = 1
-    max_output_tokens: int = 16000  # reasoning tokens share this budget (see deep_research)
+    long_term_refresh_days: int = 7
     data_dir: str = "data/update_agent"
     updates_dir: str = "data/updates"
 

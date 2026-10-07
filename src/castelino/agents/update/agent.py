@@ -27,7 +27,7 @@ class UpdateAgent(StructuredAgent[DailyUpdate]):
 
     def __init__(self) -> None:
         cfg = get_settings().update_agent
-        self.tier = cfg.model_tier
+        self.tier = "reasoning"
         self.max_output_tokens = cfg.max_output_tokens
 
     def system_prompt(self) -> str:

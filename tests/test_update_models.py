@@ -6,7 +6,7 @@ from tests.update_fixtures import make_snapshot, make_update
 
 def test_config_defaults():
     cfg = get_settings().update_agent
-    assert cfg.gate_tolerance == 0.02
+    assert get_settings().model_refit.gate_tolerance == 0.02
     assert (cfg.short_term_notes, cfg.long_term_notes) == (5, 20)
     assert cfg.max_guard_retries == 1 and cfg.enabled is True
 

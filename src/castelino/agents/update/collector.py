@@ -128,8 +128,15 @@ def _release(series_id: str, name: str, kind: str, s: pd.Series) -> Release:
         raise ValueError("no observations")
     latest = round(float(s.iloc[-1]), 2)
     prior = round(float(s.iloc[-2]), 2) if len(s) > 1 else None
+    periods = [pd.Timestamp(i).strftime("%b %Y") for i in s.index[-2:]]
     return Release(
-        series=series_id, name=name, latest=latest, prior=prior, change=_diff(latest, prior)
+        series=series_id,
+        name=name,
+        latest=latest,
+        prior=prior,
+        change=_diff(latest, prior),
+        latest_period=periods[-1],
+        prior_period=periods[0] if len(periods) > 1 else None,
     )
 
 

@@ -306,13 +306,18 @@ paths:
 
 update_agent:
   enabled: true
-  gate_tolerance: 0.02
+  orchestrator_model: gpt-6-sol
+  editor_model: gpt-6-sol
+  agent_model: gpt-6-luna
+  search_model: gpt-6-luna
+  max_rounds: 2
+  max_findings_per_agent: 6
+  items: 5
+  max_guard_retries: 1
+  max_output_tokens: 16000
   short_term_notes: 5
   long_term_notes: 20
   long_term_refresh_days: 7
-  model_tier: reasoning
-  max_guard_retries: 1
-  max_output_tokens: 16000
   data_dir: data/update_agent
   updates_dir: data/updates
 
