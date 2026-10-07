@@ -1,0 +1,23 @@
+{
+  "kind": "json",
+  "url": "https://recruiting2.ultipro.com/MAG1010MOG/JobBoard/ad21ad71-8fa4-4c01-a472-6ee9b3a12125/JobBoardView/LoadSearchResults",
+  "method": "POST",
+  "body": {
+    "opportunitySearch": {
+      "Top": 50,
+      "Skip": "{offset}",
+      "QueryString": "",
+      "OrderBy": [
+        {
+          "Value": "postedDateDesc",
+          "PropertyName": "PostedDate",
+          "Ascending": false
+        }
+      ]
+    }
+  },
+  "items": "opportunities",
+  "title": "Title",
+  "page_start": 1,
+  "page_size": 50
+}

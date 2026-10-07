@@ -1,0 +1,10 @@
+{
+  "kind": "dom",
+  "url": "https://careers.chevron.com/search-jobs?p={page}",
+  "method": "GET",
+  "items": "",
+  "title": "title",
+  "page_start": 1,
+  "page_size": 15,
+  "title_selector": "#search-results-list h2"
+}

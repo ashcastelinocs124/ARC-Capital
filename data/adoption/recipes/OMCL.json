@@ -1,0 +1,9 @@
+{
+  "kind": "json",
+  "url": "https://apply.omnicell.com/api/pcsx/search?domain=omnicell.com&query=&location=&start={offset}&",
+  "method": "GET",
+  "items": "data.positions",
+  "title": "name",
+  "page_start": 1,
+  "page_size": 10
+}

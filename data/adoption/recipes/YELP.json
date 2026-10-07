@@ -1,0 +1,32 @@
+{
+  "kind": "json",
+  "url": "https://www.yelp.careers/widgets",
+  "method": "POST",
+  "body": {
+    "lang": "en",
+    "deviceType": "desktop",
+    "country": "us",
+    "pageName": "search-results",
+    "ddoKey": "refineSearch",
+    "sortBy": "",
+    "subsearch": "",
+    "from": "{offset}",
+    "jobs": true,
+    "counts": true,
+    "all_fields": [],
+    "size": 10,
+    "clearAll": false,
+    "jdsource": "facets",
+    "isSliderEnable": false,
+    "pageId": "page18",
+    "siteType": "external",
+    "keywords": "",
+    "global": true,
+    "selected_fields": {},
+    "locationData": {}
+  },
+  "items": "refineSearch.data.jobs",
+  "title": "title",
+  "page_start": 1,
+  "page_size": 10
+}

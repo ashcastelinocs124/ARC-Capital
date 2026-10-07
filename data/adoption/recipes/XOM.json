@@ -1,0 +1,11 @@
+{
+  "kind": "dom",
+  "url": "https://jobs.exxonmobil.com/search/",
+  "method": "GET",
+  "items": "",
+  "title": "title",
+  "page_start": 1,
+  "page_size": 25,
+  "title_selector": "#searchresults .hidden-phone a.jobTitle-link",
+  "next_selector": ".pagination li.active + li:not(:last-child) a"
+}

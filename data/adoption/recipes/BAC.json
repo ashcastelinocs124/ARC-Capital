@@ -1,0 +1,10 @@
+{
+  "kind": "dom",
+  "url": "https://careers.bankofamerica.com/en-us/job-search?ref=search&search=getAllJobs&start=0&rows=3000",
+  "method": "GET",
+  "items": "",
+  "title": "title",
+  "page_start": 1,
+  "page_size": 20,
+  "title_selector": "a[href*='/job-detail/']"
+}

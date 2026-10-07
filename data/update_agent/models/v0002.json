@@ -1,0 +1,58 @@
+{
+  "asof": "2026-10-01T09:47:52.998976Z",
+  "growth": {
+    "asof": "2026-10-01T09:47:48.872456Z",
+    "target_id": "ISM_MFG_PMI",
+    "target_name": "Regional Fed manufacturing composite (Empire State + Philly, diffusion index; ISM proxy)",
+    "feature_month": "2026-09-01",
+    "target_month": "2026-10-01",
+    "lead_months": 1,
+    "up": true,
+    "prob_up": 0.9116167426109314,
+    "indicators_used": [
+      "ISM_MFG_PMI",
+      "DGS10",
+      "ICSA",
+      "USSLIND",
+      "cyclicals_defensives",
+      "DSPIC96"
+    ],
+    "train_metrics": {
+      "accuracy": 0.8566037735849058,
+      "brier": 0.10801751594990491,
+      "n_test": 265
+    },
+    "history_start": "2000-01-01",
+    "n_obs": 320
+  },
+  "inflation": {
+    "asof": "2026-10-01T09:47:52.998966Z",
+    "target_id": "CPIAUCSL",
+    "target_name": "CPI All Items (SA, level)",
+    "feature_month": "2026-08-01",
+    "target_month": "2026-09-01",
+    "lead_months": 1,
+    "up": false,
+    "prob_up": 0.2557697296142578,
+    "indicators_used": [
+      "CPIAUCSL",
+      "PPIACO",
+      "DCOILWTICO",
+      "T5YIE",
+      "DTWEXBGS",
+      "MICH",
+      "CUSR0000SEHA",
+      "AHETPI",
+      "T10YIE",
+      "DCOILBRENTEU",
+      "CSUSHPISA"
+    ],
+    "train_metrics": {
+      "accuracy": 0.6538461538461539,
+      "brier": 0.23201982378959657,
+      "n_test": 260
+    },
+    "history_start": "2000-01-01",
+    "n_obs": 315
+  }
+}

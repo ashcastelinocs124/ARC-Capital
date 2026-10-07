@@ -1,0 +1,10 @@
+{
+  "kind": "dom",
+  "url": "https://recruiting.paylocity.com/recruiting/jobs/All/959e81c0-8e0a-48f3-8844-95b1929c91e5/Hawkins-Inc",
+  "method": "GET",
+  "items": "",
+  "title": "title",
+  "page_start": 1,
+  "page_size": 20,
+  "title_selector": "a[href*='/Jobs/Details/']"
+}

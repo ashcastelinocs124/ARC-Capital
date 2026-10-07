@@ -1,0 +1,58 @@
+{
+  "asof": "2026-09-30T15:46:05.871105Z",
+  "growth": {
+    "asof": "2026-09-30T15:45:58.113939Z",
+    "target_id": "ISM_MFG_PMI",
+    "target_name": "ISM Manufacturing PMI (composite index; see CSV header for data source)",
+    "feature_month": "2026-03-01",
+    "target_month": "2026-04-01",
+    "lead_months": 1,
+    "up": true,
+    "prob_up": 0.8260632753372192,
+    "indicators_used": [
+      "ISM_MFG_PMI",
+      "DGS10",
+      "ICSA",
+      "USSLIND",
+      "cyclicals_defensives",
+      "DSPIC96"
+    ],
+    "train_metrics": {
+      "accuracy": 0.5153846153846154,
+      "brier": 0.32506721615791323,
+      "n_test": 260
+    },
+    "history_start": "2000-01-01",
+    "n_obs": 314
+  },
+  "inflation": {
+    "asof": "2026-09-30T15:46:05.871071Z",
+    "target_id": "CPIAUCSL",
+    "target_name": "CPI All Items (SA, level)",
+    "feature_month": "2026-08-01",
+    "target_month": "2026-09-01",
+    "lead_months": 1,
+    "up": true,
+    "prob_up": 0.869356632232666,
+    "indicators_used": [
+      "CPIAUCSL",
+      "PPIACO",
+      "DCOILWTICO",
+      "T5YIE",
+      "DTWEXBGS",
+      "MICH",
+      "CUSR0000SEHA",
+      "AHETPI",
+      "T10YIE",
+      "DCOILBRENTEU",
+      "CSUSHPISA"
+    ],
+    "train_metrics": {
+      "accuracy": 0.720754716981132,
+      "brier": 0.21883759051561355,
+      "n_test": 265
+    },
+    "history_start": "2000-01-01",
+    "n_obs": 319
+  }
+}

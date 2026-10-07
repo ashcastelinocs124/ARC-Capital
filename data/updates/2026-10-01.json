@@ -1,0 +1,393 @@
+{
+  "date": "2026-10-01",
+  "generated_at": "2026-10-01T04:48:24",
+  "snapshot": {
+    "date": "2026-10-01",
+    "releases": [
+      {
+        "series": "CPIAUCSL",
+        "name": "CPI y/y",
+        "latest": 3.71,
+        "prior": 3.54,
+        "change": 0.17,
+        "consensus": null,
+        "surprise": null
+      },
+      {
+        "series": "CPIAUCSL",
+        "name": "CPI m/m",
+        "latest": 0.4,
+        "prior": 0.07,
+        "change": 0.33,
+        "consensus": null,
+        "surprise": null
+      },
+      {
+        "series": "CPILFESL",
+        "name": "Core CPI y/y",
+        "latest": 2.76,
+        "prior": 2.79,
+        "change": -0.03,
+        "consensus": null,
+        "surprise": null
+      },
+      {
+        "series": "CPILFESL",
+        "name": "Core CPI m/m",
+        "latest": 0.29,
+        "prior": 0.22,
+        "change": 0.07,
+        "consensus": null,
+        "surprise": null
+      },
+      {
+        "series": "PCEPI",
+        "name": "PCE y/y",
+        "latest": 3.42,
+        "prior": 3.36,
+        "change": 0.06,
+        "consensus": null,
+        "surprise": null
+      },
+      {
+        "series": "PCEPI",
+        "name": "PCE m/m",
+        "latest": 0.31,
+        "prior": 0.05,
+        "change": 0.26,
+        "consensus": null,
+        "surprise": null
+      },
+      {
+        "series": "PCEPILFE",
+        "name": "Core PCE y/y",
+        "latest": 3.01,
+        "prior": 2.98,
+        "change": 0.03,
+        "consensus": null,
+        "surprise": null
+      },
+      {
+        "series": "PCEPILFE",
+        "name": "Core PCE m/m",
+        "latest": 0.25,
+        "prior": 0.13,
+        "change": 0.12,
+        "consensus": null,
+        "surprise": null
+      },
+      {
+        "series": "UNRATE",
+        "name": "Unemployment rate",
+        "latest": 4.1,
+        "prior": 4.1,
+        "change": 0.0,
+        "consensus": null,
+        "surprise": null
+      },
+      {
+        "series": "PAYEMS",
+        "name": "Payrolls y/y",
+        "latest": 0.38,
+        "prior": 0.23,
+        "change": 0.15,
+        "consensus": null,
+        "surprise": null
+      },
+      {
+        "series": "INDPRO",
+        "name": "Industrial production y/y",
+        "latest": 1.42,
+        "prior": 1.13,
+        "change": 0.29,
+        "consensus": null,
+        "surprise": null
+      }
+    ],
+    "asset_returns": {
+      "equities": {
+        "SPY": {
+          "1d": -0.21,
+          "1w": -0.67,
+          "1m": -0.33
+        },
+        "QQQ": {
+          "1d": 0.25,
+          "1w": -0.19,
+          "1m": 3.32
+        },
+        "XLE": {
+          "1d": -0.06,
+          "1w": -1.39,
+          "1m": -3.27
+        },
+        "XLF": {
+          "1d": -1.13,
+          "1w": -2.09,
+          "1m": -7.14
+        },
+        "XLI": {
+          "1d": -1.27,
+          "1w": -1.83,
+          "1m": -4.4
+        },
+        "XLV": {
+          "1d": -1.35,
+          "1w": -0.23,
+          "1m": -0.87
+        },
+        "XLK": {
+          "1d": 0.64,
+          "1w": 0.21,
+          "1m": 5.08
+        },
+        "XLY": {
+          "1d": -0.28,
+          "1w": -1.64,
+          "1m": -6.44
+        }
+      },
+      "rates_credit": {
+        "TLT": {
+          "1d": -0.58,
+          "1w": -3.33,
+          "1m": -5.38
+        },
+        "IEF": {
+          "1d": -0.16,
+          "1w": -0.98,
+          "1m": -3.35
+        },
+        "SHY": {
+          "1d": 0.05,
+          "1w": 0.1,
+          "1m": -0.55
+        },
+        "LQD": {
+          "1d": -0.22,
+          "1w": -1.65,
+          "1m": -3.39
+        },
+        "HYG": {
+          "1d": -0.19,
+          "1w": -1.14,
+          "1m": -2.73
+        },
+        "DGS2": {
+          "1d": -3.0,
+          "1w": 18.0,
+          "1m": 55.0
+        },
+        "DGS10": {
+          "1d": 2.0,
+          "1w": 30.0,
+          "1m": 53.0
+        }
+      },
+      "commodities": {
+        "GLD": {
+          "1d": -0.54,
+          "1w": -3.06,
+          "1m": -6.75
+        },
+        "USO": {
+          "1d": 1.61,
+          "1w": -2.13,
+          "1m": 8.95
+        },
+        "UNG": {
+          "1d": 0.19,
+          "1w": -4.6,
+          "1m": -1.61
+        },
+        "CL_F": {
+          "1d": 1.98,
+          "1w": -2.54,
+          "1m": 2.21
+        },
+        "GC_F": {
+          "1d": 0.11,
+          "1w": -2.49,
+          "1m": -4.67
+        },
+        "NG_F": {
+          "1d": -2.51,
+          "1w": -10.52,
+          "1m": 1.58
+        }
+      },
+      "fx": {
+        "EURUSD": {
+          "1d": -0.42,
+          "1w": -0.78,
+          "1m": -2.61
+        },
+        "USDJPY": {
+          "1d": 0.62,
+          "1w": 0.07,
+          "1m": -1.14
+        },
+        "GBPUSD": {
+          "1d": -0.1,
+          "1w": -0.17,
+          "1m": -2.19
+        },
+        "AUDUSD": {
+          "1d": -0.64,
+          "1w": -1.27,
+          "1m": -2.84
+        },
+        "USDCAD": {
+          "1d": 0.1,
+          "1w": 0.89,
+          "1m": 2.46
+        }
+      }
+    },
+    "sectors": [
+      {
+        "sector": "XLE",
+        "r1w": -1.39,
+        "r1m": -3.27,
+        "r3m": 17.15,
+        "r6m": 1.72,
+        "r12m": 40.1,
+        "rel1m": -2.94,
+        "rel12m": 23.95,
+        "short_label": "down, deepening",
+        "long_label": "uptrend"
+      },
+      {
+        "sector": "XLF",
+        "r1w": -2.09,
+        "r1m": -7.14,
+        "r3m": -2.17,
+        "r6m": 8.93,
+        "r12m": 0.21,
+        "rel1m": -6.81,
+        "rel12m": -15.94,
+        "short_label": "down, deepening",
+        "long_label": "range-bound"
+      },
+      {
+        "sector": "XLI",
+        "r1w": -1.83,
+        "r1m": -4.4,
+        "r3m": -8.69,
+        "r6m": 3.78,
+        "r12m": 10.35,
+        "rel1m": -4.07,
+        "rel12m": -5.8,
+        "short_label": "down, deepening",
+        "long_label": "uptrend, fading"
+      },
+      {
+        "sector": "XLV",
+        "r1w": -0.23,
+        "r1m": -0.87,
+        "r3m": 5.97,
+        "r6m": 15.82,
+        "r12m": 26.0,
+        "rel1m": -0.54,
+        "rel12m": 9.85,
+        "short_label": "flat",
+        "long_label": "uptrend"
+      },
+      {
+        "sector": "XLK",
+        "r1w": 0.21,
+        "r1m": 5.08,
+        "r3m": 5.58,
+        "r6m": 47.64,
+        "r12m": 40.37,
+        "rel1m": 5.41,
+        "rel12m": 24.22,
+        "short_label": "up, fading",
+        "long_label": "uptrend"
+      },
+      {
+        "sector": "XLY",
+        "r1w": -1.64,
+        "r1m": -6.44,
+        "r3m": -7.63,
+        "r6m": 0.29,
+        "r12m": -8.84,
+        "rel1m": -6.11,
+        "rel12m": -24.99,
+        "short_label": "down, deepening",
+        "long_label": "downtrend"
+      }
+    ],
+    "prediction": {
+      "growth": {
+        "old": 0.8261,
+        "new": 0.9116,
+        "gate": "promoted"
+      },
+      "inflation": {
+        "old": 0.8694,
+        "new": 0.2558,
+        "gate": "promoted"
+      }
+    },
+    "data_gaps": [],
+    "model_note": null
+  },
+  "update": {
+    "headline": "Inflation re-accelerated at the headline level while activity data firmed; markets traded a higher-rate, stronger-dollar mix with narrow technology leadership and weakness in cyclicals, duration, credit, and gold.",
+    "economy": "The data mix was stagflation-sensitive on inflation but not recessionary on activity. CPI y/y rose to 3.71%, up 0.17 pp, and CPI m/m rose to 0.40%, up 0.33 pp. PCE y/y rose to 3.42%, up 0.06 pp, and PCE m/m rose to 0.31%, up 0.26 pp. Core was more mixed: Core CPI y/y eased to 2.76%, down 0.03 pp, but Core CPI m/m rose to 0.29%, up 0.07 pp; Core PCE y/y rose to 3.01%, up 0.03 pp, and Core PCE m/m rose to 0.25%, up 0.12 pp. Labor and production did not validate a sharp growth slowdown: unemployment was unchanged at 4.10%, payrolls y/y improved to 0.38%, up 0.15 pp, and industrial production y/y improved to 1.42%, up 0.29 pp. Consensus and surprise data are unavailable for all releases. Data gaps: none. Model note: none.",
+    "asset_classes": "Equities reflected narrow leadership rather than broad risk-on. SPY fell -0.21% on the day and -0.33% over 1 month, while QQQ rose 0.25% on the day and 3.32% over 1 month; XLK was the clear leader at 0.64% on the day and 5.08% over 1 month. Cyclicals and defensives outside technology were weak: XLF fell -1.13% on the day and -7.14% over 1 month, XLI fell -1.27% and -4.40%, XLY fell -0.28% and -6.44%, and XLV fell -1.35% and -0.87%. Rates price action matched the hotter headline inflation and firmer activity tone: DGS10 rose 2.00 bp on the day, 30.00 bp over 1 week, and 53.00 bp over 1 month, while DGS2 fell -3.00 bp on the day but remains up 18.00 bp over 1 week and 55.00 bp over 1 month. Duration remained under pressure, with TLT down -0.58% on the day and -5.38% over 1 month, and IEF down -0.16% and -3.35%. Credit also softened, with LQD down -0.22% on the day and -3.39% over 1 month, and HYG down -0.19% and -2.73%. Commodities diverged: oil bounced, with CL_F up 1.98% on the day and 2.21% over 1 month, while USO was up 1.61% on the day and 8.95% over 1 month; gold stayed under pressure from real-rate/dollar stress, with GLD down -0.54% on the day and -6.75% over 1 month, while GC_F was up 0.11% on the day but down -4.67% over 1 month. FX confirmed dollar strength: EURUSD fell -0.42% on the day and -2.61% over 1 month, GBPUSD fell -0.10% and -2.19%, AUDUSD fell -0.64% and -2.84%, and USDCAD rose 0.10% and 2.46%. USDJPY rose 0.62% on the day but is still down -1.14% over 1 month, the main dollar-strength exception on the longer window.",
+    "predictions_changed": "Both promoted model updates changed the regime probabilities. The growth model was promoted from 82.61% to 91.16%, consistent with unchanged unemployment at 4.10%, stronger payrolls y/y at 0.38%, and stronger industrial production y/y at 1.42%. The inflation model was promoted from 86.94% to 25.58%; despite hotter headline CPI and PCE, the promoted update lowers the inflation-regime probability, likely reflecting the broader input mix including Core CPI y/y easing to 2.76%. No model gate was marked kept, so there is no unchanged forecast to report.",
+    "themes_touched": [
+      {
+        "title": "Narrow technology leadership versus cyclical weakness",
+        "text": "Still active and sharper today. QQQ rose 0.25% on the day while SPY fell -0.21%, and XLK rose 0.64% versus XLF at -1.13%, XLI at -1.27%, XLY at -0.28%, and XLV at -1.35%. Over 1 month, XLK is up 5.08% while XLF is down -7.14%, XLI is down -4.40%, and XLY is down -6.44%, so equity risk appetite remains concentrated in technology rather than broad cyclical participation."
+      },
+      {
+        "title": "Duration pressure and stronger-dollar stress",
+        "text": "Still active. DGS10 is up 53.00 bp over 1 month and DGS2 is up 55.00 bp over 1 month, with TLT down -5.38%, IEF down -3.35%, LQD down -3.39%, HYG down -2.73%, and GLD down -6.75% over the same window. FX confirms the stronger-dollar impulse, with EURUSD down -2.61%, GBPUSD down -2.19%, AUDUSD down -2.84%, and USDCAD up 2.46% over 1 month; USDJPY down -1.14% over 1 month remains the exception."
+      }
+    ],
+    "new_themes": [],
+    "sector_reads": [
+      {
+        "sector": "XLE",
+        "text": "Energy is in a short-term pullback inside a strong long-term uptrend. XLE is down -1.39% over 1 week and -3.27% over 1 month, with -2.94 pp relative 1-month performance, but it is up 17.15% over 3 months and 40.10% over 12 months, with 23.95 pp relative 12-month performance. This still looks like consolidation, not a reversal, helped by oil’s positive 1-month tone in USO at 8.95% and CL_F at 2.21%."
+      },
+      {
+        "sector": "XLF",
+        "text": "Financials remain weak. XLF is down -2.09% over 1 week, -7.14% over 1 month, and -2.17% over 3 months, with -6.81 pp relative 1-month performance. The 12-month return is only 0.21% and relative 12-month performance is -15.94 pp, so the long-term profile is range-bound; this is renewed downside pressure within a weak range, not a pullback inside leadership."
+      },
+      {
+        "sector": "XLI",
+        "text": "Industrials are close to a trend break but not yet a confirmed reversal. XLI is down -1.83% over 1 week, -4.40% over 1 month, and -8.69% over 3 months, with -4.07 pp relative 1-month performance. It remains up 10.35% over 12 months, but relative 12-month performance is -5.80 pp and the long-term label is uptrend, fading. The move still reads as a deepening pullback rather than a completed reversal."
+      },
+      {
+        "sector": "XLV",
+        "text": "Health care is consolidating inside an uptrend. XLV is down -0.23% over 1 week and -0.87% over 1 month, with -0.54 pp relative 1-month performance, but it is up 5.97% over 3 months, 15.82% over 6 months, and 26.00% over 12 months, with 9.85 pp relative 12-month performance. The short-term flat/down action looks like digestion, not reversal."
+      },
+      {
+        "sector": "XLK",
+        "text": "Technology remains the market’s leadership sector. XLK is up 0.21% over 1 week, 5.08% over 1 month, 5.58% over 3 months, 47.64% over 6 months, and 40.37% over 12 months, with 5.41 pp relative 1-month performance and 24.22 pp relative 12-month performance. The short-term label is up, fading, so this is moderation within leadership, not a reversal."
+      },
+      {
+        "sector": "XLY",
+        "text": "Consumer discretionary weakness is continuation, not a pullback. XLY is down -1.64% over 1 week, -6.44% over 1 month, and -7.63% over 3 months, with -6.11 pp relative 1-month performance. It is also down -8.84% over 12 months with -24.99 pp relative 12-month performance, confirming the long-term downtrend."
+      }
+    ]
+  },
+  "gate": {
+    "growth": {
+      "decision": "promoted",
+      "champion_brier": 0.32506721615791323,
+      "challenger_brier": 0.10801751594990491,
+      "reason": "not worse than champion beyond tolerance"
+    },
+    "inflation": {
+      "decision": "promoted",
+      "champion_brier": 0.21883759051561355,
+      "challenger_brier": 0.23201982378959657,
+      "reason": "not worse than champion beyond tolerance"
+    }
+  }
+}

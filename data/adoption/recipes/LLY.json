@@ -1,0 +1,31 @@
+{
+  "kind": "json",
+  "url": "https://careers.lilly.com/widgets",
+  "method": "POST",
+  "body": {
+    "lang": "en_us",
+    "deviceType": "desktop",
+    "country": "us",
+    "pageName": "search-results",
+    "ddoKey": "refineSearch",
+    "sortBy": "",
+    "subsearch": "",
+    "from": "{offset}",
+    "jobs": true,
+    "counts": true,
+    "all_fields": [
+      "category",
+      "country",
+      "state",
+      "city",
+      "type"
+    ],
+    "size": 100,
+    "clearAll": false,
+    "refNum": "LILLUS"
+  },
+  "items": "refineSearch.data.jobs",
+  "title": "title",
+  "page_start": 1,
+  "page_size": 100
+}

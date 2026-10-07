@@ -1,0 +1,15 @@
+{
+  "kind": "json",
+  "url": "https://geaerospace.wd5.myworkdayjobs.com/wday/cxs/geaerospace/GE_ExternalSite/jobs",
+  "method": "POST",
+  "body": {
+    "limit": 20,
+    "offset": "{offset}",
+    "searchText": "",
+    "appliedFacets": {}
+  },
+  "items": "jobPostings",
+  "title": "title",
+  "page_start": 1,
+  "page_size": 20
+}

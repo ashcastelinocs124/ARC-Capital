@@ -1,0 +1,10 @@
+{
+  "kind": "dom",
+  "url": "https://www.tgtherapeutics.com/about-us/join-us/",
+  "method": "GET",
+  "items": "",
+  "title": "title",
+  "page_start": 1,
+  "page_size": 20,
+  "title_selector": "a[href*='/about-us/join-us/careers-']"
+}

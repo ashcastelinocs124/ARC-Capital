@@ -1,0 +1,10 @@
+{
+  "kind": "dom",
+  "url": "https://jobs.nexteraenergy.com/search/?startrow={offset}",
+  "method": "GET",
+  "items": "",
+  "title": "title",
+  "page_start": 1,
+  "page_size": 25,
+  "title_selector": "body:has(.pagination li.active) td.colTitle a.jobTitle-link:not(.visible-phone a)"
+}

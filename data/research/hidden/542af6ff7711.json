@@ -1,0 +1,27 @@
+{
+  "id": "542af6ff7711",
+  "original_query": "hi\n",
+  "reworded_query": "No research question has been specified yet; the user needs to provide a topic, objective, and scope for investigation.",
+  "status": "awaiting_answers",
+  "clarifying_questions": [
+    {
+      "question": "What topic or issue would you like researched?",
+      "why": "A research subject is required before a meaningful research question can be formed."
+    },
+    {
+      "question": "What is the purpose of the research—for example, background understanding, decision support, comparison, or evidence gathering?",
+      "why": "The intended use determines the depth, angle, and type of sources needed."
+    },
+    {
+      "question": "Are there any scope limits such as geography, timeframe, industry, population, or source type?",
+      "why": "Scope constraints make the research focused and actionable."
+    }
+  ],
+  "answers": {},
+  "rounds": [],
+  "report": null,
+  "sonar_calls_used": 0,
+  "error": null,
+  "created_at": "2026-10-01T05:03:42.357591Z",
+  "updated_at": "2026-10-01T05:03:46.892498Z"
+}

@@ -1,0 +1,1214 @@
+[
+ {
+  "id": "M1",
+  "text": "CPI y/y: 3.71% (Aug 2026), prior 3.54% (Jul 2026), change +0.17pp",
+  "numbers": [
+   3.71,
+   3.54,
+   0.17
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "release",
+   "provider": "fred",
+   "id": "CPIAUCSL",
+   "label": "CPI y/y",
+   "points": [
+    {
+     "label": "Jul 2026 data",
+     "value": 3.54
+    },
+    {
+     "label": "Aug 2026 data",
+     "value": 3.71
+    }
+   ]
+  },
+  "source_title": "FRED CPIAUCSL",
+  "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL"
+ },
+ {
+  "id": "M2",
+  "text": "CPI m/m: 0.40% (Aug 2026), prior 0.07% (Jul 2026), change +0.33pp",
+  "numbers": [
+   0.4,
+   0.07,
+   0.33
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "release",
+   "provider": "fred",
+   "id": "CPIAUCSL",
+   "label": "CPI m/m",
+   "points": [
+    {
+     "label": "Jul 2026 data",
+     "value": 0.07
+    },
+    {
+     "label": "Aug 2026 data",
+     "value": 0.4
+    }
+   ]
+  },
+  "source_title": "FRED CPIAUCSL",
+  "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL"
+ },
+ {
+  "id": "M3",
+  "text": "Core CPI y/y: 2.76% (Aug 2026), prior 2.79% (Jul 2026), change -0.03pp",
+  "numbers": [
+   2.76,
+   2.79,
+   -0.03
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "release",
+   "provider": "fred",
+   "id": "CPILFESL",
+   "label": "Core CPI y/y",
+   "points": [
+    {
+     "label": "Jul 2026 data",
+     "value": 2.79
+    },
+    {
+     "label": "Aug 2026 data",
+     "value": 2.76
+    }
+   ]
+  },
+  "source_title": "FRED CPILFESL",
+  "source_url": "https://fred.stlouisfed.org/series/CPILFESL"
+ },
+ {
+  "id": "M4",
+  "text": "Core CPI m/m: 0.29% (Aug 2026), prior 0.22% (Jul 2026), change +0.07pp",
+  "numbers": [
+   0.29,
+   0.22,
+   0.07
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "release",
+   "provider": "fred",
+   "id": "CPILFESL",
+   "label": "Core CPI m/m",
+   "points": [
+    {
+     "label": "Jul 2026 data",
+     "value": 0.22
+    },
+    {
+     "label": "Aug 2026 data",
+     "value": 0.29
+    }
+   ]
+  },
+  "source_title": "FRED CPILFESL",
+  "source_url": "https://fred.stlouisfed.org/series/CPILFESL"
+ },
+ {
+  "id": "M5",
+  "text": "PCE y/y: 3.42% (Aug 2026), prior 3.36% (Jul 2026), change +0.06pp",
+  "numbers": [
+   3.42,
+   3.36,
+   0.06
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "release",
+   "provider": "fred",
+   "id": "PCEPI",
+   "label": "PCE y/y",
+   "points": [
+    {
+     "label": "Jul 2026 data",
+     "value": 3.36
+    },
+    {
+     "label": "Aug 2026 data",
+     "value": 3.42
+    }
+   ]
+  },
+  "source_title": "FRED PCEPI",
+  "source_url": "https://fred.stlouisfed.org/series/PCEPI"
+ },
+ {
+  "id": "M6",
+  "text": "PCE m/m: 0.31% (Aug 2026), prior 0.05% (Jul 2026), change +0.26pp",
+  "numbers": [
+   0.31,
+   0.05,
+   0.26
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "release",
+   "provider": "fred",
+   "id": "PCEPI",
+   "label": "PCE m/m",
+   "points": [
+    {
+     "label": "Jul 2026 data",
+     "value": 0.05
+    },
+    {
+     "label": "Aug 2026 data",
+     "value": 0.31
+    }
+   ]
+  },
+  "source_title": "FRED PCEPI",
+  "source_url": "https://fred.stlouisfed.org/series/PCEPI"
+ },
+ {
+  "id": "M7",
+  "text": "Core PCE y/y: 3.01% (Aug 2026), prior 2.98% (Jul 2026), change +0.03pp",
+  "numbers": [
+   3.01,
+   2.98,
+   0.03
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "release",
+   "provider": "fred",
+   "id": "PCEPILFE",
+   "label": "Core PCE y/y",
+   "points": [
+    {
+     "label": "Jul 2026 data",
+     "value": 2.98
+    },
+    {
+     "label": "Aug 2026 data",
+     "value": 3.01
+    }
+   ]
+  },
+  "source_title": "FRED PCEPILFE",
+  "source_url": "https://fred.stlouisfed.org/series/PCEPILFE"
+ },
+ {
+  "id": "M8",
+  "text": "Core PCE m/m: 0.25% (Aug 2026), prior 0.13% (Jul 2026), change +0.12pp",
+  "numbers": [
+   0.25,
+   0.13,
+   0.12
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "release",
+   "provider": "fred",
+   "id": "PCEPILFE",
+   "label": "Core PCE m/m",
+   "points": [
+    {
+     "label": "Jul 2026 data",
+     "value": 0.13
+    },
+    {
+     "label": "Aug 2026 data",
+     "value": 0.25
+    }
+   ]
+  },
+  "source_title": "FRED PCEPILFE",
+  "source_url": "https://fred.stlouisfed.org/series/PCEPILFE"
+ },
+ {
+  "id": "M9",
+  "text": "Unemployment rate: 4.20% (Sep 2026), prior 4.10% (Aug 2026), change +0.10pp",
+  "numbers": [
+   4.2,
+   4.1,
+   0.1
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "release",
+   "provider": "fred",
+   "id": "UNRATE",
+   "label": "Unemployment rate",
+   "points": [
+    {
+     "label": "Aug 2026 data",
+     "value": 4.1
+    },
+    {
+     "label": "Sep 2026 data",
+     "value": 4.2
+    }
+   ]
+  },
+  "source_title": "FRED UNRATE",
+  "source_url": "https://fred.stlouisfed.org/series/UNRATE"
+ },
+ {
+  "id": "M10",
+  "text": "Payrolls y/y: 0.31% (Sep 2026), prior 0.34% (Aug 2026), change -0.03pp",
+  "numbers": [
+   0.31,
+   0.34,
+   -0.03
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "release",
+   "provider": "fred",
+   "id": "PAYEMS",
+   "label": "Payrolls y/y",
+   "points": [
+    {
+     "label": "Aug 2026 data",
+     "value": 0.34
+    },
+    {
+     "label": "Sep 2026 data",
+     "value": 0.31
+    }
+   ]
+  },
+  "source_title": "FRED PAYEMS",
+  "source_url": "https://fred.stlouisfed.org/series/PAYEMS"
+ },
+ {
+  "id": "M11",
+  "text": "Industrial production y/y: 1.42% (Aug 2026), prior 1.13% (Jul 2026), change +0.29pp",
+  "numbers": [
+   1.42,
+   1.13,
+   0.29
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "release",
+   "provider": "fred",
+   "id": "INDPRO",
+   "label": "Industrial production y/y",
+   "points": [
+    {
+     "label": "Jul 2026 data",
+     "value": 1.13
+    },
+    {
+     "label": "Aug 2026 data",
+     "value": 1.42
+    }
+   ]
+  },
+  "source_title": "FRED INDPRO",
+  "source_url": "https://fred.stlouisfed.org/series/INDPRO"
+ },
+ {
+  "id": "M12",
+  "text": "SPY (equities): 1d -0.24%, 1w +1.91%, 1m +1.72%",
+  "numbers": [
+   -0.24,
+   1.91,
+   1.72
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "SPY",
+   "label": "SPY",
+   "points": []
+  },
+  "source_title": "Yahoo Finance SPY",
+  "source_url": "https://finance.yahoo.com/quote/SPY"
+ },
+ {
+  "id": "M13",
+  "text": "QQQ (equities): 1d -0.25%, 1w +2.43%, 1m +5.59%",
+  "numbers": [
+   -0.25,
+   2.43,
+   5.59
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "QQQ",
+   "label": "QQQ",
+   "points": []
+  },
+  "source_title": "Yahoo Finance QQQ",
+  "source_url": "https://finance.yahoo.com/quote/QQQ"
+ },
+ {
+  "id": "M14",
+  "text": "XLE (equities): 1d -0.61%, 1w +3.02%, 1m -1.60%",
+  "numbers": [
+   -0.61,
+   3.02,
+   -1.6
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "XLE",
+   "label": "XLE",
+   "points": []
+  },
+  "source_title": "Yahoo Finance XLE",
+  "source_url": "https://finance.yahoo.com/quote/XLE"
+ },
+ {
+  "id": "M15",
+  "text": "XLF (equities): 1d -0.48%, 1w +0.66%, 1m -5.86%",
+  "numbers": [
+   -0.48,
+   0.66,
+   -5.86
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "XLF",
+   "label": "XLF",
+   "points": []
+  },
+  "source_title": "Yahoo Finance XLF",
+  "source_url": "https://finance.yahoo.com/quote/XLF"
+ },
+ {
+  "id": "M16",
+  "text": "XLI (equities): 1d -2.18%, 1w +0.52%, 1m -3.51%",
+  "numbers": [
+   -2.18,
+   0.52,
+   -3.51
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "XLI",
+   "label": "XLI",
+   "points": []
+  },
+  "source_title": "Yahoo Finance XLI",
+  "source_url": "https://finance.yahoo.com/quote/XLI"
+ },
+ {
+  "id": "M17",
+  "text": "XLV (equities): 1d +1.03%, 1w +0.23%, 1m +1.39%",
+  "numbers": [
+   1.03,
+   0.23,
+   1.39
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "XLV",
+   "label": "XLV",
+   "points": []
+  },
+  "source_title": "Yahoo Finance XLV",
+  "source_url": "https://finance.yahoo.com/quote/XLV"
+ },
+ {
+  "id": "M18",
+  "text": "XLK (equities): 1d -0.30%, 1w +2.88%, 1m +7.32%",
+  "numbers": [
+   -0.3,
+   2.88,
+   7.32
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "XLK",
+   "label": "XLK",
+   "points": []
+  },
+  "source_title": "Yahoo Finance XLK",
+  "source_url": "https://finance.yahoo.com/quote/XLK"
+ },
+ {
+  "id": "M19",
+  "text": "XLY (equities): 1d -0.32%, 1w +2.32%, 1m -2.09%",
+  "numbers": [
+   -0.32,
+   2.32,
+   -2.09
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "XLY",
+   "label": "XLY",
+   "points": []
+  },
+  "source_title": "Yahoo Finance XLY",
+  "source_url": "https://finance.yahoo.com/quote/XLY"
+ },
+ {
+  "id": "M20",
+  "text": "TLT (rates_credit): 1d -0.17%, 1w -0.42%, 1m -5.77%",
+  "numbers": [
+   -0.17,
+   -0.42,
+   -5.77
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "TLT",
+   "label": "TLT",
+   "points": []
+  },
+  "source_title": "Yahoo Finance TLT",
+  "source_url": "https://finance.yahoo.com/quote/TLT"
+ },
+ {
+  "id": "M21",
+  "text": "IEF (rates_credit): 1d -0.02%, 1w +0.12%, 1m -2.98%",
+  "numbers": [
+   -0.02,
+   0.12,
+   -2.98
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "IEF",
+   "label": "IEF",
+   "points": []
+  },
+  "source_title": "Yahoo Finance IEF",
+  "source_url": "https://finance.yahoo.com/quote/IEF"
+ },
+ {
+  "id": "M22",
+  "text": "SHY (rates_credit): 1d +0.04%, 1w +0.25%, 1m -0.32%",
+  "numbers": [
+   0.04,
+   0.25,
+   -0.32
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "SHY",
+   "label": "SHY",
+   "points": []
+  },
+  "source_title": "Yahoo Finance SHY",
+  "source_url": "https://finance.yahoo.com/quote/SHY"
+ },
+ {
+  "id": "M23",
+  "text": "LQD (rates_credit): 1d -0.04%, 1w +0.35%, 1m -2.79%",
+  "numbers": [
+   -0.04,
+   0.35,
+   -2.79
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "LQD",
+   "label": "LQD",
+   "points": []
+  },
+  "source_title": "Yahoo Finance LQD",
+  "source_url": "https://finance.yahoo.com/quote/LQD"
+ },
+ {
+  "id": "M24",
+  "text": "HYG (rates_credit): 1d -0.12%, 1w +0.41%, 1m -2.02%",
+  "numbers": [
+   -0.12,
+   0.41,
+   -2.02
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "HYG",
+   "label": "HYG",
+   "points": []
+  },
+  "source_title": "Yahoo Finance HYG",
+  "source_url": "https://finance.yahoo.com/quote/HYG"
+ },
+ {
+  "id": "M25",
+  "text": "DGS2 (rates_credit): 1d -5.00bp, 1w -10.00bp, 1m +42.00bp",
+  "numbers": [
+   -5.0,
+   -10.0,
+   42.0
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "fred",
+   "id": "DGS2",
+   "label": "DGS2",
+   "points": []
+  },
+  "source_title": "FRED DGS2",
+  "source_url": "https://fred.stlouisfed.org/series/DGS2"
+ },
+ {
+  "id": "M26",
+  "text": "DGS10 (rates_credit): 1d -4.00bp, 1w +1.00bp, 1m +49.00bp",
+  "numbers": [
+   -4.0,
+   1.0,
+   49.0
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "fred",
+   "id": "DGS10",
+   "label": "DGS10",
+   "points": []
+  },
+  "source_title": "FRED DGS10",
+  "source_url": "https://fred.stlouisfed.org/series/DGS10"
+ },
+ {
+  "id": "M27",
+  "text": "GLD (commodities): 1d -1.67%, 1w -1.30%, 1m -5.96%",
+  "numbers": [
+   -1.67,
+   -1.3,
+   -5.96
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "GLD",
+   "label": "GLD",
+   "points": []
+  },
+  "source_title": "Yahoo Finance GLD",
+  "source_url": "https://finance.yahoo.com/quote/GLD"
+ },
+ {
+  "id": "M28",
+  "text": "USO (commodities): 1d -0.69%, 1w -1.20%, 1m -1.45%",
+  "numbers": [
+   -0.69,
+   -1.2,
+   -1.45
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "USO",
+   "label": "USO",
+   "points": []
+  },
+  "source_title": "Yahoo Finance USO",
+  "source_url": "https://finance.yahoo.com/quote/USO"
+ },
+ {
+  "id": "M29",
+  "text": "UNG (commodities): 1d +2.70%, 1w +6.36%, 1m +5.45%",
+  "numbers": [
+   2.7,
+   6.36,
+   5.45
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "UNG",
+   "label": "UNG",
+   "points": []
+  },
+  "source_title": "Yahoo Finance UNG",
+  "source_url": "https://finance.yahoo.com/quote/UNG"
+ },
+ {
+  "id": "M30",
+  "text": "CL_F (commodities): 1d -0.68%, 1w -1.76%, 1m -4.51%",
+  "numbers": [
+   -0.68,
+   -1.76,
+   -4.51
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "CL=F",
+   "label": "CL_F",
+   "points": []
+  },
+  "source_title": "Yahoo Finance CL=F",
+  "source_url": "https://finance.yahoo.com/quote/CL=F"
+ },
+ {
+  "id": "M31",
+  "text": "GC_F (commodities): 1d -1.29%, 1w -1.28%, 1m -6.89%",
+  "numbers": [
+   -1.29,
+   -1.28,
+   -6.89
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "GC=F",
+   "label": "GC_F",
+   "points": []
+  },
+  "source_title": "Yahoo Finance GC=F",
+  "source_url": "https://finance.yahoo.com/quote/GC=F"
+ },
+ {
+  "id": "M32",
+  "text": "NG_F (commodities): 1d +4.85%, 1w +7.90%, 1m +11.97%",
+  "numbers": [
+   4.85,
+   7.9,
+   11.97
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "NG=F",
+   "label": "NG_F",
+   "points": []
+  },
+  "source_title": "Yahoo Finance NG=F",
+  "source_url": "https://finance.yahoo.com/quote/NG=F"
+ },
+ {
+  "id": "M33",
+  "text": "EURUSD (fx): 1d -0.44%, 1w -1.08%, 1m -3.64%",
+  "numbers": [
+   -0.44,
+   -1.08,
+   -3.64
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "EURUSD=X",
+   "label": "EURUSD",
+   "points": []
+  },
+  "source_title": "Yahoo Finance EURUSD=X",
+  "source_url": "https://finance.yahoo.com/quote/EURUSD=X"
+ },
+ {
+  "id": "M34",
+  "text": "USDJPY (fx): 1d -0.18%, 1w +0.29%, 1m +2.95%",
+  "numbers": [
+   -0.18,
+   0.29,
+   2.95
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "USDJPY=X",
+   "label": "USDJPY",
+   "points": []
+  },
+  "source_title": "Yahoo Finance USDJPY=X",
+  "source_url": "https://finance.yahoo.com/quote/USDJPY=X"
+ },
+ {
+  "id": "M35",
+  "text": "GBPUSD (fx): 1d -0.37%, 1w -0.35%, 1m -2.42%",
+  "numbers": [
+   -0.37,
+   -0.35,
+   -2.42
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "GBPUSD=X",
+   "label": "GBPUSD",
+   "points": []
+  },
+  "source_title": "Yahoo Finance GBPUSD=X",
+  "source_url": "https://finance.yahoo.com/quote/GBPUSD=X"
+ },
+ {
+  "id": "M36",
+  "text": "AUDUSD (fx): 1d -0.25%, 1w +0.27%, 1m -3.55%",
+  "numbers": [
+   -0.25,
+   0.27,
+   -3.55
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "AUDUSD=X",
+   "label": "AUDUSD",
+   "points": []
+  },
+  "source_title": "Yahoo Finance AUDUSD=X",
+  "source_url": "https://finance.yahoo.com/quote/AUDUSD=X"
+ },
+ {
+  "id": "M37",
+  "text": "USDCAD (fx): 1d +0.30%, 1w +0.13%, 1m +3.46%",
+  "numbers": [
+   0.3,
+   0.13,
+   3.46
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "yahoo",
+   "id": "USDCAD=X",
+   "label": "USDCAD",
+   "points": []
+  },
+  "source_title": "Yahoo Finance USDCAD=X",
+  "source_url": "https://finance.yahoo.com/quote/USDCAD=X"
+ },
+ {
+  "id": "B1",
+  "text": "CPI shelter m/m: 0.26% (Aug 2026), prior 0.14% (Jul 2026), change +0.12pp",
+  "numbers": [
+   0.26,
+   0.14,
+   0.12
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "release",
+   "provider": "bls",
+   "id": "CUSR0000SAH1",
+   "label": "CPI shelter m/m",
+   "points": [
+    {
+     "label": "Jul 2026 data",
+     "value": 0.14
+    },
+    {
+     "label": "Aug 2026 data",
+     "value": 0.26
+    }
+   ]
+  },
+  "source_title": "BLS CUSR0000SAH1",
+  "source_url": "https://data.bls.gov/timeseries/CUSR0000SAH1"
+ },
+ {
+  "id": "B2",
+  "text": "CPI energy m/m: 2.10% (Aug 2026), prior -1.48% (Jul 2026), change +3.58pp",
+  "numbers": [
+   2.1,
+   -1.48,
+   3.58
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "release",
+   "provider": "bls",
+   "id": "CUSR0000SA0E",
+   "label": "CPI energy m/m",
+   "points": [
+    {
+     "label": "Jul 2026 data",
+     "value": -1.48
+    },
+    {
+     "label": "Aug 2026 data",
+     "value": 2.1
+    }
+   ]
+  },
+  "source_title": "BLS CUSR0000SA0E",
+  "source_url": "https://data.bls.gov/timeseries/CUSR0000SA0E"
+ },
+ {
+  "id": "B3",
+  "text": "CPI food m/m: 0.12% (Aug 2026), prior 0.08% (Jul 2026), change +0.04pp",
+  "numbers": [
+   0.12,
+   0.08,
+   0.04
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "release",
+   "provider": "bls",
+   "id": "CUSR0000SAF1",
+   "label": "CPI food m/m",
+   "points": [
+    {
+     "label": "Jul 2026 data",
+     "value": 0.08
+    },
+    {
+     "label": "Aug 2026 data",
+     "value": 0.12
+    }
+   ]
+  },
+  "source_title": "BLS CUSR0000SAF1",
+  "source_url": "https://data.bls.gov/timeseries/CUSR0000SAF1"
+ },
+ {
+  "id": "B4",
+  "text": "Average hourly earnings m/m: 0.13% (Sep 2026), prior 0.32% (Aug 2026), change -0.19pp",
+  "numbers": [
+   0.13,
+   0.32,
+   -0.19
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "release",
+   "provider": "bls",
+   "id": "CES0500000003",
+   "label": "Average hourly earnings m/m",
+   "points": [
+    {
+     "label": "Aug 2026 data",
+     "value": 0.32
+    },
+    {
+     "label": "Sep 2026 data",
+     "value": 0.13
+    }
+   ]
+  },
+  "source_title": "BLS CES0500000003",
+  "source_url": "https://data.bls.gov/timeseries/CES0500000003"
+ },
+ {
+  "id": "M_ICSA",
+  "text": "Initial jobless claims, week ending Sep 26: 197,000 (prior 198,000, change -1,000)",
+  "numbers": [
+   197000.0,
+   198000.0,
+   -1000.0
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "fred",
+   "id": "ICSA",
+   "label": "Initial jobless claims",
+   "points": []
+  },
+  "source_title": "FRED ICSA",
+  "source_url": "https://fred.stlouisfed.org/series/ICSA"
+ },
+ {
+  "id": "N1",
+  "text": "Fed minutes showed most officials judged another hike \u201clikely\u201d appropriate by year-end; the Sept. 15\u201316 meeting\u2019s unanimous 25-basis-point increase took the policy rate to about 3.9%, though officials differed on the rationale.",
+  "numbers": [
+   15.0,
+   16.0,
+   25.0,
+   3.9
+  ],
+  "provenance": "reported",
+  "series": null,
+  "source_title": "Fed policymakers divided over rate-hike logic in September, minutes show By Reuters",
+  "source_url": "https://www.investing.com/news/economy-news/fed-policymakers-divided-over-ratehike-logic-in-september-minutes-show-4937320?utm_source=openai"
+ },
+ {
+  "id": "N2",
+  "text": "Long-end Treasuries sold off: the 30-year yield briefly hit 5.7041%, a 24-year high; the 10-year reached 5.36% before easing to 5.28% after the $39 billion 10-year note sale.",
+  "numbers": [
+   30.0,
+   5.7041,
+   24.0,
+   10.0,
+   5.36,
+   5.28,
+   39.0,
+   10.0
+  ],
+  "provenance": "reported",
+  "series": null,
+  "source_title": "https://www.fidelity.com/news/article/us-markets/202610070600RTRSNEWSCOMBINED_KBN3VN0YA-OUSBS_1?utm_source=openai",
+  "source_url": "https://www.fidelity.com/news/article/us-markets/202610070600RTRSNEWSCOMBINED_KBN3VN0YA-OUSBS_1?utm_source=openai"
+ },
+ {
+  "id": "N3",
+  "text": "French fiscal stress weighed on the euro: France\u2019s 10-year yield jumped 14.9 basis points to 4.8959%, versus Germany\u2019s 3.489%; the euro fell 0.65% to $1.1185, near Monday\u2019s 17-month low.",
+  "numbers": [
+   10.0,
+   14.9,
+   4.8959,
+   3.489,
+   0.65,
+   1.1185,
+   17.0
+  ],
+  "provenance": "reported",
+  "series": null,
+  "source_title": "Euro stumbles toward 17-month lows, dollar rises with Fed minutes on tap | MarketScreener UK",
+  "source_url": "https://uk.marketscreener.com/news/euro-stumbles-toward-17-month-lows-dollar-rises-with-fed-minutes-on-tap-ce785ddeda89f225"
+ },
+ {
+  "id": "N4",
+  "text": "The dollar index rose 0.41% to 102.33; markets put October Fed-hike odds at 21.6% and December-hike odds at 82.8%.",
+  "numbers": [
+   0.41,
+   102.33,
+   21.6,
+   82.8
+  ],
+  "provenance": "reported",
+  "series": null,
+  "source_title": "Euro stumbles toward 17-month lows, dollar rises with Fed minutes on tap | MarketScreener UK",
+  "source_url": "https://uk.marketscreener.com/news/euro-stumbles-toward-17-month-lows-dollar-rises-with-fed-minutes-on-tap-ce785ddeda89f225"
+ },
+ {
+  "id": "N5",
+  "text": "IEA members backed accelerating previously pledged oil-stock releases, with about 100 million barrels still to come; Reuters reported Brent down 0.5% to $100.08 and WTI down 1.32% to $88.26.",
+  "numbers": [
+   100.0,
+   0.5,
+   100.08,
+   1.32,
+   88.26
+  ],
+  "provenance": "reported",
+  "series": null,
+  "source_title": "Statement by IEA Executive Director on meeting of IEA Member governments on 7 October 2026 - News - IEA",
+  "source_url": "https://www.iea.org/news/statement-by-iea-executive-director-on-meeting-of-iea-member-governments-on-7-october-2026?utm_source=openai"
+ },
+ {
+  "id": "N6",
+  "text": "U.S. stocks retreated from records: the S&P 500 fell 0.22% to 7,801.75 and the Dow dropped 0.66% to 51,180.17; Worthington Steel fell 6.9% after weaker quarterly results than analysts expected.",
+  "numbers": [
+   500.0,
+   0.22,
+   7801.75,
+   0.66,
+   51180.17,
+   6.9
+  ],
+  "provenance": "reported",
+  "series": null,
+  "source_title": "Wall Street ends lower, off record highs, as Treasury yields climb | MarketScreener",
+  "source_url": "https://www.marketscreener.com/news/wall-street-ends-lower-off-record-highs-as-treasury-yields-climb-ce785ddedd8dff27"
+ },
+ {
+  "id": "P1",
+  "text": "Polymarket \"Will the 30-year Treasury yield dip below 5.20% before 2027?\": Yes 21.0% (1d -10.5pp, 1w -21.5pp)",
+  "numbers": [
+   30.0,
+   5.2,
+   2027.0,
+   21.0,
+   -10.5,
+   -21.5
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "polymarket",
+   "id": "55107414607129873430961264422694411780753105205887579507861734637898758163760",
+   "label": "Will the 30-year Treasury yield dip below 5.20% before 2027?",
+   "points": []
+  },
+  "source_title": "Polymarket: How low will 30-year Treasury yield get before 2027?",
+  "source_url": "https://polymarket.com/event/how-low-will-30-year-treasury-yield-get-before-2027"
+ },
+ {
+  "id": "P2",
+  "text": "Polymarket \"Will the 30-year Treasury yield hit 5.80% before 2027?\": Yes 68.7% (1d +14.8pp, 1w +11.8pp)",
+  "numbers": [
+   30.0,
+   5.8,
+   2027.0,
+   68.65,
+   14.75,
+   11.85
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "polymarket",
+   "id": "17598588283389280005868192057949602193117867885446413245351639540990261473036",
+   "label": "Will the 30-year Treasury yield hit 5.80% before 2027?",
+   "points": []
+  },
+  "source_title": "Polymarket: How high will 30-year Treasury yield go before 2027?",
+  "source_url": "https://polymarket.com/event/how-high-will-30-year-treasury-yield-go-before-2027"
+ },
+ {
+  "id": "P3",
+  "text": "Polymarket \"Will the 30-year Treasury yield dip below 5.05% before 2027?\": Yes 9.5% (1d -9.0pp, 1w -16.0pp)",
+  "numbers": [
+   30.0,
+   5.05,
+   2027.0,
+   9.5,
+   -9.0,
+   -16.0
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "polymarket",
+   "id": "81266945430986807552530602772737326023446303532244024926448539741664353413365",
+   "label": "Will the 30-year Treasury yield dip below 5.05% before 2027?",
+   "points": []
+  },
+  "source_title": "Polymarket: How low will 30-year Treasury yield get before 2027?",
+  "source_url": "https://polymarket.com/event/how-low-will-30-year-treasury-yield-get-before-2027"
+ },
+ {
+  "id": "P4",
+  "text": "Polymarket \"Will the 30-year Treasury yield dip below 5.15% before 2027?\": Yes 17.5% (1d -1.0pp, 1w -22.5pp)",
+  "numbers": [
+   30.0,
+   5.15,
+   2027.0,
+   17.5,
+   -1.0,
+   -22.5
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "polymarket",
+   "id": "82932689841293062434860097528817796856404107720589801999528371800800324678467",
+   "label": "Will the 30-year Treasury yield dip below 5.15% before 2027?",
+   "points": []
+  },
+  "source_title": "Polymarket: How low will 30-year Treasury yield get before 2027?",
+  "source_url": "https://polymarket.com/event/how-low-will-30-year-treasury-yield-get-before-2027"
+ },
+ {
+  "id": "P5",
+  "text": "Polymarket \"Will the 30-year Treasury yield hit 5.90% before 2027?\": Yes 46.5% (1d +11.0pp, 1w +10.0pp)",
+  "numbers": [
+   30.0,
+   5.9,
+   2027.0,
+   46.5,
+   11.0,
+   10.0
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "polymarket",
+   "id": "23640678974626007761712441520423916120341733598131215335999116955666884997774",
+   "label": "Will the 30-year Treasury yield hit 5.90% before 2027?",
+   "points": []
+  },
+  "source_title": "Polymarket: How high will 30-year Treasury yield go before 2027?",
+  "source_url": "https://polymarket.com/event/how-high-will-30-year-treasury-yield-go-before-2027"
+ },
+ {
+  "id": "P6",
+  "text": "Polymarket \"Will the 30-year Treasury yield dip below 5.10% before 2027?\": Yes 15.5% (1d -2.0pp, 1w -17.5pp)",
+  "numbers": [
+   30.0,
+   5.1,
+   2027.0,
+   15.5,
+   -2.0,
+   -17.5
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "polymarket",
+   "id": "34509611689763989575576145899904835747810592618473354906281686524732888045162",
+   "label": "Will the 30-year Treasury yield dip below 5.10% before 2027?",
+   "points": []
+  },
+  "source_title": "Polymarket: How low will 30-year Treasury yield get before 2027?",
+  "source_url": "https://polymarket.com/event/how-low-will-30-year-treasury-yield-get-before-2027"
+ },
+ {
+  "id": "P7",
+  "text": "Polymarket \"Will the 30-year Treasury yield hit 5.70% before 2027?\": Yes 88.0% (1d +7.0pp, 1w +12.0pp)",
+  "numbers": [
+   30.0,
+   5.7,
+   2027.0,
+   88.0,
+   7.0,
+   12.0
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "polymarket",
+   "id": "80334185598337143415900185670117620503898810148605192115905745046148901303213",
+   "label": "Will the 30-year Treasury yield hit 5.70% before 2027?",
+   "points": []
+  },
+  "source_title": "Polymarket: How high will 30-year Treasury yield go before 2027?",
+  "source_url": "https://polymarket.com/event/how-high-will-30-year-treasury-yield-go-before-2027"
+ },
+ {
+  "id": "P8",
+  "text": "Polymarket \"Will there be no change in Fed interest rates after the October 2026 meeting?\": Yes 83.5% (1w +18.0pp)",
+  "numbers": [
+   2026.0,
+   83.5,
+   18.0
+  ],
+  "provenance": "data",
+  "series": {
+   "kind": "daily",
+   "provider": "polymarket",
+   "id": "111061902544814266207267295505639408607400625795891618462682726460921782993748",
+   "label": "Will there be no change in Fed interest rates after the October 2026 meeting?",
+   "points": []
+  },
+  "source_title": "Polymarket: Fed Decision in October?",
+  "source_url": "https://polymarket.com/event/fed-decision-in-october-20260617190323537"
+ },
+ {
+  "id": "X1",
+  "text": "I couldn\u2019t verify qualifying financial-X posts from October 6\u20137 in the available results; they surfaced news coverage rather than attributable X commentary, so I won\u2019t invent posts or figures.",
+  "numbers": [
+   6.0,
+   7.0
+  ],
+  "provenance": "reported",
+  "series": null,
+  "source_title": "Fed officials feared inflation pressures could spread, minutes show",
+  "source_url": "https://www.axios.com/2026/10/07/fed-warsh-minutes-rates?utm_source=openai"
+ }
+]

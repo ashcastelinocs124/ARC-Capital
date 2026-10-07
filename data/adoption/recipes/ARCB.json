@@ -1,0 +1,10 @@
+{
+  "kind": "dom",
+  "url": "https://careers.arcb.com/careersmarketplace/OpenPositions?jobSort=jobId&jobSortDirection=DESC&jobOffset={offset}",
+  "method": "GET",
+  "items": "",
+  "title": "title",
+  "page_start": 1,
+  "page_size": 6,
+  "title_selector": "h3 a[href*='/JobDetail/'], h2 a[href*='/JobDetail/']"
+}

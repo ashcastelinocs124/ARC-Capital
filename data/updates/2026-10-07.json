@@ -1,0 +1,471 @@
+{
+  "version": 2,
+  "date": "2026-10-07",
+  "generated_at": "2026-10-07T16:20:47",
+  "findings": [
+    {
+      "id": "macro-1",
+      "agent": "macro",
+      "claim": "Headline CPI accelerated to 3.71% y/y as energy rebounded, while monthly core CPI and core PCE also firmed even as core CPI's y/y rate eased.",
+      "figure": 3.71,
+      "unit": "%",
+      "provenance": "data",
+      "series": {
+        "kind": "release",
+        "provider": "fred",
+        "id": "CPIAUCSL",
+        "label": "CPI y/y",
+        "points": [
+          {
+            "label": "Jul 2026 data",
+            "value": 3.54
+          },
+          {
+            "label": "Aug 2026 data",
+            "value": 3.71
+          }
+        ]
+      },
+      "source_title": "FRED CPIAUCSL",
+      "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL",
+      "fact_ids": [
+        "M1",
+        "B2",
+        "M4",
+        "M8",
+        "M3"
+      ]
+    },
+    {
+      "id": "macro-2",
+      "agent": "macro",
+      "claim": "Labor signals softened at the margin, with unemployment rising and payroll growth slowing, while initial claims edged down.",
+      "figure": 4.2,
+      "unit": "%",
+      "provenance": "data",
+      "series": {
+        "kind": "release",
+        "provider": "fred",
+        "id": "UNRATE",
+        "label": "Unemployment rate",
+        "points": [
+          {
+            "label": "Aug 2026 data",
+            "value": 4.1
+          },
+          {
+            "label": "Sep 2026 data",
+            "value": 4.2
+          }
+        ]
+      },
+      "source_title": "FRED UNRATE",
+      "source_url": "https://fred.stlouisfed.org/series/UNRATE",
+      "fact_ids": [
+        "M9",
+        "M10",
+        "M_ICSA"
+      ]
+    },
+    {
+      "id": "macro-3",
+      "agent": "macro",
+      "claim": "Industrial production growth improved to 1.42% y/y, a firmer activity signal against the softer labor readings.",
+      "figure": 1.42,
+      "unit": "%",
+      "provenance": "data",
+      "series": {
+        "kind": "release",
+        "provider": "fred",
+        "id": "INDPRO",
+        "label": "Industrial production y/y",
+        "points": [
+          {
+            "label": "Jul 2026 data",
+            "value": 1.13
+          },
+          {
+            "label": "Aug 2026 data",
+            "value": 1.42
+          }
+        ]
+      },
+      "source_title": "FRED INDPRO",
+      "source_url": "https://fred.stlouisfed.org/series/INDPRO",
+      "fact_ids": [
+        "M11",
+        "M9",
+        "M10"
+      ]
+    },
+    {
+      "id": "macro-4",
+      "agent": "macro",
+      "claim": "A one-day Treasury rally has not erased month-long duration pressure: 10-year yields remain higher, while long-duration Treasuries and credit ETFs are lower and the dollar has strengthened against the euro.",
+      "figure": 49.0,
+      "unit": "bp",
+      "provenance": "data",
+      "series": {
+        "kind": "daily",
+        "provider": "fred",
+        "id": "DGS10",
+        "label": "DGS10",
+        "points": []
+      },
+      "source_title": "FRED DGS10",
+      "source_url": "https://fred.stlouisfed.org/series/DGS10",
+      "fact_ids": [
+        "M26",
+        "M20",
+        "M23",
+        "M24",
+        "M33"
+      ]
+    },
+    {
+      "id": "macro-5",
+      "agent": "macro",
+      "claim": "Technology continues to lead, while financials, industrials and consumer discretionary remain down over the month, so equity strength has not broadly spread to cyclicals.",
+      "figure": 7.32,
+      "unit": "%",
+      "provenance": "data",
+      "series": {
+        "kind": "daily",
+        "provider": "yahoo",
+        "id": "XLK",
+        "label": "XLK",
+        "points": []
+      },
+      "source_title": "Yahoo Finance XLK",
+      "source_url": "https://finance.yahoo.com/quote/XLK",
+      "fact_ids": [
+        "M18",
+        "M15",
+        "M16",
+        "M19"
+      ]
+    },
+    {
+      "id": "news-1",
+      "agent": "news",
+      "claim": "Fed minutes showed most officials considered another hike likely by year-end, after September\u2019s increase took the policy rate to about 3.9%.",
+      "figure": 3.9,
+      "unit": "level",
+      "provenance": "reported",
+      "series": null,
+      "source_title": "Fed policymakers divided over rate-hike logic in September, minutes show By Reuters",
+      "source_url": "https://www.investing.com/news/economy-news/fed-policymakers-divided-over-ratehike-logic-in-september-minutes-show-4937320?utm_source=openai",
+      "fact_ids": [
+        "N1"
+      ]
+    },
+    {
+      "id": "news-2",
+      "agent": "news",
+      "claim": "The 30-year Treasury yield briefly reached a 24-year high of 5.7041% as long-end Treasuries sold off.",
+      "figure": 5.7041,
+      "unit": "%",
+      "provenance": "reported",
+      "series": null,
+      "source_title": "fidelity.com",
+      "source_url": "https://www.fidelity.com/news/article/us-markets/202610070600RTRSNEWSCOMBINED_KBN3VN0YA-OUSBS_1?utm_source=openai",
+      "fact_ids": [
+        "N2"
+      ]
+    },
+    {
+      "id": "news-3",
+      "agent": "news",
+      "claim": "French fiscal stress weighed on the euro, which fell 0.65%, while the dollar index strengthened.",
+      "figure": 0.65,
+      "unit": "%",
+      "provenance": "reported",
+      "series": null,
+      "source_title": "Euro stumbles toward 17-month lows, dollar rises with Fed minutes on tap | MarketScreener UK",
+      "source_url": "https://uk.marketscreener.com/news/euro-stumbles-toward-17-month-lows-dollar-rises-with-fed-minutes-on-tap-ce785ddeda89f225",
+      "fact_ids": [
+        "N3",
+        "N4"
+      ]
+    },
+    {
+      "id": "alt-1",
+      "agent": "alt",
+      "claim": "Polymarket shifted toward a higher long-end yield tail, with odds of the 30-year Treasury reaching 5.80% before 2027 up 14.8pp as odds of a dip below 5.20% fell 10.5pp.",
+      "figure": 14.8,
+      "unit": "pp",
+      "provenance": "data",
+      "series": {
+        "kind": "daily",
+        "provider": "polymarket",
+        "id": "17598588283389280005868192057949602193117867885446413245351639540990261473036",
+        "label": "Will the 30-year Treasury yield hit 5.80% before 2027?",
+        "points": []
+      },
+      "source_title": "Polymarket: How high will 30-year Treasury yield go before 2027?",
+      "source_url": "https://polymarket.com/event/how-high-will-30-year-treasury-yield-go-before-2027",
+      "fact_ids": [
+        "P2",
+        "P1"
+      ]
+    },
+    {
+      "id": "alt-2",
+      "agent": "alt",
+      "claim": "Polymarket's odds of no Fed rate change after the October meeting rose 18.0pp over the week, pointing to a stronger hold expectation.",
+      "figure": 18.0,
+      "unit": "pp",
+      "provenance": "data",
+      "series": {
+        "kind": "daily",
+        "provider": "polymarket",
+        "id": "111061902544814266207267295505639408607400625795891618462682726460921782993748",
+        "label": "Will there be no change in Fed interest rates after the October 2026 meeting?",
+        "points": []
+      },
+      "source_title": "Polymarket: Fed Decision in October?",
+      "source_url": "https://polymarket.com/event/fed-decision-in-october-20260617190323537",
+      "fact_ids": [
+        "P8"
+      ]
+    }
+  ],
+  "note": {
+    "headline": "Long-end Treasury yields reached fresh highs as Fed minutes pointed to another hike and markets raised the odds of still-higher yields.",
+    "takeaways": [
+      "The 30-year Treasury yield briefly reached 5.7041%, while prediction-market odds shifted toward a higher long-end yield.",
+      "Fed officials saw another hike as likely by year-end, even as October hold odds rose.",
+      "Monthly core inflation firmed as labor softened, and technology\u2019s equity leadership remained narrow."
+    ],
+    "items": [
+      {
+        "rank": 1,
+        "title": "Long-end yield pressure persists",
+        "body": "The 30-year Treasury yield briefly reached 5.7041%, while the 10-year yield remained +49.00bp over the month despite a -4.00bp day. Polymarket odds of the 30-year yield reaching 5.80% before 2027 rose +14.8pp to 68.7%.",
+        "finding_ids": [
+          "news-2",
+          "macro-4",
+          "alt-1"
+        ],
+        "chart": "alt-1"
+      },
+      {
+        "rank": 2,
+        "title": "Monthly inflation firms",
+        "body": "Headline CPI accelerated to 3.71% y/y as energy rebounded. Core CPI rose 0.29% m/m and core PCE rose 0.25% m/m, even as core CPI eased to 2.76% y/y.",
+        "finding_ids": [
+          "macro-1"
+        ],
+        "chart": "macro-1"
+      },
+      {
+        "rank": 3,
+        "title": "Later hike, October hold",
+        "body": "Fed minutes showed most officials considered another hike likely by year-end. Polymarket odds of no change at the October meeting rose +18.0pp over the week to 83.5%.",
+        "finding_ids": [
+          "news-1",
+          "alt-2"
+        ],
+        "chart": "alt-2"
+      },
+      {
+        "rank": 4,
+        "title": "Labor softens, production improves",
+        "body": "Unemployment rose to 4.20% and payroll growth slowed to 0.31% y/y, while initial claims edged down. Industrial production growth improved to 1.42% y/y, offering a firmer activity signal.",
+        "finding_ids": [
+          "macro-2",
+          "macro-3"
+        ],
+        "chart": "macro-2"
+      },
+      {
+        "rank": 5,
+        "title": "Technology leadership stays narrow",
+        "body": "Technology gained +7.32% over the month, while financials fell -5.86%, industrials -3.51% and consumer discretionary -2.09%. Equity strength has not spread broadly to cyclicals.",
+        "finding_ids": [
+          "macro-5"
+        ],
+        "chart": "macro-5"
+      }
+    ],
+    "themes_touched": [
+      {
+        "title": "Duration pressure and stronger-dollar stress",
+        "text": "Long-end Treasury yields reached fresh highs despite a one-day retreat in yields, and prediction-market odds shifted further toward higher long-end yields. The dollar also strengthened against the euro over the month."
+      },
+      {
+        "title": "Narrow technology leadership versus cyclical weakness",
+        "text": "Technology continued to lead over the month while financials, industrials and consumer discretionary declined, leaving equity strength concentrated rather than broadly cyclical."
+      }
+    ],
+    "new_themes": [
+      {
+        "title": "Firmer inflation amid softer labor",
+        "text": "Monthly core inflation firmed while unemployment rose and payroll growth slowed. Improving industrial production complicates the activity picture.",
+        "importance": 4
+      }
+    ]
+  },
+  "exhibits": [
+    {
+      "n": 1,
+      "finding_id": "alt-1",
+      "title": "Exhibit 1: Will the 30-year Treasury yield hit\u2026 \u00b7 last 7 obs",
+      "subtitle": "+11.9pp over the window",
+      "file": "exhibit_1.png"
+    },
+    {
+      "n": 2,
+      "finding_id": "macro-1",
+      "title": "Exhibit 2: CPI y/y",
+      "subtitle": "+0.17pp vs previous release",
+      "file": "exhibit_2.png"
+    },
+    {
+      "n": 3,
+      "finding_id": "alt-2",
+      "title": "Exhibit 3: Will there be no change in Fed inte\u2026 \u00b7 last 7 obs",
+      "subtitle": "+18.0pp over the window",
+      "file": "exhibit_3.png"
+    },
+    {
+      "n": 4,
+      "finding_id": "macro-2",
+      "title": "Exhibit 4: Unemployment rate",
+      "subtitle": "+0.10pp vs previous release",
+      "file": "exhibit_4.png"
+    },
+    {
+      "n": 5,
+      "finding_id": "macro-5",
+      "title": "Exhibit 5: XLK \u00b7 last 7 obs",
+      "subtitle": "+3.5% over the window",
+      "file": "exhibit_5.png"
+    }
+  ],
+  "releases": [
+    {
+      "series": "CPIAUCSL",
+      "name": "CPI y/y",
+      "latest": 3.71,
+      "prior": 3.54,
+      "change": 0.17,
+      "consensus": null,
+      "surprise": null,
+      "latest_period": "Aug 2026",
+      "prior_period": "Jul 2026"
+    },
+    {
+      "series": "CPIAUCSL",
+      "name": "CPI m/m",
+      "latest": 0.4,
+      "prior": 0.07,
+      "change": 0.33,
+      "consensus": null,
+      "surprise": null,
+      "latest_period": "Aug 2026",
+      "prior_period": "Jul 2026"
+    },
+    {
+      "series": "CPILFESL",
+      "name": "Core CPI y/y",
+      "latest": 2.76,
+      "prior": 2.79,
+      "change": -0.03,
+      "consensus": null,
+      "surprise": null,
+      "latest_period": "Aug 2026",
+      "prior_period": "Jul 2026"
+    },
+    {
+      "series": "CPILFESL",
+      "name": "Core CPI m/m",
+      "latest": 0.29,
+      "prior": 0.22,
+      "change": 0.07,
+      "consensus": null,
+      "surprise": null,
+      "latest_period": "Aug 2026",
+      "prior_period": "Jul 2026"
+    },
+    {
+      "series": "PCEPI",
+      "name": "PCE y/y",
+      "latest": 3.42,
+      "prior": 3.36,
+      "change": 0.06,
+      "consensus": null,
+      "surprise": null,
+      "latest_period": "Aug 2026",
+      "prior_period": "Jul 2026"
+    },
+    {
+      "series": "PCEPI",
+      "name": "PCE m/m",
+      "latest": 0.31,
+      "prior": 0.05,
+      "change": 0.26,
+      "consensus": null,
+      "surprise": null,
+      "latest_period": "Aug 2026",
+      "prior_period": "Jul 2026"
+    },
+    {
+      "series": "PCEPILFE",
+      "name": "Core PCE y/y",
+      "latest": 3.01,
+      "prior": 2.98,
+      "change": 0.03,
+      "consensus": null,
+      "surprise": null,
+      "latest_period": "Aug 2026",
+      "prior_period": "Jul 2026"
+    },
+    {
+      "series": "PCEPILFE",
+      "name": "Core PCE m/m",
+      "latest": 0.25,
+      "prior": 0.13,
+      "change": 0.12,
+      "consensus": null,
+      "surprise": null,
+      "latest_period": "Aug 2026",
+      "prior_period": "Jul 2026"
+    },
+    {
+      "series": "UNRATE",
+      "name": "Unemployment rate",
+      "latest": 4.2,
+      "prior": 4.1,
+      "change": 0.1,
+      "consensus": null,
+      "surprise": null,
+      "latest_period": "Sep 2026",
+      "prior_period": "Aug 2026"
+    },
+    {
+      "series": "PAYEMS",
+      "name": "Payrolls y/y",
+      "latest": 0.31,
+      "prior": 0.34,
+      "change": -0.03,
+      "consensus": null,
+      "surprise": null,
+      "latest_period": "Sep 2026",
+      "prior_period": "Aug 2026"
+    },
+    {
+      "series": "INDPRO",
+      "name": "Industrial production y/y",
+      "latest": 1.42,
+      "prior": 1.13,
+      "change": 0.29,
+      "consensus": null,
+      "surprise": null,
+      "latest_period": "Aug 2026",
+      "prior_period": "Jul 2026"
+    }
+  ],
+  "rounds": 0,
+  "data_gaps": []
+}

@@ -1,0 +1,10 @@
+{
+  "kind": "dom",
+  "url": "https://essentialproperties.com/career/",
+  "method": "GET",
+  "items": "",
+  "title": "title",
+  "page_start": 1,
+  "page_size": 20,
+  "title_selector": "div:has(> h2 a[href*='/career/']) > h2:first-of-type"
+}

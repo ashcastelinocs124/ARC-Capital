@@ -1,0 +1,10 @@
+{
+  "kind": "dom",
+  "url": "https://www.soundhound.com/careers",
+  "method": "GET",
+  "items": "",
+  "title": "title",
+  "page_start": 1,
+  "page_size": 20,
+  "title_selector": "#open-positions div:has(> div > a[href*='jobs.gem.com']) > div:first-child p"
+}

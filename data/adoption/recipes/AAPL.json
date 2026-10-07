@@ -1,0 +1,10 @@
+{
+  "kind": "dom",
+  "url": "https://jobs.apple.com/en-us/search?location=&page={page}",
+  "method": "GET",
+  "items": "",
+  "title": "title",
+  "page_start": 1,
+  "page_size": 20,
+  "title_selector": "h3 a, h2 a, a.table--advanced-search__title"
+}

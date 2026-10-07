@@ -1,0 +1,53 @@
+ticker,bucket,sector,market_cap,name
+NVDA,large,Information Technology,5649190617088.0,NVIDIA Corporation
+AAPL,large,Information Technology,4869931925504.0,Apple Inc.
+GOOGL,large,Communication Services,4200982642688.0,Alphabet Inc.
+MSFT,large,Information Technology,3842942959616.0,Microsoft Corporation
+AMZN,large,Consumer Discretionary,2712973606912.0,"Amazon.com, Inc."
+META,large,Communication Services,1854788337664.0,"Meta Platforms, Inc."
+AVGO,large,Information Technology,1695307005952.0,Broadcom Inc.
+TSLA,large,Consumer Discretionary,1463662804992.0,"Tesla, Inc."
+LLY,large,Health Care,1019126611968.0,Eli Lilly and Company
+JPM,large,Financials,883527974912.0,JP Morgan Chase & Co.
+WMT,large,Consumer Staples,829709352960.0,Walmart Inc.
+V,large,Financials,677086953472.0,Visa Inc.
+XOM,large,Energy,674394669056.0,ExxonMobil Holdings Corporation
+JNJ,large,Health Care,617006301184.0,Johnson & Johnson
+MA,large,Financials,483785244672.0,Mastercard Incorporated
+ORCL,large,Information Technology,431382593536.0,Oracle Corporation
+CVX,large,Energy,405443805184.0,Chevron Corporation
+CAT,large,Industrials,388618321920.0,"Caterpillar, Inc."
+BAC,large,Financials,375860232192.0,Bank of America Corporation
+KO,large,Consumer Staples,368513318912.0,Coca-Cola Company (The)
+PG,large,Consumer Staples,336578478080.0,Procter & Gamble Company (The)
+UNH,large,Health Care,333815513088.0,UnitedHealth Group Incorporated
+GE,large,Industrials,321187840000.0,GE Aerospace
+LIN,large,Materials,221030776832.0,Linde plc
+CRM,large,Information Technology,193149878272.0,"Salesforce, Inc."
+NEE,large,Utilities,160265715712.0,"NextEra Energy, Inc."
+PLD,large,Real Estate,125312303104.0,"Prologis, Inc."
+ADBE,large,Information Technology,92508946432.0,Adobe Inc.
+SITM,small,Information Technology,21251643392.0,SiTime Corporation
+TGTX,small,Health Care,8310907904.0,"TG Therapeutics, Inc."
+FSS,small,Industrials,7101580800.0,Federal Signal Corporation
+QLYS,small,Information Technology,6676834816.0,"Qualys, Inc."
+MGY,small,Energy,6611910144.0,Magnolia Oil & Gas Corporation
+HOMB,small,Financials,5735422976.0,"Home BancShares, Inc."
+EPRT,small,Real Estate,5616306176.0,Essential Properties Realty Tru
+ESNT,small,Financials,5412362752.0,Essent Group Ltd.
+CRK,small,Energy,3752470528.0,"Comstock Resources, Inc."
+OTTR,small,Industrials,3731258624.0,Otter Tail Corporation
+BOOT,small,Consumer Discretionary,3691116800.0,"Boot Barn Holdings, Inc."
+ACAD,small,Health Care,3437495296.0,ACADIA Pharmaceuticals Inc.
+ARCB,small,Industrials,2964013056.0,ArcBest Corporation
+AVA,small,Utilities,2957312512.0,Avista Corporation
+HWKN,small,Materials,2743198976.0,"Hawkins, Inc."
+CARG,small,Communication Services,2673985792.0,"CarGurus, Inc."
+SHAK,small,Consumer Discretionary,2608817152.0,"Shake Shack, Inc."
+SOUN,small,Information Technology,2593615104.0,"SoundHound AI, Inc."
+CENT,small,Consumer Staples,2491811584.0,Central Garden & Pet Company
+AI,small,Information Technology,1770186240.0,"C3.ai, Inc."
+OMCL,small,Health Care,1528091264.0,"Omnicell, Inc."
+ALKT,small,Information Technology,1485424256.0,"Alkami Technology, Inc."
+YELP,small,Communication Services,990853696.0,Yelp Inc.
+SMPL,small,Consumer Staples,869377088.0,The Simply Good Foods Company
