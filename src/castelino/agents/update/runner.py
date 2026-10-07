@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -8,25 +9,28 @@ from collections.abc import Callable
 from datetime import date, datetime
 from pathlib import Path
 
-import pandas as pd
-
 from castelino.agents.update.fsio import atomic_write_text
-from castelino.agents.update.gate import run_gate
-from castelino.agents.update.guard import find_unsupported
+from castelino.agents.update.guard import check_note
 from castelino.agents.update.memory import MemoryStore
 from castelino.agents.update.models import (
-    DailyRecord,
-    DailyUpdate,
-    GateResult,
+    AgentOutput,
+    Briefs,
+    DailyRecordV2,
+    Exhibit,
+    Fact,
+    Finding,
     MarketSnapshot,
-    PredictionDelta,
+    MorningNote,
+    Review,
     Stage,
 )
-from castelino.agents.update.registry import MODELS, ModelRegistry
-from castelino.forecast.regime import RegimeForecast
 
 log = logging.getLogger(__name__)
 _STALE_LOCK_SECONDS = 30 * 60
+AGENTS = ("macro", "news", "alt")
+MIN_FINDINGS = 3
+
+AgentFn = Callable[[str, str | None], AgentOutput]
 
 
 def read_status(data_dir: Path) -> dict:
@@ -40,44 +44,32 @@ def read_status(data_dir: Path) -> dict:
     return {"stage": Stage.IDLE.value}
 
 
-def _prediction(
-    champion: RegimeForecast | None, current: RegimeForecast | None, gate: GateResult | None
-) -> dict[str, PredictionDelta]:
-    if current is None:
-        return {}
-    out: dict[str, PredictionDelta] = {}
-    for m in MODELS:
-        old = getattr(champion, m).prob_up if champion else None
-        out[m] = PredictionDelta(
-            old=round(old, 4) if old is not None else None,
-            new=round(getattr(current, m).prob_up, 4),
-            gate=getattr(gate, m).decision.value if gate else "unchanged",
-        )
-    return out
-
-
 class UpdateRunner:
+    """Orchestrator → Macro/News/Alt (parallel, ≤ max_rounds follow-ups) → Editor → guard → charts."""
+
     def __init__(
         self,
         *,
         data_dir: Path,
         updates_dir: Path,
-        registry: ModelRegistry,
         memory: MemoryStore,
-        tolerance: float,
+        max_rounds: int,
         max_retries: int,
-        refit_fn: Callable[[], RegimeForecast],
-        latest_month_fn: Callable[[], dict[str, str]],
-        collect_fn: Callable[..., MarketSnapshot],
-        agent_fn: Callable[[MarketSnapshot, str, str, list[str] | None], DailyUpdate],
+        max_items: int,
+        plan_fn: Callable[[str, str, str], Briefs],
+        review_fn: Callable[[list[Finding], int], Review],
+        agent_fns: dict[str, AgentFn],
+        editor_fn: Callable[[list[Finding], list[Fact], str, str, list[str] | None], MorningNote],
+        chart_fn: Callable[[list[Finding], Path], list[Exhibit]],
         today_fn: Callable[[], date] = date.today,
     ):
         self.data_dir, self.updates_dir = Path(data_dir), Path(updates_dir)
-        self.registry, self.memory = registry, memory
-        self.tolerance, self.max_retries = tolerance, max_retries
-        self.refit_fn, self.latest_month_fn = refit_fn, latest_month_fn
-        self.collect_fn, self.agent_fn, self.today_fn = collect_fn, agent_fn, today_fn
+        self.memory = memory
+        self.max_rounds, self.max_retries, self.max_items = max_rounds, max_retries, max_items
+        self.plan_fn, self.review_fn, self.agent_fns = plan_fn, review_fn, agent_fns
+        self.editor_fn, self.chart_fn, self.today_fn = editor_fn, chart_fn, today_fn
         self._day = ""
+        self._gaps: list[str] = []
 
     # ── status + lock ──────────────────────────────────────────────────────
     def _set(self, stage: Stage, error: str | None = None) -> None:
@@ -139,66 +131,88 @@ class UpdateRunner:
             self._release()
 
     # ── pipeline ───────────────────────────────────────────────────────────
-    def _new_data(self, champion: RegimeForecast | None) -> bool:
-        if champion is None:
-            return True
-        try:
-            latest = self.latest_month_fn()
-        except Exception:  # noqa: BLE001 — if we cannot tell, attempt the refit
-            log.warning("new-data check failed; attempting refit", exc_info=True)
-            return True
-        return any(latest[m] > getattr(champion, m).feature_month[:7] for m in MODELS)
+    def _gather(self, jobs: dict[str, tuple[str, str | None]]) -> dict[str, AgentOutput]:
+        async def one(name: str, brief: str, ask: str | None) -> AgentOutput | None:
+            try:
+                return await asyncio.to_thread(self.agent_fns[name], brief, ask)
+            except Exception as exc:  # noqa: BLE001 — one agent must not sink the note
+                log.warning("%s agent failed", name, exc_info=True)
+                self._gaps.append(f"{name} agent failed: {str(exc)[:120]}")
+                return None
+
+        async def main() -> list[AgentOutput | None]:
+            return await asyncio.gather(*(one(n, *v) for n, v in jobs.items()))
+
+        results = asyncio.run(main())
+        return {n: o for n, o in zip(jobs, results, strict=True) if o is not None}
 
     def _run(self, today: date) -> None:
-        self._set(Stage.PLANNING)
-        champion = self.registry.current()
-        gate: GateResult | None = None
-        model_note: str | None = None
+        self._gaps = []
+        mem, long = self.memory.read_short(), self.memory.read_long()
 
-        if self._new_data(champion):
-            self._set(Stage.RESEARCHING)
-            challenger = None
+        self._set(Stage.PLANNING)
+        briefs = self.plan_fn(mem, long, self._day)
+
+        self._set(Stage.RESEARCHING)
+        outputs = self._gather(
+            {a: (getattr(briefs, a), None) for a in AGENTS if a in self.agent_fns}
+        )
+        if not outputs:
+            raise RuntimeError("all research agents failed")
+
+        rounds = 0
+        while rounds < self.max_rounds:
+            self._set(Stage.REVIEWING)
             try:
-                challenger = self.refit_fn()
-            except Exception as exc:  # noqa: BLE001 — champion stays, briefing still ships
-                log.warning("refit failed", exc_info=True)
-                model_note = f"model not refreshed today: {exc}"
-            if challenger is not None:
-                self.registry.save_history(challenger)
-                self._set(Stage.REVIEWING)
-                gate = run_gate(challenger, champion, self.tolerance)
-                promoted = [m for m in MODELS if getattr(gate, m).decision.value == "promoted"]
-                if promoted:
-                    version = self.registry.save_version(challenger)
-                    for m in promoted:
-                        self.registry.set_pointer(m, version)
+                review = self.review_fn([f for o in outputs.values() for f in o.findings], rounds)
+            except Exception:  # noqa: BLE001 — a broken review just ends the loop
+                log.warning("review failed; proceeding", exc_info=True)
+                break
+            asks = {f.agent: f.ask for f in review.followups if f.agent in self.agent_fns}
+            if review.done or not asks:
+                break
+            rounds += 1
+            self._set(Stage.RESEARCHING)
+            # a failed follow-up keeps that agent's earlier output (only successes overwrite)
+            outputs.update(self._gather({a: (getattr(briefs, a), q) for a, q in asks.items()}))
+
+        findings = [f for o in outputs.values() for f in o.findings]
+        facts = [f for o in outputs.values() for f in o.facts]
+        if len(findings) < MIN_FINDINGS:
+            raise RuntimeError(f"only {len(findings)} findings; need {MIN_FINDINGS}")
+
+        errors: list[str] | None = None
+        for _attempt in range(self.max_retries + 1):
+            self._set(Stage.WRITING)
+            note = self.editor_fn(findings, facts, mem, long, errors)
+            self._set(Stage.GUARDING)
+            errors = check_note(note, findings, facts, max_items=self.max_items)
+            if not errors:
+                break
+        if errors:
+            raise RuntimeError(f"guard failed: {errors}")
 
         self._set(Stage.CHARTING)
-        prediction = _prediction(champion, self.registry.current(), gate)
-        snapshot = self.collect_fn(today=self._day, prediction=prediction, model_note=model_note)
+        by_id = {f.id: f for f in findings}
+        ranked = sorted(note.items, key=lambda i: i.rank)
+        wanted = [by_id[it.chart] for it in ranked if it.chart in by_id]
+        exhibits = self.chart_fn(wanted, self.updates_dir / "charts" / self._day)
 
-        self._set(Stage.WRITING)
-        mem, long = self.memory.read_short(), self.memory.read_long()
-        update = self.agent_fn(snapshot, mem, long, None)
-        self._set(Stage.GUARDING)
-        errors = find_unsupported(update, snapshot)
-        retries = 0
-        while errors and retries < self.max_retries:
-            retries += 1
-            self._set(Stage.WRITING)
-            update = self.agent_fn(snapshot, mem, long, errors)
-            self._set(Stage.GUARDING)
-            errors = find_unsupported(update, snapshot)
-        if errors:
-            raise RuntimeError(f"guard failed: figures not in snapshot: {errors}")
-
-        self.memory.apply(update, snapshot, today)
-        record = DailyRecord(
+        snap = outputs["macro"].snapshot if "macro" in outputs else None
+        self.memory.apply(note, snap or MarketSnapshot(date=self._day), today)
+        atomic_write_text(
+            self.updates_dir / "raw" / f"{self._day}.json",
+            json.dumps([f.model_dump() for f in facts], indent=1),
+        )
+        record = DailyRecordV2(
             date=self._day,
             generated_at=datetime.now().isoformat(timespec="seconds"),
-            snapshot=snapshot,
-            update=update,
-            gate=gate,
+            findings=findings,
+            note=note,
+            exhibits=exhibits,
+            releases=snap.releases if snap else [],
+            rounds=rounds,
+            data_gaps=self._gaps + (snap.data_gaps if snap else []),
         )
         # written last: its existence is what marks the day done
         atomic_write_text(self.updates_dir / f"{self._day}.json", record.model_dump_json(indent=2))
@@ -207,25 +221,9 @@ class UpdateRunner:
 # ── production wiring ──────────────────────────────────────────────────────
 
 
-def default_latest_months() -> dict[str, str]:
-    from castelino.forecast import regime as r
-
-    out: dict[str, str] = {}
-    for name, yaml in (
-        ("growth", r.GROWTH_INDICATORS_YAML),
-        ("inflation", r.INFLATION_INDICATORS_YAML),
-    ):
-        target = r.IndicatorListConfig.from_yaml(yaml).target
-        s = r._to_month_end(r._resolve_spec(target)).dropna()
-        out[name] = pd.Timestamp(s.index.max()).strftime("%Y-%m")
-    return out
-
-
 def build_default_runner() -> UpdateRunner:
-    from castelino.agents.update.agent import write_update
-    from castelino.agents.update.collector import collect
+    from castelino.agents.update import alt, charts, editor, macro, news, orchestrator
     from castelino.config import get_settings
-    from castelino.forecast.regime import train_and_forecast
 
     cfg = get_settings()
     ua = cfg.update_agent
@@ -233,17 +231,18 @@ def build_default_runner() -> UpdateRunner:
     return UpdateRunner(
         data_dir=data_dir,
         updates_dir=cfg.root / ua.updates_dir,
-        registry=ModelRegistry(data_dir / "models"),
         memory=MemoryStore(
             data_dir / "memory",
             short_cap=ua.short_term_notes,
             long_cap=ua.long_term_notes,
             refresh_days=ua.long_term_refresh_days,
         ),
-        tolerance=cfg.model_refit.gate_tolerance,
+        max_rounds=ua.max_rounds,
         max_retries=ua.max_guard_retries,
-        refit_fn=train_and_forecast,
-        latest_month_fn=default_latest_months,
-        collect_fn=collect,
-        agent_fn=write_update,
+        max_items=ua.items,
+        plan_fn=orchestrator.plan,
+        review_fn=orchestrator.review,
+        agent_fns={"macro": macro.run, "news": news.run, "alt": alt.run},
+        editor_fn=editor.write_note,
+        chart_fn=charts.make_exhibits,
     )

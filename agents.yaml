@@ -9,34 +9,84 @@
 
 agents:
   # ── Briefings ───────────────────────────────────────────────────────────
-  - id: update_agent
-    name: Update Agent
+  - id: update_orchestrator
+    name: Update Orchestrator
     group: Briefings
     dependencies:
-      - {key: OPENAI_API_KEY, required: true, why: "LLM call (OpenAI)"}
-      - {key: FRED_API_KEY, required: false, why: "FRED data; falls back to the keyless CSV endpoint when unset"}
-    class: castelino.agents.update.agent.UpdateAgent
+      - {key: OPENAI_API_KEY, required: true, why: "LLM calls (gpt-6-sol)"}
+    class: castelino.agents.update.orchestrator.UpdateOrchestrator
     summary: >-
-      Once a day on the first dashboard start: refits the regime models behind a promotion
-      gate, then explains what moved across economic data, asset classes and sectors versus
-      prior days. Briefing lands on /updates.
+      Runs the morning research desk: briefs the Macro, News and Alt agents from memory, then
+      reviews what they found and sends up to one follow-up ask per agent (max 2 rounds).
     tools:
-      - {name: "collect()", does: "Deterministic snapshot: FRED releases (CPI/PCE headline + core, y/y and m/m; unemployment; payrolls; IP), 1d/1w/1m returns for the instrument universe, short- and long-term sector trends"}
-      - {name: "train_and_forecast → gate", does: "Refits growth and inflation XGBoost; a refit is promoted only if its Brier score is not worse than the champion's by more than 0.02"}
-      - {name: "find_unsupported (guard)", does: "Rejects any %, bp or pp figure that is not in the snapshot; one retry with the errors fed back"}
+      - {name: "plan()", does: "One brief per agent, no numbers"}
+      - {name: "review()", does: "done, or follow-up asks for gaps or conflicts between agents"}
     memory:
-      reads:
-        - "MEMORY.md — top 5 themes + short-term sector trend table (1w/1m)"
-        - "long-term.md — up to 20 older notes + long-term trend table (3m/6m/12m)"
-        - "Today's MarketSnapshot and the prediction old → new"
-      writes:
-        - "Theme notes (touched and new)"
-        - "Trend tables (numbers from code, reads from the LLM)"
-        - "data/updates/<date>.json — written last, marks the day done"
+      reads: ["MEMORY.md — top 5 themes", "long-term.md — older themes"]
+      writes: []
+      persists: "Nothing of its own; the Editor's themes update the shared two-tier memory."
+
+  - id: macro_agent
+    name: Macro Agent
+    group: Briefings
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "LLM call (gpt-6-luna)"}
+      - {key: FRED_API_KEY, required: false, why: "FRED data; falls back to the keyless CSV endpoint when unset"}
+      - {key: BLS_API_KEY, required: false, why: "BLS data; keyless allows 25 requests a day"}
+    class: castelino.agents.update.macro.MacroAgent
+    summary: >-
+      Code pulls FRED releases, BLS CPI components and wages, jobless claims and market moves into
+      numbered facts; the agent picks the findings that matter and cites the facts they rest on.
+    tools:
+      - {name: "collect()", does: "FRED releases + 1d/1w/1m returns for the instrument universe"}
+      - {name: "bls_facts()", does: "CPI shelter, energy, food and average hourly earnings m/m"}
+    memory: {reads: ["Today's brief from the Orchestrator"], writes: [], persists: "Nothing."}
+
+  - id: news_agent
+    name: News Agent
+    group: Briefings
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "LLM call and web search (gpt-6-luna)"}
+    class: castelino.agents.update.news.NewsAgent
+    summary: >-
+      One cited web search for the day's market-moving stories; every cited line becomes a fact,
+      and the agent picks findings from those facts only.
+    tools:
+      - {name: "web_search.search_cited()", does: "OpenAI Responses web_search with citation positions"}
+    memory: {reads: ["Today's brief from the Orchestrator"], writes: [], persists: "Nothing."}
+
+  - id: alt_agent
+    name: Alt Agent
+    group: Briefings
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "LLM call and web search for X (gpt-6-luna)"}
+    class: castelino.agents.update.alt.AltAgent
+    summary: >-
+      Polymarket odds and their 1-day / 1-week moves on economy markets (code, no key) plus what
+      financial X is saying (cited web search); picks the findings where the crowd moved.
+    tools:
+      - {name: "polymarket.facts()", does: "Gamma API economy events ranked by odds move"}
+      - {name: "X via web_search", does: "Cited lines of what macro accounts are posting"}
+    memory: {reads: ["Today's brief from the Orchestrator"], writes: [], persists: "Nothing."}
+
+  - id: update_editor
+    name: Update Editor
+    group: Briefings
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "LLM call (gpt-6-sol)"}
+    class: castelino.agents.update.editor.UpdateEditor
+    summary: >-
+      Writes the Morning Note (headline, 3 key takeaways, 3-5 ranked items) and picks which
+      findings get an exhibit from the Chart agent. A number guard checks every figure.
+    tools:
+      - {name: "Chart agent (code)", does: "Institutional exhibits: last 7 observations, or previous vs latest release"}
+      - {name: "check_note (guard)", does: "Every %, bp or pp must be in the facts behind the cited findings; one retry"}
+    memory:
+      reads: ["MEMORY.md — top 5 themes", "long-term.md — older themes"]
+      writes: ["Theme notes (touched and new)", "data/updates/<date>.json — written last, marks the day done"]
       persists: >-
         Two-tier markdown in data/update_agent/memory/. Caps (5 short / 20 long) and eviction by
-        importance minus whole months unused are enforced in code, not the prompt. Model versions
-        live in data/update_agent/models/ with a per-model pointer for rollback.
+        importance minus whole months unused are enforced in code, not the prompt.
 
   - id: sector_narrative
     name: Sector Sentiment Narrative
@@ -479,14 +529,20 @@ systems:
 
   - group: Briefings
     trigger: "Top-bar Refresh button (once a day)"
-    output: "The /updates briefing and the Sector Sentiment card on /models"
+    output: "The /updates Morning Note, the refitted Pulse/Pressure models and the Sector Sentiment card on /models"
     blurb: >-
-      Code gathers and scores the data; the agents only explain it. Every number in the
-      briefing is checked against the snapshot before it is saved.
+      An Orchestrator briefs three research agents and reviews what they find; an Editor writes
+      the Morning Note. Code supplies every number, and a guard checks each figure before saving.
     lanes:
-      - title: "Daily Update"
-        flow: [["Refresh"], ["code:FRED + Yahoo|snapshot", "code:Refit Pulse / Pressure|promotion gate"], ["agent:update_agent"], ["code:Number guard|1 retry"], ["end:/updates|+ 2-tier memory"]]
-        loops: [{from: 3, to: 2, label: "retry with errors"}]
+      - title: "Daily Update 1 · Research"
+        flow: [["Refresh"], ["agent:update_orchestrator|plan briefs"], ["agent:macro_agent|FRED · BLS · Yahoo", "agent:news_agent|web_search", "agent:alt_agent|Polymarket · X"], ["agent:update_orchestrator|review"], ["end:↓ to stage 2"]]
+        regions: [{from: 1, to: 3, label: "Loop · max 2 follow-up rounds"}]
+        loops: [{from: 3, to: 2, label: "follow-ups"}]
+      - title: "Daily Update 2 · Write"
+        flow: [["agent:update_editor|Morning Note"], ["code:Number guard|1 retry"], ["code:Chart agent|exhibits"], ["end:/updates|+ 2-tier memory"]]
+        loops: [{from: 1, to: 0, label: "retry with errors"}]
+      - title: "Model refit"
+        flow: [["Refresh"], ["code:Refit Pulse / Pressure|XGBoost"], ["code:Promotion gate|Brier +0.02"], ["end:/models · /macro"]]
       - title: "Sector Sentiment"
         flow: [["Refresh"], ["code:Divergence scores|top-10 per sector"], ["agent:sector_narrative|1 call", "agent:sector_prose|11 calls"], ["end:Card on /models"]]
 

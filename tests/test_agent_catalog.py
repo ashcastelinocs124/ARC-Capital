@@ -16,11 +16,10 @@ def test_every_agent_class_in_code_is_registered():
 
 
 def test_structured_agent_gets_live_prompt_tier_and_schema():
-    e = _by_id(cat.build_catalog()["agents"])["update_agent"]
-    assert "ARC Research" in e["prompt"] and e["prompt_source"].endswith(
-        "UpdateAgent.system_prompt()"
-    )
-    assert e["tier"] == "reasoning" and e["model"]
+    e = _by_id(cat.build_catalog()["agents"])["update_editor"]
+    assert "ARC Research" in e["prompt"]
+    assert e["prompt_source"].endswith("UpdateEditor.system_prompt()")
+    assert e["tier"] == "reasoning" and e["model"] == "gpt-6-sol"
     assert "headline" in [f["name"] for f in e["output"]["fields"]]
     assert e["tools"] and e["memory"]["reads"] and e["memory"]["persists"]
 
@@ -40,7 +39,7 @@ def test_unregistered_and_broken_entries_do_not_500(tmp_path):
     body = cat.build_catalog(reg)
     ghost = _by_id(body["agents"])["ghost"]
     assert ghost["error"] and ghost["prompt"] is None
-    assert "UpdateAgent" in {u["class_name"] for u in body["unregistered"]}
+    assert "UpdateEditor" in {u["class_name"] for u in body["unregistered"]}
 
 
 def test_endpoint_serves_catalog(monkeypatch):
@@ -60,7 +59,7 @@ def test_dependencies_report_whether_each_key_is_set(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     monkeypatch.delenv("FRED_API_KEY", raising=False)
     deps = {
-        d["key"]: d for d in _by_id(cat.build_catalog()["agents"])["update_agent"]["dependencies"]
+        d["key"]: d for d in _by_id(cat.build_catalog()["agents"])["macro_agent"]["dependencies"]
     }
     assert deps["OPENAI_API_KEY"]["required"] is True and deps["OPENAI_API_KEY"]["set"] is True
     assert deps["FRED_API_KEY"]["required"] is False and deps["FRED_API_KEY"]["set"] is False

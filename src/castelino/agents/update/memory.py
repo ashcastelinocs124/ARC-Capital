@@ -6,7 +6,7 @@ from datetime import date
 from pathlib import Path
 
 from castelino.agents.update.fsio import atomic_write_text
-from castelino.agents.update.models import DailyUpdate, MarketSnapshot
+from castelino.agents.update.models import DailyUpdate, MarketSnapshot, MorningNote
 
 NOTE_RE = re.compile(
     r"^### (?P<title>.+?) · imp:(?P<imp>[1-5]) · last-used:(?P<date>\d{4}-\d{2}-\d{2})"
@@ -147,7 +147,9 @@ class MemoryStore:
             return m.group(1), t.group(1)
         return today.isoformat(), long_table(snapshot)
 
-    def apply(self, update: DailyUpdate, snapshot: MarketSnapshot, today: date) -> None:
+    def apply(
+        self, update: DailyUpdate | MorningNote, snapshot: MarketSnapshot, today: date
+    ) -> None:
         old_long = self.read_long()
         notes = {n.title.lower(): n for n in parse_notes(self.read_short()) + parse_notes(old_long)}
         for t in update.themes_touched:
@@ -164,7 +166,7 @@ class MemoryStore:
                 notes[t.title.lower()] = Note(t.title, t.text, t.importance, today)
 
         short, long = rebalance(list(notes.values()), today, self.short_cap, self.long_cap)
-        reads = {r.sector.upper(): r.text for r in update.sector_reads}
+        reads = {r.sector.upper(): r.text for r in getattr(update, "sector_reads", [])}
 
         atomic_write_text(
             self.short_path,

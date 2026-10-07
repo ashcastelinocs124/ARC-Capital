@@ -100,3 +100,18 @@ def test_caps_enforced_in_code(tmp_path):
     store.apply(upd, make_snapshot(), D)
     assert len(parse_notes(store.read_short())) == 2
     assert len(parse_notes(store.read_long())) == 1
+
+
+def test_apply_accepts_a_morning_note(tmp_path):
+    from castelino.agents.update.models import MorningNote, NewTheme
+
+    m = MemoryStore(tmp_path)
+    n = MorningNote(
+        headline="h",
+        takeaways=["a", "b", "c"],
+        items=[],
+        themes_touched=[],
+        new_themes=[NewTheme(title="Sticky CPI", text="t", importance=4)],
+    )
+    m.apply(n, make_snapshot(), D)
+    assert "Sticky CPI" in m.read_short()
