@@ -266,7 +266,7 @@ export default function UpdatesPage() {
   };
 
   return (
-    <div className="p-4 md:p-8 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5 items-start">
+    <div className="p-4 md:p-8 grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-5 items-start">
       {items.length > 0 && <PastUpdates items={items} current={rec?.date} onPick={open} />}
       <div className="min-w-0">
         <div className="flex items-baseline justify-between gap-3 mb-3">
