@@ -1,0 +1,144 @@
+# Publishes arcresearch.markets. Replaces the Mac cron (scripts/publish_snapshot.sh stays for
+# manual local publishes).
+#   - CI succeeded on main  → deploy that commit with the last saved data (no refresh).
+#   - 17:00 New York daily  → run the Refresh jobs, save their state, deploy the latest green main.
+#   - Run workflow button   → either, chosen with the `refresh` input.
+# Job state (briefings, memory, model registry, AI Adoption DB, recipes) lives on the private
+# `data` branch; scripts/state_sync.sh copies it in and out. Never commit it to main.
+name: Publish
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  schedule:
+    # GitHub cron is UTC: 21:00 UTC is 17:00 New York in summer (EDT), 22:00 in winter (EST).
+    # The guard step below keeps only the one that is 17:00 in New York today.
+    - cron: "0 21 * * *"
+    - cron: "0 22 * * *"
+  workflow_dispatch:
+    inputs:
+      refresh:
+        description: "Run the refresh jobs (otherwise just redeploy with the saved data)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+permissions:
+  contents: write # push the data branch
+  actions: read # find the latest green CI run
+
+jobs:
+  publish:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+      BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
+      SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - name: Decide what this run does
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          REFRESH_INPUT: ${{ inputs.refresh }}
+        run: |
+          go=true refresh=false
+          if [ "$EVENT" = schedule ]; then
+            # Keyed on the trigger, not the clock, so a late-starting run still counts.
+            offset=$(TZ=America/New_York date +%z)
+            if { [ "$SCHEDULE" = "0 21 * * *" ] && [ "$offset" = "-0400" ]; } ||
+               { [ "$SCHEDULE" = "0 22 * * *" ] && [ "$offset" = "-0500" ]; }; then
+              refresh=true
+            else
+              go=false
+            fi
+          elif [ "$EVENT" = workflow_dispatch ]; then
+            refresh=$REFRESH_INPUT
+          fi
+          if [ "$EVENT" = workflow_run ]; then
+            sha=$RUN_SHA
+          else
+            sha=$(gh run list -R "$GITHUB_REPOSITORY" --workflow ci.yml --branch main \
+              --status success -L 1 --json headSha -q '.[0].headSha')
+          fi
+          echo "go=$go" >> "$GITHUB_OUTPUT"
+          echo "refresh=$refresh" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "go=$go refresh=$refresh sha=$sha"
+
+      - if: steps.plan.outputs.go == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.plan.outputs.sha }}
+
+      - if: steps.plan.outputs.go == 'true'
+        name: Check out saved state (data branch)
+        uses: actions/checkout@v4
+        with:
+          ref: data
+          path: .state
+
+      - if: steps.plan.outputs.go == 'true'
+        run: scripts/state_sync.sh pull .state
+
+      - if: steps.plan.outputs.go == 'true'
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - if: steps.plan.outputs.go == 'true'
+        run: uv sync --python 3.12 --extra browser
+
+      - if: steps.plan.outputs.refresh == 'true'
+        name: Install Chromium for job-board recipes
+        run: uv run playwright install --with-deps chromium
+
+      - if: steps.plan.outputs.go == 'true'
+        name: Refresh (daily) and export the JSON snapshot
+        run: |
+          if [ "${{ steps.plan.outputs.refresh }}" = true ]; then
+            uv run python scripts/export_snapshot.py
+          else
+            uv run python scripts/export_snapshot.py --no-refresh
+          fi
+
+      - if: steps.plan.outputs.refresh == 'true'
+        name: Save state to the data branch
+        run: |
+          scripts/state_sync.sh push .state
+          cd .state
+          git config user.name ashcastelinocs124
+          git config user.email ashleyn4@illinois.edu
+          git add -A
+          if git diff --cached --quiet; then echo "no state changes"; exit 0; fi
+          git commit -q -m "state: $(TZ=America/New_York date +%F) refresh"
+          git push origin HEAD:data
+
+      - if: steps.plan.outputs.go == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - if: steps.plan.outputs.go == 'true'
+        name: Build and deploy to Vercel
+        working-directory: frontend
+        run: |
+          npm ci --silent
+          npx --yes vercel@latest pull --yes --environment=production --token "$VERCEL_TOKEN"
+          VITE_STATIC=1 npx --yes vercel@latest build --prod --token "$VERCEL_TOKEN"
+          npx --yes vercel@latest deploy --prebuilt --prod --token "$VERCEL_TOKEN"
