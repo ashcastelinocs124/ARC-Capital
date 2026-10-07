@@ -71,3 +71,12 @@ def test_footer_credits_arc_research():
         "Source: ARC Research",
         "Data: FRED DGS10.",
     )
+
+
+def test_chart_renders_even_when_settings_root_points_elsewhere(tmp_path, monkeypatch):
+    # other tests repoint settings.root at a tmp dir; the logo must not depend on it
+    from castelino.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "root", tmp_path)
+    out = charts.make_exhibits([finding("macro-4", REL)], tmp_path)
+    assert [e.n for e in out] == [1]

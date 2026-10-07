@@ -18,7 +18,6 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
 from castelino.agents.update.models import Exhibit, Finding, SeriesRef  # noqa: E402
-from castelino.config import get_settings  # noqa: E402
 
 log = logging.getLogger(__name__)
 
@@ -63,8 +62,13 @@ def footer_lines(f: Finding) -> tuple[str, str]:
     return "Source: ARC Research", f"Data: {f.source_title}."
 
 
+LOGO = Path(__file__).resolve().parents[4] / "frontend" / "public" / "arc-logo.png"
+
+
 def _logo():
-    img = plt.imread(get_settings().root / "frontend" / "public" / "arc-logo.png")
+    if not LOGO.is_file():
+        return None  # a chart without the logo beats no chart
+    img = plt.imread(LOGO)
     if img.shape[2] == 3:
         return img
     # Composite onto white: imshow resampling of the transparent-black background left a grey box.
@@ -137,9 +141,11 @@ def _render(n: int, f: Finding, pts: list[tuple[str, float]], path: Path) -> Exh
     src, data = footer_lines(f)
     fig.text(0.06, 0.055, src, fontsize=9, fontweight="bold")
     fig.text(0.06, 0.02, data, fontsize=8, color=INK2)
-    logo_ax = fig.add_axes((0.84, 0.83, 0.12, 0.15))
-    logo_ax.imshow(_logo())
-    logo_ax.axis("off")
+    logo = _logo()
+    if logo is not None:
+        logo_ax = fig.add_axes((0.84, 0.83, 0.12, 0.15))
+        logo_ax.imshow(logo)
+        logo_ax.axis("off")
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path)
     plt.close(fig)
