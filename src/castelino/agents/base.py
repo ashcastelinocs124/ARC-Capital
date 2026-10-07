@@ -26,7 +26,7 @@ from pydantic import BaseModel
 from castelino.config import Settings, get_settings
 
 
-def _resolve_model_id(cfg: "Settings", tier: str) -> str:
+def _resolve_model_id(cfg: Settings, tier: str) -> str:
     """Pick the live or backtest model ID for `tier`.
 
     When `BACKTEST_AS_OF` is set, the gpt-4o family is used (cutoff Oct
@@ -43,6 +43,7 @@ def _resolve_model_id(cfg: "Settings", tier: str) -> str:
             return bt.reasoning_model
         return bt.fast_model
     return getattr(cfg.models, tier)
+
 
 log = logging.getLogger(__name__)
 
@@ -138,7 +139,10 @@ class OpenAIClient(LLMClient):
                 wait = 2**attempt
                 log.warning(
                     "OpenAI parse failed (attempt %d/%d): %s — retrying in %ds",
-                    attempt + 1, self._max_retries, e, wait,
+                    attempt + 1,
+                    self._max_retries,
+                    e,
+                    wait,
                 )
                 time.sleep(wait)
         raise LLMError(f"OpenAI parse exhausted retries: {last_err}") from last_err
@@ -202,8 +206,7 @@ class FakeLLMClient(LLMClient):
         result = handler(system, user)
         if not isinstance(result, schema):
             raise LLMError(
-                f"FakeLLMClient handler for {schema.__name__} returned "
-                f"{type(result).__name__}"
+                f"FakeLLMClient handler for {schema.__name__} returned {type(result).__name__}"
             )
         return result
 
@@ -238,6 +241,9 @@ class StructuredAgent(Generic[T], ABC):
     # Reasoning-heavy agents (e.g. deep-research) override this with a larger
     # value so reasoning tokens don't starve the structured output.
     max_output_tokens: int | None = None
+    # Optional per-agent model id. When set it wins over the tier mapping
+    # (the Update Agent pins gpt-6-sol / gpt-6-luna per agent in config).
+    model: str | None = None
 
     @abstractmethod
     def system_prompt(self) -> str: ...
@@ -247,7 +253,7 @@ class StructuredAgent(Generic[T], ABC):
 
     def __call__(self, **ctx) -> T:
         cfg = get_settings()
-        model_id = _resolve_model_id(cfg, self.tier)
+        model_id = self.model or _resolve_model_id(cfg, self.tier)
         log.info("agent=%s model=%s tier=%s", self.name, model_id, self.tier)
         client = get_llm_client()
         return client.parse(

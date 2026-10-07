@@ -82,6 +82,7 @@ def _entry(raw: dict) -> dict:
         ],
         "raw_keys": sorted(raw),
     }
+    override = None
     try:
         if raw.get("class"):
             cls = _import(raw["class"])
@@ -91,6 +92,7 @@ def _entry(raw: dict) -> dict:
                 agent = cls.__new__(cls)
             tier = getattr(agent, "tier", None)
             e["tier"] = tier if isinstance(tier, str) else e["tier"]
+            override = getattr(agent, "model", None)
             e["prompt"] = agent.system_prompt()
             e["prompt_source"] = f"{raw['class']}.system_prompt()"
             e["output"] = {"name": cls.output_schema.__name__, "fields": _fields(cls.output_schema)}
@@ -102,7 +104,7 @@ def _entry(raw: dict) -> dict:
             e["output"] = {"name": schema.__name__, "fields": _fields(schema)}
     except Exception as exc:  # noqa: BLE001 — one bad entry must not break the catalog
         e["error"] = f"{type(exc).__name__}: {exc}"
-    e["model"] = _model_for(e["tier"])
+    e["model"] = override if isinstance(override, str) else _model_for(e["tier"])
     return e
 
 
