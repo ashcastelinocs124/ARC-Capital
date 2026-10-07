@@ -37,7 +37,9 @@ class NewsAgent(StructuredAgent[FindingDrafts]):
     tier = "fast"
 
     def __init__(self) -> None:
-        self.model = get_settings().update_agent.agent_model
+        cfg = get_settings().update_agent
+        self.model = cfg.agent_model
+        self.max_output_tokens = cfg.max_output_tokens  # luna reasons first
 
     def system_prompt(self) -> str:
         return SYSTEM

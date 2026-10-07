@@ -7,7 +7,7 @@ import re
 from castelino.agents.update.models import AgentName, Fact, Finding, FindingDrafts
 
 _NUM = re.compile(r"(?<![\w.])[-+−]?\d[\d,]*(?:\.\d+)?")
-_LINK = re.compile(r"\(?\[[^\]]*\]\([^)]*\)\)?")  # markdown citation links, incl. "([x](url))"
+_LINK = re.compile(r"\(?\[[^\]]*\]\([^)]*\)\)?|https?://\S+")  # md links + bare URLs
 
 PICKER_RULES = """Rules:
 - Pick the facts that matter most for a US macro investor today and write one finding per story.

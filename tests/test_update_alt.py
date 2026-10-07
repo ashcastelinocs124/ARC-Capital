@@ -50,7 +50,7 @@ def test_polymarket_facts_rank_by_move_and_skip_bad_markets():
     assert [f.id for f in facts] == ["P1", "P2"]
     p1 = facts[0]
     assert "Fed cuts 25bp in December?" in p1.text and p1.series.id == "tokA"
-    assert p1.numbers == [41.0, -5.0, -17.0]
+    assert p1.numbers == [25.0, 41.0, -5.0, -17.0]  # "25bp" from the question
     assert p1.source_url == "https://polymarket.com/event/fed-dec"
 
 
@@ -91,3 +91,26 @@ def test_run_survives_one_source_failing(monkeypatch):
 
     out = alt.run("fed", events_fn=lambda: EVENTS, search=boom)
     assert len(out.findings) == 1
+
+
+def test_question_figures_are_allowed_numbers_and_missing_moves_are_not_zero():
+    ev = [
+        {
+            "title": "Fed Decision in December?",
+            "slug": "fed-dec",
+            "markets": [
+                {
+                    "question": "Fed decreases rates by 25 bps after December meeting?",
+                    "active": True,
+                    "closed": False,
+                    "outcomePrices": '["0.62", "0.38"]',
+                    "clobTokenIds": '["tokA", "tokB"]',
+                    "oneDayPriceChange": None,
+                    "oneWeekPriceChange": 0.07,
+                }
+            ],
+        }
+    ]
+    f = polymarket.facts(ev)[0]
+    assert 25.0 in f.numbers and 62.0 in f.numbers and 7.0 in f.numbers
+    assert 0.0 not in f.numbers and "1d" not in f.text

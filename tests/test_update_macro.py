@@ -93,3 +93,13 @@ def test_run_uses_agent_model_and_returns_findings(monkeypatch):
     out = macro.run("focus on inflation")
     assert out.findings[0].id == "macro-1" and out.snapshot is snap
     assert fake.call_log[-1][1] == "gpt-6-luna"
+
+
+def test_research_agents_get_the_update_agent_output_budget():
+    # gpt-6-luna reasons before answering; the 2048 global default ran out on a live run
+    from castelino.agents.update.alt import AltAgent
+    from castelino.agents.update.news import NewsAgent
+    from castelino.config import get_settings
+
+    budget = get_settings().update_agent.max_output_tokens
+    assert [a().max_output_tokens for a in (macro.MacroAgent, NewsAgent, AltAgent)] == [budget] * 3

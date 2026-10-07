@@ -17,20 +17,17 @@ def _update_root() -> Path:
     return cfg.root / cfg.update_agent.data_dir
 
 
-_ACTIVE = {"checking", "refitting", "gating", "collecting", "writing", "guarding"}
-
-
 @router.get("/regime_forecast")
 def regime_forecast():
-    """Read-only: the registry's served forecast. The daily update run owns retraining."""
+    """Read-only: the registry's served forecast. The model_refit Refresh job owns retraining."""
     from castelino.agents.update.registry import ModelRegistry
-    from castelino.agents.update.runner import read_status
+    from castelino.dashboard.endpoints import refresh
     from castelino.forecast.regime import read_forecast
 
     root = _update_root()
     fc = ModelRegistry(root / "models").current() or read_forecast()  # legacy file until first run
     return {
-        "running": read_status(root)["stage"] in _ACTIVE,
+        "running": refresh._state.get("model_refit", {}).get("status") == "running",
         "asof": fc.asof.isoformat() if fc else None,
         "growth_up": fc.growth.up if fc else None,
         "inflation_up": fc.inflation.up if fc else None,
@@ -66,11 +63,17 @@ def yield_curve(theme: str = "dark", raw: bool = False):
         if raw:
             return df.reset_index().to_dict("records")
         import json
+
         import plotly.graph_objects as go
+
         fig = go.Figure()
         if not df.empty:
             row = df.iloc[-1]
-            fig.add_trace(go.Scatter(x=list(row.index), y=[float(v) for v in row.values], mode="lines+markers"))
+            fig.add_trace(
+                go.Scatter(
+                    x=list(row.index), y=[float(v) for v in row.values], mode="lines+markers"
+                )
+            )
         fig.update_layout(template="plotly_dark" if theme == "dark" else "plotly_white")
         return json.loads(fig.to_json())
     except (OpenBBError, Exception):
@@ -82,11 +85,16 @@ def triggers():
     entries = memio.read_short_term()
     trigs = sorted(
         [e for e in entries if isinstance(e, TriggerRecord)],
-        key=lambda x: x.timestamp, reverse=True,
+        key=lambda x: x.timestamp,
+        reverse=True,
     )[:20]
     return [
-        {"timestamp": t.timestamp.strftime("%Y-%m-%d %H:%M"), "source": t.source.value,
-         "significance": round(t.significance, 2), "headline": t.headline}
+        {
+            "timestamp": t.timestamp.strftime("%Y-%m-%d %H:%M"),
+            "source": t.source.value,
+            "significance": round(t.significance, 2),
+            "headline": t.headline,
+        }
         for t in trigs
     ]
 
@@ -96,13 +104,18 @@ def hypotheses():
     entries = memio.read_short_term()
     hyps = sorted(
         [e for e in entries if isinstance(e, Hypothesis)],
-        key=lambda x: x.timestamp, reverse=True,
+        key=lambda x: x.timestamp,
+        reverse=True,
     )[:10]
     return [
-        {"timestamp": h.timestamp.strftime("%Y-%m-%d %H:%M"), "regime": h.regime.value,
-         "conviction": h.conviction.value, "horizon_days": h.horizon_days,
-         "thesis": h.thesis,
-         "kill_criteria": " | ".join(c.description for c in h.kill_criteria)[:200]}
+        {
+            "timestamp": h.timestamp.strftime("%Y-%m-%d %H:%M"),
+            "regime": h.regime.value,
+            "conviction": h.conviction.value,
+            "horizon_days": h.horizon_days,
+            "thesis": h.thesis,
+            "kill_criteria": " | ".join(c.description for c in h.kill_criteria)[:200],
+        }
         for h in hyps
     ]
 
@@ -115,9 +128,13 @@ def news():
     try:
         articles = adapter.news(limit=20)
         return [
-            {"title": a.get("title", ""), "date": str(a.get("date", "")),
-             "author": a.get("author", ""), "excerpt": a.get("text", "")[:200],
-             "body": a.get("text", "")}
+            {
+                "title": a.get("title", ""),
+                "date": str(a.get("date", "")),
+                "author": a.get("author", ""),
+                "excerpt": a.get("text", "")[:200],
+                "body": a.get("text", ""),
+            }
             for a in articles
         ]
     except OpenBBError:

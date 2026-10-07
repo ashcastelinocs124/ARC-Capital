@@ -70,3 +70,10 @@ def test_drafts_prompt_includes_ask_and_ids():
     )
     p = drafts_prompt([f], "focus on inflation", "check shelter", 6)
     assert "[M1] CPI 3.71%" in p and "check shelter" in p and "at most 6" in p
+
+
+def test_bare_url_digits_are_not_numbers():
+    text = "- Oil rose 3% per https://x.com/2026/10/07/oil ([r](https://r.com/a))"
+    i = text.index("([r]")
+    facts = facts_from_search("N", text, [("R", "https://r.com/a", i, i + 5)])
+    assert facts[0].numbers == [3.0] and "https://" not in facts[0].text

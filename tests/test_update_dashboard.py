@@ -66,7 +66,12 @@ def test_regime_forecast_reads_registry_and_never_retrains(client, monkeypatch):
     reg.set_pointer("inflation", v)
     body = c.get("/regime_forecast").json()
     assert body["growth_prob"] == 0.71 and body["inflation_up"] is True and body["running"] is False
-    (tmp / "status.json").write_text('{"stage": "refitting"}')
+    # the briefing's stages no longer mean "models refitting"; only the model_refit job does
+    (tmp / "status.json").write_text('{"stage": "writing"}')
+    assert c.get("/regime_forecast").json()["running"] is False
+    from castelino.dashboard.endpoints import refresh
+
+    monkeypatch.setitem(refresh._state, "model_refit", {"status": "running"})
     assert c.get("/regime_forecast").json()["running"] is True
 
 

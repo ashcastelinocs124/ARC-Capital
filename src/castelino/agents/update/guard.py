@@ -13,8 +13,8 @@ import re
 from castelino.agents.update.models import Fact, Finding, MorningNote
 
 # ponytail: only figures carrying a unit are checked; plain counts like "day 10" or years pass.
-_UNIT = r"(%|percent|per cent|percentage points?|pp|basis points?|bps|bp)"
-_FIG = re.compile(r"(?<![\w.])([-+]?)(\d+(?:\.\d+)?)\s*" + _UNIT + r"(?![a-z])", re.I)
+_UNIT = r"(%|percent|per cent|pct|percentage[\s-]points?|ppts?|pp|basis[\s-]points?|bps|bp)"
+_FIG = re.compile(r"(?<![\w.])([-+]?)(\d+(?:\.\d+)?)[\s-]*" + _UNIT + r"(?![a-z])", re.I)
 
 
 def _supported(value: float, decimals: int, signed: bool, nums: set[float]) -> bool:
@@ -56,6 +56,12 @@ def check_note(
         errs.append("need exactly 3 takeaways")
     if not 3 <= len(note.items) <= max_items:
         errs.append(f"need 3-{max_items} items")
+    ranks = [it.rank for it in note.items]
+    errs += [f"duplicate rank {r}" for r in sorted({r for r in ranks if ranks.count(r) > 1})]
+    charts = [it.chart for it in note.items if it.chart]
+    errs += [
+        f"finding {c} charted twice" for c in sorted({c for c in charts if charts.count(c) > 1})
+    ]
     for it in note.items:
         errs += [
             f"item {it.rank}: unknown finding {fid}" for fid in it.finding_ids if fid not in find_by

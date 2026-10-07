@@ -78,3 +78,22 @@ def test_unsupported_precision_sign_and_units():
     assert unsupported(["+17 basis points"], nums) == []
     assert unsupported(["-0.4%"], nums) == ["-0.4%"]  # explicit sign must match
     assert unsupported(["day 10 of the strike"], nums) == []  # no unit, not checked
+
+
+def test_common_unit_spellings_are_checked():
+    assert unsupported(["yields up 9.9ppt", "a 25-basis-point cut", "up 7 pct"], set()) == [
+        "9.9ppt",
+        "25-basis-point",
+        "7 pct",
+    ]
+    assert unsupported(["a 25-basis-point cut"], {25.0}) == []
+
+
+def test_duplicate_ranks_and_charts_rejected():
+    dup = [
+        item(1, "x", ["macro-1"], chart="macro-1"),
+        item(1, "y", ["macro-1"], chart="macro-1"),
+        OK_ITEMS[2],
+    ]
+    errs = check_note(note(dup), FINDS, FACTS)
+    assert "duplicate rank 1" in errs and "finding macro-1 charted twice" in errs
