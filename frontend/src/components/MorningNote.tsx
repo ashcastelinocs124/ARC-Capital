@@ -4,7 +4,9 @@ import type { DailyRecordV2, Exhibit } from "@/api/endpoints";
 import { cn } from "@/lib/cn";
 
 // Same path in dev (vite proxies /api) and on the static site (export_snapshot copies the PNGs).
-const chartUrl = (day: string, file: string) => `/api/update/${day}/charts/${file}`;
+// ?v= busts the browser cache when a day's note is regenerated (file names repeat: exhibit_N.png).
+const chartUrl = (rec: DailyRecordV2, file: string) =>
+  `/api/update/${rec.date}/charts/${file}?v=${encodeURIComponent(rec.generated_at)}`;
 const TAG: Record<string, string> = { macro: "MACRO", news: "NEWS", alt: "ALT" };
 const LONG_DATE = new Intl.DateTimeFormat("en-GB", {
   weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
@@ -86,7 +88,7 @@ export function MorningNote({ rec }: { rec: DailyRecordV2 }) {
             {ex && (
               <button type="button" onClick={() => setOpen(ex)} title="Open full size"
                 className="block w-full border-t-2 border-text pt-1.5 cursor-zoom-in hover:opacity-90">
-                <img src={chartUrl(rec.date, ex.file)} alt={`${ex.title}. ${ex.subtitle}`} className="w-full" loading="lazy" />
+                <img src={chartUrl(rec, ex.file)} alt={`${ex.title}. ${ex.subtitle}`} className="w-full" loading="lazy" />
               </button>
             )}
           </section>
@@ -97,7 +99,7 @@ export function MorningNote({ rec }: { rec: DailyRecordV2 }) {
         above appears in the cited source data. Not investment advice.
         {rec.data_gaps.length > 0 && <> Sources unavailable today: {rec.data_gaps.join("; ")}.</>}
       </div>
-      {open && <ExhibitViewer src={chartUrl(rec.date, open.file)} ex={open} onClose={() => setOpen(null)} />}
+      {open && <ExhibitViewer src={chartUrl(rec, open.file)} ex={open} onClose={() => setOpen(null)} />}
     </article>
   );
 }

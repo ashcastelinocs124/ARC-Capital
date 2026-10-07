@@ -11,13 +11,18 @@ macro investors. From the findings, write:
 - headline: one sentence, the day's main story.
 - takeaways: exactly 3 one-sentence bullets.
 - items: 3 to {items} items ranked by importance (rank 1 = most important). Each has a short
-  title, a 1-2 sentence body, the finding ids it rests on, and chart = one of ITS OWN finding ids
-  marked [chartable], or null. Spread items across macro, news and alt when the day allows;
-  never pad.
+  title, a body, the finding ids it rests on, and chart = one of ITS OWN finding ids marked
+  [chartable], or null. Spread items across macro, news and alt when the day allows; never pad.
+- Each item body is ONE paragraph of 80-120 words covering: what happened; how it
+  compares with the prior reading (use the prior values in the evidence, e.g. "up from 3.54%");
+  and why it matters for markets (rates, equities, the Fed path), linking to other items where
+  they connect.
+  Headline and takeaways stay short.
 Rules:
 - Use ONLY figures that appear in the evidence of the findings an item cites (headline and
   takeaways: any finding), always with their unit (%, bp or pp). Never invent, round differently
-  or compute a new number.
+  or compute a new number. Make no claims about history the evidence doesn't show (e.g. "highest
+  in a year") unless the evidence states it.
 - themes_touched titles must match existing memory titles EXACTLY. At most 2 new_themes,
   importance 1-5 (5 = always relevant).
 - Describe, don't recommend. No investment advice."""

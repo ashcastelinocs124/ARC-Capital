@@ -42,3 +42,10 @@ def test_prompt_marks_chartable_findings_and_shows_evidence(monkeypatch):
     assert "[macro-1] (macro) [chartable] 10y up" in user
     assert "evidence: DGS10 (rates): 1d +4.00bp" in user
     assert "item 1: 9%" in user and "mem" in user
+
+
+def test_item_bodies_are_full_paragraphs_with_context_and_implication():
+    system = editor.UpdateEditor().system_prompt()
+    assert "80-120 words" in system
+    assert "compares with the prior reading" in system and "why it matters" in system
+    assert "no claims about history the evidence doesn't show" in system
