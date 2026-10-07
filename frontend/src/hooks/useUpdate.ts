@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchLatestUpdate, fetchUpdateByDate, fetchUpdateHistory, fetchUpdateStatus } from "@/api/endpoints";
 
-export const ACTIVE_STAGES = new Set(["checking", "refitting", "gating", "collecting", "writing", "guarding"]);
+export const ACTIVE_STAGES = new Set(["planning", "researching", "reviewing", "writing", "guarding", "charting"]);
 
 export const useUpdateStatus = () =>
   useQuery({

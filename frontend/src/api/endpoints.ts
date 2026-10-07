@@ -132,14 +132,27 @@ export interface DailyRecord {
     new_themes: { title: string; text: string; importance: number }[];
   };
 }
+export interface NoteFinding {
+  id: string; agent: "macro" | "news" | "alt"; claim: string;
+  provenance: "data" | "reported"; source_title: string; source_url: string;
+}
+export interface NoteItem { rank: number; title: string; body: string; finding_ids: string[]; chart: string | null; }
+export interface Exhibit { n: number; finding_id: string; title: string; subtitle: string; file: string; }
+export interface DailyRecordV2 {
+  version: 2; date: string; generated_at: string;
+  findings: NoteFinding[]; exhibits: Exhibit[]; releases: ReleaseRow[]; rounds: number; data_gaps: string[];
+  note: { headline: string; takeaways: string[]; items: NoteItem[] };
+}
+export type AnyDailyRecord = DailyRecord | DailyRecordV2;
+export const isV2 = (r: AnyDailyRecord): r is DailyRecordV2 => (r as DailyRecordV2).version === 2;
 export const fetchUpdateStatus = () => api.get<UpdateStatus>("/update/status");
-export const fetchLatestUpdate = () => api.get<DailyRecord>("/update/latest");
+export const fetchLatestUpdate = () => api.get<AnyDailyRecord>("/update/latest");
 export interface UpdateHistory {
   dates: string[];
   items?: { date: string; headline: string }[]; // newest first; absent from older backends
 }
 export const fetchUpdateHistory = () => api.get<UpdateHistory>("/update/history");
-export const fetchUpdateByDate = (day: string) => api.get<DailyRecord>(`/update/${day}`);
+export const fetchUpdateByDate = (day: string) => api.get<AnyDailyRecord>(`/update/${day}`);
 
 export interface AgentTool { name: string; does: string; }
 export interface AgentCatalogEntry {

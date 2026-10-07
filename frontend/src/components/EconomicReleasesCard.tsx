@@ -1,11 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { DailyRecord, ReleaseRow } from "@/api/endpoints";
+import type { AnyDailyRecord, ReleaseRow } from "@/api/endpoints";
 import { useLatestUpdate } from "@/hooks/useUpdate";
 import { cn } from "@/lib/cn";
 
 // the shared API client maps 404 to [] (see api/client.ts), so "no briefing" arrives as an array
-export const isRecord = (r: unknown): r is DailyRecord =>
-  !!r && !Array.isArray(r) && typeof (r as DailyRecord).date === "string";
+export const isRecord = (r: unknown): r is AnyDailyRecord =>
+  !!r && !Array.isArray(r) && typeof (r as AnyDailyRecord).date === "string";
 
 const INFLATION = /^(Core )?(CPI|PCE) /;
 // m/m inflation moves are small (e.g. 0.29%), so they get two decimals
@@ -76,7 +76,7 @@ export function EconomicReleasesCard({ subtitle }: { subtitle?: string }) {
       </CardHeader>
       <CardContent className="p-0">
         {rec ? (
-          <EconomicReleasesTable releases={rec.snapshot.releases} />
+          <EconomicReleasesTable releases={"snapshot" in rec ? rec.snapshot.releases : rec.releases ?? []} />
         ) : (
           <div className="py-8 text-center text-sm text-muted">No briefing yet. It builds on the next dashboard start.</div>
         )}

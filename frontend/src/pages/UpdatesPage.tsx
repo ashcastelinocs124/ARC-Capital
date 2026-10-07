@@ -2,14 +2,16 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Link2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { DailyRecord } from "@/api/endpoints";
+import { isV2, type DailyRecord } from "@/api/endpoints";
+import { MorningNote } from "@/components/MorningNote";
 import { ACTIVE_STAGES, useLatestUpdate, useUpdateByDate, useUpdateHistory, useUpdateStatus } from "@/hooks/useUpdate";
 import { cn } from "@/lib/cn";
 import { EconomicReleasesTable, isRecord } from "@/components/EconomicReleasesCard";
 
 const STEPS: [string, string][] = [
-  ["checking", "checking for new data"], ["refitting", "refitting models"], ["gating", "gate: challenger vs champion"],
-  ["collecting", "collecting market data"], ["writing", "writing briefing"], ["guarding", "checking numbers"],
+  ["planning", "orchestrator briefing agents"], ["researching", "macro · news · alt researching"],
+  ["reviewing", "orchestrator reviewing"], ["writing", "editor writing"], ["guarding", "checking numbers"],
+  ["charting", "drawing exhibits"],
 ];
 
 const pct = (x: number | null | undefined, unit = "%") =>
@@ -276,7 +278,7 @@ export default function UpdatesPage() {
           )}
         </div>
         {running && <Banner stage={stage as string} error={status?.error} />}
-        {rec ? <Briefing rec={rec} /> : !running && (
+        {rec ? (isV2(rec) ? <MorningNote rec={rec} /> : <Briefing rec={rec} />) : !running && (
           <Card><CardContent className="py-12 text-center text-sm text-muted">
             {picked ? "Loading briefing…" : "No briefing yet. Click Refresh in the top bar to build today's."}
           </CardContent></Card>

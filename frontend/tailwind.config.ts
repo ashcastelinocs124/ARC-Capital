@@ -36,6 +36,7 @@ export default {
       fontFamily: {
         sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
         mono: ['JetBrains Mono', 'Menlo', 'monospace'],
+        serif: ['"Source Serif 4"', 'Georgia', 'serif'],
       },
       fontSize: {
         xs: ["11px", "16px"],
