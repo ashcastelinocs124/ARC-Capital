@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from urllib.parse import urlparse
 
 from castelino.agents.update.models import AgentName, Fact, Finding, FindingDrafts
 
@@ -15,6 +16,10 @@ PICKER_RULES = """Rules:
 - fact_ids: the ids of the facts the finding rests on, exactly as given. Never cite an id not listed.
 - Use only numbers that appear in the cited facts. Never invent, round differently, or compute.
 - If nothing notable happened, return fewer findings rather than padding."""
+
+
+def _site(url: str) -> str:
+    return urlparse(url).netloc.removeprefix("www.") or url
 
 
 def numbers_in(text: str) -> list[float]:
@@ -44,7 +49,8 @@ def facts_from_search(prefix: str, text: str, cites: list[tuple[str, str, int, i
                 text=body,
                 numbers=numbers_in(body),
                 provenance="reported",
-                source_title=hit[0],
+                # web_search sometimes gives no title, only the URL: show the site instead
+                source_title=hit[0] if hit[0] != hit[1] else _site(hit[1]),
                 source_url=hit[1],
             )
         )

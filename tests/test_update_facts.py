@@ -77,3 +77,11 @@ def test_bare_url_digits_are_not_numbers():
     i = text.index("([r]")
     facts = facts_from_search("N", text, [("R", "https://r.com/a", i, i + 5)])
     assert facts[0].numbers == [3.0] and "https://" not in facts[0].text
+
+
+def test_untitled_citation_shows_the_site_name():
+    text = "- Oil rose 3% ([r](https://www.fidelity.com/news/x?utm_source=openai))"
+    url = "https://www.fidelity.com/news/x?utm_source=openai"
+    i = text.index("([r]")
+    facts = facts_from_search("N", text, [(url, url, i, i + 5)])
+    assert facts[0].source_title == "fidelity.com" and facts[0].source_url == url
