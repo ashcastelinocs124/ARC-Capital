@@ -435,7 +435,7 @@ def load_settings(config_path: Path | None = None) -> Settings:
         raw = yaml.safe_load(f)
     raw["root"] = ROOT
     s = Settings.model_validate(raw)
-    # CI (publish.yml) keeps the SEC contact email in a secret instead of config.yaml
+    # lets the SEC contact email live in the environment instead of config.yaml
     if ua := os.environ.get("SEC_USER_AGENT", "").strip():
         s.adoption.sec_user_agent = ua
     return s

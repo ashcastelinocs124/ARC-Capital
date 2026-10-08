@@ -1,4 +1,4 @@
-# CI for every push to main and every pull request. publish.yml (deploy on green + daily 17:00 NY)
+# CI for every push to main and every pull request. scripts/publish_snapshot.sh (the 17:00 NY cron)
 # only deploys a main commit whose run of this workflow succeeded, so this is the gate for the
 # public site at arcresearch.markets.
 name: CI
