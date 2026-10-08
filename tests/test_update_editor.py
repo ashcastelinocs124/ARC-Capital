@@ -38,7 +38,7 @@ def test_prompt_marks_chartable_findings_and_shows_evidence(monkeypatch):
     ]
     editor.write_note(finds, facts, "mem", "long", ["item 1: 9%"])
     schema, model, system, user = fake.call_log[-1]
-    assert model == "gpt-6-sol" and "exactly 3" in system and "3 to 5 items" in system
+    assert model == "gpt-6-sol" and "exactly 3" in system and "exactly 5 items" in system
     assert "[macro-1] (macro) [chartable] 10y up" in user
     assert "evidence: DGS10 (rates): 1d +4.00bp" in user
     assert "item 1: 9%" in user and "mem" in user

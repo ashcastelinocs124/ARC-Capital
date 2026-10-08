@@ -40,6 +40,8 @@ OK_ITEMS = [
     item(1, "CPI 3.71% vs 3.54%, +0.17pp.", ["macro-1"]),
     item(2, "10y at 5.27%, +3bp.", ["macro-2"], chart="macro-2"),
     item(3, "No numbers here.", ["macro-1"]),
+    item(4, "Nor here.", ["macro-2"]),
+    item(5, "Quiet.", ["macro-1"]),
 ]
 
 
@@ -60,7 +62,7 @@ def test_headline_may_use_any_cited_fact():
 
 
 def test_dangling_finding_and_foreign_chart_rejected():
-    bad = [item(1, "x", ["macro-9"]), item(2, "y", ["macro-1"], chart="macro-2"), OK_ITEMS[2]]
+    bad = [item(1, "x", ["macro-9"]), item(2, "y", ["macro-1"], chart="macro-2"), *OK_ITEMS[2:]]
     errs = check_note(note(bad), FINDS, FACTS)
     assert "item 1: unknown finding macro-9" in errs
     assert "item 2: chart macro-2 is not one of its findings" in errs
@@ -68,7 +70,7 @@ def test_dangling_finding_and_foreign_chart_rejected():
 
 def test_shape_rules():
     assert "need exactly 3 takeaways" in check_note(note(OK_ITEMS, takeaways=("a",)), FINDS, FACTS)
-    assert "need 3-5 items" in check_note(note(OK_ITEMS[:2]), FINDS, FACTS)
+    assert "need exactly 5 items" in check_note(note(OK_ITEMS[:4]), FINDS, FACTS)
 
 
 def test_unsupported_precision_sign_and_units():
@@ -93,7 +95,7 @@ def test_duplicate_ranks_and_charts_rejected():
     dup = [
         item(1, "x", ["macro-1"], chart="macro-1"),
         item(1, "y", ["macro-1"], chart="macro-1"),
-        OK_ITEMS[2],
+        *OK_ITEMS[2:],
     ]
     errs = check_note(note(dup), FINDS, FACTS)
     assert "duplicate rank 1" in errs and "finding macro-1 charted twice" in errs
@@ -103,6 +105,6 @@ def test_ai_findings_need_an_ai_item():
     ai = finding("ai-1", ["M1"]).model_copy(update={"agent": "ai"})
     errs = check_note(note(OK_ITEMS), [*FINDS, ai], FACTS)
     assert any("(ai) finding" in e for e in errs)
-    with_ai = [*OK_ITEMS[:2], item(3, "A new model launched.", ["ai-1"])]
+    with_ai = [*OK_ITEMS[:4], item(5, "A new model launched.", ["ai-1"])]
     assert check_note(note(with_ai), [*FINDS, ai], FACTS) == []
     assert check_note(note(OK_ITEMS), FINDS, FACTS) == []  # quiet AI day: no rule

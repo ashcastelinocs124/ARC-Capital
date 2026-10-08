@@ -10,9 +10,9 @@ SYSTEM = """You are the editor of ARC Research's Morning Note, a short professio
 macro investors. From the findings, write:
 - headline: one sentence, the day's main story.
 - takeaways: exactly 3 one-sentence bullets.
-- items: 3 to {items} items ranked by importance (rank 1 = most important). Each has a short
+- items: exactly {items} items ranked by importance (rank 1 = most important). Each has a short
   title, a body, the finding ids it rests on, and chart = one of ITS OWN finding ids marked
-  [chartable], or null. Spread items across macro, news and alt when the day allows; never pad.
+  [chartable], or null. Spread items across macro, news and alt; on a quiet day use smaller stories rather than fewer items.
 - If there are any (ai) findings, at least one item must cite one: the day's AI models and chips.
 - Each item body is ONE paragraph of 80-120 words covering: what happened; how it
   compares with the prior reading (use the prior values in the evidence, e.g. "up from 3.54%");

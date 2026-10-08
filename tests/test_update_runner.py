@@ -66,6 +66,11 @@ def make_note(fids=("macro-1", "news-1", "alt-1"), body="CPI at 3.71%.", chart=T
         NoteItem(rank=i, title="T", body=body, finding_ids=[f], chart=f if chart else None)
         for i, f in enumerate(fids, 1)
     ]
+    # pad to the required 5 with uncharted items on the first finding
+    items += [
+        NoteItem(rank=i, title="T", body=body, finding_ids=[fids[0]], chart=None)
+        for i in range(len(items) + 1, 6)
+    ]
     return MorningNote(
         headline="Inflation at 3.71%",
         takeaways=["a", "b", "c"],

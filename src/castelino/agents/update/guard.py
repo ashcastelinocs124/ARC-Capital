@@ -38,7 +38,7 @@ def unsupported(texts: list[str], nums: set[float]) -> list[str]:
 
 
 def check_note(
-    note: MorningNote, findings: list[Finding], facts: list[Fact], *, max_items: int = 5
+    note: MorningNote, findings: list[Finding], facts: list[Fact], *, items: int = 5
 ) -> list[str]:
     fact_by = {f.id: f for f in facts}
     find_by = {f.id: f for f in findings}
@@ -54,8 +54,8 @@ def check_note(
     errs: list[str] = []
     if len(note.takeaways) != 3:
         errs.append("need exactly 3 takeaways")
-    if not 3 <= len(note.items) <= max_items:
-        errs.append(f"need 3-{max_items} items")
+    if len(note.items) != items:
+        errs.append(f"need exactly {items} items")
     ranks = [it.rank for it in note.items]
     errs += [f"duplicate rank {r}" for r in sorted({r for r in ranks if ranks.count(r) > 1})]
     charts = [it.chart for it in note.items if it.chart]

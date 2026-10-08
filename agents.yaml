@@ -96,7 +96,7 @@ agents:
       - {key: OPENAI_API_KEY, required: true, why: "LLM call (gpt-6-sol)"}
     class: castelino.agents.update.editor.UpdateEditor
     summary: >-
-      Writes the Morning Note (headline, 3 key takeaways, 3-5 ranked items) and picks which
+      Writes the Morning Note (headline, 3 key takeaways, 5 ranked items) and picks which
       findings get an exhibit from the Chart agent. A number guard checks every figure.
     tools:
       - {name: "Chart agent (code)", does: "Institutional exhibits: last 7 observations, or previous vs latest release"}

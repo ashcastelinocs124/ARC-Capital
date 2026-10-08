@@ -186,7 +186,7 @@ class UpdateRunner:
             self._set(Stage.WRITING)
             note = self.editor_fn(findings, facts, mem, long, errors)
             self._set(Stage.GUARDING)
-            errors = check_note(note, findings, facts, max_items=self.max_items)
+            errors = check_note(note, findings, facts, items=self.max_items)
             if not errors:
                 break
         if errors:
