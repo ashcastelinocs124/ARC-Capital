@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import date
+from datetime import date, timedelta
 
 from castelino.agents.base import StructuredAgent
 from castelino.agents.update import bls
@@ -28,9 +28,11 @@ commodities, credit and FX, each as a numbered fact. Find what changed and why i
 {PICKER_RULES}"""
 
 
-def release_facts(snap: MarketSnapshot) -> list[Fact]:
+def release_facts(snap: MarketSnapshot, keep: set[str] | None = None) -> list[Fact]:
     out: list[Fact] = []
     for r in snap.releases:
+        if keep is not None and r.series not in keep:
+            continue
         prior = f", prior {r.prior:.2f}% ({r.prior_period})" if r.prior is not None else ""
         change = f", change {r.change:+.2f}pp" if r.change is not None else ""
         series = None
@@ -112,6 +114,18 @@ def claims_fact(fetch=default_fetch_monthly) -> Fact | None:
     )
 
 
+def released_today(series_id: str, day: date) -> bool:
+    """True if FRED published a new period of `series_id` on `day` (its vintage gained one)."""
+    from castelino.agents.update import asof
+
+    before = asof.fred_vintage(series_id, day - timedelta(days=1)).index[-1]
+    return asof.fred_vintage(series_id, day).index[-1] != before
+
+
+def _bls_parent(sid: str) -> str:  # BLS components come out with the FRED headline release
+    return "PAYEMS" if sid.startswith("CES") else "CPIAUCSL"
+
+
 def _asof_fetchers(day: date):
     """FRED as published on `day` (vintage), prices cut off at `day`; for rebuilt past notes."""
     from castelino.agents.update import asof
@@ -124,8 +138,7 @@ def _asof_fetchers(day: date):
         return asof.truncate(default_fetch_close(inst), day)
 
     def upto(sid: str) -> str | None:  # BLS: stop at the month FRED's vintage of CPI / payrolls had
-        ref = "PAYEMS" if sid.startswith("CES") else "CPIAUCSL"
-        return monthly(ref).index[-1].strftime("%Y-%m")
+        return monthly(_bls_parent(sid)).index[-1].strftime("%Y-%m")
 
     return monthly, close, upto
 
@@ -135,9 +148,12 @@ def gather_facts(
     collect_fn=collect,
     bls_fn=bls.bls_facts,
     claims_fn=claims_fact,
+    released_fn=released_today,
     today: str,
     day: date | None = None,
 ) -> tuple[list[Fact], MarketSnapshot]:
+    """Market moves every day; a release only on the day FRED published it, so the note covers
+    that day's data rather than restating last month's CPI or payrolls."""
     if day is None:
         snap = collect_fn(today=today, prediction={}, model_note=None)
     else:
@@ -149,7 +165,17 @@ def gather_facts(
             bls_fn = lambda: bls.bls_facts(upto=upto)  # noqa: E731
         if claims_fn is claims_fact:
             claims_fn = lambda: claims_fact(fetch=monthly)  # noqa: E731
-    facts = release_facts(snap)
+    fresh: set[str] = set()
+    for sid in sorted({r.series for r in snap.releases} | {"CPIAUCSL", "PAYEMS", "ICSA"}):
+        try:
+            if released_fn(sid, day or date.today()):
+                fresh.add(sid)
+        except Exception as exc:  # noqa: BLE001 — can't tell (e.g. no FRED_API_KEY): keep it
+            fresh.add(sid)
+            gap = f"release date unknown ({str(exc)[:80]})"
+            if gap not in snap.data_gaps:
+                snap.data_gaps.append(gap)
+    facts = release_facts(snap, keep=fresh)
     facts += market_facts(snap, start=len(facts) + 1)
     for label, fn in (("BLS", bls_fn), ("ICSA", claims_fn)):
         try:
@@ -159,8 +185,8 @@ def gather_facts(
             snap.data_gaps.append(f"{label} ({str(exc)[:80]})")
             continue
         if isinstance(got, list):
-            facts += got
-        elif got is not None:
+            facts += [f for f in got if _bls_parent(f.series.id) in fresh]
+        elif got is not None and "ICSA" in fresh:
             facts.append(got)
     return facts, snap
 

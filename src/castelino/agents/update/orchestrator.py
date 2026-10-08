@@ -12,8 +12,9 @@ work for you:
   commodities, credit and FX.
 - news: today's market-moving news, via web search.
 - alt: Polymarket odds moves on Fed and economy markets, and what financial X is saying.
-Write one brief per agent, 1-3 sentences, naming what to prioritise today. Follow the running
-themes in memory but leave room for anything new. Do not state any numbers."""
+Write one brief per agent, 1-3 sentences, naming what to prioritise today. Prioritise what is
+new today. Memory is background only: brief on an old theme only if today's data is likely to
+move it. Do not state any numbers."""
 
 REVIEW_SYSTEM = """You review what your three research agents found for this morning's note.
 Return done=true if the findings support a 5-item note with a clear lead story. Otherwise return

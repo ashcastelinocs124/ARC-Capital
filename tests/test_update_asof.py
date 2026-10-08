@@ -130,7 +130,12 @@ def test_macro_gather_uses_vintage_fetchers_for_a_past_day(monkeypatch):
         asof, "fred_vintage", lambda sid, day: pd.Series([1.0], index=[pd.Timestamp("2026-08-01")])
     )
     facts, snap = macro.gather_facts(
-        collect_fn=collect, bls_fn=lambda: [], claims_fn=lambda: None, today="2026-10-03", day=DAY
+        collect_fn=collect,
+        bls_fn=lambda: [],
+        claims_fn=lambda: None,
+        released_fn=lambda s, d: True,
+        today="2026-10-03",
+        day=DAY,
     )
     assert snap.date == "2026-10-03"
     assert calls["monthly"]("CPIAUCSL").index[-1] == pd.Timestamp("2026-08-01")

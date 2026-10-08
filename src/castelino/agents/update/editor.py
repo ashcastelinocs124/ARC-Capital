@@ -25,6 +25,8 @@ Rules:
   in a year") unless the evidence states it.
 - themes_touched titles must match existing memory titles EXACTLY. At most 2 new_themes,
   importance 1-5 (5 = always relevant).
+- Write about today's findings. Memory is background for comparison only, never a topic on
+  its own: don't revive an old theme unless today's findings move it.
 - Describe, don't recommend. No investment advice."""
 
 

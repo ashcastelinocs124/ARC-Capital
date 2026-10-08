@@ -41,11 +41,19 @@ def test_bls_fetch_parses_monthly_rows_and_skips_annual():
     assert bls.fetch(["X"], post=lambda *a, **k: R()) == {"X": [("Aug 2026", 404.0)]}
 
 
+def every_day(sid, day):
+    return True
+
+
 def test_gather_facts_builds_release_and_market_facts():
     snap = make_snapshot()
     snap.releases[0].latest_period, snap.releases[0].prior_period = "Aug 2026", "Jul 2026"
     facts, got = macro.gather_facts(
-        collect_fn=lambda **k: snap, bls_fn=lambda: [], claims_fn=lambda: None, today="2026-10-07"
+        collect_fn=lambda **k: snap,
+        bls_fn=lambda: [],
+        claims_fn=lambda: None,
+        released_fn=every_day,
+        today="2026-10-07",
     )
     assert got is snap
     rel = next(f for f in facts if "Core PCE" in f.text)
@@ -61,7 +69,11 @@ def test_gather_facts_records_a_gap_when_a_source_fails():
 
     snap = make_snapshot()
     facts, got = macro.gather_facts(
-        collect_fn=lambda **k: snap, bls_fn=boom, claims_fn=lambda: None, today="2026-10-07"
+        collect_fn=lambda **k: snap,
+        bls_fn=boom,
+        claims_fn=lambda: None,
+        released_fn=every_day,
+        today="2026-10-07",
     )
     assert facts and any("BLS" in g for g in got.data_gaps)
 
@@ -103,3 +115,69 @@ def test_research_agents_get_the_update_agent_output_budget():
 
     budget = get_settings().update_agent.max_output_tokens
     assert [a().max_output_tokens for a in (macro.MacroAgent, NewsAgent, AltAgent)] == [budget] * 3
+
+
+def test_gather_facts_keeps_only_releases_published_that_day():
+    from castelino.agents.update.models import Fact, SeriesRef
+
+    def bls_fact(sid):
+        return Fact(
+            id=sid,
+            text=sid,
+            numbers=[],
+            provenance="data",
+            source_title="t",
+            source_url="u",
+            series=SeriesRef(kind="release", provider="bls", id=sid, label=sid),
+        )
+
+    snap = make_snapshot()
+    claims = Fact(
+        id="M_ICSA", text="claims", numbers=[], provenance="data", source_title="t", source_url="u"
+    )
+    facts, got = macro.gather_facts(
+        collect_fn=lambda **k: snap,
+        bls_fn=lambda: [bls_fact("CUSR0000SAH1"), bls_fact("CES0500000003")],
+        claims_fn=lambda: claims,
+        released_fn=lambda sid, day: sid == "PAYEMS",  # only the jobs report came out today
+        today="2026-10-07",
+    )
+    ids = [f.id for f in facts]
+    assert not any(
+        f.series and f.series.kind == "release" and f.series.provider == "fred" for f in facts
+    )  # snapshot's CPI/PCE releases are stale
+    assert "CES0500000003" in ids and "CUSR0000SAH1" not in ids and "M_ICSA" not in ids
+    assert got.releases == snap.releases  # /macro's releases card still gets everything
+    assert len(ids) == len(set(ids))
+
+
+def test_gather_facts_keeps_releases_when_the_date_is_unknown():
+    def no_key(sid, day):
+        raise RuntimeError("FRED vintages need FRED_API_KEY")
+
+    snap = make_snapshot()
+    facts, got = macro.gather_facts(
+        collect_fn=lambda **k: snap,
+        bls_fn=lambda: [],
+        claims_fn=lambda: None,
+        released_fn=no_key,
+        today="2026-10-07",
+    )
+    assert any("Core PCE" in f.text for f in facts)
+    assert sum("release date unknown" in g for g in got.data_gaps) == 1
+
+
+def test_released_today_compares_with_the_day_before(monkeypatch):
+    from datetime import date
+
+    import pandas as pd
+
+    from castelino.agents.update import asof
+
+    def vintage(sid, day):
+        last = "2026-09-01" if day >= date(2026, 10, 7) else "2026-08-01"
+        return pd.Series([1.0], index=[pd.Timestamp(last)])
+
+    monkeypatch.setattr(asof, "fred_vintage", vintage)
+    assert macro.released_today("CPIAUCSL", date(2026, 10, 7))
+    assert not macro.released_today("CPIAUCSL", date(2026, 10, 8))
