@@ -116,7 +116,7 @@ class DailyRecord(BaseModel):
 
 # ── v2: multi-agent Morning Note ──────────────────────────────────────────
 
-AgentName = Literal["macro", "news", "alt"]
+AgentName = Literal["macro", "news", "alt", "ai"]
 
 
 class Point(BaseModel):
@@ -180,6 +180,7 @@ class Briefs(BaseModel):
     macro: str
     news: str
     alt: str
+    ai: str = ""  # older saved briefs predate the AI analyst
 
 
 class FollowUp(BaseModel):

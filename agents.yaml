@@ -73,6 +73,21 @@ agents:
       - {name: "X via web_search", does: "Cited lines of what macro accounts are posting"}
     memory: {reads: ["Today's brief from the Orchestrator"], writes: [], persists: "Nothing."}
 
+  - id: ai_agent
+    name: AI Analyst
+    group: Briefings
+    family: Update Agent
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "LLM call and web search (gpt-6-luna)"}
+    class: castelino.agents.update.ai.AiAgent
+    summary: >-
+      One cited web search for the day's AI model releases, credibly reported upcoming releases,
+      new AI chips and AI industry news; every cited line becomes a fact, and the agent picks
+      findings from those facts only. The Editor always gives it one item when it found any.
+    tools:
+      - {name: "web_search.search_cited()", does: "OpenAI Responses web_search with citation positions"}
+    memory: {reads: ["Today's brief from the Orchestrator"], writes: [], persists: "Nothing."}
+
   - id: update_editor
     name: Update Editor
     group: Briefings
@@ -245,11 +260,11 @@ systems:
     trigger: "Top-bar Refresh button (once a day)"
     output: "The /updates Morning Note, the refitted Pulse/Pressure models and the Sector Sentiment card on /models"
     blurb: >-
-      An Orchestrator briefs three research agents and reviews what they find; an Editor writes
+      An Orchestrator briefs four research agents and reviews what they find; an Editor writes
       the Morning Note. Code supplies every number, and a guard checks each figure before saving.
     lanes:
       - title: "Daily Update 1 · Research"
-        flow: [["Refresh"], ["agent:update_orchestrator|plan briefs"], ["agent:macro_agent|FRED · BLS · Yahoo", "agent:news_agent|web_search", "agent:alt_agent|Polymarket · X"], ["agent:update_orchestrator|review"], ["end:↓ to stage 2"]]
+        flow: [["Refresh"], ["agent:update_orchestrator|plan briefs"], ["agent:macro_agent|FRED · BLS · Yahoo", "agent:news_agent|web_search", "agent:alt_agent|Polymarket · X", "agent:ai_agent|AI models · chips"], ["agent:update_orchestrator|review"], ["end:↓ to stage 2"]]
         regions: [{from: 1, to: 3, label: "Loop · max 2 follow-up rounds"}]
         loops: [{from: 3, to: 2, label: "follow-ups"}]
       - title: "Daily Update 2 · Write"

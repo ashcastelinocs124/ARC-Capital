@@ -27,7 +27,7 @@ from castelino.agents.update.models import (
 
 log = logging.getLogger(__name__)
 _STALE_LOCK_SECONDS = 30 * 60
-AGENTS = ("macro", "news", "alt")
+AGENTS = ("macro", "news", "alt", "ai")
 MIN_FINDINGS = 3
 
 AgentFn = Callable[[str, str | None], AgentOutput]
@@ -222,7 +222,7 @@ class UpdateRunner:
 
 
 def build_default_runner() -> UpdateRunner:
-    from castelino.agents.update import alt, charts, editor, macro, news, orchestrator
+    from castelino.agents.update import ai, alt, charts, editor, macro, news, orchestrator
     from castelino.config import get_settings
 
     cfg = get_settings()
@@ -242,7 +242,7 @@ def build_default_runner() -> UpdateRunner:
         max_items=ua.items,
         plan_fn=orchestrator.plan,
         review_fn=orchestrator.review,
-        agent_fns={"macro": macro.run, "news": news.run, "alt": alt.run},
+        agent_fns={"macro": macro.run, "news": news.run, "alt": alt.run, "ai": ai.run},
         editor_fn=editor.write_note,
         chart_fn=charts.make_exhibits,
     )

@@ -22,7 +22,7 @@ from castelino.agents.update.models import Exhibit, Finding, SeriesRef  # noqa: 
 log = logging.getLogger(__name__)
 
 GREEN, SLATE, INK, INK2 = "#047857", "#94A3B8", "#0F172A", "#334155"
-KICKER = {"macro": "MACRO", "news": "NEWS", "alt": "ALT DATA"}
+KICKER = {"macro": "MACRO", "news": "NEWS", "alt": "ALT DATA", "ai": "AI & CHIPS"}
 WINDOW = 7
 
 

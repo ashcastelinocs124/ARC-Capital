@@ -12,6 +12,7 @@ work for you:
   commodities, credit and FX.
 - news: today's market-moving news, via web search.
 - alt: Polymarket odds moves on Fed and economy markets, and what financial X is saying.
+- ai: new AI model releases, credibly reported upcoming releases, AI chips and AI industry news.
 Write one brief per agent, 1-3 sentences, naming what to prioritise today. Prioritise what is
 new today. Memory is background only: brief on an old theme only if today's data is likely to
 move it. Do not state any numbers."""

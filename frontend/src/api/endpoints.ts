@@ -64,7 +64,7 @@ export interface DailyRecord {
   };
 }
 export interface NoteFinding {
-  id: string; agent: "macro" | "news" | "alt"; claim: string;
+  id: string; agent: "macro" | "news" | "alt" | "ai"; claim: string;
   provenance: "data" | "reported"; source_title: string; source_url: string;
 }
 export interface NoteItem { rank: number; title: string; body: string; finding_ids: string[]; chart: string | null; }

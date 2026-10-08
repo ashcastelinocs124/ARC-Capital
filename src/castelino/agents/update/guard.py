@@ -70,6 +70,10 @@ def check_note(
             errs.append(f"item {it.rank}: chart {it.chart} is not one of its findings")
         nums = nums_for(it.finding_ids)
         errs += [f"item {it.rank}: {t}" for t in unsupported([it.title, it.body], nums)]
+    if any(f.agent == "ai" for f in findings) and not any(
+        find_by[fid].agent == "ai" for it in note.items for fid in it.finding_ids if fid in find_by
+    ):
+        errs.append("no item cites an (ai) finding; include one AI & chips item")
     every = nums_for(list(find_by))
     errs += [
         f"headline/takeaways: {t}" for t in unsupported([note.headline, *note.takeaways], every)

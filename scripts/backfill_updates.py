@@ -19,7 +19,7 @@ from datetime import date
 from functools import partial
 from pathlib import Path
 
-from castelino.agents.update import alt, asof, charts, editor, macro, news, orchestrator
+from castelino.agents.update import ai, alt, asof, charts, editor, macro, news, orchestrator
 from castelino.agents.update.memory import MemoryStore
 from castelino.agents.update.runner import UpdateRunner, read_status
 from castelino.config import get_settings
@@ -69,6 +69,7 @@ def main() -> int:
                 "macro": partial(macro.run, day=day),
                 "news": partial(news.run, day=day),
                 "alt": partial(alt.run, day=day),
+                "ai": partial(ai.run, day=day),
             },
             editor_fn=editor.write_note,
             chart_fn=lambda fs, out, d=day: charts.make_exhibits(

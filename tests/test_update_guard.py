@@ -97,3 +97,12 @@ def test_duplicate_ranks_and_charts_rejected():
     ]
     errs = check_note(note(dup), FINDS, FACTS)
     assert "duplicate rank 1" in errs and "finding macro-1 charted twice" in errs
+
+
+def test_ai_findings_need_an_ai_item():
+    ai = finding("ai-1", ["M1"]).model_copy(update={"agent": "ai"})
+    errs = check_note(note(OK_ITEMS), [*FINDS, ai], FACTS)
+    assert any("(ai) finding" in e for e in errs)
+    with_ai = [*OK_ITEMS[:2], item(3, "A new model launched.", ["ai-1"])]
+    assert check_note(note(with_ai), [*FINDS, ai], FACTS) == []
+    assert check_note(note(OK_ITEMS), FINDS, FACTS) == []  # quiet AI day: no rule
