@@ -26,7 +26,8 @@ def search_cited(
     from openai import OpenAI
 
     cfg = get_settings()
-    client = OpenAI(api_key=cfg.openai_api_key, timeout=cfg.openai.request_timeout_s)
+    # a reasoning model + live search often runs past the 60 s default; a timeout just wastes the call
+    client = OpenAI(api_key=cfg.openai_api_key, timeout=max(cfg.openai.request_timeout_s, 180))
     resp = client.responses.create(
         model=model or cfg.web_search.model,
         instructions=system,

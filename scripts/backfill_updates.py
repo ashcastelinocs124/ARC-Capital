@@ -60,7 +60,7 @@ def main() -> int:
             data_dir=tmp / "run",
             updates_dir=updates,
             memory=memory,
-            max_rounds=ua.max_rounds,
+            max_rounds=0,  # no follow-up rounds: they double a rebuild's time for little gain
             max_retries=ua.max_guard_retries,
             max_items=ua.items,
             plan_fn=orchestrator.plan,
