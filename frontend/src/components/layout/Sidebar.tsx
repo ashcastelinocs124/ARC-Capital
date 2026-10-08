@@ -21,8 +21,8 @@ interface NavItem {
 }
 
 const items: NavItem[] = [
-  { to: "/models", label: "Models", icon: Cpu },
   { to: "/macro", label: "Macro & Signals", icon: Globe },
+  { to: "/models", label: "Models", icon: Cpu },
   { to: "/deep-research", label: "Deep Research", icon: Telescope },
   { to: "/updates", label: "Daily Update", icon: Newspaper },
   { to: "/agents", label: "Agents", icon: Bot },
