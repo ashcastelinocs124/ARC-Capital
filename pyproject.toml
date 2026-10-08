@@ -1,7 +1,7 @@
 [project]
 name = "castelino-capital"
 version = "0.1.0"
-description = "Multi-agent macro fund built as a LangGraph DAG of LLM agents (portfolio piece)."
+description = "ARC Research: macro research dashboard with a multi-agent daily Morning Note, regime nowcasters, Sector Sentiment and an AI Adoption Index."
 authors = [{ name = "Ashley Castelino", email = "ashleyn4@illinois.edu" }]
 requires-python = ">=3.11,<3.13"
 readme = "README.md"
@@ -19,7 +19,6 @@ dependencies = [
     "yfinance>=0.2.40",
     "pyarrow>=15",
     "requests>=2.31",
-    "feedparser>=6.0",
     "beautifulsoup4>=4.12,<5",
     "httpx>=0.27,<1",
     "openbb-platform-api",
@@ -30,30 +29,17 @@ dependencies = [
     "openbb-economy>=1.6",
     "openbb-yfinance>=1.6",
     "openbb-fred>=1.6",
-    # LLM + DAG
+    # LLM
     "openai>=1.40",
-    "langgraph>=0.2",
-    "langchain-core>=0.3",
     # Forecast models (regime nowcaster)
     "scikit-learn>=1.4",
     "xgboost>=2.0",
-    # Reporting
+    # Charts (Morning Note exhibits)
     "matplotlib>=3.8",
-    "jinja2>=3.1",
     # Dashboard (OpenBB Workspace backend)
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
     "plotly>=5.18",
-    # Speech-to-text (Fed speech listener)
-    "deepgram-sdk>=3,<4",
-    # Vector store (persona memory)
-    "chromadb>=0.5,<1",
-    # PDF parsing (persona scrapers — Buffett, Dalio Principles)
-    "pypdf>=4,<6",
-    # YouTube transcript fetching (Druckenmiller, Tudor Jones interviews)
-    "youtube-transcript-api>=0.6,<1",
-    # RSS / Atom feed parsing (Krugman, El-Erian, Summers op-eds)
-    "feedparser>=6.0,<7",
 ]
 
 [project.optional-dependencies]

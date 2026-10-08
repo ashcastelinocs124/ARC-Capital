@@ -13,7 +13,6 @@ Tests pass a `FakeLLMClient` that returns deterministic stub objects.
 from __future__ import annotations
 
 import logging
-import os
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -27,21 +26,7 @@ from castelino.config import Settings, get_settings
 
 
 def _resolve_model_id(cfg: Settings, tier: str) -> str:
-    """Pick the live or backtest model ID for `tier`.
-
-    When `BACKTEST_AS_OF` is set, the gpt-4o family is used (cutoff Oct
-    2023 → no hindsight on backtest period). Otherwise live
-    `cfg.models.<tier>` is used.
-
-    Tier mapping in backtest mode (matches live mode's reasoning vs cheap split):
-        reasoning              → backtest.reasoning_model  (gpt-4o)
-        fast, significance     → backtest.fast_model       (gpt-4o-mini)
-    """
-    if os.environ.get("BACKTEST_AS_OF", "").strip():
-        bt = cfg.backtest
-        if tier == "reasoning":
-            return bt.reasoning_model
-        return bt.fast_model
+    """The configured model id for `tier` (cfg.models.<tier>)."""
     return getattr(cfg.models, tier)
 
 

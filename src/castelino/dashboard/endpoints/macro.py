@@ -6,8 +6,6 @@ from fastapi import APIRouter
 
 from castelino.config import get_settings
 from castelino.data.openbb_adapter import OpenBBError, get_adapter
-from castelino.memory import io as memio
-from castelino.memory.schemas import Hypothesis, TriggerRecord
 
 router = APIRouter()
 
@@ -78,46 +76,6 @@ def yield_curve(theme: str = "dark", raw: bool = False):
         return json.loads(fig.to_json())
     except (OpenBBError, Exception):
         return [] if raw else {"data": [], "layout": {}}
-
-
-@router.get("/triggers")
-def triggers():
-    entries = memio.read_short_term()
-    trigs = sorted(
-        [e for e in entries if isinstance(e, TriggerRecord)],
-        key=lambda x: x.timestamp,
-        reverse=True,
-    )[:20]
-    return [
-        {
-            "timestamp": t.timestamp.strftime("%Y-%m-%d %H:%M"),
-            "source": t.source.value,
-            "significance": round(t.significance, 2),
-            "headline": t.headline,
-        }
-        for t in trigs
-    ]
-
-
-@router.get("/hypotheses")
-def hypotheses():
-    entries = memio.read_short_term()
-    hyps = sorted(
-        [e for e in entries if isinstance(e, Hypothesis)],
-        key=lambda x: x.timestamp,
-        reverse=True,
-    )[:10]
-    return [
-        {
-            "timestamp": h.timestamp.strftime("%Y-%m-%d %H:%M"),
-            "regime": h.regime.value,
-            "conviction": h.conviction.value,
-            "horizon_days": h.horizon_days,
-            "thesis": h.thesis,
-            "kill_criteria": " | ".join(c.description for c in h.kill_criteria)[:200],
-        }
-        for h in hyps
-    ]
 
 
 @router.get("/news")

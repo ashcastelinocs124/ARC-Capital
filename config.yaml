@@ -1,11 +1,6 @@
 # Castelino Capital — runtime configuration
 # Tunable knobs live here; structural decisions live in code.
 
-fund:
-  name: "Castelino Capital"
-  initial_nav: 1000000.0
-  base_currency: "USD"
-
 models:
   # OpenAI model IDs by tier.
   # - reasoning: gpt-5.5 (heavy) — Hypothesis, Asset Selection, Bull, Bear,
@@ -23,57 +18,6 @@ openai:
   max_retries: 3
   # Cap structured-output requests so a runaway agent can't burn the budget.
   max_output_tokens: 2048
-
-triggers:
-  # 24h cron fallback — fire even if no news + no calendar event
-  cron_fallback_hours: 24
-  # News significance threshold (0-1). Anything ≥ this fires the pipeline.
-  news_significance_min: 0.7
-  # Threshold above which we *log* but don't fire.
-  news_log_min: 0.4
-  # RSS sources for v1. Calibrate then expand.
-  rss_feeds:
-    - "https://feeds.reuters.com/reuters/businessNews"
-    - "https://feeds.reuters.com/Reuters/worldNews"
-    - "https://www.federalreserve.gov/feeds/press_all.xml"
-    - "https://www.ecb.europa.eu/rss/press.html"
-
-risk:
-  position_max_pct_nav: 0.05         # 5% hard cap (per core_principles)
-  asset_class_max_pct_gross: 0.40    # 40% hard cap
-  drawdown_freeze_pct: 0.10          # No new positions if dd > 10%
-  vix_circuit_breaker: 40.0          # VIX > 40 caps gross at 50%
-  five_day_pnl_freeze_pct: -0.05     # 5d P&L < -5% freezes new positions
-  liquidity_min_adv_usd: 50000000.0  # 30d ADV minimum
-  liquidity_max_pct_adv: 0.01        # No position > 1% ADV
-
-research:
-  ta_lookback_days: 252        # 1y for TA
-  backtest_lookback_years: 10  # similarity search history
-  risk_correlation_window: 60  # 60d (per design Q3 — middle ground)
-
-curator:
-  cadence: "weekly"                  # rolling weekly consolidation
-  st_max_closed_trades: 20
-  st_max_hypothesis_days: 30
-  st_max_trigger_days: 30
-  st_max_warning_days: 90
-
-execution:
-  # Slippage in basis points by asset class (per design §8)
-  slippage_bps:
-    equity: 5
-    bond_etf: 5
-    commodity_etf: 10
-    futures: 15
-    fx: 8
-  # Commission per asset class (USD)
-  commission:
-    equity: 0.0
-    bond_etf: 0.0
-    commodity_etf: 0.0
-    futures: 2.0   # per contract
-    fx: 0.0
 
 fred:
   releases:
@@ -107,28 +51,6 @@ fred:
       asset_classes: ["equity", "bond_etf"]
   cache_ttl_hours: 24
 
-enrichment:
-  borderline_min: 0.4
-  borderline_max: 0.8
-  polymarket_enabled: true
-  x_sentiment_enabled: true
-  cache_ttl_minutes: 60
-
-risk_gate:
-  caution_min: 0.3
-  caution_size_mult: 0.5
-  danger_min: 0.6
-  capitulation_min: 0.85
-  capitulation_amplify: 1.3
-
-conviction:
-  half_life_hours: 12.0
-  fire_threshold: 2.5
-  spread_threshold: 2.0
-  cooldown_hours: 4.0
-  black_swan_min: 0.9
-  ledger_ttl_hours: 72.0
-
 openbb:
   preferred_provider: yfinance
   fallback_enabled: true
@@ -139,68 +61,6 @@ web_search:
   cache_ttl_hours: 12
   model: "gpt-5.4-mini"
   regions: ["EU", "UK", "JP", "CN", "GLOBAL"]
-
-speech:
-  enabled: true
-  stt_provider: deepgram
-  deepgram_model: nova-2-finance
-  lexicon_version: hawkish_dovish_v1
-  window_size: 5
-  deviation_threshold_sigma: 1.5
-  half_life_months: 6.0
-  baseline_window_days: 365
-  llm_model: gpt-4o-mini
-  speakers:
-    - id: powell
-      full_name: Jerome H. Powell
-      role: Chair, Federal Reserve
-
-# figure_deviation: generalised tone-deviation engine that supersedes `speech`
-# above. Wave 1 ports existing Fed speakers; Wave 5 adds Trump (X API).
-# Both coexist until the migration in Wave 2.
-figure_deviation:
-  enabled: true
-  poll_interval_min: 30
-  figures:
-    - id: powell
-      display_name: Jerome H. Powell
-      sources:
-        - type: audio
-          provider: deepgram
-          stream_resolver: fed_event_calendar
-      lexicons:
-        - name: hawkish_dovish_v1
-          threshold_sigma: 1.5
-          window_size: 5
-          directional_tags_positive:
-            - rates_up
-            - usd_up
-            - gold_down
-          directional_tags_negative:
-            - rates_down
-            - usd_down
-            - gold_up
-      baseline:
-        window_days: 365
-        time_decay_half_life_days: 90
-        refresh_cadence_days: 7
-
-personas:
-  enabled: true
-  chat_model: gpt-4o
-  synthesis_model: gpt-4o
-  embedding_model: text-embedding-3-small
-  retrieval_top_k: 6
-  chunk_max_tokens: 400
-  chunk_overlap_tokens: 50
-  chroma_path: data/personas/chroma
-  active_roster:
-    - krugman
-    - el_erian
-    - summers
-    - druckenmiller
-    - dalio
-    - tudor_jones
 
 adoption:
   enabled: true
@@ -231,73 +91,6 @@ deep_research:
   # Thesis charts: cap per report (bounds OpenBB calls) + default lookback window.
   max_charts: 4
   chart_lookback_days_default: 365
-
-backtest:
-  # Historical backtest harness — gpt-4o, Oct 2023 onwards.
-  # The actual switch is the BACKTEST_AS_OF env var per-tick by the runner;
-  # this section just defines the model overrides + universe + paths.
-  enabled: false
-  reasoning_model: gpt-4o          # cutoff Oct 2023 — no hindsight on backtest window
-  fast_model: gpt-4o-mini
-  auto_approve_post_hypothesis: true
-  auto_approve_post_debate: true
-  bench_instruments: [SPY, TLT]
-  initial_nav: 1000000.0
-  # Backtest universe — broad enough to cover everything an asset-selection
-  # agent might plausibly pick. FRED yields (DGS2/DGS10) excluded since
-  # yfinance bulk pull doesn't reach them; the asset-selection agent rarely
-  # targets them anyway.
-  universe:
-    # Equities
-    - SPY
-    - QQQ
-    - AAPL
-    - MSFT
-    - NVDA
-    - GOOGL
-    - AMZN
-    - META
-    # Sectors
-    - XLE
-    - XLK
-    - XLF
-    - XLV
-    - XLY
-    - XLI
-    # Bonds
-    - TLT
-    - IEF
-    - SHY
-    - LQD
-    - HYG
-    # Commodities
-    - GLD
-    - USO
-    - UNG
-    # Futures
-    - CL_F
-    - GC_F
-    - NG_F
-    # FX
-    - EURUSD
-    - USDJPY
-    - GBPUSD
-    - AUDUSD
-    - USDCAD
-    # Volatility (Principles Guard reads VIX for the circuit breaker)
-    - VIX
-  nyt_topics:
-    - "federal reserve"
-    - "inflation"
-    - "ecb"
-    - "fomc"
-    - "cpi"
-    - "interest rates"
-    - "recession"
-    - "gdp"
-  sonar_trump_enabled: true        # one Sonar call per month for Trump events
-  sonar_trump_max_per_month: 25
-  runs_dir: "data/backtest_runs"
 
 paths:
   data_dir: "data"

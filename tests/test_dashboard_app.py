@@ -1,11 +1,13 @@
 """Tests for the OpenBB dashboard skeleton."""
-from fastapi.testclient import TestClient
+
 import pytest
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture
 def client():
     from castelino.dashboard.main import app
+
     return TestClient(app)
 
 
@@ -20,8 +22,7 @@ def test_widgets_json_is_dict(client):
     assert r.status_code == 200
     data = r.json()
     assert isinstance(data, dict)
-    assert "nav_metrics" in data
-    assert "positions_table" in data
+    assert set(data) == {"macro_indicators", "yield_curve_chart", "news_feed", "econ_calendar"}
 
 
 def test_apps_json_is_array(client):
@@ -32,4 +33,4 @@ def test_apps_json_is_array(client):
     assert len(data) == 1
     assert data[0]["name"] == "ARC Research"
     assert "tabs" in data[0]
-    assert len(data[0]["tabs"]) == 6
+    assert list(data[0]["tabs"]) == ["macro"]

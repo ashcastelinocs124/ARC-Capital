@@ -1,18 +1,8 @@
 import { useMacroIndicators, useRegimeForecast } from "@/hooks/useMacro";
 import { RegimeQuadrant } from "@/components/RegimeQuadrant";
-import { ConvictionLedger } from "@/components/ConvictionLedger";
-import { RiskOffGauge } from "@/components/RiskOffGauge";
 import { EconomicReleasesCard } from "@/components/EconomicReleasesCard";
 import { MacroIndicatorsTable } from "@/components/MacroIndicatorsTable";
 
-// TODO: no /conviction_ledger endpoint yet — stubbed
-
-const CONVICTION_STUB = {
-  growthBullish: 0,
-  growthBearish: 0,
-  inflationBullish: 0,
-  inflationBearish: 0,
-};
 
 export default function MacroPage() {
   const { data: macro = [] } = useMacroIndicators();
@@ -20,8 +10,7 @@ export default function MacroPage() {
 
   return (
     <div className="p-4 md:p-8 space-y-6">
-      {/* Top row: regime + conviction + risk-off */}
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div>
         <RegimeQuadrant
           growthUp={regime?.growth_up}
           inflationUp={regime?.inflation_up}
@@ -29,8 +18,6 @@ export default function MacroPage() {
           inflationProb={regime?.inflation_prob}
           running={regime?.running ?? true}
         />
-        <ConvictionLedger {...CONVICTION_STUB} />
-        <RiskOffGauge prob={undefined} />
       </div>
 
       <EconomicReleasesCard />

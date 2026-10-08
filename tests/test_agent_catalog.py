@@ -48,7 +48,7 @@ def test_endpoint_serves_catalog(monkeypatch):
     r = TestClient(app).get("/agents/catalog")
     assert r.status_code == 200
     data = r.json()
-    assert len(data["agents"]) >= 18 and data["groups"]
+    assert len(data["agents"]) >= 13 and data["groups"]
 
 
 def test_registry_file_lives_at_repo_root():

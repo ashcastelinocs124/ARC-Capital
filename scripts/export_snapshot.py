@@ -22,32 +22,11 @@ from castelino.dashboard.main import app
 
 OUT = Path(__file__).resolve().parent.parent / "frontend" / "public" / "api"
 
-# The GETs the public pages make. Left out on purpose: approvals, personas and rooms (pages
-# gone, data internal) and Portfolio, Risk and Research (private-only, see
-# frontend/src/pages/visibility.ts).
+# The GETs the public pages make.
 PATHS = [
     "/models",
     "/regime_forecast",
     "/macro_indicators",
-    "/yield_curve_chart",
-    "/triggers_table",
-    "/hypotheses_table",
-    "/news_feed",
-    "/econ_calendar",
-    "/verdicts_table",
-    "/guard_decisions",
-    "/agent_summary",
-    "/agent_triggers",
-    "/agent_world_state",
-    "/agent_hypotheses",
-    "/agent_expressions",
-    "/agent_research",
-    "/agent_bull",
-    "/agent_bear",
-    "/agent_verdicts",
-    "/agent_guard",
-    "/agent_warnings",
-    "/agent_curator",
     "/update/status",
     "/update/latest",
     "/update/history",

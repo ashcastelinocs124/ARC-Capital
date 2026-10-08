@@ -78,32 +78,18 @@ def get_apps():
 
 from castelino.dashboard.endpoints import (  # noqa: E402
     adoption,
-    agent_catalog,  # noqa: E402
-    agents,
-    approvals,
+    agent_catalog,
     deep_research,
     macro,
     models,
-    portfolio,
     refresh,
-    research,
-    risk,
 )
-from castelino.dashboard.endpoints import figures as figures_router  # noqa: E402
-from castelino.dashboard.endpoints import personas as personas_router  # noqa: E402
 from castelino.dashboard.endpoints import sector_sentiment as sector_sentiment_router  # noqa: E402
 from castelino.dashboard.endpoints import update as update_ep  # noqa: E402
 
-app.include_router(portfolio.router)
 app.include_router(models.router)
 app.include_router(macro.router)
-app.include_router(research.router)
 app.include_router(deep_research.router)
-app.include_router(risk.router)
-app.include_router(agents.router)
-app.include_router(approvals.router)
-app.include_router(personas_router.router)
-app.include_router(figures_router.router)
 app.include_router(update_ep.router)
 app.include_router(agent_catalog.router)
 app.include_router(sector_sentiment_router.router)

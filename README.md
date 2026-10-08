@@ -1,10 +1,10 @@
 # ARC Capital
 
-A multi-asset macro research platform and simulated hedge fund, built as LLM agents on top of a deterministic floor: XGBoost nowcasters, pure-function accounting, and hard-coded risk rules. The dashboard is branded **ARC Research**.
+A macro research platform: a multi-agent daily Morning Note, XGBoost regime nowcasters, Sector Sentiment, an AI Adoption Index and a Deep Research agent, with deterministic code underneath every number. The dashboard is branded **ARC Research**.
 
 **Live (read-only):** [arcresearch.markets](https://arcresearch.markets) · **Newsletter:** [archresearch.substack.com](https://archresearch.substack.com/)
 
-This is a portfolio piece: a working simulation, not connected to a real broker.
+This is a portfolio piece, not investment advice.
 
 ---
 
@@ -13,14 +13,11 @@ This is a portfolio piece: a working simulation, not connected to a real broker.
 | Area | What you get | Where |
 |---|---|---|
 | **Regime models** | XGBoost nowcasters for next-month growth (Empire State + Philly Fed diffusion) and inflation (CPI m/m acceleration), mapped to a 4-quadrant regime, plus a risk-off classifier | `/models`, `/macro` |
-| **Daily Update** | Once a day: refit the regime models (promoted only if out-of-sample Brier doesn't get worse), collect releases and cross-asset moves, write one fact-checked briefing | `/updates` |
+| **Daily Update** | A multi-agent Morning Note at 17:00 New York: an Orchestrator briefs Macro (FRED, BLS, Yahoo), News (cited web search) and Alt (Polymarket, X) agents, an Editor writes 3-5 ranked items, a number guard checks every figure, and code draws an exhibit per item. Downloadable as PDF | `/updates` |
 | **Sector Sentiment** | Per GICS sector, technical score minus fundamental score over its top 10 stocks; flags euphoric or fearful sectors and whether a move is stock-specific or sector-wide | `/models` |
 | **AI Adoption Index** | Scores companies on Talk (AI claims in SEC filings), Hire (share of open AI/ML roles) and Spend ((capex + R&D) / revenue), rolled up by sector and size | `/models` |
 | **Deep Research** | Multi-agent research: clarify → split into sub-questions → parallel web-search agents → cited report with charts from real market data | `/deep-research` |
 | **Agent catalog** | Every LLM agent's live prompt, model, tools, memory, output schema and API-key status, from `agents.yaml` | `/agents` |
-| **Trading pipeline** | Trigger layer → Current Event → Hypothesis → Asset Selection → Research Desk → Bull/Bear → Debate → Principles Guard → Portfolio → simulated broker | `/portfolio`, `/risk`, `/research` |
-
-The trading pipeline's code, schemas and tests are intact. Since 2026-09-30 it has no CLI or UI to start a run or approve its two human-in-the-loop gates.
 
 ---
 
@@ -33,17 +30,17 @@ The trading pipeline's code, schemas and tests are intact. Since 2026-09-30 it h
  │ SEC EDGAR            │     │ agents/update/   Daily Update     │     │ (ckm serve)        │
  │ Job boards           │────▶│ signals/    Sector Sentiment      │────▶│                    │
  │ OpenAI web search    │     │ adoption/   AI Adoption Index     │     │ React + Vite       │
- │ RSS · Polymarket     │────▶│ agents/research/deep/  Deep Res.  │────▶│ dashboard  :5173   │
- └──────────────────────┘     │ triggers/ + agents/   trading DAG │     │                    │
-                              │ execution/  broker + NAV floor    │     │ Static snapshot    │
-                              └───────────────────────────────────┘     │ → Vercel (public)  │
+ │ BLS · Polymarket     │────▶│ agents/research/deep/  Deep Res.  │────▶│ dashboard  :5173   │
+ └──────────────────────┘     └───────────────────────────────────┘     │                    │
+                                                                         │ Static snapshot    │
+                                                                         │ → Vercel (public)  │
                                                                          └────────────────────┘
 ```
 
 Design rules that hold everywhere:
 
-- **Numbers come from code, words from LLMs.** Agents interpret, and deterministic code computes. Every LLM output is a Pydantic model with hard constraints (a hypothesis without `kill_criteria` fails validation; a position over 5% of NAV is rejected before the guard sees it).
-- **Guards check the model.** The Daily Update rejects any figure not in its collected data. The AI Adoption extractor keeps a claim only if its quote appears in the filing. The job-board Recipe Writer's output is accepted only if our own replay reproduces it.
+- **Numbers come from code, words from LLMs.** Agents interpret, and deterministic code computes. Every LLM output is a Pydantic model, and agents cite facts by id rather than restating numbers.
+- **Guards check the model.** The Morning Note's guard rejects any %, bp or pp figure that isn't in the facts behind the findings an item cites. The AI Adoption extractor keeps a claim only if its quote appears in the filing. The job-board Recipe Writer's output is accepted only if our own replay reproduces it.
 - **All web search goes through one place**, `data/web_search.py` (OpenAI Responses API `web_search`).
 
 ### AI Adoption Index: how Hire is read
@@ -95,7 +92,7 @@ uv run ckm serve                 # FastAPI backend + OpenBB Workspace connector 
 cd frontend && npm run dev       # dashboard on http://localhost:5173 (proxies /api to :7779)
 ```
 
-`ckm serve` doesn't auto-reload, so restart it after Python changes. Starting it refreshes nothing. The top-bar **Refresh** button runs the Daily Update, Sector Sentiment and AI Adoption jobs in parallel (`POST /refresh`, status at `GET /refresh/status`). To add a data job, add it to `_RUNNERS` in `dashboard/endpoints/refresh.py`.
+`ckm serve` doesn't auto-reload, so restart it after Python changes. Starting it refreshes nothing. The top-bar **Refresh** button runs the model refit, the Daily Update, Sector Sentiment and AI Adoption jobs in parallel (`POST /refresh`, status at `GET /refresh/status`). To add a data job, add it to `_RUNNERS` in `dashboard/endpoints/refresh.py`.
 
 Other commands:
 
@@ -113,8 +110,8 @@ uv run --extra browser python scripts/write_recipes.py AAPL=https://jobs.apple.c
 [arcresearch.markets](https://arcresearch.markets) is a static, read-only snapshot on Vercel. It has no backend, so visitors can't trigger refreshes or spend API credits.
 
 - `scripts/export_snapshot.py` runs the refresh jobs, then saves every GET response the public pages need as a JSON file.
-- `scripts/publish_snapshot.sh` builds with `VITE_STATIC=1` and deploys. A daily 7:00 cron job runs it.
-- Portfolio, Risk and Research are private-only. To publish one, remove it from `frontend/src/pages/visibility.ts` and add its endpoints back in the export script.
+- `scripts/publish_snapshot.sh` builds with `VITE_STATIC=1` and deploys. A cron job runs it daily at 17:00 New York (`--no-refresh` redeploys without rerunning the jobs).
+- `scripts/backfill_updates.py <dates>` rebuilds past Daily Updates as Morning Notes using data as of each date.
 
 ### CI/CD
 
@@ -122,7 +119,7 @@ uv run --extra browser python scripts/write_recipes.py AAPL=https://jobs.apple.c
   - the full test suite;
   - ruff lint and format checks, on the Python files the change touches only, since the older code predates the lint config;
   - the frontend type check and the public build.
-- **CD** is the 7:00 publish job. It takes the data from the machine running the backend, but builds the code from a clean copy of `origin/main`, and only from a commit whose CI passed.
+- **CD** is the 17:00 New York publish job. It takes the data from the machine running the backend, but builds the code from a clean copy of `origin/main`, and only from a commit whose CI passed.
   - If the newest `main` isn't green, it rebuilds the last deployed good commit with fresh data.
   - Uncommitted or failing code never reaches the public site.
   - The last deployed commit is recorded in `data/publish_last_sha`.
@@ -135,10 +132,9 @@ uv run --extra browser python scripts/write_recipes.py AAPL=https://jobs.apple.c
 ```bash
 uv run --extra dev pytest                          # full suite: over 10 minutes, run it in the background
 uv run --extra dev pytest tests/test_adoption*.py  # or target files
-uv run --extra dev pytest -m backtest              # regression suite over deterministic components
 ```
 
-The suite makes no network or LLM calls: `FakeLLMClient`, mock HTTP transports and pricing stubs keep it deterministic. 4 persona tests fail on `main` for environmental reasons.
+The suite makes no network or LLM calls: `FakeLLMClient` and mock HTTP transports keep it deterministic.
 
 ---
 
@@ -147,15 +143,13 @@ The suite makes no network or LLM calls: `FakeLLMClient`, mock HTTP transports a
 ```
 agents.yaml                 # registry of every LLM agent (drives /agents; enforced by a test)
 config.yaml                 # models, thresholds, caps
-data/                       # inputs (constitution, indicator catalogs, lexicons) + generated state (gitignored)
+data/                       # inputs (indicator catalogs) + generated state (gitignored)
 src/castelino/
   forecast/                 # XGBoost regime + risk-off nowcasters
-  agents/                   # trading DAG agents, update/ (Daily Update), research/deep/ (Deep Research)
+  agents/                   # update/ (Daily Update: orchestrator, macro/news/alt, editor, guard, charts), research/deep/ (Deep Research)
   signals/                  # Sector Sentiment
   adoption/                 # AI Adoption Index: extractor, scoring, job boards, recipe writer
-  triggers/                 # news, calendar, conviction ledger, figure/speech deviation, risk-off gate
-  execution/ · memory/      # pure-function broker, NAV floor, journals
-  orchestrator/             # LangGraph state + graph, `ckm` CLI
+  orchestrator/             # `ckm` CLI
   dashboard/                # FastAPI app and endpoints
   data/                     # FRED / Yahoo / OpenBB adapters, web_search.py
 frontend/                   # React + Vite + Tailwind dashboard
@@ -178,4 +172,4 @@ authors accept no liability for any loss arising from its use.
 
 A portfolio piece; no commercial use intended.
 
-Built on `langgraph`, `openai`, `pydantic`, `xgboost`, `scikit-learn`, `yfinance`, FRED, OpenBB, Playwright, FastAPI, React and Vite.
+Built on `openai`, `pydantic`, `xgboost`, `scikit-learn`, `yfinance`, FRED, OpenBB, Playwright, FastAPI, React and Vite.

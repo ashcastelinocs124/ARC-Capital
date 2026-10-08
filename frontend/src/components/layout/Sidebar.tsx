@@ -1,12 +1,9 @@
 import { NavLink } from "react-router-dom";
 import {
-  LayoutDashboard,
   Cpu,
   Globe,
-  Microscope,
   Telescope,
   Newspaper,
-  ShieldAlert,
   Bot,
   BookOpen,
   Settings,
@@ -16,7 +13,6 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
-import { pageEnabled } from "@/pages/visibility";
 
 interface NavItem {
   to: string;
@@ -25,13 +21,10 @@ interface NavItem {
 }
 
 const items: NavItem[] = [
-  { to: "/portfolio", label: "Portfolio", icon: LayoutDashboard },
   { to: "/models", label: "Models", icon: Cpu },
   { to: "/macro", label: "Macro & Signals", icon: Globe },
-  { to: "/research", label: "Research", icon: Microscope },
   { to: "/deep-research", label: "Deep Research", icon: Telescope },
   { to: "/updates", label: "Daily Update", icon: Newspaper },
-  { to: "/risk", label: "Risk", icon: ShieldAlert },
   { to: "/agents", label: "Agents", icon: Bot },
   { to: "/docs", label: "Documentation", icon: BookOpen },
 ];
@@ -77,7 +70,7 @@ export function Sidebar({ collapsible = true }: { collapsible?: boolean }) {
 
       {/* Nav */}
       <nav className={cn("flex-1 py-2 space-y-0.5", collapsed ? "px-2" : "px-3")}>
-        {items.filter((i) => pageEnabled(i.to)).map(({ to, label, icon: Icon }) => (
+        {items.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
