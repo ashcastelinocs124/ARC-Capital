@@ -181,3 +181,23 @@ export function AgentArch({ agentId, system, names, onAgent, onSystem }: {
     </div>
   );
 }
+
+/** A main agent's architecture: the lanes of its system that any of its agents appear in. */
+export function FamilyArch({ ids, system, names, onAgent, onSystem }: {
+  ids: string[]; system: AgentSystem; names: Record<string, string>;
+  onAgent: (id: string) => void; onSystem: (group: string) => void;
+}) {
+  const [ref, width] = useWidth();
+  const mine = system.lanes.filter((l) => l.flow.flat().some((b) => ids.some((id) => b.split("|")[0] === `agent:${id}`)));
+  return (
+    <div ref={ref}>
+      {mine.map((lane) => (
+        <div key={lane.title} className="mb-5">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">{lane.title}</div>
+          <Lane lane={lane} width={width} names={names} onAgent={onAgent} onSystem={onSystem} />
+        </div>
+      ))}
+      <Legend className="pt-3 border-t border-border" />
+    </div>
+  );
+}

@@ -3,10 +3,11 @@ import { Card } from "@/components/ui/card";
 import type { AgentCatalogEntry, AgentSystem } from "@/api/endpoints";
 import { useAgentCatalog } from "@/hooks/useAgentCatalog";
 import { cn } from "@/lib/cn";
-import { AgentArch, SystemDiagram } from "@/components/SystemDiagram";
+import { AgentArch, FamilyArch, SystemDiagram } from "@/components/SystemDiagram";
 
 const TABS = ["Arch", "Prompt", "Tools", "Memory", "Output", "Dependencies"] as const;
 type Tab = (typeof TABS)[number];
+type Pick = { agent?: string; group?: string; family?: string };
 
 function TierBadge({ tier }: { tier: string | null }) {
   if (!tier) return null;
@@ -33,11 +34,12 @@ function Lane({ title, items, core }: { title: string; items: string[]; core?: b
   );
 }
 
-function Detail({ a, system, names, open }: {
+function Detail({ a, system, names, open, noArch }: {
   a: AgentCatalogEntry; system?: AgentSystem; names: Record<string, string>;
-  open: (p: { agent?: string; group?: string }) => void;
+  open: (p: Pick) => void; noArch?: boolean; // inside a main agent's page the arch is shown once on top
 }) {
-  const [tab, setTab] = useState<Tab>(system ? "Arch" : "Prompt");
+  const tabs = noArch ? TABS.filter((t) => t !== "Arch") : TABS;
+  const [tab, setTab] = useState<Tab>(system && !noArch ? "Arch" : "Prompt");
   const core = [a.model ? `${a.tier} · ${a.model}` : a.tier ?? "model n/a", a.output ? `→ ${a.output.name}` : "free-form output"];
   return (
     <Card className="flex flex-col min-h-0">
@@ -53,7 +55,7 @@ function Detail({ a, system, names, open }: {
         {a.error && <div className="mt-3 text-xs bg-danger-soft text-danger rounded-lg px-3 py-2">Couldn't read from code: {a.error}</div>}
       </div>
       <div className="flex gap-1 px-4 border-b border-border overflow-x-auto">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={cn("px-3 py-2.5 text-sm font-medium border-b-2 -mb-px whitespace-nowrap",
               t === tab ? "text-accent border-accent" : "text-muted border-transparent hover:text-text")}>
@@ -157,22 +159,65 @@ function Detail({ a, system, names, open }: {
   );
 }
 
+/** A main agent (e.g. Update Agent): its architecture once, then every sub-agent's full card. */
+function FamilyView({ name, members, system, names, open }: {
+  name: string; members: AgentCatalogEntry[]; system?: AgentSystem; names: Record<string, string>;
+  open: (p: Pick) => void;
+}) {
+  return (
+    <div className="space-y-5">
+      <Card className="flex flex-col min-w-0">
+        <div className="px-6 py-5 border-b border-border">
+          <div className="text-lg font-semibold">{name} <span className="font-normal text-muted">· {members.length} agents</span></div>
+          <div className="flex flex-wrap gap-2 mt-2.5">
+            {members.map((m) => <Chip key={m.id}>{m.name}{m.model ? ` · ${m.model}` : ""}</Chip>)}
+          </div>
+        </div>
+        <div className="p-6">
+          {system ? <FamilyArch ids={members.map((m) => m.id)} system={system} names={names}
+            onAgent={(id) => open({ agent: id })} onSystem={(group) => open({ group })} />
+            : <div className="text-sm text-muted">No architecture diagram for this group yet.</div>}
+        </div>
+      </Card>
+      {members.map((m) => <Detail key={m.id} a={m} names={names} open={open} noArch />)}
+    </div>
+  );
+}
+
 export default function AgentsPage() {
   const { data, isLoading } = useAgentCatalog();
   const [q, setQ] = useState("");
   // an agent id, or a group name for its architecture diagram; null = the first system
-  const [picked, setPicked] = useState<{ agent?: string; group?: string } | null>(null);
+  const [picked, setPicked] = useState<Pick | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const agents = data?.agents ?? [];
   const systems = data?.systems ?? [];
   const shown = useMemo(
     () => agents.filter((a) => !q || JSON.stringify(a).toLowerCase().includes(q.toLowerCase())),
     [agents, q],
   );
-  const system = picked ? systems.find((s) => s.group === picked.group) : systems[0];
-  const current = system ? undefined : agents.find((a) => a.id === picked?.agent) ?? agents[0];
+  const family = picked?.family;
+  const system = family ? undefined : picked ? systems.find((s) => s.group === picked.group) : systems[0];
+  const current = system || family ? undefined : agents.find((a) => a.id === picked?.agent) ?? agents[0];
   const names = useMemo(() => Object.fromEntries(agents.map((a) => [a.id, a.name])), [agents]);
   const right = useRef<HTMLDivElement>(null);
-  const open = (p: { agent?: string; group?: string }) => { setPicked(p); right.current?.scrollIntoView({ block: "start" }); };
+  const open = (p: Pick) => { setPicked(p); right.current?.scrollIntoView({ block: "start" }); };
+  const toggleFamily = (f: string) => {
+    setExpanded((prev) => { const n = new Set(prev); if (n.has(f) && family === f) n.delete(f); else n.add(f); return n; });
+    open({ family: f });
+  };
+  const agentRow = (a: AgentCatalogEntry, nested = false) => (
+    <button key={a.id} onClick={() => open({ agent: a.id })}
+      className={cn("w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-sm text-left",
+        nested && "text-[13px]",
+        a.id === current?.id ? "bg-accent-soft text-accent font-semibold" : "hover:bg-surface-2")}>
+      <span className="truncate">{nested && a.family && a.name.startsWith(a.family) ? a.name.slice(a.family.length).replace(/^[\s·]+/, "") : a.name}</span>
+      <span className="flex items-center gap-1">
+        {a.error && <span className="w-1.5 h-1.5 rounded-full bg-danger" title={a.error} />}
+        <TierBadge tier={a.tier} />
+      </span>
+    </button>
+  );
 
   if (isLoading) return <div className="p-4 md:p-8 text-sm text-muted">Loading agents…</div>;
 
@@ -199,17 +244,25 @@ export default function AgentsPage() {
                     {g}<span className="text-[10px] font-medium normal-case tracking-normal text-accent">Architecture</span>
                   </button>
                 ) : <div className="text-[11px] font-semibold uppercase tracking-wider text-muted px-2.5 pt-3 pb-1">{g}</div>}
-                {xs.map((a) => (
-                  <button key={a.id} onClick={() => open({ agent: a.id })}
-                    className={cn("w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-sm text-left",
-                      a.id === current?.id ? "bg-accent-soft text-accent font-semibold" : "hover:bg-surface-2")}>
-                    <span className="truncate">{a.name}</span>
-                    <span className="flex items-center gap-1">
-                      {a.error && <span className="w-1.5 h-1.5 rounded-full bg-danger" title={a.error} />}
-                      <TierBadge tier={a.tier} />
-                    </span>
-                  </button>
-                ))}
+                {xs.map((a, i) => {
+                  if (!a.family) return agentRow(a);
+                  if (xs.findIndex((b) => b.family === a.family) !== i) return null; // family drawn at its first member
+                  const members = xs.filter((b) => b.family === a.family);
+                  const isOpen = expanded.has(a.family) || !!q || members.some((m) => m.id === current?.id);
+                  return (
+                    <div key={`fam-${a.family}`}>
+                      <button onClick={() => toggleFamily(a.family!)}
+                        className={cn("w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-sm text-left",
+                          family === a.family ? "bg-accent-soft text-accent font-semibold" : "hover:bg-surface-2")}>
+                        <span className="flex items-center gap-1.5 truncate">
+                          <span className={cn("inline-block w-3 text-muted transition-transform", isOpen && "rotate-90")}>▸</span>{a.family}
+                        </span>
+                        <span className="text-[11px] text-muted font-normal">{members.length} agents</span>
+                      </button>
+                      {isOpen && <div className="ml-4 pl-1 border-l border-border">{members.map((m) => agentRow(m, true))}</div>}
+                    </div>
+                  );
+                })}
               </div>
             );
           })}
@@ -229,7 +282,9 @@ export default function AgentsPage() {
         <Card className="flex flex-col min-w-0">
           <SystemDiagram system={system} names={names} onAgent={(id) => open({ agent: id })} onSystem={(group) => open({ group })} />
         </Card>
-      ) : current ? <Detail key={current.id} a={current} names={names} open={open}
+      ) : family ? <FamilyView name={family} members={agents.filter((a) => a.family === family)} names={names} open={open}
+        system={systems.find((s) => s.group === agents.find((a) => a.family === family)?.group)} />
+      : current ? <Detail key={current.id} a={current} names={names} open={open}
         system={systems.find((s) => s.group === current.group)} /> : <Card className="p-4 md:p-8 text-sm text-muted">No agents registered.</Card>}
       </div>
     </div>

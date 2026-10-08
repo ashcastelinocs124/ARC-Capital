@@ -60,6 +60,7 @@ def _entry(raw: dict) -> dict:
         "id": raw["id"],
         "name": raw["name"],
         "group": raw.get("group", "Other"),
+        "family": raw.get("family"),  # a main agent the entry belongs to, e.g. "Update Agent"
         "summary": raw.get("summary", ""),
         "tools": raw.get("tools") or [],
         "memory": raw.get("memory") or {"reads": [], "writes": [], "persists": ""},

@@ -111,3 +111,8 @@ def test_every_agent_appears_in_its_groups_diagram():
     }
     missing = [e["id"] for e in body["agents"] if e["id"] not in drawn.get(e["group"], set())]
     assert not missing, f"add these agents to their group's diagram in agents.yaml: {missing}"
+
+
+def test_update_agent_family_groups_its_five_agents():
+    fam = [e["id"] for e in cat.build_catalog()["agents"] if e.get("family") == "Update Agent"]
+    assert fam == ["update_orchestrator", "macro_agent", "news_agent", "alt_agent", "update_editor"]

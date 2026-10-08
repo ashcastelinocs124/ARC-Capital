@@ -12,6 +12,7 @@ agents:
   - id: update_orchestrator
     name: Update Orchestrator
     group: Briefings
+    family: Update Agent
     dependencies:
       - {key: OPENAI_API_KEY, required: true, why: "LLM calls (gpt-6-sol)"}
     class: castelino.agents.update.orchestrator.UpdateOrchestrator
@@ -29,6 +30,7 @@ agents:
   - id: macro_agent
     name: Macro Agent
     group: Briefings
+    family: Update Agent
     dependencies:
       - {key: OPENAI_API_KEY, required: true, why: "LLM call (gpt-6-luna)"}
       - {key: FRED_API_KEY, required: false, why: "FRED data; falls back to the keyless CSV endpoint when unset"}
@@ -45,6 +47,7 @@ agents:
   - id: news_agent
     name: News Agent
     group: Briefings
+    family: Update Agent
     dependencies:
       - {key: OPENAI_API_KEY, required: true, why: "LLM call and web search (gpt-6-luna)"}
     class: castelino.agents.update.news.NewsAgent
@@ -58,6 +61,7 @@ agents:
   - id: alt_agent
     name: Alt Agent
     group: Briefings
+    family: Update Agent
     dependencies:
       - {key: OPENAI_API_KEY, required: true, why: "LLM call and web search for X (gpt-6-luna)"}
     class: castelino.agents.update.alt.AltAgent
@@ -72,6 +76,7 @@ agents:
   - id: update_editor
     name: Update Editor
     group: Briefings
+    family: Update Agent
     dependencies:
       - {key: OPENAI_API_KEY, required: true, why: "LLM call (gpt-6-sol)"}
     class: castelino.agents.update.editor.UpdateEditor
@@ -91,6 +96,7 @@ agents:
   - id: sector_narrative
     name: Sector Sentiment Narrative
     group: Briefings
+    family: Sector Sentiment
     dependencies:
       - {key: OPENAI_API_KEY, required: false, why: "LLM call (OpenAI); without it the Sector Sentiment numbers still ship, just without the narrative"}
     class: castelino.agents.sector_explainer.SectorNarrativeAgent
@@ -106,6 +112,7 @@ agents:
   - id: sector_prose
     name: Sector Explainer
     group: Briefings
+    family: Sector Sentiment
     dependencies:
       - {key: OPENAI_API_KEY, required: false, why: "LLM call (OpenAI); without it each sector drawer shows only the computed stats"}
     class: castelino.agents.sector_explainer.SectorProseAgent
@@ -302,6 +309,7 @@ agents:
   - id: deep_clarifier
     name: Deep Research · Clarifier
     group: Deep research
+    family: Deep Research
     dependencies:
       - {key: OPENAI_API_KEY, required: true, why: "LLM call (OpenAI)"}
     class: castelino.agents.research.deep.clarifier.ClarifierAgent
@@ -315,6 +323,7 @@ agents:
   - id: deep_lead
     name: Deep Research · Lead
     group: Deep research
+    family: Deep Research
     dependencies:
       - {key: OPENAI_API_KEY, required: true, why: "LLM call (OpenAI)"}
     class: castelino.agents.research.deep.lead.LeadAgent
@@ -328,6 +337,7 @@ agents:
   - id: deep_sub_agent
     name: Deep Research · Sub-agent
     group: Deep research
+    family: Deep Research
     dependencies:
       - {key: OPENAI_API_KEY, required: true, why: "LLM call and web search (OpenAI web_search tool)"}
     prompt: "castelino.agents.research.deep.sub_agent:SYSTEM"
@@ -344,6 +354,7 @@ agents:
   - id: deep_synthesizer
     name: Deep Research · Synthesizer
     group: Deep research
+    family: Deep Research
     dependencies:
       - {key: OPENAI_API_KEY, required: true, why: "LLM call (OpenAI)"}
       - {key: OPENBB_PAT, required: false, why: "OpenBB data; uses saved OpenBB user settings or degrades gracefully when unset"}

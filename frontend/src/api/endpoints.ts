@@ -157,6 +157,7 @@ export const fetchUpdateByDate = (day: string) => api.get<AnyDailyRecord>(`/upda
 export interface AgentTool { name: string; does: string; }
 export interface AgentCatalogEntry {
   id: string; name: string; group: string; summary: string;
+  family?: string | null; // main agent it belongs to, e.g. "Update Agent"
   tools: AgentTool[];
   memory: { reads: string[]; writes: string[]; persists: string };
   class_path: string | null; tier: string | null; model: string | null;
