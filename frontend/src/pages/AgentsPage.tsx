@@ -190,6 +190,7 @@ export default function AgentsPage() {
   // an agent id, or a group name for its architecture diagram; null = the first system
   const [picked, setPicked] = useState<Pick | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [groupState, setGroupState] = useState<Record<string, boolean>>({}); // a click overrides the default
   const agents = data?.agents ?? [];
   const systems = data?.systems ?? [];
   const shown = useMemo(
@@ -202,6 +203,14 @@ export default function AgentsPage() {
   const names = useMemo(() => Object.fromEntries(agents.map((a) => [a.id, a.name])), [agents]);
   const right = useRef<HTMLDivElement>(null);
   const open = (p: Pick) => { setPicked(p); right.current?.scrollIntoView({ block: "start" }); };
+  // every agent system (group) is a dropdown; open when picked, searched, or holding the current agent
+  const groupOpen = (g: string, xs: AgentCatalogEntry[]) =>
+    groupState[g] ?? (!!q || system?.group === g || xs.some((a) => a.id === current?.id || (!!family && a.family === family)));
+  const toggleGroup = (g: string) => {
+    const opening = !groupOpen(g, agents.filter((a) => a.group === g));
+    setGroupState((prev) => ({ ...prev, [g]: opening }));
+    if (opening && systems.some((s) => s.group === g)) open({ group: g });
+  };
   const toggleFamily = (f: string) => {
     setExpanded((prev) => { const n = new Set(prev); if (n.has(f) && family === f) n.delete(f); else n.add(f); return n; });
     open({ family: f });
@@ -237,14 +246,15 @@ export default function AgentsPage() {
             if (!xs.length) return null;
             return (
               <div key={g}>
-                {systems.some((s) => s.group === g) ? (
-                  <button onClick={() => open({ group: g })}
-                    className={cn("w-full flex items-center justify-between mt-1 px-2.5 pt-2 pb-1 rounded-lg text-[11px] font-semibold uppercase tracking-wider text-left",
-                      g === system?.group ? "bg-accent-soft text-accent" : "text-muted hover:bg-surface-2")}>
-                    {g}<span className="text-[10px] font-medium normal-case tracking-normal text-accent">Architecture</span>
-                  </button>
-                ) : <div className="text-[11px] font-semibold uppercase tracking-wider text-muted px-2.5 pt-3 pb-1">{g}</div>}
-                {xs.map((a, i) => {
+                <button onClick={() => toggleGroup(g)}
+                  className={cn("w-full flex items-center justify-between mt-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold uppercase tracking-wider text-left",
+                    g === system?.group ? "bg-accent-soft text-accent" : "text-muted hover:bg-surface-2")}>
+                  <span className="flex items-center gap-1.5">
+                    <span className={cn("inline-block w-3 transition-transform", groupOpen(g, xs) && "rotate-90")}>▸</span>{g}
+                  </span>
+                  <span className="text-[10px] font-medium normal-case tracking-normal">{xs.length} agent{xs.length > 1 ? "s" : ""}</span>
+                </button>
+                {groupOpen(g, xs) && xs.map((a, i) => {
                   if (!a.family) return agentRow(a);
                   if (xs.findIndex((b) => b.family === a.family) !== i) return null; // family drawn at its first member
                   const members = xs.filter((b) => b.family === a.family);
@@ -279,9 +289,12 @@ export default function AgentsPage() {
       </Card>
       <div ref={right} className="min-w-0 scroll-mt-4">
       {system ? (
-        <Card className="flex flex-col min-w-0">
-          <SystemDiagram system={system} names={names} onAgent={(id) => open({ agent: id })} onSystem={(group) => open({ group })} />
-        </Card>
+        <div className="space-y-5">
+          <Card className="flex flex-col min-w-0">
+            <SystemDiagram system={system} names={names} onAgent={(id) => open({ agent: id })} onSystem={(group) => open({ group })} />
+          </Card>
+          {agents.filter((a) => a.group === system.group).map((m) => <Detail key={m.id} a={m} names={names} open={open} noArch />)}
+        </div>
       ) : family ? <FamilyView name={family} members={agents.filter((a) => a.family === family)} names={names} open={open}
         system={systems.find((s) => s.group === agents.find((a) => a.family === family)?.group)} />
       : current ? <Detail key={current.id} a={current} names={names} open={open}
