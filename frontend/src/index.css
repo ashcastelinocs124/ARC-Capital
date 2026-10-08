@@ -52,3 +52,16 @@
     overflow-x: auto;
   }
 }
+
+/* Download PDF on /updates prints only the report (#report); the app shell and buttons drop out. */
+@media print {
+  @page { margin: 14mm; }
+  html, body { background: #fff !important; }
+  body * { visibility: hidden; }
+  body *:not(#report):not(#report *) { background: transparent !important; box-shadow: none !important; }
+  #report, #report * { visibility: visible; }
+  #report { position: absolute; left: 0; top: 0; width: 100%; }
+  #report article { border: 0; box-shadow: none; }
+  #report section { break-inside: avoid; }
+  .no-print { display: none !important; }
+}

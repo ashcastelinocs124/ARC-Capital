@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Link2 } from "lucide-react";
+import { Download, Link2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { isV2, type DailyRecord } from "@/api/endpoints";
 import { MorningNote } from "@/components/MorningNote";
@@ -265,6 +265,16 @@ export default function UpdatesPage() {
     }
   };
 
+  // ponytail: the browser's own Save as PDF (print styles in index.css show only #report);
+  // a server-side PDF renderer is the upgrade if a one-click file without the dialog matters.
+  const downloadPdf = () => {
+    if (!rec) return;
+    const title = document.title;
+    document.title = `ARC Morning Note ${rec.date}`; // the default PDF file name
+    window.print();
+    document.title = title;
+  };
+
   return (
     <div className="p-4 md:p-8 grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-5 items-start">
       {items.length > 0 && <PastUpdates items={items} current={rec?.date} onPick={open} />}
@@ -272,13 +282,18 @@ export default function UpdatesPage() {
         <div className="flex items-baseline justify-between gap-3 mb-3">
           <div className="text-xs text-muted">{rec ? `Briefing for ${rec.date} · generated ${rec.generated_at.replace("T", " ").slice(0, 16)}` : "Daily Update"}</div>
           {rec && (
-            <button onClick={copyLink} className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent-hover">
-              <Link2 className="h-3.5 w-3.5" />{copied ? "Link copied" : "Copy link to this day"}
-            </button>
+            <div className="shrink-0 flex items-center gap-4 no-print">
+              <button onClick={downloadPdf} className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent-hover">
+                <Download className="h-3.5 w-3.5" />Download PDF
+              </button>
+              <button onClick={copyLink} className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent-hover">
+                <Link2 className="h-3.5 w-3.5" />{copied ? "Link copied" : "Copy link to this day"}
+              </button>
+            </div>
           )}
         </div>
         {running && <Banner stage={stage as string} error={status?.error} />}
-        {rec ? (isV2(rec) ? <MorningNote rec={rec} /> : <Briefing rec={rec} />) : !running && (
+        {rec ? <div id="report">{isV2(rec) ? <MorningNote rec={rec} /> : <Briefing rec={rec} />}</div> : !running && (
           <Card><CardContent className="py-12 text-center text-sm text-muted">
             {picked ? "Loading briefing…" : "No briefing yet. Click Refresh in the top bar to build today's."}
           </CardContent></Card>
