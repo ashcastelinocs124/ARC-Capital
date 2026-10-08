@@ -47,7 +47,7 @@ export function MorningNote({ rec }: { rec: DailyRecordV2 }) {
         <div className="text-xs text-muted text-right leading-[18px]">
           {LONG_DATE.format(new Date(`${rec.date}T00:00:00Z`))}
           <br />
-          Published {rec.generated_at.slice(11, 16)}
+          {rec.backfilled ? `Rebuilt ${rec.generated_at.slice(0, 10)}` : `Published ${rec.generated_at.slice(11, 16)}`}
         </div>
       </div>
       <div className="flex gap-4 text-[11px] text-muted border-b border-border py-1.5 uppercase tracking-wider">
@@ -97,7 +97,8 @@ export function MorningNote({ rec }: { rec: DailyRecordV2 }) {
       <div className="text-[10.5px] text-muted border-t border-border mt-2 pt-3 leading-4">
         Written by ARC Research's Daily Update agents (Macro, News, Alt) and checked by a number guard: every figure
         above appears in the cited source data. Not investment advice.
-        {rec.data_gaps.length > 0 && <> Sources unavailable today: {rec.data_gaps.join("; ")}.</>}
+        {rec.backfilled && <> Rebuilt on {rec.generated_at.slice(0, 10)} with the multi-agent desk, using data as of {rec.date}; news and X were searched for that date.</>}
+        {rec.data_gaps.length > 0 && <> Sources unavailable: {rec.data_gaps.join("; ")}.</>}
       </div>
       {open && <ExhibitViewer src={chartUrl(rec, open.file)} ex={open} onClose={() => setOpen(null)} />}
     </article>

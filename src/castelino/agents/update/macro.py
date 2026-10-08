@@ -95,8 +95,8 @@ def market_facts(snap: MarketSnapshot, start: int) -> list[Fact]:
     return out
 
 
-def claims_fact() -> Fact | None:
-    s = default_fetch_monthly("ICSA").dropna()  # weekly series; the FRED fetch works for any id
+def claims_fact(fetch=default_fetch_monthly) -> Fact | None:
+    s = fetch("ICSA").dropna()  # weekly series; the FRED fetch works for any id
     if len(s) < 2:
         return None
     latest, prior = float(s.iloc[-1]), float(s.iloc[-2])
@@ -112,10 +112,43 @@ def claims_fact() -> Fact | None:
     )
 
 
+def _asof_fetchers(day: date):
+    """FRED as published on `day` (vintage), prices cut off at `day`; for rebuilt past notes."""
+    from castelino.agents.update import asof
+    from castelino.agents.update.collector import default_fetch_close
+
+    def monthly(sid: str):
+        return asof.fred_vintage(sid, day)
+
+    def close(inst):
+        return asof.truncate(default_fetch_close(inst), day)
+
+    def upto(sid: str) -> str | None:  # BLS: stop at the month FRED's vintage of CPI / payrolls had
+        ref = "PAYEMS" if sid.startswith("CES") else "CPIAUCSL"
+        return monthly(ref).index[-1].strftime("%Y-%m")
+
+    return monthly, close, upto
+
+
 def gather_facts(
-    *, collect_fn=collect, bls_fn=bls.bls_facts, claims_fn=claims_fact, today: str
+    *,
+    collect_fn=collect,
+    bls_fn=bls.bls_facts,
+    claims_fn=claims_fact,
+    today: str,
+    day: date | None = None,
 ) -> tuple[list[Fact], MarketSnapshot]:
-    snap = collect_fn(today=today, prediction={}, model_note=None)
+    if day is None:
+        snap = collect_fn(today=today, prediction={}, model_note=None)
+    else:
+        monthly, close, upto = _asof_fetchers(day)
+        snap = collect_fn(
+            today=today, prediction={}, model_note=None, fetch_close=close, fetch_monthly=monthly
+        )
+        if bls_fn is bls.bls_facts:
+            bls_fn = lambda: bls.bls_facts(upto=upto)  # noqa: E731
+        if claims_fn is claims_fact:
+            claims_fn = lambda: claims_fact(fetch=monthly)  # noqa: E731
     facts = release_facts(snap)
     facts += market_facts(snap, start=len(facts) + 1)
     for label, fn in (("BLS", bls_fn), ("ICSA", claims_fn)):
@@ -151,10 +184,10 @@ class MacroAgent(StructuredAgent[FindingDrafts]):
         return drafts_prompt(facts, brief, ask, cap)
 
 
-def run(brief: str, ask: str | None = None) -> AgentOutput:
+def run(brief: str, ask: str | None = None, *, day: date | None = None) -> AgentOutput:
     # ponytail: a follow-up re-fetches all macro data (~30 s); cache per day if that starts to hurt
     cap = get_settings().update_agent.max_findings_per_agent
-    facts, snap = gather_facts(today=date.today().isoformat())
+    facts, snap = gather_facts(today=(day or date.today()).isoformat(), day=day)
     drafts = MacroAgent()(facts=facts, brief=brief, ask=ask, cap=cap)
     findings = to_findings(drafts, facts, "macro", cap)
     return AgentOutput(facts=facts, findings=findings, snapshot=snap)

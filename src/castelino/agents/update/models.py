@@ -226,3 +226,4 @@ class DailyRecordV2(BaseModel):
     releases: list[Release]  # kept so /macro's Economic releases card still has data
     rounds: int
     data_gaps: list[str]
+    backfilled: bool = False  # rebuilt later 'as of' this date (scripts/backfill_updates.py)

@@ -22,7 +22,7 @@ SEARCH_SYSTEM = (
 SEARCH_USER = """Date: {day}.
 Focus: {brief}
 {ask}
-List the 6 most market-moving stories of the last 24 hours for a US macro investor (rates,
+List the 6 most market-moving stories of {window} for a US macro investor (rates,
 inflation, the Fed, equities, oil, FX). One bullet per story, one line each: what happened, with the
 exact figures the source reports, ending with its citation. No other text."""
 
@@ -50,10 +50,23 @@ class NewsAgent(StructuredAgent[FindingDrafts]):
         return drafts_prompt(facts, brief, ask, cap)
 
 
-def run(brief: str, ask: str | None = None, *, search=web_search.search_cited) -> AgentOutput:
+def window_for(day: date | None) -> str:
+    """'last 24 hours', or for a rebuilt past note: that day only, nothing published later."""
+    if day is None:
+        return "the last 24 hours"
+    d = day.isoformat()
+    return f"{d} (use only items published on or before {d}; ignore anything published after {d})"
+
+
+def run(
+    brief: str, ask: str | None = None, *, search=web_search.search_cited, day: date | None = None
+) -> AgentOutput:
     cfg = get_settings().update_agent
     user = SEARCH_USER.format(
-        day=date.today().isoformat(), brief=brief, ask=f"Also answer: {ask}" if ask else ""
+        day=(day or date.today()).isoformat(),
+        window=window_for(day),
+        brief=brief,
+        ask=f"Also answer: {ask}" if ask else "",
     )
     text, cites = search(SEARCH_SYSTEM, user, model=cfg.search_model)
     facts = facts_from_search("N", text, cites)

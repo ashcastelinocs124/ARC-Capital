@@ -30,17 +30,45 @@ def fetch_events(tag: str = "economy", limit: int = 10, get=requests.get) -> lis
     return r.json()
 
 
-def price_history(token: str, get=requests.get) -> list[tuple[int, float]]:
-    r = get(
-        f"{CLOB}/prices-history",
-        params={"market": token, "interval": "1w", "fidelity": 1440},
-        timeout=20,
-    )
+def price_history(
+    token: str, get=requests.get, start: int | None = None, end: int | None = None
+) -> list[tuple[int, float]]:
+    """Daily points for the last week, or hourly points between start and end (unix seconds)."""
+    params: dict = {"market": token, "interval": "1w", "fidelity": 1440}
+    if start is not None and end is not None:
+        params = {"market": token, "startTs": start, "endTs": end, "fidelity": 60}
+    r = get(f"{CLOB}/prices-history", params=params, timeout=20)
     r.raise_for_status()
     return [(int(p["t"]), float(p["p"])) for p in r.json().get("history", [])]
 
 
-def facts(events: list[dict], top: int = 8) -> list[Fact]:
+def _asof_odds(hist: list[tuple[int, float]], end: int) -> tuple[float, dict[str, float]] | None:
+    """Yes price at `end` and its 1d / 1w moves, from price history; None if no point by `end`."""
+
+    def at(t: int) -> float | None:
+        ps = [p for ts, p in hist if ts <= t]
+        return ps[-1] if ps else None
+
+    now = at(end)
+    if now is None:
+        return None
+    moves = {
+        k: (now - v) * 100
+        for k, dt in (("1d", 86400), ("1w", 7 * 86400))
+        if (v := at(end - dt)) is not None
+    }
+    return now * 100, moves
+
+
+def facts(events: list[dict], top: int = 8, history_fn=None, day=None) -> list[Fact]:
+    """Biggest movers. With `day`, odds and moves come from price history up to that day's end."""
+    if day is not None:
+        from castelino.agents.update.asof import day_end_ts
+
+        end = day_end_ts(day)
+        history_fn = history_fn or (
+            lambda tok, start, end: price_history(tok, start=start, end=end)
+        )
     rows = []
     for e in events:
         for m in e.get("markets") or []:
@@ -57,6 +85,14 @@ def facts(events: list[dict], top: int = 8) -> list[Fact]:
                 for k, key in (("1d", "oneDayPriceChange"), ("1w", "oneWeekPriceChange"))
                 if isinstance(m.get(key), int | float)
             }
+            if day is not None:
+                try:
+                    got = _asof_odds(history_fn(token, end - 10 * 86400, end), end)
+                except Exception:  # noqa: BLE001 — skip a market whose history won't load
+                    got = None
+                if got is None:
+                    continue  # the market didn't exist yet
+                yes, moves = got
             rows.append((sum(abs(v) for v in moves.values()), e, m, yes, moves, token))
     rows.sort(key=lambda r: r[0], reverse=True)
     out: list[Fact] = []

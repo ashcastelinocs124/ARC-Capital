@@ -54,3 +54,23 @@ def test_new_stages_and_config():
         "gpt-6-luna",
     )
     assert (ua.max_rounds, ua.items) == (2, 5)
+
+
+def test_backfilled_defaults_false_and_round_trips():
+    note = MorningNote(
+        headline="h", takeaways=["a", "b", "c"], items=[], themes_touched=[], new_themes=[]
+    )
+    base = dict(
+        date="2026-10-03",
+        generated_at="2026-10-07T20:00:00",
+        findings=[],
+        note=note,
+        exhibits=[],
+        releases=[],
+        rounds=0,
+        data_gaps=[],
+    )
+    assert DailyRecordV2(**base).backfilled is False
+    assert DailyRecordV2.model_validate_json(
+        DailyRecordV2(**base, backfilled=True).model_dump_json()
+    ).backfilled

@@ -25,8 +25,8 @@ X_SYSTEM = (
 X_USER = """Date: {day}.
 Focus: {brief}
 {ask}
-What are financial X (Twitter) accounts — macro investors, economists, Fed watchers — saying in
-the last 24 hours about the Fed, inflation, rates and markets? One bullet per distinct view, one
+What were financial X (Twitter) accounts — macro investors, economists, Fed watchers — saying in
+{window} about the Fed, inflation, rates and markets? One bullet per distinct view, one
 line each, ending with its citation. Include any figures exactly as posted. No other text."""
 
 SYSTEM = f"""You are the alternative-data analyst on ARC Research's morning desk.
@@ -60,16 +60,22 @@ def run(
     *,
     events_fn=polymarket.fetch_events,
     search=web_search.search_cited,
+    day: date | None = None,
 ) -> AgentOutput:
+    from castelino.agents.update.news import window_for
+
     cfg = get_settings().update_agent
     facts: list[Fact] = []
     try:
-        facts += polymarket.facts(events_fn())
+        facts += polymarket.facts(events_fn(), day=day)
     except Exception as exc:  # noqa: BLE001 — X can still carry the agent
         log.warning("alt: polymarket failed: %s", exc)
     try:
         user = X_USER.format(
-            day=date.today().isoformat(), brief=brief, ask=f"Also answer: {ask}" if ask else ""
+            day=(day or date.today()).isoformat(),
+            window=window_for(day),
+            brief=brief,
+            ask=f"Also answer: {ask}" if ask else "",
         )
         facts += facts_from_search("X", *search(X_SYSTEM, user, model=cfg.search_model))
     except Exception as exc:  # noqa: BLE001

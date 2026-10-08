@@ -141,6 +141,7 @@ export interface Exhibit { n: number; finding_id: string; title: string; subtitl
 export interface DailyRecordV2 {
   version: 2; date: string; generated_at: string;
   findings: NoteFinding[]; exhibits: Exhibit[]; releases: ReleaseRow[]; rounds: number; data_gaps: string[];
+  backfilled?: boolean; // rebuilt later, as of this date
   note: { headline: string; takeaways: string[]; items: NoteItem[] };
 }
 export type AnyDailyRecord = DailyRecord | DailyRecordV2;

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 
+import pandas as pd
 import requests
 
 from castelino.agents.update.models import Fact, Point, SeriesRef
@@ -42,11 +43,18 @@ def fetch(ids: list[str], post=requests.post) -> dict[str, list[tuple[str, float
     return out
 
 
-def bls_facts(fetch_fn=fetch) -> list[Fact]:
+def _month(label: str) -> str:  # "Aug 2026" -> "2026-08"
+    return pd.Timestamp(f"1 {label}").strftime("%Y-%m")
+
+
+def bls_facts(fetch_fn=fetch, upto=None) -> list[Fact]:
+    """upto(series_id) -> "YYYY-MM": ignore later months (rebuilding a past day's note)."""
     data = fetch_fn(list(SERIES))
     facts: list[Fact] = []
     for sid, name in SERIES.items():
         rows = data.get(sid) or []
+        if upto and (cut := upto(sid)):
+            rows = [r for r in rows if _month(r[0]) <= cut]
         if len(rows) < 3:
             continue
         (p0, v0), (p1, v1), (_, v2) = rows[:3]
