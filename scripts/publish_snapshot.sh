@@ -14,6 +14,8 @@ LAST="$REPO/data/publish_last_sha" # last commit deployed, i.e. the last known-g
 WT="$HOME/.cache/arc-publish"      # clean worktree the site is built from
 
 uv run python scripts/export_snapshot.py "$@" # writes frontend/public/api/
+# Draft today's Morning Note on Substack (you publish it there). Never blocks the deploy.
+uv run python -m castelino.substack || echo "substack: push failed, continuing with the deploy"
 
 git fetch -q origin main
 SHA=$(git rev-parse origin/main)
