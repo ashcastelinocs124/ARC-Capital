@@ -543,6 +543,10 @@ def refresh(force: bool = False) -> SectorSentimentSnapshot:
         top_share=cfg.stock_specific_top_share,
         min_agree=cfg.sector_wide_min_agree,
     )
+    # Yahoo throttling can drop fundamentals for some stocks; keep the previous snapshot then
+    missing = sorted(set(universe) - {s.sector for s in sectors})
+    if missing:
+        raise RuntimeError(f"no fundamentals from Yahoo for {', '.join(missing)}; kept previous")
 
     # z vs own history + delta vs previous snapshot
     raw_history: list[dict] = []

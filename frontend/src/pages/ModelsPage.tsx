@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { Component, useState, type ReactNode } from "react";
 import { useModels } from "@/hooks/useModels";
 import type { ModelCard } from "@/api/endpoints";
 import { cn } from "@/lib/cn";
@@ -293,6 +293,22 @@ const COMPONENTS: Record<ModelId, (p: CardProps) => ReactNode> = {
   "cross-asset": (p) => <CrossAssetSection {...p} />,
 };
 
+// A model whose data breaks its card shows a notice instead of blanking the whole page.
+class CardBoundary extends Component<{ name: string; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <div className="card p-5 text-sm text-muted">
+        {this.props.name} couldn't be shown: its latest data is incomplete. Click Refresh to rebuild it.
+      </div>
+    );
+  }
+}
+
 export default function ModelsPage() {
   const { isLoading } = useModels();
   const [expanded, setExpanded] = useState<string | null>(null); // one card open at a time
@@ -312,7 +328,11 @@ export default function ModelsPage() {
         {isLoading && <div className="text-sm text-muted">Loading…</div>}
         {ENABLED_MODELS.map((m) => {
           const Model = COMPONENTS[m.id];
-          return <Model key={m.id} expanded={expanded === m.id} onToggle={() => toggle(m.id)} />;
+          return (
+            <CardBoundary key={m.id} name={m.name}>
+              <Model expanded={expanded === m.id} onToggle={() => toggle(m.id)} />
+            </CardBoundary>
+          );
         })}
       </div>
     </div>

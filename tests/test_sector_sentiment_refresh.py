@@ -84,6 +84,23 @@ def test_refresh_throttles_within_interval(monkeypatch):
     assert third.as_of >= first.as_of
 
 
+@pytest.mark.parametrize("lost", [{"XOM"}, {"NVDA", "ADBE", "XOM"}])
+def test_refresh_missing_a_sector_keeps_previous_snapshot(monkeypatch, lost):
+    """A Yahoo outage (no fundamentals, cap 0) for some or all stocks must not overwrite a good
+    snapshot with fewer sectors (on 2026-10-09 it saved 0 of 11, then 4 of 11)."""
+    good = ss.refresh()
+    real_collect = ss.collect_rows
+
+    def outage(u):
+        gone = dict(rev_yoy=None, earnings_growth=None, pe_rel=None, market_cap=0.0)
+        return [r.model_copy(update=gone) if r.symbol in lost else r for r in real_collect(u)]
+
+    monkeypatch.setattr(ss, "collect_rows", outage)
+    with pytest.raises(RuntimeError, match="Energy"):
+        ss.refresh(force=True)
+    assert ss.load_snapshot().as_of == good.as_of
+
+
 def test_aggregate_averages_are_cap_weighted():
     rows = ss.score_stocks(ss.collect_rows(ss.get_universe()))
     sectors = {s.sector: s for s in ss.aggregate_sectors(rows)}
