@@ -76,12 +76,15 @@ def run(
     gaps: list[str] = []
     store = consensus.load_cache(cache)
     if search is not None or _has_key():
-        consensus.update(
-            store,
-            now.astimezone(NY).date(),
-            search=search or consensus._default_search,
-            cap=consensus_cap,
-        )
+        try:
+            consensus.update(
+                store,
+                now.astimezone(NY).date(),
+                search=search or consensus._default_search,
+                cap=consensus_cap,
+            )
+        except Exception as e:  # noqa: BLE001 - old surprises still explain the week
+            gaps.append(f"Consensus search failed ({type(e).__name__}): {str(e)[:120]}")
         consensus.save_cache(cache, store)
     else:
         gaps.append("No OPENAI_API_KEY: new release consensus not searched")

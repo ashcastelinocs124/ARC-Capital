@@ -181,10 +181,9 @@ def update(
                 return made
             if seen is not None:
                 seen.add(key)
-            try:
-                rec = lookup(series, period, search)
-            except Exception:  # noqa: BLE001 - API failure = a failed attempt, run continues
-                rec = None
+            # an API error (down, out of credits) propagates: the release stays pending with no
+            # attempt counted, and the caller stops instead of failing every remaining search
+            rec = lookup(series, period, search)
             made += 1
             if rec:
                 entry = {"status": "ok", "attempts": entry["attempts"] + 1, **rec}

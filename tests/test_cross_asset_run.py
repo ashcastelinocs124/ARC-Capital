@@ -67,6 +67,15 @@ def test_partial_week_is_recomputed_on_the_next_run(tmp_path):
         _run(tmp_path, datetime(2026, 10, 13, 17, 0, tzinfo=NY))
 
 
+def test_search_failure_is_a_data_gap_not_a_failed_run(tmp_path):
+    def broke(s, u):
+        raise RuntimeError("You have no credits remaining")
+
+    _run(tmp_path, datetime(2026, 10, 10, 9, 0, tzinfo=NY), search=broke)
+    data = json.loads((tmp_path / "cross_asset.json").read_text())
+    assert any("Consensus search failed" in g for g in data["data_gaps"])
+
+
 def test_stale_asset_keeps_previous_file(tmp_path):
     prev = {"week_end": "2026-10-02", "assets": {}}
     (tmp_path / "cross_asset.json").write_text(json.dumps(prev))

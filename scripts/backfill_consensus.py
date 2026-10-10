@@ -24,8 +24,10 @@ def main() -> None:
     total = 0
     seen: set[str] = set()  # each release is searched at most once per backfill run
     while True:  # save after every batch of 5 so a crash loses little
-        n = consensus.update(store, today, cap=5, start=date(y, m + 1, 1), seen=seen)
-        consensus.save_cache(path, store)
+        try:
+            n = consensus.update(store, today, cap=5, start=date(y, m + 1, 1), seen=seen)
+        finally:  # an API error (e.g. out of credits) stops the backfill; rerun to resume
+            consensus.save_cache(path, store)
         total += n
         ok = sum(v.get("status") == "ok" for v in store.values())
         print(f"[backfill] {total} searches, {ok}/{len(store)} releases verified", flush=True)

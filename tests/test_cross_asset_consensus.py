@@ -89,6 +89,21 @@ def test_attempts_count_only_after_release_is_surely_out():
     assert not any("Nonfarm payrolls" in u and "2026-09" in u for u in calls)  # final
 
 
+def test_api_error_is_not_an_attempt_and_stops_the_run():
+    cache = {}
+    calls = []
+
+    def broke(s, u):
+        calls.append(u)
+        raise RuntimeError("429 insufficient_quota")
+
+    for _ in range(3):
+        with pytest.raises(RuntimeError):
+            c.update(cache, date(2026, 11, 5), search=broke, start=date(2026, 9, 1))
+    assert len(calls) == 3  # one call per run, then the run stops
+    assert all(e["status"] == "pending" and e["attempts"] == 0 for e in cache.values())
+
+
 def test_cap_limits_searches():
     calls = []
     c.update(
