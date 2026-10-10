@@ -54,6 +54,19 @@ def test_run_writes_snapshot_then_skips_same_week(tmp_path):
         _run(tmp_path, now)
 
 
+def test_partial_week_is_recomputed_on_the_next_run(tmp_path):
+    now = datetime(2026, 10, 9, 17, 0, tzinfo=NY)  # the scheduled Friday run
+    # FRED hasn't posted Friday yet: daily FRED series end Thursday
+    _run(tmp_path, now, fetch_fred=lambda sid: _series(end="2026-10-08", key=sid))
+    first = json.loads((tmp_path / "cross_asset.json").read_text())
+    assert first["week_end"] == "2026-10-09" and first["partial"] is True
+    _run(tmp_path, datetime(2026, 10, 12, 17, 0, tzinfo=NY))  # Monday: Friday is in
+    second = json.loads((tmp_path / "cross_asset.json").read_text())
+    assert second["week_end"] == "2026-10-09" and second["partial"] is False
+    with pytest.raises(r.NothingToDo):  # complete now: locked for the week
+        _run(tmp_path, datetime(2026, 10, 13, 17, 0, tzinfo=NY))
+
+
 def test_stale_asset_keeps_previous_file(tmp_path):
     prev = {"week_end": "2026-10-02", "assets": {}}
     (tmp_path / "cross_asset.json").write_text(json.dumps(prev))

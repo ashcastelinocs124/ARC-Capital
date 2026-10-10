@@ -67,8 +67,11 @@ def run(
     out = out or out_path()
     cache = cache or cache_path()
     week_end = last_completed_friday(now)
-    if out.exists() and json.loads(out.read_text()).get("week_end") == week_end.isoformat():
-        raise NothingToDo(f"week ending {week_end} already explained")
+    if out.exists():
+        prev = json.loads(out.read_text())
+        # a partial week (a source hadn't posted the week's last day yet) is recomputed later
+        if prev.get("week_end") == week_end.isoformat() and not prev.get("partial"):
+            raise NothingToDo(f"week ending {week_end} already explained")
 
     gaps: list[str] = []
     store = consensus.load_cache(cache)
@@ -84,7 +87,11 @@ def run(
         gaps.append("No OPENAI_API_KEY: new release consensus not searched")
 
     returns = factors.asset_returns(week_end, fetch_yf=fetch_yf)  # StaleAsset -> nothing written
-    x, fgaps = factors.build_market_factors(week_end, fetch_fred, fetch_yf, fetch_cftc)
+    last_bar = returns.attrs["last_bar"]
+    x, fgaps = factors.build_market_factors(
+        week_end, fetch_fred, fetch_yf, fetch_cftc, asof=last_bar
+    )
+    partial = last_bar < pd.Timestamp(week_end) or any(factors.LATE in g for g in fgaps)
     surprises, rows, sgaps = consensus.weekly_surprises(store, x.index)
     x = x.join(surprises)
     gaps += fgaps + sgaps
@@ -100,6 +107,7 @@ def run(
     payload = {
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "week_end": week_end.isoformat(),
+        "partial": partial,
         "assets": assets,
         "surprises": [s for s in rows if pd.Timestamp(s["release_date"]) > start_3m],
         "releases_checked": {

@@ -41,6 +41,9 @@ NAMES = {
 
 # CFTC Legacy futures-only report contract codes: E-mini S&P 500, 10-year T-note, gold (COMEX)
 CFTC_CODES = {"spx": "13874A", "ief": "043602", "gld": "088691"}
+# daily series must reach the week's last trading day; FRED posts Friday's values on Monday
+DAILY = {"y2", "ry", "be", "tp", "hy", "usd", "vix"}
+LATE = "not yet published"  # marks a latest-week gap; run.py recomputes such a week later
 CFTC_URL = "https://publicreporting.cftc.gov/resource/6dca-aqww.json"
 HISTORY_START = "2018-01-01"
 
@@ -100,10 +103,17 @@ def _weeks(week_end: date) -> pd.DatetimeIndex:
 
 
 def build_market_factors(
-    week_end: date, fetch_fred=_default_fred, fetch_yf=_default_yf, fetch_cftc=fetch_cftc
+    week_end: date,
+    fetch_fred=_default_fred,
+    fetch_yf=_default_yf,
+    fetch_cftc=fetch_cftc,
+    asof: pd.Timestamp | None = None,
 ) -> tuple[pd.DataFrame, list[str]]:
     """Weekly moves for every market factor plus per-asset positioning. A failed source or an
-    unpublished latest week becomes 0 (no information) and a data-gap message, never NaN."""
+    unpublished latest week becomes 0 (no information) and a data-gap message, never NaN.
+
+    asof = the week's last trading day: a daily series that stops before it would otherwise
+    measure a shorter week than the assets, so its latest week counts as unpublished."""
     idx = _weeks(week_end)
     out = pd.DataFrame(index=idx, dtype=float)
     gaps: list[str] = []
@@ -113,10 +123,12 @@ def build_market_factors(
         if level is None:
             out[key] = 0.0
             return
+        level = level.dropna().loc[: pd.Timestamp(week_end)]
         w = weekly_last(level).reindex(idx)
-        missing_last = pd.isna(w.iloc[-1])
+        behind = key in DAILY and asof is not None and level.index.max() < asof
+        missing_last = pd.isna(w.iloc[-1]) or behind
         if missing_last:
-            gaps.append(f"{name}: not yet published for week {wk}, move set to 0")
+            gaps.append(f"{name}: {LATE} for week {wk}, move set to 0")
         move = _move(w.ffill(), transform)
         if missing_last:
             move.iloc[-1] = 0.0
@@ -142,16 +154,24 @@ def build_market_factors(
 
 
 def asset_returns(week_end: date, fetch_yf=_default_yf) -> pd.DataFrame:
-    """Weekly log returns (%) per asset. Raises StaleAsset if a price series hasn't reached week_end's week."""
+    """Weekly log returns (%) per asset; `.attrs["last_bar"]` = the week's last trading day.
+
+    Raises StaleAsset unless every asset has a close on that same day and it is Friday or
+    Thursday (a Friday holiday). A missing Friday bar would publish a partial weekly return."""
     idx = _weeks(week_end)
-    cols = {}
-    week_start = pd.Timestamp(week_end) - pd.Timedelta(days=4)  # Monday of week_end's week
+    end = pd.Timestamp(week_end)
+    prices = {k: fetch_yf(t).dropna().loc[:end] for k, (t, _) in ASSETS.items()}
+    last = {k: px.index.max() for k, px in prices.items()}
+    last_bar = max(last.values())
     for key, (ticker, name) in ASSETS.items():
-        px = fetch_yf(ticker).dropna()
-        if px.index.max() < week_start:
+        if last[key] < last_bar or last_bar < end - pd.Timedelta(days=1):
             raise StaleAsset(
-                f"{name} ({ticker}) last close {px.index.max().date()} is before week {week_end}"
+                f"{name} ({ticker}) last close {last[key].date()} is short of week {week_end}"
             )
+    cols = {}
+    for key, px in prices.items():
         w = weekly_last(px).reindex(idx).ffill()
         cols[key] = np.log(w / w.shift(1)) * 100
-    return pd.DataFrame(cols, index=idx)
+    out = pd.DataFrame(cols, index=idx)
+    out.attrs["last_bar"] = last_bar
+    return out

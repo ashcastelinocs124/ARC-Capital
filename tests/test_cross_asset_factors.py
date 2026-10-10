@@ -78,3 +78,33 @@ def test_stale_asset_raises():
     stale = _daily("2026-01-01", "2026-03-20")  # a week behind week_end
     with pytest.raises(f.StaleAsset):
         f.asset_returns(date(2026, 3, 27), fetch_yf=lambda sym: stale)
+
+
+def test_one_asset_missing_friday_raises():
+    # Yahoo has Mon-Thu for GLD but not Friday, while the others have Friday
+    full, short = _daily("2026-01-01", "2026-03-27"), _daily("2026-01-01", "2026-03-26")
+    with pytest.raises(f.StaleAsset, match="Gold"):
+        f.asset_returns(date(2026, 3, 27), fetch_yf=lambda sym: short if sym == "GLD" else full)
+
+
+def test_holiday_friday_week_is_accepted_but_partial():
+    # Good Friday 2026-04-03: every asset's last bar is Thursday
+    thu = _daily("2026-01-01", "2026-04-02")
+    r = f.asset_returns(date(2026, 4, 3), fetch_yf=lambda sym: thu)
+    assert r.attrs["last_bar"] == pd.Timestamp("2026-04-02")
+
+
+def test_daily_series_behind_last_trading_day_is_unpublished():
+    # FRED posts Friday's 2y yield on Monday: on Friday evening the series ends Thursday
+    thu = _daily("2026-01-01", "2026-03-26")
+    full = _daily("2026-01-01", "2026-03-27")
+    df, gaps = f.build_market_factors(
+        date(2026, 3, 27),
+        fetch_fred=lambda sid: thu if sid == "DGS2" else full,
+        fetch_yf=lambda sym: full,
+        fetch_cftc=lambda code: _daily("2026-01-06", "2026-03-24", freq="W-TUE"),
+        asof=pd.Timestamp("2026-03-27"),
+    )
+    assert df.loc[pd.Timestamp("2026-03-27"), "y2"] == 0
+    assert any("2y yield" in g and f.LATE in g for g in gaps)
+    assert df.loc[pd.Timestamp("2026-03-27"), "ry"] != 0  # up-to-date series unaffected

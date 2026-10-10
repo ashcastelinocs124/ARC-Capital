@@ -21,6 +21,31 @@ def test_number_cited_accepts_formats():
     assert c.number_cited(text, cites, 0.3)
 
 
+def test_negative_value_needs_a_negative_in_the_text():
+    cites = lambda t: [("s", "u", 0, len(t))]  # noqa: E731
+    assert not c.number_cited("GDP rose 0.3% [1]", cites("GDP rose 0.3% [1]"), -0.3)
+    assert c.number_cited("GDP fell 0.3% [1]", cites("GDP fell 0.3% [1]"), -0.3)
+    assert c.number_cited("GDP was -0.3% [1]", cites("GDP was -0.3% [1]"), -0.3)
+    assert c.number_cited("GDP was −0.3% [1]", cites("GDP was −0.3% [1]"), -0.3)
+
+
+def test_seen_set_stops_repeat_searches_within_one_backfill():
+    calls = []
+    seen: set[str] = set()
+
+    def nothing(s, u):
+        calls.append(u)
+        return "", []
+
+    # 2026-09 core CPI is due from 2026-10-10 but not out: stays pending, never counted
+    c.update({}, date(2026, 10, 10), search=nothing, cap=None, start=date(2026, 9, 1), seen=seen)
+    first = len(calls)
+    n = c.update(
+        {}, date(2026, 10, 10), search=nothing, cap=None, start=date(2026, 9, 1), seen=seen
+    )
+    assert first > 0 and n == 0 and len(calls) == first
+
+
 def test_number_only_in_json_line_is_rejected():
     text = 'Payrolls beat expectations [1].\n{"release_date": "2026-10-02", "actual": 142, "consensus": 110}'
     assert not c.number_cited(text[: text.index("{")], [("s", "u", 0, 30)], 142)

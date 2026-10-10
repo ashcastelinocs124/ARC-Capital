@@ -101,23 +101,37 @@ def save_cache(path: Path, cache: dict) -> None:
     os.replace(tmp, path)
 
 
-def _variants(value: float) -> set[str]:
-    out: set[str] = set()
-    for v in (value, abs(value)):
-        out |= {f"{v:g}", f"{v:.1f}", f"{v:.2f}"}
-        if float(v).is_integer():
-            iv = int(v)
-            out |= {f"{iv:,}", f"{iv * 1000:,}", f"{iv}k", f"{iv}K", str(iv * 1000)}
-    return {s for s in out if s not in {"0", "0.0", "0.00"}} or {f"{value:g}"}
+NEG_WORDS = re.compile(
+    r"(fell|fall|declin\w*|decreas\w*|contract\w*|dropp?\w*|shr[ai]nk\w*|negative|minus|lost|loss)"
+    r"\W+(?:\w+\W+){0,3}$",
+    re.IGNORECASE,
+)
+
+
+def _variants(magnitude: float) -> set[str]:
+    """Common written forms of a non-negative number (no sign)."""
+    v = abs(magnitude)
+    out = {f"{v:g}", f"{v:.1f}", f"{v:.2f}"}
+    if float(v).is_integer():
+        iv = int(v)
+        out |= {f"{iv:,}", f"{iv * 1000:,}", f"{iv}k", f"{iv}K", str(iv * 1000)}
+    return {s for s in out if s not in {"0", "0.0", "0.00"}} or {f"{v:g}"}
 
 
 def number_cited(text: str, cites: list, value: float) -> bool:
-    """True if `value` (in a common written form) appears in a span some citation supports."""
+    """True if `value` (in a common written form, with the right sign) appears in a span some
+    citation supports. A negative needs a minus sign or a falling word just before the number;
+    a positive must not carry a minus sign."""
     for _title, _url, start, end in cites:
         seg = text[max(0, start - WINDOW_BEFORE) : end + 1]
         for v in _variants(value):
-            if re.search(rf"(?<![\d.]){re.escape(v)}(?![\d])", seg):
-                return True
+            for m in re.finditer(rf"(?<![\d.]){re.escape(v)}(?![\d])", seg):
+                before = seg[: m.start()]
+                signed = before.rstrip(" ").endswith(("-", "−"))
+                if value < 0 and (signed or NEG_WORDS.search(before)):
+                    return True
+                if value >= 0 and not signed:
+                    return True
     return False
 
 
@@ -147,8 +161,12 @@ def update(
     search=_default_search,
     cap: int | None = 10,
     start: date | None = None,
+    seen: set[str] | None = None,
 ) -> int:
-    """Search releases that are due and not final; returns how many searches were made."""
+    """Search releases that are due and not final; returns how many searches were made.
+
+    `seen` (optional) collects keys already searched by the caller's run and skips them, so a
+    backfill loop never re-searches a release that is due but not out yet."""
     start = start or date(today.year - 2, today.month, 1)
     made = 0
     for series in SERIES:
@@ -157,8 +175,12 @@ def update(
             entry = cache.get(key, {"status": "pending", "attempts": 0})
             if entry["status"] in ("ok", "not_found") or today < earliest_release(series, period):
                 continue
+            if seen is not None and key in seen:
+                continue
             if cap is not None and made >= cap:
                 return made
+            if seen is not None:
+                seen.add(key)
             try:
                 rec = lookup(series, period, search)
             except Exception:  # noqa: BLE001 - API failure = a failed attempt, run continues
