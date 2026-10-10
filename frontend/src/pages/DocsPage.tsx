@@ -149,6 +149,27 @@ const ALL_DOCS: Doc[] = [
       "Talk measures what companies say, which can run ahead of what they do.",
     ],
   },
+  {
+    id: "cross-asset",
+    group: "Signals",
+    name: "Cross-Asset Drivers",
+    lead: "What moved equities, Treasuries and gold this week, month and quarter? Each driver's share of the move, with data releases counted only as their surprise.",
+    facts: [["Type", "Ridge attribution"], ["Output", "% pts per driver"], ["Assets", "S&P 500, IEF, GLD"], ["Refresh", "Weekly (Friday close)"]],
+    sections: [
+      ["Drivers", <p>Weekly moves in the 2-year yield, the 10-year real yield and breakeven, the term premium, the high-yield spread, NFCI and the Fed balance sheet (FRED), VIX (Yahoo), the broad dollar, and speculators' net futures positioning in each asset (CFTC). Each asset only uses the drivers that plausibly matter for it: the dollar isn't used for Treasuries and the breakeven isn't used for equities.</p>],
+      ["Surprises, not data", <p>Markets price the consensus before a release, so CPI, PCE, payrolls, ISM and GDP enter as actual minus consensus, divided by that release's typical surprise. Both numbers come from a cited web search and are kept only if both appear in the cited source; otherwise that release counts as no surprise and is listed as a data gap.</p>],
+      ["Fit", <p>For each asset, a ridge regression of weekly returns on the drivers over the last 104 weeks. Ridge shrinks sensitivities when drivers overlap; its strength is picked automatically.</p>],
+      ["Contributions", <p>A driver's contribution is its sensitivity times how much it moved over the window. Whatever the drivers don't explain is shown as Unexplained, so the bars always add up to the actual move.</p>],
+      ["Groups", <p>Drivers that move together (the rate measures; VIX and credit spreads; the two liquidity measures) are shown as one bar. The model gets their joint effect right but can't reliably split it, so the split inside a group is marked uncertain.</p>],
+    ],
+    read: <>A big Unexplained bar means the move came from something the drivers don't capture: earnings, geopolitics or noise. Check the out-of-sample figure: it says how much of a typical week the drivers explain for that asset.</>,
+    limits: [
+      "It explains past moves; it does not forecast.",
+      "104 weeks holds only about 24 releases per series, so surprise sensitivities are noisy.",
+      "Consensus figures come from web search and can be missing; misses count as no surprise.",
+      "CFTC positions are as of Tuesday, released Friday.",
+    ],
+  },
 ];
 
 // only models switched on in models/registry.ts
