@@ -8,10 +8,10 @@ import httpx
 import numpy as np
 import pandas as pd
 
+# gold was dropped 2026-10-10: its walk-forward R2 was ~3% (real-yield link broke after 2022)
 ASSETS: dict[str, tuple[str, str]] = {
     "spx": ("^GSPC", "S&P 500"),
     "ief": ("IEF", "Treasuries"),
-    "gld": ("GLD", "Gold"),  # not GC=F: continuous-futures rolls would show up as Unexplained
 }
 
 # key -> (source, id, transform). bp = level diff x100 (series in %), diff = level diff, pct = % change
@@ -39,8 +39,8 @@ NAMES = {
     "vix": "VIX",
 }
 
-# CFTC Legacy futures-only report contract codes: E-mini S&P 500, 10-year T-note, gold (COMEX)
-CFTC_CODES = {"spx": "13874A", "ief": "043602", "gld": "088691"}
+# CFTC Legacy futures-only report contract codes: E-mini S&P 500, 10-year T-note
+CFTC_CODES = {"spx": "13874A", "ief": "043602"}
 # daily series must reach the week's last trading day; FRED posts Friday's values on Monday
 DAILY = {"y2", "ry", "be", "tp", "hy", "usd", "vix"}
 LATE = "not yet published"  # marks a latest-week gap; run.py recomputes such a week later

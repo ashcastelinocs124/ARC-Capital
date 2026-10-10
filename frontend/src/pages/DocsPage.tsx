@@ -153,8 +153,8 @@ const ALL_DOCS: Doc[] = [
     id: "cross-asset",
     group: "Signals",
     name: "Cross-Asset Drivers",
-    lead: "What moved equities, Treasuries and gold this week, month and quarter? Each driver's share of the move, with data releases counted only as their surprise.",
-    facts: [["Type", "Ridge attribution"], ["Output", "% pts per driver"], ["Assets", "S&P 500, IEF, GLD"], ["Refresh", "Weekly (Friday close)"]],
+    lead: "What moved equities and Treasuries this week, month and quarter? Each driver's share of the move, with data releases counted only as their surprise.",
+    facts: [["Type", "Ridge attribution"], ["Output", "% pts per driver"], ["Assets", "S&P 500, IEF"], ["Refresh", "Weekly (Friday close)"]],
     sections: [
       ["Drivers", <p>Weekly moves in the 2-year yield, the 10-year real yield and breakeven, the term premium, the high-yield spread, NFCI and the Fed balance sheet (FRED), VIX (Yahoo), the broad dollar, and speculators' net futures positioning in each asset (CFTC). Each asset only uses the drivers that plausibly matter for it: the dollar isn't used for Treasuries and the breakeven isn't used for equities.</p>],
       ["Surprises, not data", <p>Markets price the consensus before a release, so CPI, PCE, payrolls, ISM and GDP enter as actual minus consensus, divided by that release's typical surprise. Both numbers come from a cited web search and are kept only if both appear in the cited source; otherwise that release counts as no surprise and is listed as a data gap.</p>],

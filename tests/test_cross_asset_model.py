@@ -6,7 +6,7 @@ import pytest
 from castelino.cross_asset import model as m
 
 
-def _data(asset="gld", n=170, seed=0):
+def _data(asset="spx", n=170, seed=0):
     rng = np.random.default_rng(seed)
     idx = pd.date_range("2023-01-06", periods=n, freq="W-FRI")
     cols = m.columns_for(asset)
@@ -21,10 +21,11 @@ def _data(asset="gld", n=170, seed=0):
 
 def test_factor_map_respected():
     assert "usd" not in m.columns_for("ief") and "be" not in m.columns_for("spx")
-    assert "pos_gld" in m.columns_for("gld") and "pos" not in m.columns_for("gld")
+    assert "pos_spx" in m.columns_for("spx") and "pos" not in m.columns_for("spx")
+    assert set(m.FACTOR_MAP) == {"spx", "ief"}  # gold dropped 2026-10-10: R2 ~3%
 
 
-@pytest.mark.parametrize("asset", ["spx", "ief", "gld"])
+@pytest.mark.parametrize("asset", ["spx", "ief"])
 def test_contributions_plus_unexplained_equal_move(asset):
     X, y, _ = _data(asset)
     out = m.explain(asset, X, y)
@@ -38,7 +39,7 @@ def test_contributions_plus_unexplained_equal_move(asset):
 
 
 def test_recovers_planted_betas():
-    X, y, _ = _data("gld", n=400)
+    X, y, _ = _data("spx", n=400)
     f = m.fit(X.iloc[-104:], y.iloc[-104:])
     assert f.beta["ry"] == pytest.approx(-0.5, abs=0.1)
     assert f.beta["usd"] == pytest.approx(-0.8, abs=0.1)
@@ -52,15 +53,15 @@ def test_constant_column_gets_zero_beta():
 
 
 def test_walk_forward_r2_high_for_explainable_asset():
-    X, y, _ = _data("gld", n=200)
+    X, y, _ = _data("spx", n=200)
     assert m.walk_forward_r2(X, y) > 0.7
 
 
 def test_groups_and_summary():
-    X, y, _ = _data("gld")
-    out = m.explain("gld", X, y)
+    X, y, _ = _data("ief")
+    out = m.explain("ief", X, y)
     rates = next(g for g in out["windows"]["1w"]["groups"] if g["group"] == "rates")
-    assert {c["factor"] for c in rates["members"]} == {"y2", "ry", "be"}
+    assert {c["factor"] for c in rates["members"]} == {"y2", "ry", "be", "tp"}
     assert 0 <= rates["max_pairwise_corr"] <= 1
     line = m.summary_line(out)
     assert line.startswith("Biggest drivers:") and "pts" in line

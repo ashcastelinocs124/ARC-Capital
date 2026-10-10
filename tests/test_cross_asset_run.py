@@ -47,7 +47,7 @@ def test_run_writes_snapshot_then_skips_same_week(tmp_path):
     msg = _run(tmp_path, now)
     data = json.loads((tmp_path / "cross_asset.json").read_text())
     assert data["week_end"] == "2026-10-09"
-    assert set(data["assets"]) == {"spx", "ief", "gld"}
+    assert set(data["assets"]) == {"spx", "ief"}
     assert data["assets"]["spx"]["summary"].startswith("Biggest drivers:")
     assert "explained" in msg
     with pytest.raises(r.NothingToDo):
@@ -79,12 +79,12 @@ def test_search_failure_is_a_data_gap_not_a_failed_run(tmp_path):
 def test_stale_asset_keeps_previous_file(tmp_path):
     prev = {"week_end": "2026-10-02", "assets": {}}
     (tmp_path / "cross_asset.json").write_text(json.dumps(prev))
-    with pytest.raises(Exception, match="Gold"):
+    with pytest.raises(Exception, match="Treasuries"):
         _run(
             tmp_path,
             datetime(2026, 10, 10, 9, 0, tzinfo=NY),
             fetch_yf=lambda sym: (
-                _series(end="2026-10-01", key=sym) if sym == "GLD" else _series(key=sym)
+                _series(end="2026-10-01", key=sym) if sym == "IEF" else _series(key=sym)
             ),
         )
     assert json.loads((tmp_path / "cross_asset.json").read_text()) == prev

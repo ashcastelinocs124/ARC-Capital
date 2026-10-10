@@ -20,7 +20,6 @@ MIN_WEEKS = 80
 FACTOR_MAP: dict[str, list[str]] = {
     "spx": ["y2", "ry", "inflation", "growth", "nfci", "walcl", "vix", "hy", "usd", "pos"],
     "ief": ["y2", "ry", "be", "inflation", "growth", "vix", "hy", "tp", "pos"],
-    "gld": ["y2", "ry", "be", "inflation", "nfci", "walcl", "vix", "hy", "usd", "pos"],
 }
 # drivers that move together: the fit gets their joint effect right but not the split
 GROUPS: dict[str, list[str]] = {

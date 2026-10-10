@@ -125,7 +125,7 @@ export interface CrossAssetSurprise {
 export interface CrossAssetSnapshot {
   generated_at: string;
   week_end: string;
-  assets: Record<"spx" | "ief" | "gld", CrossAssetBlock>;
+  assets: Record<"spx" | "ief", CrossAssetBlock>;
   surprises: CrossAssetSurprise[];
   releases_checked: { ok: number; total: number };
   data_gaps: string[];

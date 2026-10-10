@@ -70,8 +70,8 @@ def test_asset_returns_are_weekly_log_pct():
     px = _daily("2026-01-01", "2026-03-27", np.linspace(100, 120, n))
     r = f.asset_returns(date(2026, 3, 27), fetch_yf=lambda sym: px)
     w = f.weekly_last(px)
-    assert list(r.columns) == ["spx", "ief", "gld"]
-    assert r.iloc[-1]["gld"] == pytest.approx(np.log(w.iloc[-1] / w.iloc[-2]) * 100)
+    assert list(r.columns) == ["spx", "ief"]
+    assert r.iloc[-1]["ief"] == pytest.approx(np.log(w.iloc[-1] / w.iloc[-2]) * 100)
 
 
 def test_stale_asset_raises():
@@ -81,10 +81,10 @@ def test_stale_asset_raises():
 
 
 def test_one_asset_missing_friday_raises():
-    # Yahoo has Mon-Thu for GLD but not Friday, while the others have Friday
+    # Yahoo has Mon-Thu for IEF but not Friday, while the others have Friday
     full, short = _daily("2026-01-01", "2026-03-27"), _daily("2026-01-01", "2026-03-26")
-    with pytest.raises(f.StaleAsset, match="Gold"):
-        f.asset_returns(date(2026, 3, 27), fetch_yf=lambda sym: short if sym == "GLD" else full)
+    with pytest.raises(f.StaleAsset, match="Treasuries"):
+        f.asset_returns(date(2026, 3, 27), fetch_yf=lambda sym: short if sym == "IEF" else full)
 
 
 def test_holiday_friday_week_is_accepted_but_partial():

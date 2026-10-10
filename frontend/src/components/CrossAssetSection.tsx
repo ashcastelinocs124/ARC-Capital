@@ -6,12 +6,12 @@ import {
   CardHead, ExpandableCard, GraphTile, HowItWorks, NoChart, Panel, StatCell, StatGrid, StatusBadge, TILE_CHART_HEIGHT, ago,
 } from "@/components/modelCard";
 
-// Cross-Asset Drivers: what moved equities, Treasuries and gold (cross_asset/ in the backend).
+// Cross-Asset Drivers: what moved equities and Treasuries (cross_asset/ in the backend).
 // Overlapping drivers show as one group bar; the split inside a group is marked uncertain.
 
-type AssetKey = "spx" | "ief" | "gld";
+type AssetKey = "spx" | "ief";
 type Win = "1w" | "1m" | "3m";
-const ASSETS: AssetKey[] = ["spx", "ief", "gld"];
+const ASSETS: AssetKey[] = ["spx", "ief"];
 const WIN_WEEKS: Record<Win, number> = { "1w": 1, "1m": 4, "3m": 13 };
 const WEAK_R2 = 0.5;
 // rounds first, so a tiny negative never prints as "−0.00"
