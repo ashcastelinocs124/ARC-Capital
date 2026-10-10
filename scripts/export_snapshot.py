@@ -34,6 +34,7 @@ PATHS = [
     "/sector_sentiment",
     "/adoption/summary",
     "/adoption/companies",
+    "/cross_asset",
     "/research",
     "/refresh/status",
 ]

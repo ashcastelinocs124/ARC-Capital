@@ -79,11 +79,21 @@ def job_adoption() -> str:
     return f"scored {s.n_scored}/{s.n_companies}, {s.n_errors} source errors"
 
 
+def job_cross_asset() -> str:
+    from castelino.cross_asset import run as cross_asset
+
+    try:
+        return cross_asset.run()
+    except cross_asset.NothingToDo as exc:
+        raise Skipped(str(exc)) from exc
+
+
 LABELS = {
     "update_agent": "Update Agent briefing",
     "model_refit": "Model refit",
     "sector_sentiment": "Sector Sentiment",
     "adoption": "AI Adoption Index",
+    "cross_asset": "Cross-Asset Drivers",
 }
 # Overridable in tests.
 _RUNNERS: dict[str, Callable[[], str]] = {
@@ -91,6 +101,7 @@ _RUNNERS: dict[str, Callable[[], str]] = {
     "model_refit": job_model_refit,
     "sector_sentiment": job_sector_sentiment,
     "adoption": job_adoption,
+    "cross_asset": job_cross_asset,
 }
 _state: dict[str, dict] = {}
 _threads: list[threading.Thread] = []
