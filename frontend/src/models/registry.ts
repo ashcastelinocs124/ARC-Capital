@@ -7,6 +7,7 @@ export const MODELS = [
   { id: "risk-off", name: "Risk-off classifier", enabled: false }, // off until it's trained
   { id: "sector-sentiment", name: "Sector Sentiment", enabled: true },
   { id: "adoption", name: "AI Adoption Index", enabled: true },
+  { id: "cross-asset", name: "Cross-Asset Drivers", enabled: true },
 ] as const;
 
 export type ModelId = (typeof MODELS)[number]["id"];

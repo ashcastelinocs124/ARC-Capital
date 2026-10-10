@@ -1,7 +1,7 @@
 /** One function per backend endpoint. Hooks call these. */
 
 import { api } from "./client";
-import type { MacroIndicatorRow, PlotlyChart, SectorSentimentSnapshot } from "./types";
+import type { CrossAssetSnapshot, MacroIndicatorRow, PlotlyChart, SectorSentimentSnapshot } from "./types";
 
 // ── Models ─────────────────────────────────────────────────────────────
 export interface ModelCard {
@@ -115,4 +115,11 @@ export const fetchAgentCatalog = () => api.get<AgentCatalog>("/agents/catalog");
 export const fetchSectorSentiment = async (): Promise<SectorSentimentSnapshot | null> => {
   const data = await api.get<SectorSentimentSnapshot | Record<string, never>>("/sector_sentiment");
   return data && "sectors" in data ? (data as SectorSentimentSnapshot) : null;
+};
+
+// ── Cross-Asset Drivers ─────────────────────────────────────────────────
+export const fetchCrossAsset = async (): Promise<CrossAssetSnapshot | null> => {
+  const data = await api.get<CrossAssetSnapshot | Record<string, never> | []>("/cross_asset");
+  // the client maps a 404 (static build without the file) to []
+  return data && !Array.isArray(data) && "assets" in data ? (data as CrossAssetSnapshot) : null;
 };

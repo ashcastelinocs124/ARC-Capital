@@ -79,3 +79,54 @@ export interface SectorSentimentSnapshot {
   narrative: string | null;
   narrative_generated_at: string | null;
 }
+
+// ── Cross-Asset Drivers (GET /cross_asset) ─────────────────────────────
+export interface CrossAssetContribution {
+  factor: string;
+  label: string;
+  group: string;
+  move: number;
+  unit: string;
+  beta: number;
+  contribution: number;
+}
+export interface CrossAssetGroup {
+  group: string;
+  label: string;
+  contribution: number;
+  members: CrossAssetContribution[];
+  max_pairwise_corr: number | null;
+}
+export interface CrossAssetWindow {
+  move: number;
+  unexplained: number;
+  contributions: CrossAssetContribution[];
+  groups: CrossAssetGroup[];
+}
+export interface CrossAssetBlock {
+  name: string;
+  ticker: string;
+  alpha: number;
+  oos_r2: number | null;
+  summary: string;
+  windows: Record<"1w" | "1m" | "3m", CrossAssetWindow>;
+}
+export interface CrossAssetSurprise {
+  series: string;
+  label: string;
+  release_date: string;
+  actual: number;
+  consensus: number;
+  z: number;
+  group: "inflation" | "growth";
+  unit: string;
+  url: string;
+}
+export interface CrossAssetSnapshot {
+  generated_at: string;
+  week_end: string;
+  assets: Record<"spx" | "ief" | "gld", CrossAssetBlock>;
+  surprises: CrossAssetSurprise[];
+  releases_checked: { ok: number; total: number };
+  data_gaps: string[];
+}

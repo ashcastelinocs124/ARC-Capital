@@ -4,6 +4,7 @@ import type { ModelCard } from "@/api/endpoints";
 import { cn } from "@/lib/cn";
 import { SectorSentimentSection } from "@/components/SectorSentimentSection";
 import { AdoptionSection } from "@/components/AdoptionSection";
+import { CrossAssetSection } from "@/components/CrossAssetSection";
 import { Line, LineChart, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { CardHead, ExpandableCard, GraphTile, HowItWorks, NoChart, Panel, TILE_CHART_HEIGHT } from "@/components/modelCard";
 import { ENABLED_MODELS, type ModelId } from "@/models/registry";
@@ -289,6 +290,7 @@ const COMPONENTS: Record<ModelId, (p: CardProps) => ReactNode> = {
   "risk-off": (p) => <ForecastCard id="risk_off" {...p} />,
   "sector-sentiment": (p) => <SectorSentimentSection {...p} />,
   adoption: (p) => <AdoptionSection {...p} />,
+  "cross-asset": (p) => <CrossAssetSection {...p} />,
 };
 
 export default function ModelsPage() {
