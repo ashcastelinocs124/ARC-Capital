@@ -39,6 +39,10 @@ def parse_videos(xml: str, archive: list[dict] | None = None) -> list[dict]:
         post = meta.get(link.rsplit("/", 1)[-1], {})
         cover = post.get("cover_image") or ""
         thumb = cover if cover.startswith("https://substack-video.s3.amazonaws.com/") else None
+        # A video embedded in a newsletter post has no cover; its first frame sits at a fixed S3 path.
+        upload = re.search(r"mediaUploadId&quot;:&quot;([0-9a-f-]{36})", body)
+        if not thumb and upload and post.get("id"):
+            thumb = f"https://substack-video.s3.amazonaws.com/video_upload/post/{post['id']}/{upload.group(1)}/transcoded-00001.png"
         date = parsedate_to_datetime(item.findtext("pubDate") or "").date().isoformat()
         out.append(
             {

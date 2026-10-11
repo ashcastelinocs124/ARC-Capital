@@ -1,10 +1,10 @@
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/cn";
 
-// Sidebar order from before; tabs scroll sideways on a phone.
+// Models first (it is also the home page); tabs scroll sideways on a phone.
 const TABS: [string, string][] = [
-  ["/macro", "Macro & Signals"],
   ["/models", "Models"],
+  ["/macro", "Macro & Signals"],
   ["/deep-research", "Deep Research"],
   ["/updates", "Daily Update"],
   ["/videos", "Videos"],

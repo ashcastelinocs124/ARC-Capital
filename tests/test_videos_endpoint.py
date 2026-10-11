@@ -6,7 +6,7 @@ FEED = """<rss xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel
 <content:encoded><![CDATA[<p>hi</p>]]></content:encoded></item>
 <item><title>Weekly</title><link>https://archresearch.substack.com/p/weekly</link>
 <pubDate>Sun, 20 Sep 2026 02:12:06 GMT</pubDate><enclosure url="https://x/a.png" type="image/jpeg"/>
-<content:encoded><![CDATA[<div class="native-video-embed"></div><img src="https://cdn/x.png">]]></content:encoded></item>
+<content:encoded><![CDATA[<div class="native-video-embed" data-attrs="{&quot;mediaUploadId&quot;:&quot;d1cb62d4-8d08-4de3-916a-018778d8122b&quot;}"></div><img src="https://cdn/x.png">]]></content:encoded></item>
 <item><title>Text post</title><link>https://archresearch.substack.com/p/text</link>
 <pubDate>Sun, 20 Sep 2026 02:12:06 GMT</pubDate><content:encoded><![CDATA[<p>no video</p>]]></content:encoded></item>
 <item><title>Off-site link</title><link>javascript:alert(1)</link>
@@ -17,7 +17,11 @@ FEED = """<rss xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel
 def test_parse_videos_keeps_only_video_posts_on_the_substack():
     cover = "https://substack-video.s3.amazonaws.com/v/transcoded-00001.png"
     vids = parse_videos(
-        FEED, [{"slug": "neolabs", "cover_image": cover, "podcast_duration": 2170.6}]
+        FEED,
+        [
+            {"slug": "neolabs", "cover_image": cover, "podcast_duration": 2170.6},
+            {"slug": "weekly", "id": 7},
+        ],
     )
     assert [v["title"] for v in vids] == ["Neolabs", "Weekly"]
     assert (
@@ -25,4 +29,9 @@ def test_parse_videos_keeps_only_video_posts_on_the_substack():
         and vids[0]["thumbnail"] == cover
         and vids[0]["duration"] == 2171
     )
-    assert vids[1]["thumbnail"] is None and vids[1]["duration"] is None
+    assert (
+        vids[1]["thumbnail"].endswith(
+            "/post/7/d1cb62d4-8d08-4de3-916a-018778d8122b/transcoded-00001.png"
+        )
+        and vids[1]["duration"] is None
+    )
