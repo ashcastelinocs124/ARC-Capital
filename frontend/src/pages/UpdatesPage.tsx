@@ -4,6 +4,7 @@ import { Download, Link2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { isV2, type DailyRecord } from "@/api/endpoints";
 import { MorningNote } from "@/components/MorningNote";
+import { PageIntro } from "@/components/layout/PageIntro";
 import { ACTIVE_STAGES, useLatestUpdate, useUpdateByDate, useUpdateHistory, useUpdateStatus } from "@/hooks/useUpdate";
 import { cn } from "@/lib/cn";
 import { EconomicReleasesTable, isRecord } from "@/components/EconomicReleasesCard";
@@ -276,7 +277,14 @@ export default function UpdatesPage() {
   };
 
   return (
-    <div className="p-4 md:p-8 grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-5 items-start">
+    <div className="p-4 md:p-8 space-y-5">
+      <PageIntro kicker="Daily Update" title="The Morning Note: what moved markets today"
+        steps={["Orchestrator plans", "Macro · News · Alt · AI analysts", "Editor writes 5 items", "Number guard", "Charts"]}
+        when={{ label: "New note", value: "daily, 17:00 ET" }}>
+        Each evening after the US close, ARC's desk of AI analysts covers macro data, news, alternative data and AI,
+        and an editor writes the five stories that mattered most, with charts. Every figure is checked against its source.
+      </PageIntro>
+    <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-5 items-start">
       {items.length > 0 && <PastUpdates items={items} current={rec?.date} onPick={open} />}
       <div className="min-w-0">
         <div className="flex items-baseline justify-between gap-3 mb-3">
@@ -299,6 +307,7 @@ export default function UpdatesPage() {
           </CardContent></Card>
         )}
       </div>
+    </div>
     </div>
   );
 }

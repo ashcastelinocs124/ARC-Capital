@@ -8,6 +8,7 @@ import { CrossAssetSection } from "@/components/CrossAssetSection";
 import { Line, LineChart, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { CardHead, ExpandableCard, GraphTile, HowItWorks, NoChart, Panel, TILE_CHART_HEIGHT } from "@/components/modelCard";
 import { ENABLED_MODELS, type ModelId } from "@/models/registry";
+import { PageIntro } from "@/components/layout/PageIntro";
 
 const WEAK_ACCURACY = 0.55; // near coin-flip for a binary up/down call
 const MAX_DATA_LAG_MONTHS = 3;
@@ -316,13 +317,13 @@ export default function ModelsPage() {
 
   return (
     <div className="p-4 md:p-8 space-y-5">
-      <div>
-        <h2 className="text-base font-semibold text-text">Models</h2>
-        <p className="text-xs text-muted mt-0.5">
-          Current state of the XGBoost forecasters feeding the pipeline, the Sector Sentiment indicator and the AI
-          Adoption Index, each as a graph. Click a graph for that model's card. Read-only; forecasts older than 24h are marked stale.
-        </p>
-      </div>
+      <PageIntro kicker="Models" title="ARC's market models, each as a live graph"
+        steps={["Data refresh", "Model refit", "Graph tiles", "Click for the full card"]}
+        when={{ label: `${ENABLED_MODELS.length} models live`, value: "refit daily" }}>
+        Pulse (will growth expand?), Pressure (will inflation accelerate?), Sector Sentiment, the AI Adoption Index and
+        Cross-Asset Drivers read the economy and markets. Click any graph to open the model's card; the Documentation
+        page explains how each works.
+      </PageIntro>
       {/* equal-height rows so every card is the same size; off while one is expanded */}
       <div className={cn("grid md:grid-cols-2 gap-6", !expanded && "auto-rows-fr")}>
         {isLoading && <div className="text-sm text-muted">Loading…</div>}

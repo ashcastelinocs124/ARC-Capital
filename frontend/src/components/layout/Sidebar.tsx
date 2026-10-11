@@ -62,9 +62,8 @@ export function Sidebar({ collapsible = true }: { collapsible?: boolean }) {
     >
       {/* Logo */}
       <div className={cn("py-5", collapsed ? "px-3" : "px-5")}>
-        <div className="flex items-center gap-2.5">
-          <img src="/arc-logo.png" alt="ARC" className={cn("w-auto", collapsed ? "h-7" : "h-9")} />
-          {!collapsed && <div className="text-base font-bold tracking-tight text-text">ARC Research</div>}
+        <div className={cn("flex items-center", collapsed && "justify-center")}>
+          <img src="/arc-logo.png" alt="ARC Research" className={cn("w-auto", collapsed ? "h-8" : "h-11")} />
         </div>
       </div>
 
