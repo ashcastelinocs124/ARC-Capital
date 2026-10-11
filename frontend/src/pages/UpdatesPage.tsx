@@ -6,6 +6,7 @@ import { isV2, type DailyRecord } from "@/api/endpoints";
 import { MorningNote } from "@/components/MorningNote";
 import { DailyPostsFeed } from "@/components/DailyPostsFeed";
 import { useDailyPosts } from "@/hooks/useDailyPosts";
+import { useSectionPosts } from "@/hooks/useSectionPosts";
 import { ACTIVE_STAGES, useLatestUpdate, useUpdateByDate, useUpdateHistory, useUpdateStatus } from "@/hooks/useUpdate";
 import { cn } from "@/lib/cn";
 import { EconomicReleasesTable, isRecord } from "@/components/EconomicReleasesCard";
@@ -311,6 +312,7 @@ export default function UpdatesPage() {
   const wanted = useSearchParams()[0].get("date");
   const { data: posts, isLoading } = useDailyPosts();
   const { data: history } = useUpdateHistory(undefined);
+  const { data: sections } = useSectionPosts();
   const post = wanted ? posts?.find((p) => p.date === wanted) : undefined;
   useEffect(() => {
     if (post) window.location.replace(post.url);
@@ -332,5 +334,5 @@ export default function UpdatesPage() {
   const items = history && !Array.isArray(history)
     ? history.items ?? (Array.isArray(history.dates) ? history.dates.map((date) => ({ date, headline: "" })) : [])
     : [];
-  return <DailyPostsFeed posts={posts ?? []} loading={isLoading} earlier={items.filter((it) => !onSubstack.has(it.date))} />;
+  return <DailyPostsFeed posts={posts ?? []} sections={sections ?? []} loading={isLoading} earlier={items.filter((it) => !onSubstack.has(it.date))} />;
 }

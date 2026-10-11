@@ -132,6 +132,7 @@ export interface Video {
   summary: string;
   thumbnail: string | null;
   duration: number | null; // seconds
+  video?: boolean; // false = an article (the Videos tab always sends videos)
 }
 export const fetchVideos = async (): Promise<Video[]> => {
   const data = await api.get<Video[]>("/videos"); // the client maps a 404 to []
@@ -148,5 +149,14 @@ export interface DailyPost {
 }
 export const fetchDailyPosts = async (): Promise<DailyPost[]> => {
   const data = await api.get<DailyPost[]>("/daily_posts"); // the client maps a 404 to []
+  return Array.isArray(data) ? data : [];
+};
+
+// ── Substack sections shown on Daily Update ──────────────────────────────
+export interface SectionPost extends Video {
+  section: string; // Substack section slug
+}
+export const fetchSectionPosts = async (): Promise<SectionPost[]> => {
+  const data = await api.get<SectionPost[]>("/section_posts"); // the client maps a 404 to []
   return Array.isArray(data) ? data : [];
 };

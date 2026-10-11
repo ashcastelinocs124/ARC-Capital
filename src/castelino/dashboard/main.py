@@ -85,6 +85,7 @@ from castelino.dashboard.endpoints import (  # noqa: E402
     macro,
     models,
     refresh,
+    section_posts,
     videos,
 )
 from castelino.dashboard.endpoints import sector_sentiment as sector_sentiment_router  # noqa: E402
@@ -101,6 +102,7 @@ app.include_router(cross_asset.router)
 app.include_router(refresh.router)
 app.include_router(videos.router)
 app.include_router(daily_posts.router)
+app.include_router(section_posts.router)
 
 
 # ── Frontend static files ──────────────────────────────────────────────────

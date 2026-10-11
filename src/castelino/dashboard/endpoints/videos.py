@@ -19,6 +19,7 @@ _CONTENT = "{http://purl.org/rss/1.0/modules/content/}encoded"
 _TTL_S = 3600
 _cache: tuple[float, list[dict]] = (0.0, [])
 _feed: tuple[float, str] = (0.0, "")
+_archive: tuple[float, list] = (0.0, [])
 
 
 def feed_xml() -> str:
@@ -29,6 +30,19 @@ def feed_xml() -> str:
         r.raise_for_status()
         _feed = (time.time(), r.text)
     return _feed[1]
+
+
+def archive_json() -> list[dict]:
+    """Substack's post archive (covers, durations, sections), cached for an hour. Raises on an error."""
+    global _archive
+    if time.time() - _archive[0] >= _TTL_S:
+        r = httpx.get(ARCHIVE, timeout=20)
+        r.raise_for_status()
+        data = r.json()
+        if not isinstance(data, list):
+            raise ValueError("unexpected archive reply")
+        _archive = (time.time(), data)
+    return _archive[1]
 
 
 def parse_videos(xml: str, archive: list[dict] | None = None) -> list[dict]:
@@ -78,7 +92,7 @@ def videos():
     try:
         xml = feed_xml()
         try:
-            archive = httpx.get(ARCHIVE, timeout=20).json()
+            archive = archive_json()
         except (httpx.HTTPError, ValueError):
             archive = []  # thumbnails and durations are optional
         _cache = (time.time(), parse_videos(xml, archive))
