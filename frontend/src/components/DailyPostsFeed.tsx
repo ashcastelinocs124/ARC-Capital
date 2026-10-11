@@ -1,8 +1,5 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronDown } from "lucide-react";
 import type { DailyPost } from "@/api/endpoints";
-import { cn } from "@/lib/cn";
 
 const DAY = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 const SHORT = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
@@ -40,31 +37,25 @@ function PostCard({ p, latest }: { p: DailyPost; latest: boolean }) {
 
 // Earlier on-site notes (from before the Substack posts) open the old note page.
 function Earlier({ items }: { items: { date: string; headline: string }[] }) {
-  const [open, setOpen] = useState(false);
   if (items.length === 0) return null;
   return (
     <div>
-      <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between py-1 text-left">
-        <span className="text-[15px] font-semibold text-text">
-          Earlier notes <span className="text-xs font-normal text-muted">· on-site, before Substack · {items.length}</span>
-        </span>
-        <ChevronDown className={cn("h-4 w-4 text-accent transition-transform", open && "rotate-180")} />
-      </button>
-      {open && (
-        <div className="card mt-2 overflow-hidden">
-          {items.map((it) => (
-            <Link
-              key={it.date}
-              to={`/updates?date=${it.date}`}
-              className="grid grid-cols-[64px_1fr_auto] gap-3 border-t border-border px-5 py-3 first:border-0 hover:bg-surface-2"
-            >
-              <span className="eyebrow">{SHORT.format(day(it.date))}</span>
-              <span className="text-sm text-text-2">{it.headline || "Morning Note"}</span>
-              <span className="text-[13px] font-semibold text-accent">Read ›</span>
-            </Link>
-          ))}
-        </div>
-      )}
+      <h3 className="py-1 text-[15px] font-semibold text-text">
+        Earlier notes <span className="text-xs font-normal text-muted">· on-site, before Substack · {items.length}</span>
+      </h3>
+      <div className="card mt-2 overflow-hidden">
+        {items.map((it) => (
+          <Link
+            key={it.date}
+            to={`/updates?date=${it.date}`}
+            className="grid grid-cols-[64px_1fr_auto] gap-3 border-t border-border px-5 py-3 first:border-0 hover:bg-surface-2"
+          >
+            <span className="eyebrow">{SHORT.format(day(it.date))}</span>
+            <span className="text-sm text-text-2">{it.headline || "Morning Note"}</span>
+            <span className="text-[13px] font-semibold text-accent">Read ›</span>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
