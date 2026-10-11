@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
 from castelino.adoption.index import aggregate
@@ -39,11 +40,29 @@ class RunSummary:
     errors: list[str] = field(default_factory=list)
 
 
+JOB_WORKERS = 8  # ponytail: fixed pool; a per-company time cap is the planned follow-up
+
+
+def _fetch_jobs(deps: Deps) -> dict[str, JobCounts | Exception | None]:
+    """Job-board counts for every company, JOB_WORKERS at a time; a failure comes back as its exception."""
+
+    def one(t: str) -> JobCounts | Exception | None:
+        try:
+            return deps.jobs_for(t)
+        except Exception as e:  # noqa: BLE001 - reported per company by run_period
+            return e
+
+    tickers = [co.ticker for co in deps.companies]
+    with ThreadPoolExecutor(JOB_WORKERS) as pool:
+        return dict(zip(tickers, pool.map(one, tickers), strict=True))
+
+
 def run_period(period: str, deps: Deps) -> RunSummary:
     raw: dict[str, dict[str, float | None]] = {}
     snapshots: dict[str, float | None] = {}
     accessions: dict[str, str | None] = {}
     errors: list[str] = []
+    jobs = _fetch_jobs(deps)  # the slow part (paging job boards), so it runs in parallel up front
 
     for co in deps.companies:
         t = co.ticker
@@ -70,7 +89,9 @@ def run_period(period: str, deps: Deps) -> RunSummary:
             errors.append(f"{t} talk: {e}")
 
         try:  # Hire: mean of the last snapshots (the boards only show currently open roles)
-            counts = deps.jobs_for(t)
+            counts = jobs[t]
+            if isinstance(counts, Exception):
+                raise counts
             if counts is not None:
                 snap = hire_raw(counts.ai, counts.total)
                 snapshots[t] = snap

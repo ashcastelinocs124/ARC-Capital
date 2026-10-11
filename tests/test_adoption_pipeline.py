@@ -1,3 +1,5 @@
+import threading
+
 import pytest
 
 from castelino.adoption.models import Claim, Company
@@ -120,3 +122,31 @@ def test_cached_filing_is_not_downloaded_again(store):
     assert len(fetched) == 5
     run_period("2026-10-15", make_deps(store, fetched=fetched))
     assert len(fetched) == 5  # same accessions: no second download
+
+
+def test_job_boards_are_fetched_in_parallel(store):
+    # every jobs_for call waits until all companies are in flight; a one-at-a-time loop would time out
+    gate = threading.Barrier(len(COMPANIES), timeout=5)
+    d = make_deps(store)
+
+    def jobs_for(t):
+        gate.wait()
+        return None
+
+    d.jobs_for = jobs_for
+    summary = run_period("2026-10-01", d)
+    assert not [e for e in summary.errors if "hire" in e]
+
+
+def test_failing_job_board_costs_only_that_companys_hire(store):
+    d = make_deps(store)
+    good = d.jobs_for
+
+    def flaky(t):
+        if t == "B":
+            raise RuntimeError("board down")
+        return good(t)
+
+    d.jobs_for = flaky
+    s = run_period("2026-10-01", d)
+    assert s.errors == ["B hire: board down"]
