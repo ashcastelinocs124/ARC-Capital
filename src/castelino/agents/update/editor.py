@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from castelino.agents.base import StructuredAgent
 from castelino.agents.update.models import Fact, Finding, MorningNote
 from castelino.config import get_settings
@@ -28,7 +30,11 @@ Rules:
   importance 1-5 (5 = always relevant).
 - Write about today's findings. Memory is background for comparison only, never a topic on
   its own: don't revive an old theme unless today's findings move it.
-- Describe, don't recommend. No investment advice."""
+- Give a reasoned read (what the move implies, what to watch), never a recommendation: no
+  buy/sell, positioning or price targets. No investment advice."""
+
+# ARC house voice for item bodies, distilled from the ARC Research Substack. Edit the file to retune.
+STYLE = Path(__file__).with_name("style.md").read_text()
 
 
 class UpdateEditor(StructuredAgent[MorningNote]):
@@ -44,7 +50,7 @@ class UpdateEditor(StructuredAgent[MorningNote]):
         self.items = cfg.items
 
     def system_prompt(self) -> str:
-        return SYSTEM.format(items=self.items)
+        return SYSTEM.format(items=self.items) + "\n\n" + STYLE
 
     def user_prompt(
         self,

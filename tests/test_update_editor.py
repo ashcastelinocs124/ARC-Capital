@@ -49,3 +49,10 @@ def test_item_bodies_are_full_paragraphs_with_context_and_implication():
     assert "80-120 words" in system
     assert "compares with the prior reading" in system and "why it matters" in system
     assert "no claims about history the evidence doesn't show" in system
+
+
+def test_prompt_carries_the_arc_house_voice():
+    system = editor.UpdateEditor().system_prompt()
+    assert system.endswith(editor.STYLE) and "## ARC house voice" in system
+    assert "**What to watch:**" in system and "no dashes" in system
+    assert "never a recommendation" in system and "Describe, don't recommend" not in system

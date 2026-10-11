@@ -49,3 +49,27 @@ def test_real_record_builds_if_present():
     p = Path("data/updates/2026-10-07.json")
     if p.exists():
         json.dumps(build_doc(json.loads(p.read_text()), {}))
+
+
+def test_bold_markers_become_strong_marks():
+    rec = {
+        **REC,
+        "note": {
+            **REC["note"],
+            "items": [
+                {
+                    "rank": 1,
+                    "title": "T",
+                    "body": "**Wages rose 0.13%** in Sep. **What to watch:** CPI.",
+                    "chart": None,
+                }
+            ],
+        },
+    }
+    body = [n for n in build_doc(rec, {})["content"] if n["type"] == "paragraph"][0]["content"]
+    assert [(n["text"], n.get("marks")) for n in body] == [
+        ("Wages rose 0.13%", [{"type": "strong"}]),
+        (" in Sep. ", None),
+        ("What to watch:", [{"type": "strong"}]),
+        (" CPI.", None),
+    ]

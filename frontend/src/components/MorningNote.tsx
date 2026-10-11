@@ -7,7 +7,10 @@ import { cn } from "@/lib/cn";
 // ?v= busts the browser cache when a day's note is regenerated (file names repeat: exhibit_N.png).
 const chartUrl = (rec: DailyRecordV2, file: string) =>
   `/api/update/${rec.date}/charts/${file}?v=${encodeURIComponent(rec.generated_at)}`;
-const TAG: Record<string, string> = { macro: "MACRO", news: "NEWS", alt: "ALT", ai: "AI" };
+// The Editor marks key phrases as **…**; odd split parts are the bold ones. Notes without markers render as before.
+const withBold = (s: string) =>
+  s.split("**").map((part, i) => (i % 2 ? <strong key={i} className="font-semibold text-text">{part}</strong> : part));
+const TAG: Record<string, string> ={ macro: "MACRO", news: "NEWS", alt: "ALT", ai: "AI" };
 const LONG_DATE = new Intl.DateTimeFormat("en-GB", {
   weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
 });
@@ -76,8 +79,8 @@ export function MorningNote({ rec }: { rec: DailyRecordV2 }) {
                     lead.agent === "ai" ? "border-accent text-accent bg-accent-soft" : "border-border-strong text-text-2")}>{TAG[lead.agent]}</span>
                 )}
               </div>
-              <h3 className="font-serif font-bold text-[17px] leading-6 mt-1.5 mb-1.5">{it.title}</h3>
-              <p className="text-[13.5px] leading-[22px] text-text-2">{it.body}</p>
+              <h3 className="font-serif font-bold text-[19px] leading-[26px] mt-1.5 mb-2">{it.title}</h3>
+              <p className="text-[13.5px] leading-[22px] text-text-2">{withBold(it.body)}</p>
               <div className="text-[11px] text-muted mt-1.5">
                 {sources.map((f, i) => (
                   <span key={f.id}>

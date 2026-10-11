@@ -33,6 +33,15 @@ def _text(s: str, href: str | None = None) -> dict:
     return node
 
 
+def _rich(s: str) -> list[dict]:
+    """Text with the Editor's **bold** markers as strong marks (odd split parts are bold)."""
+    nodes = []
+    for i, part in enumerate(s.split("**")):
+        if part:  # ProseMirror rejects empty text nodes
+            nodes.append(_text(part) | ({"marks": [{"type": "strong"}]} if i % 2 else {}))
+    return nodes
+
+
 def _p(*content: dict) -> dict:
     return {"type": "paragraph", "content": list(content)}
 
@@ -81,7 +90,7 @@ def build_doc(record: dict, uploaded: dict[str, dict]) -> dict:
                 "content": [_text(f"{item['rank']}. {item['title']}")],
             }
         )
-        content.append(_p(_text(item["body"])))
+        content.append(_p(*_rich(item["body"])))
         ex = exhibits.get(item.get("chart") or "")
         if ex and ex["file"] in uploaded:
             content.append(_image(uploaded[ex["file"]], ex["title"]))
