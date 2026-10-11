@@ -141,6 +141,64 @@ agents:
       writes: ["sector.explanation.prose in data/sector_sentiment.json"]
       persists: "None of its own."
 
+  # ── Weekly deep dive ────────────────────────────────────────────────────
+  - id: deep_lead
+    name: Deep Lead
+    group: Weekly deep dive
+    family: Weekly Deep Dive
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "LLM call (gpt-6-sol)"}
+    class: castelino.agents.weekly.lead.DeepLead
+    summary: >-
+      Sunday morning: reads Monday–Friday's Morning Notes, picks the 3-4 trends that mattered and
+      staffs up to 4 specialist desks, giving each a name, a goal and the tools it may use.
+    tools:
+      - {name: "plan()", does: "Trends + desk specs {name, description, goal, tools, related}"}
+    memory:
+      reads: ["The week's Morning Notes (data/updates/<day>.json)", "MEMORY.md — top 5 themes"]
+      writes: []
+      persists: "Nothing; the plan is saved in data/deep/<week>.json."
+
+  - id: deep_trend_agent
+    name: Trend Desk (sub-agent)
+    group: Weekly deep dive
+    family: Weekly Deep Dive
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "Tool loop and web search (gpt-6-luna)"}
+      - {key: FRED_API_KEY, required: false, why: "FRED data; falls back to the keyless CSV endpoint when unset"}
+      - {key: BLS_API_KEY, required: false, why: "BLS data; keyless allows 25 requests a day"}
+    prompt: "castelino.agents.weekly.subagent:SYSTEM"
+    schema: "castelino.agents.weekly.models:FindingDrafts"
+    summary: >-
+      One instance per desk the Lead staffs (max 4, in parallel). Pulls data with only the tools it
+      was given (≤12 calls); code turns every result into a fact. Shares facts with related desks
+      on a board, and answers the Editor's challenges with up to 4 more calls.
+    tools:
+      - {name: "fred_series / yahoo_prices / bls_series", does: "A series over a chosen window → one fact with levels and changes"}
+      - {name: "polymarket_odds / web_search", does: "Odds and moves; cited search lines → facts"}
+      - {name: "post_to_board / read_board", does: "Share facts with related desks"}
+    memory: {reads: ["Its goal from the Lead", "The week's Morning Notes"], writes: [], persists: "Nothing."}
+
+  - id: deep_editor
+    name: Deep Editor
+    group: Weekly deep dive
+    family: Weekly Deep Dive
+    dependencies:
+      - {key: ANTHROPIC_API_KEY, required: true, why: "Claude Opus 5.5 (effort high)"}
+    prompt: "castelino.agents.weekly.editor:SYSTEM"
+    schema: "castelino.agents.weekly.models:WeeklyReport"
+    summary: >-
+      Claude Opus 5.5 in one append-only conversation: grills every desk's findings for up to 2
+      rounds, then writes the paged Weekly Deep Dive. A number guard checks every figure.
+    tools:
+      - {name: "Grill", does: "Questions routed back to the owning desk, answers appended"}
+      - {name: "check_report (guard)", does: "Every %, bp or pp must be in the cited facts; one retry"}
+      - {name: "Chart agent (code)", does: "One series per exhibit, Editor-chosen window"}
+    memory:
+      reads: ["The plan, every desk's findings and facts, the board"]
+      writes: ["data/deep/<week>.json — written last, marks the week done"]
+      persists: "The report and the grill log in the week's record."
+
   # ── Trading pipeline ────────────────────────────────────────────────────
   - id: deep_clarifier
     name: Deep Research · Clarifier
@@ -301,3 +359,17 @@ systems:
       - title: "Hire pillar · layer 3"
         flow: [["Custom careers site"], ["agent:recipe_writer|≤15 steps, $3"], ["code:Replay test|≥90% coverage"], ["end:Saved recipe|replayed, no model"]]
         loops: [{from: 2, to: 1, label: "rejected → try again"}]
+
+  - group: Weekly deep dive
+    trigger: "Sunday 06:00 ET (cron), or Refresh once a report is due"
+    output: "The Weekly Deep Dive on /deep-research and a full Substack draft"
+    blurb: >-
+      A Lead picks the week's trends and staffs up to 4 desks that pull their own data and share a
+      board. Claude Opus 5.5 grills every desk, then writes the report; code checks each figure.
+    lanes:
+      - title: "Weekly Deep Dive 1 · Research"
+        flow: [["Week's Morning Notes"], ["agent:deep_lead|trends + desks"], ["agent:deep_trend_agent|desk 1", "agent:deep_trend_agent|desk 2", "agent:deep_trend_agent|≤4, shared board"], ["end:↓ to stage 2"]]
+      - title: "Weekly Deep Dive 2 · Grill & write"
+        flow: [["agent:deep_editor|grill"], ["agent:deep_trend_agent|answers"], ["agent:deep_editor|write"], ["code:Number guard + charts"], ["end:/deep-research|+ Substack draft"]]
+        regions: [{from: 0, to: 1, label: "Loop · max 2 grill rounds"}]
+        loops: [{from: 1, to: 0, label: "next round"}]
