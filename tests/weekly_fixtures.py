@@ -27,6 +27,56 @@ def fact(fid, nums=(4.38,), text=None, chart=True):
     )
 
 
+def trend(
+    title="t",
+    agent="a",
+    paragraphs=("p",),
+    fact_ids=("A1",),
+    exhibits=(),
+    challenges=(),
+    why=(),
+    under_the_surface=(),
+    market_impact=(),
+    watch=(),
+):
+    """A TrendSection; `paragraphs` fills the high-level part (what_happened)."""
+    from castelino.agents.weekly.models import TrendSection
+
+    return TrendSection(
+        title=title,
+        agent=agent,
+        what_happened=list(paragraphs),
+        why=list(why),
+        under_the_surface=list(under_the_surface),
+        market_impact=list(market_impact),
+        watch=list(watch),
+        fact_ids=list(fact_ids),
+        exhibits=list(exhibits),
+        challenges=list(challenges),
+    )
+
+
+def line(fact_id, window_days=90):
+    from castelino.agents.weekly.models import ExhibitPick
+
+    return ExhibitPick(
+        kind="line", title="t", fact_ids=[fact_id], window_days=window_days, points=[], unit=""
+    )
+
+
+def pick(kind, fact_ids, points=(), unit="", title="t", window_days=90):
+    from castelino.agents.weekly.models import BarPoint, ExhibitPick
+
+    return ExhibitPick(
+        kind=kind,
+        title=title,
+        fact_ids=list(fact_ids),
+        window_days=window_days,
+        points=[BarPoint(fact_id=f, label=lb, value=v) for f, lb, v in points],
+        unit=unit,
+    )
+
+
 def call(name, args, cid="c1"):
     return SimpleNamespace(type="function_call", name=name, arguments=json.dumps(args), call_id=cid)
 

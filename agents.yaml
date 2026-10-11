@@ -170,14 +170,16 @@ agents:
     prompt: "castelino.agents.weekly.subagent:SYSTEM"
     schema: "castelino.agents.weekly.models:FindingDrafts"
     summary: >-
-      One instance per desk the Lead staffs (5, in parallel, 2-3 trends each). Pulls data with only
-      the tools it was given (≤16 calls); code turns every result into a fact. Shares facts with related desks
-      on a board, and answers the Editor's challenges with up to 4 more calls.
+      One instance per desk the Lead staffs (5, in parallel, 2-3 trends each). Owns the deep
+      research: for each trend it works out why it happened, pulls a breakdown (sectors,
+      components, regions) and the market reaction, with only the tools it was given (≤16 calls);
+      code turns every result into a fact. Shares facts with related desks on a board, and
+      answers the Editor's challenges with up to 4 more calls.
     tools:
       - {name: "fred_series / yahoo_prices / bls_series", does: "A series over a chosen window → one fact with levels and changes"}
       - {name: "polymarket_odds / web_search", does: "Odds and moves; cited search lines → facts"}
       - {name: "post_to_board / read_board", does: "Share facts with related desks"}
-    memory: {reads: ["Its goal from the Lead", "The week's Morning Notes"], writes: [], persists: "Nothing."}
+    memory: {reads: ["Its goal and trends from the Lead", "The week's Morning Notes"], writes: [], persists: "Nothing."}
 
   - id: deep_editor
     name: Deep Editor
@@ -188,12 +190,14 @@ agents:
     prompt: "castelino.agents.weekly.editor:SYSTEM"
     schema: "castelino.agents.weekly.models:WeeklyReport"
     summary: >-
-      Claude Opus 5.5 in one append-only conversation: grills every desk's findings for up to 2
-      rounds, then writes the paged Weekly Deep Dive. A number guard checks every figure.
+      Claude Opus 5.5 in one append-only conversation: grills every desk's research against the
+      week's Morning Notes for up to 2 rounds, then writes each trend as a high level (from our
+      notes) plus deep research (why, under the surface, what it means for markets, what to
+      watch). A number guard checks every figure, including chart values.
     tools:
       - {name: "Grill", does: "Questions routed back to the owning desk, answers appended"}
       - {name: "check_report (guard)", does: "Every %, bp or pp must be in the cited facts; one retry"}
-      - {name: "Chart agent (code)", does: "One series per exhibit, Editor-chosen window"}
+      - {name: "Chart agent (code)", does: "Editor-chosen form per exhibit: line, compare, release, breakdown, movers, dumbbell"}
     memory:
       reads: ["The plan, every desk's findings and facts, the board"]
       writes: ["data/deep/<week>.json — written last, marks the week done"]

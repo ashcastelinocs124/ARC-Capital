@@ -74,6 +74,14 @@ def scorecard_rows(rec: dict) -> list[list[str]]:
     ]
 
 
+PARTS = [  # each trend: the high level from our notes, then the desk's deep research
+    ("what_happened", "What happened"),
+    ("why", "Why it happened"),
+    ("under_the_surface", "Under the surface"),
+    ("market_impact", "What it means for markets"),
+    ("watch", "What to watch"),
+]
+
 COUNT_LABELS = [
     ("notes", "Morning Notes read"),
     ("agents", "Specialist agents"),
@@ -117,7 +125,12 @@ def build_weekly_doc(record: dict, uploaded: dict[str, dict]) -> dict:
     for i, s in enumerate(rep["sections"]):
         c.append(_heading(f"{i + 1}. {s['title']}", 2))
         c.append(_p(_text(s["agent"].upper())))
-        c += [_p(_text(t)) for t in s["paragraphs"]]
+        if "what_happened" not in s:  # reports written before the two-tier sections
+            c += [_p(_text(t)) for t in s.get("paragraphs", [])]
+        for key, heading in PARTS:
+            if s.get(key):
+                c.append(_heading(heading, 4))
+                c += [_p(_text(t)) for t in s[key]]
         for ch in s["challenges"]:
             said = f"“{ch['question']}” {ch['answer']} "
             c.append(_p(_bold("Editor challenged: "), _text(said), _bold(ch["verdict"])))

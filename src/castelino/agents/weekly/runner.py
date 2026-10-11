@@ -17,7 +17,7 @@ from castelino.agents.update.models import Fact
 from castelino.agents.weekly.board import Board
 from castelino.agents.weekly.editor import answers_brief, desk_brief
 from castelino.agents.weekly.guard import check_report, report_texts
-from castelino.agents.weekly.inputs import due_week, load_week, week_markdown
+from castelino.agents.weekly.inputs import due_week, load_week, note_facts, week_markdown
 from castelino.agents.weekly.models import AgentRun, GrillExchange, RunCounts, WeeklyRecord
 from castelino.agents.weekly.subagent import slug
 
@@ -118,6 +118,7 @@ class WeeklyRunner:
         inp = load_week(self.updates_dir, week, self.min_notes)
         self._gaps += inp.gaps
         week_md = week_markdown(inp)
+        notes = note_facts(self.updates_dir, inp)  # citable for each trend's high level
         plan = self.plan_fn(week, week_md, self.memory_md_fn())
 
         self._set("researching")
@@ -139,7 +140,10 @@ class WeeklyRunner:
         grill_log: list[GrillExchange] = []
         rounds = 0
         try:
-            grill = editor.open(desk_brief(week, plan, list(runs.values()), board.posts))
+            brief_md = desk_brief(
+                week, plan, list(runs.values()), board.posts, notes_md=week_md, notes=notes
+            )
+            grill = editor.open(brief_md)
             names = {slug(n): n for n in live}  # the Editor may not echo a desk name byte-for-byte
             while not grill.done and grill.questions and rounds < self.max_grill_rounds:
                 by_agent: dict[str, list] = {}
@@ -167,7 +171,7 @@ class WeeklyRunner:
             log.warning("grill stopped", exc_info=True)
             self._gaps.append(f"grill stopped early: {str(exc)[:120]}")
 
-        facts = self._facts(live)
+        facts = notes + self._facts(live)
         errors: list[str] | None = None
         for _ in range(self.max_guard_retries + 1):
             self._set("writing")

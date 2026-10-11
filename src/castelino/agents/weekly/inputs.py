@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
 
+from castelino.agents.update.models import Fact
+
 
 def week_id(d: date) -> str:
     y, w, _ = d.isocalendar()
@@ -61,6 +63,28 @@ def load_week(updates_dir: Path, week: str, min_notes: int) -> WeekInputs:
     if len(records) < min_notes:
         raise RuntimeError(f"only {len(records)} Morning Notes for {week}; need {min_notes}")
     return WeekInputs(week, start, end, days, records, gaps)
+
+
+def note_facts(updates_dir: Path, inp: WeekInputs) -> list[Fact]:
+    """The facts behind the week's Morning Note findings, re-numbered N1.. and dated.
+
+    They passed the daily number guard, so the Editor may cite them for the high-level part of
+    each trend. A day without its raw facts file just contributes none."""
+    out: list[Fact] = []
+    for day, rec in zip(inp.days, inp.records, strict=True):
+        cited = [i for f in rec.get("findings", []) for i in f.get("fact_ids", [])]
+        try:
+            raw = json.loads((Path(updates_dir) / "raw" / f"{day}.json").read_text())
+        except (OSError, ValueError):
+            continue
+        by = {r["id"]: r for r in raw if isinstance(r, dict) and "id" in r}
+        for fid in dict.fromkeys(cited):
+            if fid in by:
+                f = Fact.model_validate(by[fid])
+                out.append(
+                    f.model_copy(update={"id": f"N{len(out) + 1}", "text": f"{day}: {f.text}"})
+                )
+    return out
 
 
 def week_markdown(inp: WeekInputs) -> str:

@@ -6,20 +6,18 @@ from castelino.agents.weekly.models import (
     Bullet,
     Challenge,
     DeepPlan,
-    ExhibitPick,
     Grill,
     GrillExchange,
     GrillQuestion,
     RegimeRead,
     SubAgentSpec,
     Trend,
-    TrendSection,
     WeeklyFinding,
     WeeklyRecord,
     WeeklyReport,
 )
 from castelino.agents.weekly.runner import WeeklyRunner
-from tests.weekly_fixtures import fact
+from tests.weekly_fixtures import fact, line, trend
 
 SUN = date(2026, 10, 11)
 DAYS = ("2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09")
@@ -96,12 +94,12 @@ class FakeSession:
 
 
 def sec(title, ids, para):
-    return TrendSection(
+    return trend(
         title=title,
         agent="Rates desk",
         paragraphs=[para],
         fact_ids=ids,
-        exhibits=[ExhibitPick(fact_id=ids[0], window_days=90)],
+        exhibits=[line(ids[0], 90)],
         challenges=[Challenge(question="q", answer="Yes, 28bp.", verdict="Accepted")],
     )
 
@@ -235,3 +233,28 @@ def test_grill_question_routed_despite_desk_name_case(tmp_path):
     assert r.run_if_due() == "done"
     rec = WeeklyRecord.model_validate_json((tmp_path / "deep" / "2026-W41.json").read_text())
     assert [g.agent for g in rec.grill_log] == ["Rates desk"] and rec.counts.grill_rounds == 1
+
+
+def test_high_level_can_cite_morning_note_facts(tmp_path):
+    rep = report()
+    rep.sections[0].what_happened = ["Our Monday note: hourly earnings rose 0.1%."]
+    rep.sections[0].fact_ids = ["A1", "N1"]
+    r = runner(tmp_path, FakeEditor([rep]))  # writes the week's notes; edit them after
+    (tmp_path / "updates" / "raw").mkdir()
+    raw = [
+        {
+            "id": "M1",
+            "text": "AHE m/m +0.1%",
+            "numbers": [0.1],
+            "provenance": "data",
+            "source_title": "BLS",
+            "source_url": "u",
+        }
+    ]
+    (tmp_path / "updates" / "raw" / "2026-10-05.json").write_text(json.dumps(raw))
+    rec = json.loads((tmp_path / "updates" / "2026-10-05.json").read_text())
+    rec["findings"] = [{"id": "macro-1", "claim": "wages", "fact_ids": ["M1"]}]
+    (tmp_path / "updates" / "2026-10-05.json").write_text(json.dumps(rec))
+    assert r.run_if_due() == "done"
+    stored = WeeklyRecord.model_validate_json((tmp_path / "deep" / "2026-W41.json").read_text())
+    assert [f.id for f in stored.facts][:1] == ["N1"]

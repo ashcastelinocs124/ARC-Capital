@@ -128,8 +128,11 @@ export const fetchCrossAsset = async (): Promise<CrossAssetSnapshot | null> => {
 export interface WeeklyFact { id: string; text: string; source_title: string; source_url: string; }
 export interface WeeklyChallenge { question: string; answer: string; verdict: string; }
 export interface WeeklySection {
-  title: string; agent: string; paragraphs: string[]; fact_ids: string[];
-  exhibits: { fact_id: string; window_days: number }[]; challenges: WeeklyChallenge[];
+  title: string; agent: string; fact_ids: string[]; challenges: WeeklyChallenge[];
+  // High level (from our Morning Notes) then the desk's deep research. Reports before
+  // 2026-10-11's two-tier change only have `paragraphs`.
+  what_happened?: string[]; why?: string[]; under_the_surface?: string[]; market_impact?: string[]; watch?: string[];
+  paragraphs?: string[];
 }
 export interface WeeklyScoreRow {
   asset: string; level: number; unit: "%" | "level" | "$"; change_unit: "%" | "bp";

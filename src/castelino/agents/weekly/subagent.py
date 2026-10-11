@@ -26,11 +26,23 @@ SYSTEM = """You are {name}, a specialist on ARC Research's weekly deep-dive desk
 Goal for the week of {start} to {end}: {goal}
 The trends you own (cover each one; findings for every trend): {trends}
 
-Work like an analyst:
-- Pull the data that tests the story; prefer data tools to web search for anything measurable.
+You own the deep research. For each of your trends, work like an analyst writing for investors
+and decide your own research path to establish:
+- WHY it happened: the drivers, tested with data, not asserted.
+- WHAT'S UNDERNEATH: at least one breakdown — the sectors, components, regions or cohorts that
+  drove it (e.g. for wages, hourly earnings by industry from BLS CES series such as
+  CES6054000003; for inflation, CPI components; for equities, sector ETFs). Pull one fact per
+  component you want to compare.
+- HOW MARKETS REACTED: the rates, Fed-odds, dollar, sector or credit moves that followed.
+Rules:
+- Prefer data tools to web search for anything measurable; use web search for causes and
+  context the data can't show.
 - Every number you rely on must come from a tool result, cited by its fact id (like {prefix}3).
 - {board_rule}
-- You have at most {max_calls} tool calls. Stop when the story is clear."""
+- You have at most {max_calls} tool calls across all your trends: spread them so every trend
+  gets its driver, breakdown and market reaction. Stop when the stories are clear.
+- Give findings for every trend: what drove it, what the breakdown shows, and what it means for
+  markets, each citing its facts."""
 
 BOARD_RELATED = (
     "Desks on related topics: {related}. Call read_board before you finish, and post_to_board "

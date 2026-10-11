@@ -100,3 +100,18 @@ def test_answers_brief_includes_new_facts():
     )
     md = answers_brief([ex], {"A2": fact("A2", text="T10YIE +3bp")})
     assert "Growth?" in md and "No." in md and "[A2] T10YIE +3bp" in md
+
+
+def test_desk_brief_carries_the_weeks_notes_and_their_facts():
+    plan = DeepPlan(trends=[Trend(title="t", why="w")], agents=[])
+    md = desk_brief(
+        "2026-W41",
+        plan,
+        [],
+        [],
+        notes_md="## 2026-10-05: Yields jump",
+        notes=[fact("N1", text="2026-10-05: DGS10 +5bp")],
+    )
+    assert "## This week's Morning Notes" in md and "## 2026-10-05: Yields jump" in md
+    assert "[N1] 2026-10-05: DGS10 +5bp" in md
+    assert md.index("Morning Notes") < md.index("Trends the Lead picked")

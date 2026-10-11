@@ -33,6 +33,24 @@ function Page({ n, children, header }: { n: number; children: React.ReactNode; h
   );
 }
 
+const Para = ({ text }: { text: string }) => (
+  <p className="text-[13px] leading-[20.5px] text-text-2 mb-2.5">{text}</p>
+);
+
+// A trend page's two tiers: what we saw (our notes) vs the desk's deep research.
+const Tier = ({ children, deep }: { children: React.ReactNode; deep?: boolean }) => (
+  <div className={cn("text-[10.5px] font-bold tracking-[0.1em] uppercase text-text border-l-[3px] border-accent px-2.5 py-1.5 mb-2.5",
+    deep ? "bg-accent-soft mt-4" : "bg-surface-2 mt-1")}>{children}</div>
+);
+
+const Part = ({ title, paras }: { title: string; paras?: string[] }) =>
+  paras?.length ? (
+    <>
+      <h4 className="text-[11px] font-bold tracking-[0.1em] uppercase text-accent mt-3 mb-1">{title}</h4>
+      {paras.map((p) => <Para key={p} text={p} />)}
+    </>
+  ) : null;
+
 const Dot = () => <span className="absolute left-0 top-[7px] h-1.5 w-1.5 bg-accent" />;
 const Num = ({ n }: { n: number }) => (
   <span className="absolute left-0 top-[1px] h-[18px] w-[18px] rounded-sm bg-accent-soft text-accent text-[10.5px] font-bold flex items-center justify-center">{n}</span>
@@ -176,7 +194,19 @@ export function WeeklyReport({ rec }: { rec: WeeklyRecord }) {
               <div className="text-[10.5px] font-bold text-muted tracking-wider mb-1.5">
                 <span className="border border-border-strong px-1.5 rounded-sm text-text-2">{s.agent.toUpperCase()}</span>
               </div>
-              {s.paragraphs.map((p) => <p key={p} className="text-[13px] leading-[20.5px] text-text-2 mb-2.5">{p}</p>)}
+              {s.what_happened ? (
+                <>
+                  <Tier>High level · from this week's Morning Notes and our data</Tier>
+                  <Part title="What happened" paras={s.what_happened} />
+                  <Tier deep>Deep research · {s.agent}</Tier>
+                  <Part title="Why it happened" paras={s.why} />
+                  <Part title="Under the surface" paras={s.under_the_surface} />
+                  <Part title="What it means for markets" paras={s.market_impact} />
+                  <Part title="What to watch" paras={s.watch} />
+                </>
+              ) : (
+                (s.paragraphs ?? []).map((p) => <Para key={p} text={p} />)
+              )}
               {s.challenges.map((c) => (
                 <div key={c.question}
                   className="border border-dashed border-warning bg-warning-soft/40 rounded-md px-3 py-2 text-xs leading-[18px] text-text-2 mt-1.5">

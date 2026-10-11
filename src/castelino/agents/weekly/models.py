@@ -98,15 +98,40 @@ class Challenge(BaseModel):
     verdict: str
 
 
+ExhibitKind = Literal["line", "compare", "breakdown", "movers", "dumbbell", "release"]
+
+
+class BarPoint(BaseModel):
+    fact_id: str  # the fact the value comes from; the guard checks value is one of its numbers
+    label: str
+    value: float
+
+
 class ExhibitPick(BaseModel):
-    fact_id: str
+    """The Editor picks the form; code draws it from the cited facts' data.
+
+    line: one series over window_days · compare: 2-4 series (prices rebased to 100, rates as
+    levels) · release: one fact's release history · breakdown / movers: 2-12 bars, one value per
+    point · dumbbell: exactly 2 points (before -> after)."""
+
+    kind: ExhibitKind
+    title: str
+    fact_ids: list[str]
     window_days: int
+    points: list[BarPoint]
+    unit: Literal["%", "bp", "pp", "level", "$", ""]
 
 
 class TrendSection(BaseModel):
     title: str
     agent: str
-    paragraphs: list[str]
+    # high level, from this week's Morning Notes and our data
+    what_happened: list[str]
+    # deep research, from the desk
+    why: list[str]
+    under_the_surface: list[str]
+    market_impact: list[str]
+    watch: list[str]
     fact_ids: list[str]
     exhibits: list[ExhibitPick]
     challenges: list[Challenge]
@@ -156,6 +181,7 @@ class WeeklyExhibit(BaseModel):
     n: int
     section: int  # index into report.sections
     fact_id: str
+    kind: str = "line"
     title: str
     subtitle: str
     file: str

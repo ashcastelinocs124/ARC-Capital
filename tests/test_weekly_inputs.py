@@ -78,3 +78,35 @@ def test_markdown_carries_headlines_items_and_finding_claims(tmp_path):
     md = week_markdown(load_week(tmp_path, "2026-W41", min_notes=3))
     assert "## 2026-10-05: Headline 2026-10-05" in md
     assert "item 1: Yields jump" in md and "finding: 10y rose 12bp" in md
+
+
+def test_note_facts_are_the_facts_behind_the_notes_items(tmp_path):
+    from castelino.agents.weekly.inputs import note_facts
+
+    write_notes(tmp_path, ["2026-10-05", "2026-10-06", "2026-10-07"])
+    (tmp_path / "raw").mkdir()
+    raw = [
+        {
+            "id": "M1",
+            "text": "DGS10 1d +5bp",
+            "numbers": [5],
+            "provenance": "data",
+            "source_title": "FRED DGS10",
+            "source_url": "u",
+        },
+        {
+            "id": "M2",
+            "text": "uncited",
+            "numbers": [9],
+            "provenance": "data",
+            "source_title": "s",
+            "source_url": "u",
+        },
+    ]
+    (tmp_path / "raw" / "2026-10-05.json").write_text(json.dumps(raw))
+    rec = json.loads((tmp_path / "2026-10-05.json").read_text())
+    rec["findings"] = [{"id": "macro-1", "claim": "10y rose 12bp", "fact_ids": ["M1"]}]
+    (tmp_path / "2026-10-05.json").write_text(json.dumps(rec))
+    facts = note_facts(tmp_path, load_week(tmp_path, "2026-W41", min_notes=3))
+    assert [(f.id, f.text) for f in facts] == [("N1", "2026-10-05: DGS10 1d +5bp")]
+    assert facts[0].numbers == [5]

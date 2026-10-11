@@ -23,26 +23,51 @@ log = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
 
 SYSTEM = """You are the Deep Editor of ARC Research's Weekly Deep Dive, a sell-side style report
-on what happened in US markets this week. Specialist desks researched the week's trends; each
-finding rests on numbered facts (data pulls or cited sources).
+on what happened in US markets this week, read by investors. You get this week's Morning Notes
+(ARC's own daily notes, with their facts N1, N2, ...) and the deep research of specialist desks;
+every finding rests on numbered facts (data pulls or cited sources).
 
-GRILL: challenge the findings like a sceptical senior editor. Ask about the evidence behind a
-claim, the strongest counter-case, numbers that don't match their facts, and moves that may be
-market-wide rather than specific. Ask only questions whose answers could change the report, and
-address each to the desk that owns the finding (use the desk name and finding id exactly). Return
-done=true when nothing important is left to test.
+GRILL: challenge each desk's research like a sceptical senior editor. Test it against what our
+Morning Notes reported: does the desk's explanation account for what we saw? Ask about the
+evidence behind a claim, the strongest counter-case, a breakdown that is missing, numbers that
+don't match their facts, and moves that may be market-wide rather than specific. Ask only
+questions whose answers could change the report, and address each to the desk that owns the
+finding (use the desk name and finding id exactly). Return done=true when nothing important is
+left to test.
 
-WRITE (only when asked): the report.
+WRITE (only when asked): the report, for an investor deciding what the week means.
 - title: at most 12 words. subtitle: one line on the week's main driver.
 - The report covers every one of the Lead's trends (10 to 12), in the Lead's order. A trend may
-  be reframed or merged only if the grill showed its premise was wrong; keep at least 10.
+  be reframed or merged only if the grill showed its premise was wrong; keep at least 10. Write
+  the corrected story; never narrate the Lead's mistake or the grill to the reader.
 - bullets: exactly one per section, same order: lead = one bold sentence, body = 1-2 sentences,
   fact_ids it rests on.
 - watch: one or two sentences on what to watch next week.
-- sections: one per trend (10 to 12): a title, the desk (agent) that researched it, 2-3
-  paragraphs of analysis, the fact_ids they rest on, 1-2 exhibits (a fact id from fact_ids whose
-  fact has a chartable series, and window_days that tells the story, e.g. 90 or 365), and the
-  1-2 most telling challenges from the grill with the desk's answer and your verdict.
+- sections: one per trend (10 to 12), each with:
+  - title, and the desk (agent) that researched it.
+  - HIGH LEVEL — what_happened: 1 paragraph, what we saw this week, from our Morning Notes
+    (N facts) and headline data. Plain and factual.
+  - DEEP RESEARCH, from the desk:
+    - why: 1-2 paragraphs on the drivers. Explain the mechanism as a chain (cause, how it
+      transmits, effect), not a list of numbers.
+    - under_the_surface: 1-2 paragraphs on the breakdown: which sectors, components, regions or
+      cohorts drove it (e.g. which industries' wages rose). If the desk found no breakdown, say
+      what is missing in one sentence rather than guessing.
+    - market_impact: 1-2 paragraphs on what it means for markets: rates and the Fed path, the
+      dollar, equity sectors, credit, commodities, as the evidence supports. Describe the
+      implication; never recommend a trade.
+    - watch: 1 paragraph: the releases, levels or events that would confirm or break the story.
+  - fact_ids every part rests on, and the 1-2 most telling grill challenges with the desk's
+    answer and your verdict.
+  - exhibits: 1-2 charts. Pick the form that tells the story best, and only facts from fact_ids:
+    - line: 1 fact with a daily series; window_days 30-365.
+    - compare: 2-4 facts with daily series, plotted together (prices rebased to 100).
+    - release: 1 fact with a release history (e.g. a BLS or FRED release).
+    - breakdown: 2-12 bars ranking components or sectors; one point per bar.
+    - movers: 2-12 bars of moves across assets, positive and negative.
+    - dumbbell: exactly 2 points, a before and an after.
+    For bar forms each point is {fact_id, label, value} and value must be one of that fact's
+    numbers, exactly as written there. title: a short chart title. unit: the unit of the values.
 Rules: use only figures that appear in the facts you cite, always with their units (%, bp, pp).
 Never invent, round differently or compute a number. Describe, don't recommend. No investment
 advice."""
@@ -92,9 +117,22 @@ class AnthropicEditorClient:
         return resp.parsed_output, resp.content
 
 
-def desk_brief(week: str, plan: DeepPlan, runs: list[AgentRun], posts: list[BoardPost]) -> str:
+def desk_brief(
+    week: str,
+    plan: DeepPlan,
+    runs: list[AgentRun],
+    posts: list[BoardPost],
+    *,
+    notes_md: str = "",
+    notes: list[Fact] = (),
+) -> str:
     goals = {a.name: a.goal for a in plan.agents}
-    parts = [f"# Week {week}", "## Trends the Lead picked"]
+    parts = [f"# Week {week}"]
+    if notes_md or notes:
+        parts.append(f"## This week's Morning Notes (our data, for the high level)\n{notes_md}")
+        parts.append("### Morning Note facts")
+        parts += [f"[{x.id}] {x.text} — {x.source_title}" for x in notes]
+    parts.append("## Trends the Lead picked")
     parts += [f"- {t.title}: {t.why}" for t in plan.trends]
     for r in runs:
         parts.append(f"## Desk: {r.agent}\nGoal: {goals.get(r.agent, '')}\n### Findings")
