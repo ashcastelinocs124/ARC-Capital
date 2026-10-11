@@ -100,7 +100,7 @@ export function MorningNote({ rec }: { rec: DailyRecordV2 }) {
         );
       })}
       <div className="text-[10.5px] text-muted border-t border-border mt-2 pt-3 leading-4">
-        Written by ARC Research's Daily Update agents (Macro, News, Alt{rec.findings.some((f) => f.agent === "ai") && ", AI analyst"}) and checked by a number guard: every figure
+        Written by ARC Research's Memo agents (Macro, News, Alt{rec.findings.some((f) => f.agent === "ai") && ", AI analyst"}) and checked by a number guard: every figure
         above appears in the cited source data. Not investment advice.
         {rec.backfilled && <> Rebuilt on {rec.generated_at.slice(0, 10)} with the multi-agent desk, using data as of {rec.date}; news and X were searched for that date.</>}
         {rec.data_gaps.length > 0 && <> Sources unavailable: {rec.data_gaps.join("; ")}.</>}

@@ -71,7 +71,7 @@ export function EconomicReleasesCard({ subtitle }: { subtitle?: string }) {
       <CardHeader>
         <CardTitle>Economic releases</CardTitle>
         <span className="text-xs text-muted">
-          {subtitle ?? "from the latest Daily Update"}{rec ? ` · ${rec.date}` : ""}
+          {subtitle ?? "from the latest Memo"}{rec ? ` · ${rec.date}` : ""}
         </span>
       </CardHeader>
       <CardContent className="p-0">

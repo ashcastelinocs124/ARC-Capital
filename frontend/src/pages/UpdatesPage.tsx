@@ -283,7 +283,7 @@ function OnSiteUpdates() {
       {items.length > 0 && <PastUpdates items={items} current={rec?.date} onPick={open} />}
       <div className="min-w-0">
         <div className="flex items-baseline justify-between gap-3 mb-3">
-          <div className="text-xs text-muted">{rec ? `Briefing for ${rec.date} · generated ${rec.generated_at.replace("T", " ").slice(0, 16)}` : "Daily Update"}</div>
+          <div className="text-xs text-muted">{rec ? `Briefing for ${rec.date} · generated ${rec.generated_at.replace("T", " ").slice(0, 16)}` : "Memo"}</div>
           {rec && (
             <div className="shrink-0 flex items-center gap-4 no-print">
               <button onClick={downloadPdf} className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent-hover">
@@ -323,7 +323,7 @@ export default function UpdatesPage() {
     return (
       <>
         <Link to="/updates" className="block px-4 pt-4 text-xs font-medium text-accent hover:text-accent-hover md:px-8 md:pt-6">
-          ‹ Back to Daily Update
+          ‹ Back to Memo
         </Link>
         <OnSiteUpdates />
       </>
