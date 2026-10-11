@@ -338,13 +338,13 @@ function Hero() {
           </div>
         </div>
         {latest && (
-          <a href={latest.url} target="_blank" rel="noopener noreferrer" className="group mt-6 flex max-w-xl items-center gap-4">
-            <span className="grid aspect-video w-48 shrink-0 place-items-center overflow-hidden rounded-xl shadow-md sm:w-60 bg-gradient-to-br from-[#0b3d24] via-accent to-[#9ad7b6] text-white">
+          <a href={latest.url} target="_blank" rel="noopener noreferrer" className="group mt-6 flex max-w-3xl flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
+            <span className="grid aspect-video w-full shrink-0 place-items-center overflow-hidden rounded-xl shadow-md sm:w-[400px] bg-gradient-to-br from-[#0b3d24] via-accent to-[#9ad7b6] text-white">
               {latest.thumbnail ? <img src={latest.thumbnail} alt="" className="col-start-1 row-start-1 h-full w-full object-cover" /> : null}
-              <Play className="col-start-1 row-start-1 h-8 w-8 fill-current drop-shadow" />
+              <Play className="col-start-1 row-start-1 h-12 w-12 fill-current drop-shadow" />
             </span>
             <span>
-              <span className="block text-base font-semibold text-text group-hover:text-accent">{latest.title}</span>
+              <span className="block text-lg font-semibold text-text group-hover:text-accent">{latest.title}</span>
               <span className="text-xs text-muted">Watch the latest video · opens Substack ↗</span>
             </span>
           </a>
