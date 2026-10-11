@@ -5,8 +5,8 @@ import { cn } from "@/lib/cn";
 const TABS: [string, string][] = [
   ["/models", "Models"],
   ["/macro", "Macro & Signals"],
-  ["/deep-research", "Deep Research"],
   ["/updates", "Daily Update"],
+  ["/deep-research", "Deep Research"],
   ["/videos", "Videos"],
   ["/agents", "Agents"],
   ["/docs", "Docs"],
