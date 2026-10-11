@@ -80,6 +80,7 @@ from castelino.dashboard.endpoints import (  # noqa: E402
     adoption,
     agent_catalog,
     cross_asset,
+    daily_posts,
     deep_research,
     macro,
     models,
@@ -99,6 +100,7 @@ app.include_router(adoption.router)
 app.include_router(cross_asset.router)
 app.include_router(refresh.router)
 app.include_router(videos.router)
+app.include_router(daily_posts.router)
 
 
 # ── Frontend static files ──────────────────────────────────────────────────

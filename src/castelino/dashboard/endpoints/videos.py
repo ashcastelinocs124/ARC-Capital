@@ -18,6 +18,17 @@ POST_PREFIX = "https://archresearch.substack.com/p/"
 _CONTENT = "{http://purl.org/rss/1.0/modules/content/}encoded"
 _TTL_S = 3600
 _cache: tuple[float, list[dict]] = (0.0, [])
+_feed: tuple[float, str] = (0.0, "")
+
+
+def feed_xml() -> str:
+    """The Substack RSS text, cached for an hour (also read by /daily_posts). Raises on a network error."""
+    global _feed
+    if time.time() - _feed[0] >= _TTL_S:
+        r = httpx.get(FEED, timeout=20, follow_redirects=True)
+        r.raise_for_status()
+        _feed = (time.time(), r.text)
+    return _feed[1]
 
 
 def parse_videos(xml: str, archive: list[dict] | None = None) -> list[dict]:
@@ -65,13 +76,12 @@ def videos():
     if time.time() - _cache[0] < _TTL_S:
         return _cache[1]
     try:
-        r = httpx.get(FEED, timeout=20, follow_redirects=True)
-        r.raise_for_status()
+        xml = feed_xml()
         try:
             archive = httpx.get(ARCHIVE, timeout=20).json()
         except (httpx.HTTPError, ValueError):
             archive = []  # thumbnails and durations are optional
-        _cache = (time.time(), parse_videos(r.text, archive))
+        _cache = (time.time(), parse_videos(xml, archive))
     except (httpx.HTTPError, ET.ParseError, ValueError):
         return _cache[
             1

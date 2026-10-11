@@ -137,3 +137,16 @@ export const fetchVideos = async (): Promise<Video[]> => {
   const data = await api.get<Video[]>("/videos"); // the client maps a 404 to []
   return Array.isArray(data) ? data : [];
 };
+
+// ── Daily Note posts (Substack) ──────────────────────────────────────────
+export interface DailyPost {
+  date: string; // the note's day, YYYY-MM-DD
+  title: string;
+  takeaways: string[];
+  image: string | null;
+  url: string; // post on archresearch.substack.com
+}
+export const fetchDailyPosts = async (): Promise<DailyPost[]> => {
+  const data = await api.get<DailyPost[]>("/daily_posts"); // the client maps a 404 to []
+  return Array.isArray(data) ? data : [];
+};

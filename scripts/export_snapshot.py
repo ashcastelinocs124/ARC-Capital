@@ -38,6 +38,7 @@ PATHS = [
     "/research",
     "/refresh/status",
     "/videos",
+    "/daily_posts",
 ]
 
 

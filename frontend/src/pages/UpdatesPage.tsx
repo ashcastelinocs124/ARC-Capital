@@ -1,9 +1,11 @@
-import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { Download, Link2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { isV2, type DailyRecord } from "@/api/endpoints";
 import { MorningNote } from "@/components/MorningNote";
+import { DailyPostsFeed } from "@/components/DailyPostsFeed";
+import { useDailyPosts } from "@/hooks/useDailyPosts";
 import { ACTIVE_STAGES, useLatestUpdate, useUpdateByDate, useUpdateHistory, useUpdateStatus } from "@/hooks/useUpdate";
 import { cn } from "@/lib/cn";
 import { EconomicReleasesTable, isRecord } from "@/components/EconomicReleasesCard";
@@ -232,7 +234,7 @@ function PastUpdates({ items, current, onPick }: {
   );
 }
 
-export default function UpdatesPage() {
+function OnSiteUpdates() {
   const { data: status } = useUpdateStatus();
   const stage = status?.stage;
   // the shared API client maps 404 to [] (see api/client.ts), so "no briefing" arrives as an array
@@ -301,4 +303,34 @@ export default function UpdatesPage() {
       </div>
     </div>
   );
+}
+
+// /updates lists the published Substack daily notes. ?date= (the link in each Substack draft) opens that day's
+// Substack post when it is published, else the on-site note from before Substack.
+export default function UpdatesPage() {
+  const wanted = useSearchParams()[0].get("date");
+  const { data: posts, isLoading } = useDailyPosts();
+  const { data: history } = useUpdateHistory(undefined);
+  const post = wanted ? posts?.find((p) => p.date === wanted) : undefined;
+  useEffect(() => {
+    if (post) window.location.replace(post.url);
+  }, [post]);
+
+  if (wanted) {
+    if (isLoading || post) return <div className="p-8 text-sm text-muted">Opening the Substack post…</div>;
+    return (
+      <>
+        <Link to="/updates" className="block px-4 pt-4 text-xs font-medium text-accent hover:text-accent-hover md:px-8 md:pt-6">
+          ‹ Back to Daily Update
+        </Link>
+        <OnSiteUpdates />
+      </>
+    );
+  }
+  const onSubstack = new Set((posts ?? []).map((p) => p.date));
+  // A 404 arrives as [] (api/client.ts), and older backends send dates without items.
+  const items = history && !Array.isArray(history)
+    ? history.items ?? (Array.isArray(history.dates) ? history.dates.map((date) => ({ date, headline: "" })) : [])
+    : [];
+  return <DailyPostsFeed posts={posts ?? []} loading={isLoading} earlier={items.filter((it) => !onSubstack.has(it.date))} />;
 }
