@@ -5,7 +5,9 @@ import type { Video } from "@/api/endpoints";
 const fmt = (d: string) =>
   new Date(`${d}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
-// Substack gives no thumbnail for an uploaded video, so a post without an image gets the brand gradient.
+export const clock = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+
+// A post without a cover image (a video embedded in a newsletter) gets the brand gradient.
 export function VideoCard({ v }: { v: Video }) {
   return (
     <a href={v.url} target="_blank" rel="noopener noreferrer" className="card group block overflow-hidden p-0 transition-shadow hover:shadow-card-hover">
@@ -16,6 +18,11 @@ export function VideoCard({ v }: { v: Video }) {
             <Play className="h-5 w-5 fill-current" />
           </span>
         </span>
+        {v.duration && (
+          <span className="absolute bottom-2 right-2 rounded-md bg-black/65 px-1.5 py-0.5 text-[11px] font-semibold text-white">
+            {clock(v.duration)}
+          </span>
+        )}
       </div>
       <div className="p-5">
         <div className="flex items-center justify-between">

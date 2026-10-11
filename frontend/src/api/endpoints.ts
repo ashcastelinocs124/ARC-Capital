@@ -131,6 +131,7 @@ export interface Video {
   date: string; // YYYY-MM-DD
   summary: string;
   thumbnail: string | null;
+  duration: number | null; // seconds
 }
 export const fetchVideos = async (): Promise<Video[]> => {
   const data = await api.get<Video[]>("/videos"); // the client maps a 404 to []

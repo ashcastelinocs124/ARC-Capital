@@ -15,7 +15,14 @@ FEED = """<rss xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel
 
 
 def test_parse_videos_keeps_only_video_posts_on_the_substack():
-    vids = parse_videos(FEED)
+    cover = "https://substack-video.s3.amazonaws.com/v/transcoded-00001.png"
+    vids = parse_videos(
+        FEED, [{"slug": "neolabs", "cover_image": cover, "podcast_duration": 2170.6}]
+    )
     assert [v["title"] for v in vids] == ["Neolabs", "Weekly"]
-    assert vids[0]["date"] == "2026-10-07" and vids[0]["thumbnail"] is None
-    assert vids[1]["thumbnail"] == "https://cdn/x.png"
+    assert (
+        vids[0]["date"] == "2026-10-07"
+        and vids[0]["thumbnail"] == cover
+        and vids[0]["duration"] == 2171
+    )
+    assert vids[1]["thumbnail"] is None and vids[1]["duration"] is None

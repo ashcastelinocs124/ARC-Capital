@@ -13,15 +13,17 @@ from fastapi import APIRouter
 router = APIRouter()
 
 FEED = "https://archresearch.substack.com/feed"
+ARCHIVE = "https://archresearch.substack.com/api/v1/archive?sort=new&limit=50"  # has video covers and durations
 POST_PREFIX = "https://archresearch.substack.com/p/"
 _CONTENT = "{http://purl.org/rss/1.0/modules/content/}encoded"
 _TTL_S = 3600
 _cache: tuple[float, list[dict]] = (0.0, [])
 
 
-def parse_videos(xml: str) -> list[dict]:
+def parse_videos(xml: str, archive: list[dict] | None = None) -> list[dict]:
     """A post counts as a video when it has a native video embed, a YouTube/Vimeo iframe or an
     audio enclosure (Substack attaches the soundtrack of an uploaded video as audio/mpeg)."""
+    meta = {p.get("slug"): p for p in archive or []}
     out = []
     for item in ET.fromstring(xml).iter("item"):
         link = (item.findtext("link") or "").strip()
@@ -34,8 +36,9 @@ def parse_videos(xml: str) -> list[dict]:
         )
         if not is_video or not link.startswith(POST_PREFIX):  # the link is rendered as an href
             continue
-        img = re.search(r'<img[^>]+src="(https://[^"]+)"', body)
-        thumb = img.group(1) if img and ".svg" not in img.group(1) else None
+        post = meta.get(link.rsplit("/", 1)[-1], {})
+        cover = post.get("cover_image") or ""
+        thumb = cover if cover.startswith("https://substack-video.s3.amazonaws.com/") else None
         date = parsedate_to_datetime(item.findtext("pubDate") or "").date().isoformat()
         out.append(
             {
@@ -44,6 +47,9 @@ def parse_videos(xml: str) -> list[dict]:
                 "date": date,
                 "summary": (item.findtext("description") or "").strip(),
                 "thumbnail": thumb,
+                "duration": round(post["podcast_duration"])
+                if post.get("podcast_duration")
+                else None,
             }
         )
     return out
@@ -57,7 +63,11 @@ def videos():
     try:
         r = httpx.get(FEED, timeout=20, follow_redirects=True)
         r.raise_for_status()
-        _cache = (time.time(), parse_videos(r.text))
+        try:
+            archive = httpx.get(ARCHIVE, timeout=20).json()
+        except (httpx.HTTPError, ValueError):
+            archive = []  # thumbnails and durations are optional
+        _cache = (time.time(), parse_videos(r.text, archive))
     except (httpx.HTTPError, ET.ParseError, ValueError):
         return _cache[
             1
