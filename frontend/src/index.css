@@ -63,5 +63,8 @@
   #report { position: absolute; left: 0; top: 0; width: 100%; }
   #report article { border: 0; box-shadow: none; }
   #report section { break-inside: avoid; }
+  /* Weekly Deep Dive: one report page per printed page */
+  #report .weekly-page { break-after: page; break-inside: auto; box-shadow: none; }
+  #report .weekly-page:last-child { break-after: auto; }
   .no-print { display: none !important; }
 }
