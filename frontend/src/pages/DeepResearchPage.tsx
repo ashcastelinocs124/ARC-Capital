@@ -234,7 +234,7 @@ export default function DeepResearchPage() {
 
   const { data: catalog } = useAgentCatalog();
   const keyMissing = catalog?.agents
-    .find((a) => a.id === "deep_sub_agent")?.dependencies.find((d) => d.key === "OPENAI_API_KEY")?.set === false;
+    ?.find((a) => a.id === "deep_sub_agent")?.dependencies?.find((d) => d.key === "OPENAI_API_KEY")?.set === false;
 
   const { data: listRaw } = useQuery({
     queryKey: ["research_list"],
