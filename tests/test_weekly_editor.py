@@ -58,7 +58,12 @@ def test_failed_call_leaves_user_turn_and_history_stays_valid():
 
 def test_desk_brief_lists_trends_findings_facts_and_board():
     spec = SubAgentSpec(
-        name="Rates desk", description="d", goal="Explain 10y", tools=["fred_series"], related=[]
+        name="Rates desk",
+        description="d",
+        goal="Explain 10y",
+        tools=["fred_series"],
+        related=[],
+        trends=["Long end reprices"],
     )
     plan = DeepPlan(trends=[Trend(title="Long end reprices", why="biggest move")], agents=[spec])
     f = fact("A1", nums=(28,), text="DGS10 change +28bp")

@@ -149,9 +149,11 @@ class DeepDiveCfg(BaseModel):
     search_model: str = "gpt-6-luna"  # their web_search calls
     editor_model: str = "claude-opus-5-5"
     editor_effort: str = "high"  # Opus 5.5 defaults to medium; the grill needs high
-    editor_max_tokens: int = 32000
-    max_agents: int = 4
-    max_tool_calls: int = 12  # per sub-agent research run
+    editor_max_tokens: int = 64000  # 10-12 trend sections in one structured reply
+    min_trends: int = 10  # a weekly covers the whole week: 10-12 trends, 2-3 per desk
+    max_trends: int = 12
+    max_agents: int = 5
+    max_tool_calls: int = 16  # per sub-agent research run (a desk covers 2-3 trends)
     max_answer_tool_calls: int = 4  # extra calls per grill answer
     max_findings_per_agent: int = 6
     max_grill_rounds: int = 2

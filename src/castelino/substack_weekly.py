@@ -103,7 +103,10 @@ def build_weekly_doc(record: dict, uploaded: dict[str, dict]) -> dict:
         read = f"Pulse P(expansion) {reg['pulse']:.0f}% · Pressure P(CPI accelerates) {reg['pressure']:.0f}%"
         c.append(_p(_bold("ARC regime read: "), _text(read)))
     agents = record.get("plan", {}).get("agents", [])
-    desks = "; ".join(f"{a['name']} ({a['description']})" for a in agents)
+    desks = "; ".join(
+        f"{a['name']} ({', '.join(a['trends']) if a.get('trends') else a['description']})"
+        for a in agents
+    )
     c.append(_p(_bold("Research desk: "), _text(desks)))
     for name in ("scorecard.png", "counts.png"):
         if name in uploaded:

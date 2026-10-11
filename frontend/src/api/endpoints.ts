@@ -137,7 +137,10 @@ export interface WeeklyScoreRow {
 }
 export interface WeeklyRecord {
   version: 1; week: string; start: string; end: string; generated_at: string;
-  plan: { trends: { title: string; why: string }[]; agents: { name: string; description: string; goal: string; tools: string[] }[] };
+  plan: {
+    trends: { title: string; why: string }[];
+    agents: { name: string; description: string; goal: string; tools: string[]; trends?: string[] }[]; // trends: older records lack it
+  };
   facts: WeeklyFact[];
   findings: { id: string; agent: string }[];
   grill_log: { agent: string; finding_id: string; question: string; answer: string }[];

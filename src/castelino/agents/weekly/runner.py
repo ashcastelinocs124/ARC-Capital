@@ -22,7 +22,7 @@ from castelino.agents.weekly.models import AgentRun, GrillExchange, RunCounts, W
 from castelino.agents.weekly.subagent import slug
 
 log = logging.getLogger(__name__)
-PREFIXES = "ABCD"
+PREFIXES = "ABCDE"  # one fact-id letter per desk (max 5)
 _STALE_LOCK_SECONDS = 2 * 60 * 60
 ET = ZoneInfo("America/New_York")
 

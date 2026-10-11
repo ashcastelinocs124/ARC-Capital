@@ -20,6 +20,7 @@ SPEC = SubAgentSpec(
     goal="Explain the 10y move",
     tools=["fred_series"],
     related=["AI & chips desk"],
+    trends=["Long end reprices", "Fed pause priced"],
 )
 DGS10 = call("fred_series", {"series_id": "DGS10", "start": "2026-07-01"})
 
@@ -72,6 +73,8 @@ def test_run_executes_tools_then_keeps_only_findings_citing_real_facts():
     out = second["input"][0]
     assert out["type"] == "function_call_output" and out["call_id"] == "c1"
     assert "read_board" in client.responses.create_calls[0]["instructions"]
+    # the desk is told which of the week's trends it owns
+    assert "Long end reprices; Fed pause priced" in client.responses.create_calls[0]["instructions"]
 
 
 def test_exhausted_budget_turns_tools_off():

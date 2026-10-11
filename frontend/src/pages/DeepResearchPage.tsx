@@ -313,10 +313,10 @@ export default function DeepResearchPage() {
   return (
     <div className="p-4 md:p-8 space-y-5">
       <PageIntro kicker="Deep Research" title="A deep dive into what happened in the markets this week"
-        steps={["Morning Notes", "Lead picks the trends", "Up to 4 specialist agents pull the data", "Editor challenges each finding", "Report + exhibits"]}
+        steps={["Morning Notes", "Lead picks 10–12 trends", "5 specialist agents pull the data", "Editor challenges each finding", "Report + exhibits"]}
         highlight={3} when={{ label: "Next report", value: nextSunday(), note: "Covers Monday–Friday" }}>
-        Every Sunday morning, ARC's research desk reads the week's Morning Notes, picks the three or four stories that
-        mattered most, and sends a specialist agent to pull the data behind each one. An editor then challenges every
+        Every Sunday morning, ARC's research desk reads the week's Morning Notes, picks the 10 to 12 stories that
+        mattered, and splits them across five specialist agents that pull the data behind each one. An editor then challenges every
         finding before writing it up. Every number in the report traces back to a cited data series.
       </PageIntro>
     <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5 items-start">

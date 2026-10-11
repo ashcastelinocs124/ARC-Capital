@@ -24,6 +24,7 @@ from castelino.agents.weekly.tools import ToolBox
 SYSTEM = """You are {name}, a specialist on ARC Research's weekly deep-dive desk.
 {description}
 Goal for the week of {start} to {end}: {goal}
+The trends you own (cover each one; findings for every trend): {trends}
 
 Work like an analyst:
 - Pull the data that tests the story; prefer data tools to web search for anything measurable.
@@ -105,6 +106,7 @@ class AgentSession:
             start=start,
             end=end,
             goal=spec.goal,
+            trends="; ".join(spec.trends) or "(as in your goal)",
             prefix=toolbox.prefix,
             board_rule=rule,
             max_calls=toolbox.max_calls,

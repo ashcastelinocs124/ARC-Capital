@@ -17,7 +17,9 @@ def report_texts(r: WeeklyReport) -> list[str]:
     return out
 
 
-def check_report(report: WeeklyReport, facts: list[Fact]) -> list[str]:
+def check_report(
+    report: WeeklyReport, facts: list[Fact], *, sections: tuple[int, int] = (10, 12)
+) -> list[str]:
     by = {f.id: f for f in facts}
     every = {n for f in facts for n in f.numbers}
     errs: list[str] = []
@@ -26,10 +28,12 @@ def check_report(report: WeeklyReport, facts: list[Fact]) -> list[str]:
         errs.extend(f"{where}: unknown fact {i}" for i in ids if i not in by)
         return {n for i in ids if i in by for n in by[i].numbers}
 
-    if not 2 <= len(report.sections) <= 4:
-        errs.append(f"need 2 to 4 sections, got {len(report.sections)}")
-    if not report.bullets:
-        errs.append("need at least one bullet")
+    lo, hi = sections
+    n_sec, n_bul = len(report.sections), len(report.bullets)
+    if not lo <= n_sec <= hi:
+        errs.append(f"need {lo} to {hi} sections, got {n_sec}")
+    if n_bul != n_sec:
+        errs.append(f"need one bullet per section: {n_bul} bullets, {n_sec} sections")
     for k, b in enumerate(report.bullets, 1):
         n = nums(b.fact_ids, f"bullet {k}")
         errs += [f"bullet {k}: {t}" for t in unsupported([b.lead, b.body], n)]

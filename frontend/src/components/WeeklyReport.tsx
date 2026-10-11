@@ -34,6 +34,9 @@ function Page({ n, children, header }: { n: number; children: React.ReactNode; h
 }
 
 const Dot = () => <span className="absolute left-0 top-[7px] h-1.5 w-1.5 bg-accent" />;
+const Num = ({ n }: { n: number }) => (
+  <span className="absolute left-0 top-[1px] h-[18px] w-[18px] rounded-sm bg-accent-soft text-accent text-[10.5px] font-bold flex items-center justify-center">{n}</span>
+);
 
 /** The Weekly Deep Dive as report pages: page 1 the week at a glance, then one trend per page. */
 export function WeeklyReport({ rec }: { rec: WeeklyRecord }) {
@@ -42,6 +45,9 @@ export function WeeklyReport({ rec }: { rec: WeeklyRecord }) {
   const challenged = (name: string) => rec.grill_log.filter((g) => g.agent === name).length;
   // a desk that failed returned no findings: it isn't part of this report's desk
   const desks = rec.plan.agents.filter((a) => rec.findings.some((f) => f.agent === a.name));
+  // The Editor writes sections in the Lead's trend order, so a trend's number is its position.
+  const trendNo = (title: string) => rec.plan.trends.findIndex((t) => t.title === title) + 1;
+  const short = (t: string) => (t.length > 28 ? `${t.slice(0, 27).trimEnd()}…` : t);
   const lead = rec.exhibits.find((e) => e.section === 0);
   const facts = Object.fromEntries(rec.facts.map((f) => [f.id, f]));
   const cited = [...new Set([...r.sections.flatMap((s) => s.fact_ids), ...r.bullets.flatMap((b) => b.fact_ids)])]
@@ -69,16 +75,16 @@ export function WeeklyReport({ rec }: { rec: WeeklyRecord }) {
             <div className="text-[15px] text-text-2 mt-2.5 mb-4">
               Week {rec.week.split("-W")[1]} ({SHORT.format(d(rec.start))}–{SHORT.format(d(rec.end))}): {r.subtitle}
             </div>
-            <ul className="space-y-3">
-              {r.bullets.map((b) => (
-                <li key={b.lead} className="relative pl-4 text-[13px] leading-5 text-text-2">
-                  <Dot /><b className="text-text">{b.lead}</b> {b.body}
+            <ol className="space-y-2">
+              {r.bullets.map((b, i) => (
+                <li key={b.lead} className="relative pl-7 text-[12.8px] leading-[19px] text-text-2">
+                  <Num n={i + 1} /><b className="text-text">{b.lead}</b> {b.body}
                 </li>
               ))}
-              <li className="relative pl-4 text-[13px] leading-5 text-text-2">
-                <Dot /><b className="text-text">What to watch next week.</b> {r.watch}
-              </li>
-            </ul>
+            </ol>
+            <p className="relative pl-4 mt-3 text-[12.8px] leading-[19px] text-text-2">
+              <Dot /><b className="text-text">What to watch next week.</b> {r.watch}
+            </p>
           </div>
           <aside className="space-y-3 text-xs">
             {rec.regime.pulse !== null && (
@@ -90,13 +96,22 @@ export function WeeklyReport({ rec }: { rec: WeeklyRecord }) {
               </div>
             )}
             <div className="border-b border-border pb-3">
-              <div className="font-semibold text-[12.5px] mb-1.5">Research desk</div>
+              <div className="font-semibold text-[12.5px] mb-1.5">Research desk · {desks.length} desks</div>
               {desks.map((a) => (
-                <div key={a.name} className="mb-1.5 leading-[17px]">
+                <div key={a.name} className="mb-2 leading-[17px]">
                   <b className="block">{a.name}</b>
                   <span className="text-muted text-[11px]">
-                    {a.description}{rec.models.agents ? ` · ${rec.models.agents}` : ""} · challenged {challenged(a.name)}×
+                    {rec.models.agents ?? ""}{rec.models.agents ? " · " : ""}challenged {challenged(a.name)}×
                   </span>
+                  {!!a.trends?.length && (
+                    <div className="mt-0.5 flex flex-wrap gap-1">
+                      {a.trends.map((t) => (
+                        <span key={t} title={t} className="border border-border-strong rounded-sm px-1 text-[10.5px] text-text-2">
+                          {trendNo(t) ? `${trendNo(t)} ` : ""}{short(t)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
               <div className="leading-[17px]">

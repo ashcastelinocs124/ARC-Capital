@@ -22,6 +22,7 @@ class SubAgentSpec(BaseModel):
     goal: str
     tools: list[ToolName]
     related: list[str]
+    trends: list[str]  # titles of the Lead's trends this desk owns (2-3)
 
 
 class DeepPlan(BaseModel):

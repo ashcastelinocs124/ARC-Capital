@@ -37,13 +37,21 @@ def notes(d, days=DAYS):
         (d / f"{day}.json").write_text(json.dumps(rec))
 
 
-def spec(name):
-    return SubAgentSpec(name=name, description="d", goal="g", tools=["fred_series"], related=[])
+def spec(name, trends=()):
+    return SubAgentSpec(
+        name=name,
+        description="d",
+        goal="g",
+        tools=["fred_series"],
+        related=[],
+        trends=list(trends),
+    )
 
 
+DESKS = ["Rates desk", "Chips desk", "Energy desk", "Breadth desk", "Broken desk"]
 PLAN = DeepPlan(
-    trends=[Trend(title="Long end", why="w"), Trend(title="Chips", why="w")],
-    agents=[spec("Rates desk"), spec("Chips desk"), spec("Broken desk")],
+    trends=[Trend(title=f"t{i}", why="w") for i in range(10)],
+    agents=[spec(n, [f"t{2 * k}", f"t{2 * k + 1}"]) for k, n in enumerate(DESKS)],
 )
 
 
@@ -99,16 +107,19 @@ def sec(title, ids, para):
 
 
 def report(paragraph="Chips rallied even as the 10y rose 28bp."):
-    # section 2 cites the Rates desk's fact A1 that the Chips desk read from the board
+    # section 2 cites the Rates desk's fact A1 that the Chips desk read from the board;
+    # a weekly has 10-12 trend sections, so 8 more fill it out
+    sections = [
+        sec("Long end", ["A1"], "The 10y rose 28bp."),
+        sec("Chips", ["B1", "A1"], paragraph),
+        *(sec(f"Trend {i}", ["C1"], "Up 28bp.") for i in range(3, 11)),
+    ]
     return WeeklyReport(
         title="Yields up",
         subtitle="s",
         watch="CPI.",
-        bullets=[Bullet(lead="Up 28bp.", body="b", fact_ids=["A1"])],
-        sections=[
-            sec("Long end", ["A1"], "The 10y rose 28bp."),
-            sec("Chips", ["B1", "A1"], paragraph),
-        ],
+        bullets=[Bullet(lead="Up 28bp.", body="b", fact_ids=["A1"]) for _ in sections],
+        sections=sections,
     )
 
 
@@ -163,7 +174,9 @@ def test_full_run_writes_record_last_with_gaps_and_board_facts(tmp_path):
     assert rec.week == "2026-W41" and rec.start == "2026-10-05" and rec.end == "2026-10-09"
     assert any("Broken desk agent failed" in g for g in rec.data_gaps)
     assert [g.agent for g in rec.grill_log] == ["Rates desk"]  # failed/unknown desks skipped
-    assert rec.counts.agents == 2 and rec.counts.board_posts == 1
+    # five desks staffed (prefixes A-E); the fifth, Broken desk, failed
+    assert rec.counts.agents == 4 and rec.counts.board_posts == 1
+    assert len(rec.report.sections) == 10
     assert rec.counts.grill_rounds == 1
     assert rec.counts.figures_checked >= 4 and rec.regime.pulse == 64
     assert json.loads((tmp_path / "deep" / "status.json").read_text())["stage"] == "done"

@@ -20,7 +20,8 @@ def test_deep_dive_config_defaults():
         "gpt-6-luna",
         "claude-opus-5-5",
     )
-    assert (dd.max_agents, dd.max_tool_calls, dd.max_grill_rounds) == (4, 12, 2)
+    assert (dd.max_agents, dd.max_tool_calls, dd.max_grill_rounds) == (5, 16, 2)
+    assert (dd.min_trends, dd.max_trends, dd.editor_max_tokens) == (10, 12, 64000)
     assert dd.editor_effort == "high" and dd.data_dir == "data/deep"
 
 
@@ -32,7 +33,7 @@ def test_anthropic_key_missing_raises(monkeypatch):
 
 def test_unknown_tool_rejected():
     with pytest.raises(ValidationError):
-        SubAgentSpec(name="X", description="d", goal="g", tools=["shell"], related=[])
+        SubAgentSpec(name="X", description="d", goal="g", tools=["shell"], related=[], trends=["t"])
 
 
 def test_record_round_trips():
@@ -40,7 +41,12 @@ def test_record_round_trips():
         trends=[Trend(title="t", why="w")],
         agents=[
             SubAgentSpec(
-                name="Rates desk", description="d", goal="g", tools=["fred_series"], related=[]
+                name="Rates desk",
+                description="d",
+                goal="g",
+                tools=["fred_series"],
+                related=[],
+                trends=["t"],
             )
         ],
     )

@@ -34,9 +34,12 @@ done=true when nothing important is left to test.
 
 WRITE (only when asked): the report.
 - title: at most 12 words. subtitle: one line on the week's main driver.
-- bullets: one per trend: lead = one bold sentence, body = 2-3 sentences, fact_ids it rests on.
+- The report covers every one of the Lead's trends (10 to 12), in the Lead's order. A trend may
+  be reframed or merged only if the grill showed its premise was wrong; keep at least 10.
+- bullets: exactly one per section, same order: lead = one bold sentence, body = 1-2 sentences,
+  fact_ids it rests on.
 - watch: one or two sentences on what to watch next week.
-- sections: one per trend (2 to 4 sections): a title, the desk (agent) that researched it, 2-4
+- sections: one per trend (10 to 12): a title, the desk (agent) that researched it, 2-3
   paragraphs of analysis, the fact_ids they rest on, 1-2 exhibits (a fact id from fact_ids whose
   fact has a chartable series, and window_days that tells the story, e.g. 90 or 365), and the
   1-2 most telling challenges from the grill with the desk's answer and your verdict.
