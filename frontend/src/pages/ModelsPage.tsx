@@ -312,26 +312,35 @@ class CardBoundary extends Component<{ name: string; children: ReactNode }, { fa
   }
 }
 
+const HERO_CHIPS = ["Macro", "AI", "Semiconductors", "Markets"];
+
 function Hero() {
   const latest = useVideos().data?.[0];
   return (
-    <section className="rounded-3xl border border-border bg-surface bg-[radial-gradient(120%_140%_at_100%_0%,#e6f4ec_0%,rgba(230,244,236,0)_55%)] px-6 py-6 md:px-8">
-      <div className="eyebrow">ARC Research · Models</div>
-      <h1 className="mt-2 max-w-2xl text-2xl font-bold leading-tight tracking-tight text-text md:text-3xl">
-        Macro regimes and sentiment, <span className="text-accent">explained for everyone.</span>
-      </h1>
-      <p className="mt-2 max-w-xl text-sm text-muted">
-        XGBoost nowcasters, Sector Sentiment, the AI Adoption Index and Cross-Asset Drivers, each as a graph. Click a
-        graph for that model's card. Read-only; forecasts older than 24h are marked stale.
-      </p>
-      <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
-        <Link to="/docs" className="rounded-full bg-accent px-5 py-2 text-[13px] font-semibold text-white hover:bg-accent-hover">
-          Read the docs
-        </Link>
+    <section className="flex flex-col gap-8 rounded-3xl border border-border bg-surface bg-[radial-gradient(120%_140%_at_100%_0%,#e6f4ec_0%,rgba(230,244,236,0)_55%)] px-6 py-8 md:flex-row md:items-center md:justify-between md:px-12 md:py-11">
+      <div className="min-w-0 flex-1">
+        <div className="eyebrow">ARC Research · Models</div>
+        <h1 className="mt-4 max-w-3xl text-4xl font-bold leading-[1.04] tracking-[-0.04em] text-text md:text-5xl lg:text-6xl">
+          Macro and AI, <span className="text-accent">explained for everyone.</span>
+        </h1>
+        <p className="mt-4 max-w-xl text-base text-muted md:text-[17px]">
+          In-depth research and live models on the economy, markets and the AI stack. No finance background required.
+        </p>
+        <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
+          <Link to="/docs" className="rounded-full bg-accent px-5 py-2 text-[13px] font-semibold text-white hover:bg-accent-hover">
+            Read the docs
+          </Link>
+          <div className="flex flex-wrap gap-2">
+            {HERO_CHIPS.map((c) => (
+              <span key={c} className="pill px-3.5 py-1.5 text-[12.5px]">{c}</span>
+            ))}
+          </div>
+        </div>
         {latest && (
-          <a href={latest.url} target="_blank" rel="noopener noreferrer" className="group flex items-center gap-3">
-            <span className="grid h-11 w-[72px] place-items-center rounded-lg bg-gradient-to-br from-[#0b3d24] via-accent to-[#9ad7b6] text-white">
-              <Play className="h-4 w-4 fill-current" />
+          <a href={latest.url} target="_blank" rel="noopener noreferrer" className="group mt-5 inline-flex items-center gap-3">
+            <span className="grid h-11 w-[72px] place-items-center overflow-hidden rounded-lg bg-gradient-to-br from-[#0b3d24] via-accent to-[#9ad7b6] text-white">
+              {latest.thumbnail ? <img src={latest.thumbnail} alt="" className="col-start-1 row-start-1 h-full w-full object-cover" /> : null}
+              <Play className="col-start-1 row-start-1 h-4 w-4 fill-current drop-shadow" />
             </span>
             <span>
               <span className="block text-[13px] font-semibold text-text group-hover:text-accent">{latest.title}</span>
@@ -340,6 +349,11 @@ function Hero() {
           </a>
         )}
       </div>
+      <img
+        src="/hero-globe.png"
+        alt="A network of connected points over a world map"
+        className="aspect-[3/2] w-full rounded-2xl object-cover shadow-[0_10px_30px_-10px_rgba(0,60,40,0.35)] md:w-[46%] md:shrink-0 lg:w-[52%]"
+      />
     </section>
   );
 }
@@ -352,6 +366,9 @@ export default function ModelsPage() {
   return (
     <div className="p-4 md:p-8 space-y-5">
       <Hero />
+      <p className="text-xs text-muted">
+        Click a graph for that model's card. Read-only; forecasts older than 24h are marked stale.
+      </p>
       {/* equal-height rows so every card is the same size; off while one is expanded */}
       <div className={cn("grid md:grid-cols-2 gap-6", !expanded && "auto-rows-fr")}>
         {isLoading && <div className="text-sm text-muted">Loading…</div>}
