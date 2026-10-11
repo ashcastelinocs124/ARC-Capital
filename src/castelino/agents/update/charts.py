@@ -24,9 +24,11 @@ log = logging.getLogger(__name__)
 GREEN, SLATE, INK, INK2 = "#047857", "#94A3B8", "#0F172A", "#334155"
 KICKER = {"macro": "MACRO", "news": "NEWS", "alt": "ALT DATA", "ai": "AI & CHIPS"}
 WINDOW = 7
+RATE_PREFIXES = ("DGS", "T10Y", "DFII", "BAML", "DFF", "SOFR")  # % series shown in bp
 
 
-def default_fetch(ref: SeriesRef) -> list[tuple[str, float]]:
+def default_fetch(ref: SeriesRef, window_days: int | None = None) -> list[tuple[str, float]]:
+    """Last WINDOW observations (Morning Note), or every observation in the last `window_days`."""
     if ref.provider == "polymarket":
         from castelino.agents.update.sources import polymarket
 
@@ -37,8 +39,13 @@ def default_fetch(ref: SeriesRef) -> list[tuple[str, float]]:
     from castelino.forecast import regime
 
     fn = regime._fetch_fred_series if ref.provider == "fred" else regime._fetch_yf_close
-    s = fn(ref.id).dropna().tail(WINDOW)
-    return [(pd.Timestamp(i).strftime("%b %d"), float(v)) for i, v in s.items()]
+    s = fn(ref.id).dropna()
+    if window_days is None:
+        s, fmt = s.tail(WINDOW), "%b %d"
+    else:
+        s = s[s.index >= s.index[-1] - pd.Timedelta(days=window_days)]
+        fmt = "%b %d" if window_days <= 120 else "%b %Y"
+    return [(pd.Timestamp(i).strftime(fmt), float(v)) for i, v in s.items()]
 
 
 def subtitle(ref: SeriesRef, pts: list[tuple[str, float]]) -> str:
@@ -47,13 +54,13 @@ def subtitle(ref: SeriesRef, pts: list[tuple[str, float]]) -> str:
         return f"{b - a:+.2f}pp vs previous release"
     if ref.provider == "polymarket":
         return f"{b - a:+.1f}pp over the window"
-    if ref.id.startswith("DGS"):
+    if ref.id.startswith(RATE_PREFIXES):
         return f"{(b - a) * 100:+.0f}bp over the window"
     return f"{(b / a - 1) * 100:+.1f}% over the window"
 
 
 def _end_label(ref: SeriesRef, v: float) -> str:
-    if ref.kind == "release" or ref.id.startswith("DGS"):
+    if ref.kind == "release" or ref.id.startswith(RATE_PREFIXES):
         return f"{v:.2f}%"
     if ref.provider == "polymarket":
         return f"{v:.0f}%"
@@ -63,8 +70,11 @@ def _end_label(ref: SeriesRef, v: float) -> str:
 TITLE_MAX = 60  # wider titles run under the logo
 
 
-def title_for(n: int, ref: SeriesRef, n_pts: int) -> str:
-    suffix = "" if ref.kind == "release" else f" · last {n_pts} obs"
+def title_for(n: int, ref: SeriesRef, n_pts: int, window_label: str | None = None) -> str:
+    if ref.kind == "release":
+        suffix = ""
+    else:
+        suffix = f" · {window_label}" if window_label else f" · last {n_pts} obs"
     head = f"Exhibit {n}: "
     room = TITLE_MAX - len(head) - len(suffix)
     label = ref.label if len(ref.label) <= room else ref.label[: room - 1].rstrip() + "…"
@@ -89,7 +99,15 @@ def _logo():
     return img[..., :3] * a + (1 - a)
 
 
-def _render(n: int, f: Finding, pts: list[tuple[str, float]], path: Path) -> Exhibit:
+def _render(
+    n: int,
+    f: Finding,
+    pts: list[tuple[str, float]],
+    path: Path,
+    *,
+    kicker: str | None = None,
+    window_label: str | None = None,
+) -> Exhibit:
     ref = f.series
     plt.rcParams.update(
         {
@@ -102,7 +120,7 @@ def _render(n: int, f: Finding, pts: list[tuple[str, float]], path: Path) -> Exh
             "savefig.dpi": 240,
         }
     )
-    title = title_for(n, ref, len(pts))
+    title = title_for(n, ref, len(pts), window_label)
     sub = subtitle(ref, pts)
     fig, ax = plt.subplots(figsize=(6.4, 3.9))
     fig.subplots_adjust(left=0.1, right=0.88, top=0.76, bottom=0.2)
@@ -134,15 +152,16 @@ def _render(n: int, f: Finding, pts: list[tuple[str, float]], path: Path) -> Exh
             fontweight="bold",
             color=GREEN,
         )
-        ax.set_xticks(x)
-        ax.set_xticklabels(labels, fontsize=8.5)
+        step = max(1, len(x) // 6)  # a 1-year window has ~250 points; label ~6 of them
+        ax.set_xticks(x[::step])
+        ax.set_xticklabels(labels[::step], fontsize=8.5)
     for s in ("top", "right"):
         ax.spines[s].set_visible(False)
     ax.tick_params(labelsize=8.5)
     fig.text(
         0.06,
         0.965,
-        f"ARC RESEARCH | {KICKER[f.agent]}",
+        f"ARC RESEARCH | {kicker or KICKER[f.agent]}",
         fontsize=8.5,
         fontweight="bold",
         color="#475569",

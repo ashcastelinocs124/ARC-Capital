@@ -37,6 +37,11 @@ def unsupported(texts: list[str], nums: set[float]) -> list[str]:
     return bad
 
 
+def count_figures(texts: list[str]) -> int:
+    """How many unit-carrying figures the guard checked (shown on the report's page 1)."""
+    return sum(1 for t in texts for _ in _FIG.finditer(t))
+
+
 def check_note(
     note: MorningNote, findings: list[Finding], facts: list[Fact], *, items: int = 5
 ) -> list[str]:
