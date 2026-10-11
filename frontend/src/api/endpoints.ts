@@ -123,3 +123,16 @@ export const fetchCrossAsset = async (): Promise<CrossAssetSnapshot | null> => {
   // the client maps a 404 (static build without the file) to []
   return data && !Array.isArray(data) && "assets" in data ? (data as CrossAssetSnapshot) : null;
 };
+
+// ── Videos (Substack) ───────────────────────────────────────────────────
+export interface Video {
+  title: string;
+  url: string; // post on archresearch.substack.com
+  date: string; // YYYY-MM-DD
+  summary: string;
+  thumbnail: string | null;
+}
+export const fetchVideos = async (): Promise<Video[]> => {
+  const data = await api.get<Video[]>("/videos"); // the client maps a 404 to []
+  return Array.isArray(data) ? data : [];
+};

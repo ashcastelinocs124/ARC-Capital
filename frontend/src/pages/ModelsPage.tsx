@@ -1,5 +1,8 @@
 import { Component, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
+import { Play } from "lucide-react";
 import { useModels } from "@/hooks/useModels";
+import { useVideos } from "@/hooks/useVideos";
 import type { ModelCard } from "@/api/endpoints";
 import { cn } from "@/lib/cn";
 import { SectorSentimentSection } from "@/components/SectorSentimentSection";
@@ -309,6 +312,38 @@ class CardBoundary extends Component<{ name: string; children: ReactNode }, { fa
   }
 }
 
+function Hero() {
+  const latest = useVideos().data?.[0];
+  return (
+    <section className="rounded-3xl border border-border bg-surface bg-[radial-gradient(120%_140%_at_100%_0%,#e6f4ec_0%,rgba(230,244,236,0)_55%)] px-6 py-6 md:px-8">
+      <div className="eyebrow">ARC Research · Models</div>
+      <h1 className="mt-2 max-w-2xl text-2xl font-bold leading-tight tracking-tight text-text md:text-3xl">
+        Macro regimes and sentiment, <span className="text-accent">explained for everyone.</span>
+      </h1>
+      <p className="mt-2 max-w-xl text-sm text-muted">
+        XGBoost nowcasters, Sector Sentiment, the AI Adoption Index and Cross-Asset Drivers, each as a graph. Click a
+        graph for that model's card. Read-only; forecasts older than 24h are marked stale.
+      </p>
+      <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
+        <Link to="/docs" className="rounded-full bg-accent px-5 py-2 text-[13px] font-semibold text-white hover:bg-accent-hover">
+          Read the docs
+        </Link>
+        {latest && (
+          <a href={latest.url} target="_blank" rel="noopener noreferrer" className="group flex items-center gap-3">
+            <span className="grid h-11 w-[72px] place-items-center rounded-lg bg-gradient-to-br from-[#0b3d24] via-accent to-[#9ad7b6] text-white">
+              <Play className="h-4 w-4 fill-current" />
+            </span>
+            <span>
+              <span className="block text-[13px] font-semibold text-text group-hover:text-accent">{latest.title}</span>
+              <span className="text-xs text-muted">Watch the latest video · opens Substack ↗</span>
+            </span>
+          </a>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function ModelsPage() {
   const { isLoading } = useModels();
   const [expanded, setExpanded] = useState<string | null>(null); // one card open at a time
@@ -316,13 +351,7 @@ export default function ModelsPage() {
 
   return (
     <div className="p-4 md:p-8 space-y-5">
-      <div>
-        <h2 className="text-base font-semibold text-text">Models</h2>
-        <p className="text-xs text-muted mt-0.5">
-          Current state of the XGBoost forecasters feeding the pipeline, the Sector Sentiment indicator and the AI
-          Adoption Index, each as a graph. Click a graph for that model's card. Read-only; forecasts older than 24h are marked stale.
-        </p>
-      </div>
+      <Hero />
       {/* equal-height rows so every card is the same size; off while one is expanded */}
       <div className={cn("grid md:grid-cols-2 gap-6", !expanded && "auto-rows-fr")}>
         {isLoading && <div className="text-sm text-muted">Loading…</div>}

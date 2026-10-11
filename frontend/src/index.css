@@ -37,7 +37,13 @@
 
 @layer components {
   .card {
-    @apply bg-surface border border-border rounded-xl shadow-card;
+    @apply bg-surface border border-border rounded-2xl shadow-card;
+  }
+  .eyebrow {
+    @apply font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-muted;
+  }
+  .pill {
+    @apply rounded-full bg-accent-soft px-2.5 py-0.5 text-[10.5px] font-semibold text-accent;
   }
 }
 

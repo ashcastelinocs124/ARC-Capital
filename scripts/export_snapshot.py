@@ -37,6 +37,7 @@ PATHS = [
     "/cross_asset",
     "/research",
     "/refresh/status",
+    "/videos",
 ]
 
 
