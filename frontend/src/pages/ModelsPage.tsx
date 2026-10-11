@@ -350,8 +350,8 @@ function Hero() {
         )}
       </div>
       <img
-        src="/hero-globe.png"
-        alt="A network of connected points over a world map"
+        src="/hero.jpg"
+        alt="Manhattan skyline at dusk"
         className="aspect-[3/2] w-full rounded-2xl object-cover shadow-[0_10px_30px_-10px_rgba(0,60,40,0.35)] md:w-[46%] md:shrink-0 lg:w-[52%]"
       />
     </section>
