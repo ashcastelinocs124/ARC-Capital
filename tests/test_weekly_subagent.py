@@ -98,3 +98,12 @@ def test_answer_continues_same_conversation_with_fresh_budget():
     ex = s.answer(q)
     assert ex.answer.startswith("Breakevens") and ex.fact_ids == ["A2"]
     assert client.responses.create_calls[2]["previous_response_id"] == "p1"
+
+
+def test_malformed_arguments_use_up_the_budget():
+    bad = call("fred_series", {}, cid="c9")
+    bad.arguments = "{not json"
+    client = FakeOpenAI([resp("r1", bad), resp("r2")], [one_finding()])
+    with pytest.raises(RuntimeError, match="no findings"):  # A1 never existed
+        session(client, max_calls=1).run("brief")
+    assert client.responses.create_calls[1]["tool_choice"] == "none"

@@ -54,7 +54,7 @@ Design rules that hold everywhere:
 3. **Deep Editor** (`claude-opus-5-5`, effort high) grills the desks for up to 2 rounds in one append-only conversation, then writes the report. The number guard checks every %, bp and pp figure against the facts each part cites (one retry), and code draws one exhibit per chart over the window the Editor chose.
 4. The record is written last to `data/deep/<YYYY-Www>.json`, served at `/weekly/*`, exported for the public site and drafted on Substack (`python -m castelino.substack_weekly`).
 
-A report is due from Saturday until it exists, so Refresh only builds a missing one. It needs `ANTHROPIC_API_KEY` as well as `OPENAI_API_KEY`. To rebuild a week by hand: `uv run python -c 'from castelino.agents.weekly.runner import build_default_runner as b; print(b().run_week("2026-W41"))'`.
+A report is due from Sunday until it exists, so Refresh only builds a missing one (and Saturday's daily publish never releases it early). Before any OpenAI spend the run makes one tiny Claude call, so a missing key or credit fails for free. It needs `ANTHROPIC_API_KEY` as well as `OPENAI_API_KEY`; note that `.env` doesn't override a key already exported in your shell. To rebuild a week by hand: `uv run python -c 'from castelino.agents.weekly.runner import build_default_runner as b; print(b().run_week("2026-W41"))'`.
 
 ### AI Adoption Index: how Hire is read
 

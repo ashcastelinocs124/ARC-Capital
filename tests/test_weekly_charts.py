@@ -59,3 +59,35 @@ def test_weekly_exhibits_numbered_across_sections_with_windows(tmp_path):
     ]
     assert seen == [90, 365] and (tmp_path / "exhibit_2.png").stat().st_size > 0
     assert out[0].title.endswith("· last 3 months")
+
+
+def test_polymarket_exhibit_is_labelled_last_7_days(tmp_path):
+    from castelino.agents.update.models import Fact
+
+    pm = Fact(
+        id="A2",
+        text="odds",
+        numbers=[62],
+        provenance="data",
+        series=SeriesRef(kind="daily", provider="polymarket", id="tok", label="Dec cut odds"),
+        source_title="Polymarket",
+        source_url="u",
+    )
+    rep = WeeklyReport(
+        title="T",
+        subtitle="S",
+        bullets=[],
+        watch="W",
+        sections=[
+            TrendSection(
+                title="t",
+                agent="a",
+                paragraphs=["p"],
+                fact_ids=["A2"],
+                exhibits=[ExhibitPick(fact_id="A2", window_days=90)],
+                challenges=[],
+            )
+        ],
+    )
+    out = make_weekly_exhibits(rep, [pm], tmp_path, fetch=lambda r, w: [("a", 60.0), ("b", 62.0)])
+    assert out[0].title.endswith("· last 7 days")

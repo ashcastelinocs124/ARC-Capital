@@ -32,6 +32,8 @@ INK = "#0F172A"
 
 def table_png(header: list[str], rows: list[list[str]], path: Path, title: str) -> Path:
     """Substack's editor has no table block: render a table as an image."""
+    if not rows:  # every source down: matplotlib can't draw an empty table
+        rows = [["No data this week", *([""] * (len(header) - 1))]]
     fig, ax = plt.subplots(figsize=(7.2, 0.5 + 0.32 * (len(rows) + 1)))
     ax.axis("off")
     fig.text(0.02, 0.97, title, fontsize=11, fontweight="bold", color=INK, va="top")
@@ -154,7 +156,11 @@ def push_weekly_draft(week: str | None = None) -> str:
     week = week or (weeks[0] if weeks else None)
     if not week or not (deep / f"{week}.json").exists():
         return f"skipped: no Weekly Deep Dive for {week or 'any week'}"
-    rec = json.loads((deep / f"{week}.json").read_text())
+    record, marker = deep / f"{week}.json", deep / "substack" / f"{week}.json"
+    # Re-pushing an unchanged report would overwrite edits made by hand in the Substack editor.
+    if marker.exists() and marker.stat().st_mtime >= record.stat().st_mtime:
+        return f"skipped: draft already up to date for {week} (report unchanged since)"
+    rec = json.loads(record.read_text())
     charts = deep / "charts" / week
     head = ["Asset", "Level", "1w", "1m", "3m", "YTD"]
     table_png(head, scorecard_rows(rec), charts / "scorecard.png", "The week in markets")

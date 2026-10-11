@@ -19,6 +19,7 @@ from castelino.agents.weekly.editor import answers_brief, desk_brief
 from castelino.agents.weekly.guard import check_report, report_texts
 from castelino.agents.weekly.inputs import due_week, load_week, week_markdown
 from castelino.agents.weekly.models import AgentRun, GrillExchange, RunCounts, WeeklyRecord
+from castelino.agents.weekly.subagent import slug
 
 log = logging.getLogger(__name__)
 PREFIXES = "ABCD"
@@ -48,6 +49,7 @@ class WeeklyRunner:
         max_guard_retries: int,
         models: dict[str, str],
         today_fn: Callable[[], date] = _today_et,
+        preflight_fn: Callable[[], None] = lambda: None,
     ):
         self.deep_dir, self.updates_dir = Path(deep_dir), Path(updates_dir)
         self.memory_md_fn, self.plan_fn, self.session_fn = memory_md_fn, plan_fn, session_fn
@@ -55,6 +57,7 @@ class WeeklyRunner:
         self.scorecard_fn, self.regime_fn, self.today_fn = scorecard_fn, regime_fn, today_fn
         self.min_notes, self.max_grill_rounds = min_notes, max_grill_rounds
         self.max_guard_retries, self.models = max_guard_retries, models
+        self.preflight_fn = preflight_fn
         self._week = ""
         self._gaps: list[str] = []
 
@@ -109,6 +112,9 @@ class WeeklyRunner:
     def _run(self, week: str) -> None:
         self._gaps = []
         self._set("planning")
+        # The Editor runs last; check it can run at all (key, credit) before the Lead and desks
+        # spend on OpenAI, or a dead Anthropic account would repeat that spend every Refresh.
+        self.preflight_fn()
         inp = load_week(self.updates_dir, week, self.min_notes)
         self._gaps += inp.gaps
         week_md = week_markdown(inp)
@@ -134,14 +140,16 @@ class WeeklyRunner:
         rounds = 0
         try:
             grill = editor.open(desk_brief(week, plan, list(runs.values()), board.posts))
+            names = {slug(n): n for n in live}  # the Editor may not echo a desk name byte-for-byte
             while not grill.done and grill.questions and rounds < self.max_grill_rounds:
-                qs = [q for q in grill.questions if q.agent in live]
-                if not qs:
+                by_agent: dict[str, list] = {}
+                for q in grill.questions:
+                    if name := names.get(slug(q.agent)):
+                        by_agent.setdefault(name, []).append(q)
+                if not by_agent:
+                    self._gaps.append("grill: no question named a desk that returned findings")
                     break
                 rounds += 1
-                by_agent: dict[str, list] = {}
-                for q in qs:
-                    by_agent.setdefault(q.agent, []).append(q)
                 answered = self._gather(
                     {
                         a: (lambda a=a, g=g: [live[a].answer(q) for q in g])
@@ -246,9 +254,16 @@ def build_default_runner() -> WeeklyRunner:
             cap=dd.max_findings_per_agent,
         )
 
+    editor_client: list[AnthropicEditorClient] = []  # built once, by the preflight
+
+    def preflight():
+        editor_client.append(
+            AnthropicEditorClient(dd.editor_model, dd.editor_effort, dd.editor_max_tokens)
+        )
+        editor_client[0].check()  # missing key, no credit, bad model → fail before any spend
+
     def editor_fn():
-        client = AnthropicEditorClient(dd.editor_model, dd.editor_effort, dd.editor_max_tokens)
-        return DeepEditor(client)
+        return DeepEditor(editor_client[0])
 
     memory = cfg.root / ua.data_dir / "memory" / "MEMORY.md"
     registry = ModelRegistry(cfg.root / ua.data_dir / "models")
@@ -266,4 +281,5 @@ def build_default_runner() -> WeeklyRunner:
         max_grill_rounds=dd.max_grill_rounds,
         max_guard_retries=dd.max_guard_retries,
         models={"lead": dd.lead_model, "agents": dd.agent_model, "editor": dd.editor_model},
+        preflight_fn=preflight,
     )

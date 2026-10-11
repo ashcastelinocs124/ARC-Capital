@@ -129,6 +129,7 @@ class AgentSession:
                 try:
                     args = json.loads(c.arguments or "{}")
                 except json.JSONDecodeError:
+                    self.toolbox.calls += 1  # counts against the budget, so the loop always ends
                     result = "Error: arguments were not valid JSON"
                 else:
                     result = self.toolbox.call(c.name, args)

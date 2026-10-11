@@ -43,8 +43,9 @@ def test_week_id_and_bounds():
     assert week_bounds("2026-W41") == (date(2026, 10, 5), date(2026, 10, 9))
 
 
-def test_due_on_weekend_is_this_week_on_weekday_last_week(tmp_path):
-    assert due_week(date(2026, 10, 10), tmp_path) == "2026-W41"  # Saturday
+def test_due_from_sunday_for_this_week_otherwise_last_week(tmp_path):
+    # Saturday: the 17:00 daily publish must not release it early (the report is a Sunday read)
+    assert due_week(date(2026, 10, 10), tmp_path) == "2026-W40"
     assert due_week(date(2026, 10, 11), tmp_path) == "2026-W41"  # Sunday
     assert due_week(date(2026, 10, 12), tmp_path) == "2026-W41"  # Monday: last week still missing
     (tmp_path / "2026-W41.json").write_text("{}")

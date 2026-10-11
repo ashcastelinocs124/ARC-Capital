@@ -20,8 +20,11 @@ def week_bounds(week: str) -> tuple[date, date]:
 
 
 def due_week(today: date, deep_dir: Path) -> str | None:
-    """Sat/Sun → this ISO week; Mon–Fri → last ISO week. None once that report exists."""
-    ref = today if today.weekday() >= 5 else today - timedelta(days=7)
+    """Sunday → this ISO week; Mon–Sat → last ISO week. None once that report exists.
+
+    Due from Sunday, not Saturday: the Saturday 17:00 daily publish runs every Refresh job,
+    and the report is meant to come out Sunday morning."""
+    ref = today if today.weekday() == 6 else today - timedelta(days=7)
     week = week_id(ref)
     return None if (Path(deep_dir) / f"{week}.json").exists() else week
 

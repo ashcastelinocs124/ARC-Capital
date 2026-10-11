@@ -96,7 +96,7 @@ def job_weekly_deep_dive() -> str:
         raise Skipped("disabled in config.yaml (deep_dive.enabled)")
     result = weekly_runner.build_default_runner().run_if_due()
     if result == "skipped":
-        raise Skipped("no deep dive due (runs Saturday onwards for Mon–Fri)")
+        raise Skipped("no deep dive due (runs from Sunday for Mon–Fri)")
     if result == "locked":
         raise Skipped("another deep dive run is in progress")
     if result == "failed":

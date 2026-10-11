@@ -81,3 +81,27 @@ def test_cannot_post_facts_you_do_not_own():
 def test_specs_expose_only_granted_tools_plus_board():
     names = [s["name"] for s in box(allowed=("bls_series",)).specs()]
     assert names == ["bls_series", "post_to_board", "read_board"]
+
+
+def test_tool_errors_never_carry_api_keys():
+    def fred(sid):
+        raise RuntimeError(
+            "400 Client Error: Bad Request for url: https://api.stlouisfed.org/fred/series/"
+            "observations?series_id=ACMTP10&api_key=SECRETKEY123&file_type=json"
+        )
+
+    out = box(fred=fred).call("fred_series", {"series_id": "ACMTP10", "start": "2026-07-01"})
+    assert out.startswith("Error:") and "SECRETKEY123" not in out and "api_key" not in out
+
+
+def test_non_rate_fred_series_reports_percent_not_bp():
+    b = box(fred=lambda sid: series([20.0, 22.5]))
+    b.call("fred_series", {"series_id": "VIXCLS", "start": "2026-07-01"})
+    assert "bp" not in b.facts[0].text and "+12.5%" in b.facts[0].text
+
+
+def test_breakeven_and_bill_series_are_rates():
+    for sid in ("T5YIE", "DTB3"):
+        b = box(fred=lambda s: series([2.10, 2.13]))
+        b.call("fred_series", {"series_id": sid, "start": "2026-07-01"})
+        assert "+3bp" in b.facts[0].text, sid

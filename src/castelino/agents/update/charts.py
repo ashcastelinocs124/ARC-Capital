@@ -24,7 +24,16 @@ log = logging.getLogger(__name__)
 GREEN, SLATE, INK, INK2 = "#047857", "#94A3B8", "#0F172A", "#334155"
 KICKER = {"macro": "MACRO", "news": "NEWS", "alt": "ALT DATA", "ai": "AI & CHIPS"}
 WINDOW = 7
-RATE_PREFIXES = ("DGS", "T10Y", "DFII", "BAML", "DFF", "SOFR")  # % series shown in bp
+# FRED series quoted in % whose moves read in bp (yields, bills, breakevens, spreads, policy rates).
+# ponytail: a prefix list; FRED's series metadata (units) is the upgrade if one is misread.
+RATE_PREFIXES = (
+    "DGS", "DTB", "TB3", "T10Y", "T5Y", "T7Y", "T1Y", "DFII", "FII", "BAML", "DFF", "FEDFUNDS",
+    "DFEDTAR", "IORB", "EFFR", "SOFR", "DPRIME", "MORTGAGE",
+)  # fmt: skip
+
+
+def is_rate(series_id: str) -> bool:
+    return series_id.startswith(RATE_PREFIXES)
 
 
 def default_fetch(ref: SeriesRef, window_days: int | None = None) -> list[tuple[str, float]]:

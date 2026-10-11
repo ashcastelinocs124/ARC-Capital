@@ -4,10 +4,12 @@ so the numbers a desk can cite always come from data or a cited source line."""
 from __future__ import annotations
 
 import logging
+import re
 from datetime import date
 
 import pandas as pd
 
+from castelino.agents.update.charts import is_rate
 from castelino.agents.update.facts import facts_from_search
 from castelino.agents.update.models import Fact, Point, SeriesRef
 from castelino.agents.weekly.board import Board
@@ -73,10 +75,12 @@ class ToolError(Exception):
     pass
 
 
-def _rate_like(provider: str, s: pd.Series) -> bool:
-    # ponytail: FRED series under 30 are yields/spreads in %, reported in bp; a units lookup
-    # (FRED series metadata) is the upgrade if a small non-rate FRED series shows up.
-    return provider == "fred" and float(s.abs().max()) < 30
+_QUERY = re.compile(r"\?\S*")
+
+
+def _safe(msg: str) -> str:
+    """Error text goes to the model and the logs: drop URL query strings (they carry API keys)."""
+    return _QUERY.sub("?…", msg)
 
 
 def series_fact(fid: str, s: pd.Series, *, provider: str, sid: str, title: str, url: str) -> Fact:
@@ -88,7 +92,7 @@ def series_fact(fid: str, s: pd.Series, *, provider: str, sid: str, title: str, 
     w0 = float(week.iloc[0])
     hi, lo = float(s.max()), float(s.min())
     head = f"{sid}: {v0:,.2f} on {s.index[0]:%Y-%m-%d} → {v1:,.2f} on {s.index[-1]:%Y-%m-%d}"
-    if _rate_like(provider, s):
+    if provider == "fred" and is_rate(sid):
         chg, wk = round((v1 - v0) * 100), round((v1 - w0) * 100)
         moves = f"change {chg:+d}bp; last week {wk:+d}bp"
     else:
@@ -169,8 +173,9 @@ class ToolBox:
         except ToolError as e:
             return f"Error: {e}"
         except Exception as e:  # noqa: BLE001 — a broken source is a tool error, never a crash
-            log.warning("%s: %s failed: %s", self.agent, name, e)
-            return f"Error: {name} failed: {str(e)[:200]}"
+            msg = _safe(str(e))
+            log.warning("%s: %s failed: %s", self.agent, name, msg)
+            return f"Error: {name} failed: {msg[:200]}"
         if not new:
             return "Error: no data returned"
         self.facts += new

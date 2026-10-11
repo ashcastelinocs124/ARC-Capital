@@ -48,6 +48,12 @@ def make_weekly_exhibits(
                 if len(pts) < 2:
                     raise ValueError(f"only {len(pts)} point(s)")
                 n = len(out) + 1
+                # Polymarket history only comes as the last week of daily points
+                label = (
+                    "last 7 days"
+                    if ref.provider == "polymarket"
+                    else window_label(pick.window_days)
+                )
                 shim = SimpleNamespace(
                     id=fact.id, agent="", series=ref, source_title=fact.source_title
                 )
@@ -57,7 +63,7 @@ def make_weekly_exhibits(
                     pts,
                     Path(out_dir) / f"exhibit_{n}.png",
                     kicker="WEEKLY DEEP DIVE",
-                    window_label=None if release else window_label(pick.window_days),
+                    window_label=None if release else label,
                 )
                 out.append(
                     WeeklyExhibit(

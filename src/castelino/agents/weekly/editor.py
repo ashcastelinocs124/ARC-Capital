@@ -59,6 +59,13 @@ class AnthropicEditorClient:
         self.client = anthropic.Anthropic(api_key=get_settings().anthropic_api_key, timeout=1200)
         self.model, self.effort, self.max_tokens = model, effort, max_tokens
 
+    def check(self) -> None:
+        """A tiny call (a fraction of a cent): a missing credit balance only shows on a real
+        request; listing models succeeds without one."""
+        self.client.messages.create(
+            model=self.model, max_tokens=16, messages=[{"role": "user", "content": "Say ok"}]
+        )
+
     def parse(self, *, system: str, messages: list[dict], schema: type[T]) -> tuple[T, list]:
         kw = dict(
             model=self.model,

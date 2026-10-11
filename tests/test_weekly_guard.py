@@ -68,3 +68,11 @@ def test_report_texts_cover_every_written_field():
     texts = report_texts(report([section(), section()]))
     assert "Yields up" in texts and "The 10y rose 28bp to 4.38%." in texts
     assert "Real yields carried it." in texts
+
+
+def test_challenge_question_and_verdict_figures_are_checked():
+    ch = [Challenge(question="Is the 30bp claim real?", answer="Yes.", verdict="Rejected: 31bp")]
+    errs = check_report(report([section(challenges=ch), chips(paragraphs=["x"])]), FACTS)
+    assert "section 1 challenge: 30bp" in errs and "section 1 challenge: 31bp" in errs
+    texts = report_texts(report([section(challenges=ch), section()]))
+    assert "Is the 30bp claim real?" in texts and "Rejected: 31bp" in texts

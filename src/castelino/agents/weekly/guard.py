@@ -12,7 +12,8 @@ def report_texts(r: WeeklyReport) -> list[str]:
     out = [r.title, r.subtitle, r.watch]
     out += [t for b in r.bullets for t in (b.lead, b.body)]
     for s in r.sections:
-        out += [s.title, *s.paragraphs, *(c.answer for c in s.challenges)]
+        out += [s.title, *s.paragraphs]
+        out += [t for c in s.challenges for t in (c.question, c.answer, c.verdict)]
     return out
 
 
@@ -48,6 +49,8 @@ def check_report(report: WeeklyReport, facts: list[Fact]) -> list[str]:
                 errs.append(f"section {k}: exhibit window {ex.window_days} days is out of range")
         errs += [
             f"section {k} challenge: {t}"
-            for t in unsupported([c.answer for c in s.challenges], every)
+            for t in unsupported(
+                [x for c in s.challenges for x in (c.question, c.answer, c.verdict)], every
+            )
         ]
     return errs

@@ -80,6 +80,34 @@ def test_missing_upload_is_skipped_not_fatal():
     assert not [n for n in doc["content"] if n["type"] == "captionedImage"]
 
 
+def test_existing_draft_is_not_overwritten_unless_the_record_is_newer(tmp_path, monkeypatch):
+    import json
+    import os
+
+    from castelino import substack_weekly as sw
+
+    deep = tmp_path / "data" / "deep"
+    (deep / "substack").mkdir(parents=True)
+    rec_path = deep / "2026-W41.json"
+    rec_path.write_text(json.dumps(REC | {"generated_at": "2026-10-11T06:40:00"}))
+    marker = deep / "substack" / "2026-W41.json"
+    marker.write_text(json.dumps({"draft_id": 1}))
+    os.utime(rec_path, (1_000, 1_000))
+    os.utime(marker, (2_000, 2_000))
+
+    class Cfg:
+        root = tmp_path
+
+        class deep_dive:  # noqa: N801
+            data_dir = "data/deep"
+
+    monkeypatch.setattr(sw, "get_settings", lambda: Cfg)
+    monkeypatch.setattr(sw, "push", lambda **kw: "pushed")
+    assert sw.push_weekly_draft("2026-W41").startswith("skipped: draft already up to date")
+    os.utime(rec_path, (3_000, 3_000))  # rebuilt after the draft was made
+    assert sw.push_weekly_draft("2026-W41") == "pushed"
+
+
 def test_table_png_writes_an_image(tmp_path):
     p = table_png(["Asset", "1w"], [["S&P 500", "+0.9%"]], tmp_path / "t.png", "The week")
     assert p.stat().st_size > 1000

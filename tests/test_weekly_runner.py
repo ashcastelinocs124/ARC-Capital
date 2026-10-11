@@ -21,7 +21,7 @@ from castelino.agents.weekly.models import (
 from castelino.agents.weekly.runner import WeeklyRunner
 from tests.weekly_fixtures import fact
 
-SAT = date(2026, 10, 10)
+SUN = date(2026, 10, 11)
 DAYS = ("2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09")
 
 
@@ -135,19 +135,20 @@ class FakeEditor:
         return self.reports.pop(0)
 
 
-def runner(tmp_path, editor):
+def runner(tmp_path, editor, plan_fn=lambda w, md, mem: PLAN, preflight=lambda: None):
     notes(tmp_path / "updates")
     return WeeklyRunner(
         deep_dir=tmp_path / "deep",
         updates_dir=tmp_path / "updates",
         memory_md_fn=lambda: "",
-        plan_fn=lambda w, md, mem: PLAN,
+        plan_fn=plan_fn,
         session_fn=FakeSession,
         editor_fn=lambda: editor,
         chart_fn=lambda rep, facts, out: [],
         scorecard_fn=lambda end: [],
         regime_fn=lambda: RegimeRead(pulse=64, pressure=38),
-        today_fn=lambda: SAT,
+        today_fn=lambda: SUN,
+        preflight_fn=preflight,
         min_notes=3,
         max_grill_rounds=2,
         max_guard_retries=1,
@@ -191,3 +192,33 @@ def test_holiday_week_fails_cleanly(tmp_path):
     assert r.run_if_due() == "failed"
     status = json.loads((tmp_path / "deep" / "status.json").read_text())
     assert "only 2 Morning Notes" in status["error"]
+
+
+def test_editor_preflight_failure_stops_before_any_openai_spend(tmp_path):
+    calls = []
+
+    def plan_fn(w, md, mem):
+        calls.append("plan")
+        return PLAN
+
+    def preflight():
+        raise RuntimeError("Your credit balance is too low to access the Anthropic API")
+
+    r = runner(tmp_path, FakeEditor([report()]), plan_fn=plan_fn, preflight=preflight)
+    assert r.run_if_due() == "failed"
+    assert calls == []  # the Lead (and so every desk) never ran
+    status = json.loads((tmp_path / "deep" / "status.json").read_text())
+    assert "credit balance" in status["error"]
+
+
+class CaseEditor(FakeEditor):
+    def open(self, desk_md):
+        q = GrillQuestion(agent="rates DESK", finding_id="A-f1", question="Growth?")
+        return Grill(done=False, questions=[q])
+
+
+def test_grill_question_routed_despite_desk_name_case(tmp_path):
+    r = runner(tmp_path, CaseEditor([report()]))
+    assert r.run_if_due() == "done"
+    rec = WeeklyRecord.model_validate_json((tmp_path / "deep" / "2026-W41.json").read_text())
+    assert [g.agent for g in rec.grill_log] == ["Rates desk"] and rec.counts.grill_rounds == 1
