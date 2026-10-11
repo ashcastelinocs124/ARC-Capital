@@ -28,6 +28,7 @@ THUMB_OVERRIDES = {
     "weekly-market-update-1": "/thumbs/weekly-market-update-1.jpg",
     "money-for-machines": "/thumbs/money-for-machines.jpg",
     "neolabs-and-neoclouds": "/thumbs/neolabs-and-neoclouds.jpg",
+    "how-ai-has-become-a-capital-markets": "/thumbs/ai-capital-markets.jpg",
 }
 
 
