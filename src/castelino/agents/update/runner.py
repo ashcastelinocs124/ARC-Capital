@@ -3,13 +3,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
-import time
 from collections.abc import Callable
 from datetime import date, datetime
 from pathlib import Path
 
-from castelino.agents.update.fsio import atomic_write_text
+from castelino.agents.update.fsio import acquire_lock, atomic_write_text, release_lock
 from castelino.agents.update.guard import check_note
 from castelino.agents.update.memory import MemoryStore
 from castelino.agents.update.models import (
@@ -78,38 +76,11 @@ class UpdateRunner:
             json.dumps({"stage": stage.value, "date": self._day, "error": error}),
         )
 
-    @staticmethod
-    def _owner_alive(lock: Path) -> bool:
-        try:
-            pid = int(lock.read_text().strip())
-            os.kill(pid, 0)
-            return True
-        except PermissionError:  # exists, owned by another user
-            return True
-        except (ValueError, OSError):  # no/garbage pid, or no such process
-            return False
-
     def _acquire(self) -> bool:
-        lock = self.data_dir / "run.lock"
-        self.data_dir.mkdir(parents=True, exist_ok=True)
-        for _ in range(2):
-            try:
-                fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-                os.write(fd, str(os.getpid()).encode())
-                os.close(fd)
-                return True
-            except FileExistsError:
-                try:
-                    fresh = time.time() - os.path.getmtime(lock) <= _STALE_LOCK_SECONDS
-                    if fresh and self._owner_alive(lock):
-                        return False
-                    lock.unlink()  # owner died (killed server) or lock is stale
-                except FileNotFoundError:
-                    continue
-        return False
+        return acquire_lock(self.data_dir, _STALE_LOCK_SECONDS)
 
     def _release(self) -> None:
-        (self.data_dir / "run.lock").unlink(missing_ok=True)
+        release_lock(self.data_dir)
 
     # ── public entrypoint ──────────────────────────────────────────────────
     def run_if_due(self) -> str:
