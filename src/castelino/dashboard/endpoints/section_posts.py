@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx
 from fastapi import APIRouter
 
-from castelino.dashboard.endpoints.videos import POST_PREFIX, archive_json
+from castelino.dashboard.endpoints.videos import POST_PREFIX, THUMB_OVERRIDES, archive_json
 
 router = APIRouter()
 
@@ -30,7 +30,9 @@ def parse_section_posts(archive: list[dict]) -> list[dict]:
                 "url": url,
                 "date": (p.get("post_date") or "")[:10],
                 "summary": (p.get("description") or p.get("subtitle") or "").strip(),
-                "thumbnail": cover if cover.startswith("https://") else None,
+                "thumbnail": THUMB_OVERRIDES.get(
+                    url.rsplit("/", 1)[-1], cover if cover.startswith("https://") else None
+                ),
                 "duration": round(p["podcast_duration"]) if p.get("podcast_duration") else None,
                 "video": bool(p.get("videoUpload") or p.get("type") == "podcast"),
             }
