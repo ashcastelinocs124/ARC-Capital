@@ -27,6 +27,7 @@ THUMB_OVERRIDES = {
     "cheaper-frontier-models-efficient": "/thumbs/chinachip.jpg",
     "weekly-market-update-1": "/thumbs/weekly-market-update-1.jpg",
     "money-for-machines": "/thumbs/money-for-machines.jpg",
+    "neolabs-and-neoclouds": "/thumbs/neolabs-and-neoclouds.jpg",
 }
 
 
