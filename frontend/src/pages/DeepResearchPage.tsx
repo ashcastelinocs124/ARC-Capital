@@ -75,8 +75,8 @@ function Stepper({ status }: { status: string }) {
         const done = i < at, now = i === at;
         return (
           <div key={n} className={cn("flex-1 flex items-center gap-2 text-sm", now ? "text-text font-semibold" : "text-muted")}>
-            <div className={cn("w-6 h-6 rounded-full border-2 flex items-center justify-center text-[11px] font-semibold shrink-0 bg-white",
-              done ? "bg-accent border-accent text-white" : now ? "border-warning text-warning" : "border-border")}>
+            <div className={cn("w-6 h-6 rounded-full border-2 flex items-center justify-center text-[11px] font-semibold shrink-0 bg-surface",
+              done ? "bg-accent border-accent text-on-accent" : now ? "border-warning text-warning" : "border-border")}>
               {done ? "✓" : i + 1}
             </div>
             {n}
@@ -107,11 +107,11 @@ function Clarify({ s, onSubmit, busy }: { s: Session; onSubmit: (a: Record<strin
         ))}
         <div className="flex justify-end gap-2 pt-1">
           <button disabled={busy} onClick={() => onSubmit({})}
-            className="px-3.5 py-1.5 text-sm font-semibold rounded-lg border border-border bg-white hover:bg-surface-2 disabled:opacity-50">
+            className="px-3.5 py-1.5 text-sm font-semibold rounded-lg border border-border bg-surface hover:bg-surface-2 disabled:opacity-50">
             Skip questions, research now
           </button>
           <button disabled={busy} onClick={() => onSubmit(answers)}
-            className="px-3.5 py-1.5 text-sm font-semibold rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50">
+            className="px-3.5 py-1.5 text-sm font-semibold rounded-lg bg-accent text-on-accent hover:bg-accent-hover disabled:opacity-50">
             Research with answers
           </button>
         </div>
@@ -324,7 +324,7 @@ export default function DeepResearchPage() {
         <div className="px-4 py-3 border-b border-border flex justify-between items-center">
           <span className="text-sm font-semibold">Reports</span>
           {!STATIC && <button onClick={ask}
-            className="text-xs font-semibold text-white bg-accent hover:bg-accent-hover rounded-lg px-2.5 py-1">+ Ask a question</button>}
+            className="text-xs font-semibold text-on-accent bg-accent hover:bg-accent-hover rounded-lg px-2.5 py-1">+ Ask a question</button>}
         </div>
         <div className={SECTION}>Weekly deep dives</div>
         {weeks.map((w, i) => (
@@ -334,7 +334,7 @@ export default function DeepResearchPage() {
             <div className={cn("text-xs font-semibold flex items-center gap-1.5",
               !id && !asking && currentWeek === w.week ? "text-accent" : "text-text-2")}>
               Week {w.week.split("-W")[1]} · {fmtRange(w.start, w.end)}
-              {i === 0 && <span className="text-[10px] font-semibold text-accent border border-accent rounded-full px-1.5 bg-white">Latest</span>}
+              {i === 0 && <span className="text-[10px] font-semibold text-accent border border-accent rounded-full px-1.5 bg-surface">Latest</span>}
             </div>
             <div className="text-[12px] text-muted mt-0.5 line-clamp-2">{w.title}</div>
           </button>
@@ -389,7 +389,7 @@ export default function DeepResearchPage() {
             <div className="flex justify-between items-center mt-2.5">
               <span className="text-xs text-muted">Up to 6 sub-questions · ≤{SONAR_BUDGET} web searches · cited report in ~2 min</span>
               <button disabled={busy || !query.trim()} onClick={start}
-                className="px-4 py-1.5 text-sm font-semibold rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50">
+                className="px-4 py-1.5 text-sm font-semibold rounded-lg bg-accent text-on-accent hover:bg-accent-hover disabled:opacity-50">
                 {busy ? "Starting…" : "Research"}
               </button>
             </div>

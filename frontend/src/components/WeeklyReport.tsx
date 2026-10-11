@@ -21,10 +21,10 @@ const level = (r: WeeklyScoreRow) =>
 
 function Page({ n, children, header }: { n: number; children: React.ReactNode; header?: string }) {
   return (
-    <section className="weekly-page relative bg-white shadow-card px-5 py-6 md:px-10 md:pt-8 md:pb-8 mb-4">
+    <section className="weekly-page relative bg-surface shadow-card px-5 py-6 md:px-10 md:pt-8 md:pb-8 mb-4">
       {header && (
         <div className="flex items-center gap-1.5 text-[11px] text-muted border-b border-border pb-1.5 mb-4">
-          <img src="/arc-logo.png" alt="" className="h-4 w-auto" />{header}
+          <img src="/arc-logo.png" alt="" className="logo-img h-4 w-auto" />{header}
         </div>
       )}
       {children}
@@ -64,7 +64,7 @@ export function WeeklyReport({ rec }: { rec: WeeklyRecord }) {
     <article>
       <Page n={1}>
         <div className="flex justify-between items-start mb-5">
-          <img src="/arc-logo.png" alt="ARC Research" className="h-11 w-auto" />
+          <img src="/arc-logo.png" alt="ARC Research" className="logo-img h-11 w-auto" />
           <div className="text-right text-[12.5px] leading-[18px] font-semibold text-accent">
             Weekly Deep Dive<div className="font-normal text-muted">{LONG.format(d(rec.end))}</div>
           </div>

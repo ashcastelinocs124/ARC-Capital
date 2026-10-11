@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 import {
   CardHead, ExpandableCard, GraphTile, Headline, NoChart, TILE_CHART_HEIGHT, HowItWorks, Measures, Panel, StatCell, StatGrid, StatusBadge, ago,
 } from "@/components/modelCard";
+import { C } from "@/lib/theme";
 
 const SECTORS = [
   "Information Technology", "Communication Services", "Consumer Discretionary", "Financials",
@@ -276,24 +277,24 @@ function Trend({ data }: { data: AdoptionSummary }) {
       <ResponsiveContainer width="100%" height={180}>
         {view === "level" ? (
           <LineChart data={rows}>
-            <CartesianGrid stroke="#ececef" />
+            <CartesianGrid stroke={C.grid} />
             <XAxis dataKey="period" tick={{ fontSize: 10 }} />
             <YAxis domain={["auto", "auto"]} tick={{ fontSize: 10 }} width={32} />
             <Tooltip />
             <Legend />
-            <Line type="monotone" dataKey="Large" stroke="#008744" strokeWidth={2} dot={false} connectNulls />
-            <Line type="monotone" dataKey="Small" stroke="#71717a" strokeWidth={2} strokeDasharray="4 3" dot={false} connectNulls />
+            <Line type="monotone" dataKey="Large" stroke={C.accent} strokeWidth={2} dot={false} connectNulls />
+            <Line type="monotone" dataKey="Small" stroke={C.muted} strokeWidth={2} strokeDasharray="4 3" dot={false} connectNulls />
           </LineChart>
         ) : (
           <LineChart data={changes}>
-            <CartesianGrid stroke="#ececef" />
+            <CartesianGrid stroke={C.grid} />
             <XAxis dataKey="period" tick={{ fontSize: 10 }} />
             <YAxis tick={{ fontSize: 10 }} width={40} tickFormatter={(v: number) => `${v}%`} />
-            <ReferenceLine y={0} stroke="#a1a1aa" />
+            <ReferenceLine y={0} stroke={C.muted2} />
             <Tooltip formatter={pct} />
             <Legend />
-            <Line type="monotone" dataKey="Large" stroke="#008744" strokeWidth={2} dot={{ r: 3 }} connectNulls />
-            <Line type="monotone" dataKey="Small" stroke="#71717a" strokeWidth={2} strokeDasharray="4 3" dot={{ r: 3 }} connectNulls />
+            <Line type="monotone" dataKey="Large" stroke={C.accent} strokeWidth={2} dot={{ r: 3 }} connectNulls />
+            <Line type="monotone" dataKey="Small" stroke={C.muted} strokeWidth={2} strokeDasharray="4 3" dot={{ r: 3 }} connectNulls />
           </LineChart>
         )}
       </ResponsiveContainer>
@@ -308,14 +309,14 @@ function TileTrend({ data }: { data: AdoptionSummary }) {
   return (
     <ResponsiveContainer width="100%" height={TILE_CHART_HEIGHT}>
       <LineChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid stroke="#ececef" />
+        <CartesianGrid stroke={C.grid} />
         <XAxis dataKey="period" tick={{ fontSize: 10 }} />
         <YAxis domain={["auto", "auto"]} tick={{ fontSize: 10 }} width={32} />
-        <ReferenceLine y={50} stroke="#a1a1aa" strokeDasharray="3 3" />
+        <ReferenceLine y={50} stroke={C.muted2} strokeDasharray="3 3" />
         <Tooltip />
         <Legend />
-        <Line type="monotone" dataKey="Large" stroke="#008744" strokeWidth={2} dot={{ r: 3 }} connectNulls isAnimationActive={false} />
-        <Line type="monotone" dataKey="Small" stroke="#71717a" strokeWidth={2} strokeDasharray="4 3" dot={{ r: 3 }} connectNulls isAnimationActive={false} />
+        <Line type="monotone" dataKey="Large" stroke={C.accent} strokeWidth={2} dot={{ r: 3 }} connectNulls isAnimationActive={false} />
+        <Line type="monotone" dataKey="Small" stroke={C.muted} strokeWidth={2} strokeDasharray="4 3" dot={{ r: 3 }} connectNulls isAnimationActive={false} />
       </LineChart>
     </ResponsiveContainer>
   );

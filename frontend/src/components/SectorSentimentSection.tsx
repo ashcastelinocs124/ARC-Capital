@@ -8,6 +8,7 @@ import type { SectorExplanation, SectorScore, SectorSentimentSnapshot, SectorSto
 import {
   CardHead, ExpandableCard, GraphTile, Headline, TILE_CHART_HEIGHT, HowItWorks, Measures, Panel, StatCell, StatGrid, StatusBadge, ago,
 } from "@/components/modelCard";
+import { C } from "@/lib/theme";
 
 // Sector Sentiment tool on the Models page, ported from Arc-Investment-Research/arc-dashboard. Positive divergence =
 // price ahead of fundamentals (red), negative = fundamentals nobody is buying (green).
@@ -186,16 +187,16 @@ function Summary({ snap, expanded, onToggle }: { snap: SectorSentimentSnapshot; 
 // Tile chart: one bar per sector, coloured like the card (red = price ahead of fundamentals, green = the reverse).
 function SectorBars({ sectors }: { sectors: SectorScore[] }) {
   const rows = [...sectors].sort((a, b) => b.divergence - a.divergence);
-  const color = (v: number) => (v >= 0.3 ? "#dc2626" : v <= -0.3 ? "#16a34a" : "#a1a1aa");
+  const color = (v: number) => (v >= 0.3 ? C.danger : v <= -0.3 ? C.success : C.muted2);
   return (
     <ResponsiveContainer width="100%" height={TILE_CHART_HEIGHT}>
       <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 40, left: 0, bottom: 0 }} barCategoryGap={3}>
         <XAxis type="number" domain={[-0.5, 0.5]} hide />
         <YAxis type="category" dataKey="sector" width={140} tick={{ fontSize: 10, width: 200 }} interval={0} tickLine={false} axisLine={false} />
-        <ReferenceLine x={0} stroke="#d4d4d7" />
+        <ReferenceLine x={0} stroke={C.borderStrong} />
         <Bar dataKey="divergence" isAnimationActive={false}>
           {rows.map((r) => <Cell key={r.sector} fill={color(r.divergence)} />)}
-          <LabelList dataKey="divergence" position="right" formatter={fmt} style={{ fontSize: 10, fill: "#71717a" }} />
+          <LabelList dataKey="divergence" position="right" formatter={fmt} style={{ fontSize: 10, fill: C.muted }} />
         </Bar>
       </BarChart>
     </ResponsiveContainer>

@@ -6,6 +6,7 @@ import AgentsPage from "./pages/AgentsPage";
 import DeepResearchPage from "./pages/DeepResearchPage";
 import UpdatesPage from "./pages/UpdatesPage";
 import DocsPage from "./pages/DocsPage";
+import VideosPage from "./pages/VideosPage";
 
 const HOME = "/models";
 
@@ -14,6 +15,7 @@ const PAGES: [string, React.ReactNode][] = [
   ["/macro", <MacroPage />],
   ["/deep-research", <DeepResearchPage />],
   ["/updates", <UpdatesPage />],
+  ["/videos", <VideosPage />],
   ["/agents", <AgentsPage />],
   ["/docs", <DocsPage />],
 ];

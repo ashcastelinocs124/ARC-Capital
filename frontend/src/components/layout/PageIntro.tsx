@@ -20,7 +20,7 @@ export function PageIntro({ kicker, title, children, steps, highlight, when }: {
             <span key={s} className="flex items-center gap-1.5">
               {i > 0 && <span className="text-muted-2">→</span>}
               <span className={cn("border rounded-full px-2.5 py-0.5",
-                i === highlight ? "border-accent text-accent bg-accent-soft" : "border-border-strong bg-white")}>{s}</span>
+                i === highlight ? "border-accent text-accent bg-accent-soft" : "border-border-strong bg-surface")}>{s}</span>
             </span>
           ))}
         </div>

@@ -3,15 +3,71 @@
 @tailwind utilities;
 
 @layer base {
+  /* Colors as space-separated RGB channels so Tailwind's opacity modifiers (bg-black/40, border-accent/30) work. */
+  :root {
+    --c-background: 255 255 255;
+    --c-surface: 255 255 255;
+    --c-surface-2: 243 248 245;
+    --c-surface-3: 236 236 239;
+    --c-border: 229 229 231;
+    --c-border-strong: 212 212 215;
+    --c-text: 10 10 10;
+    --c-text-2: 39 39 42;
+    --c-muted: 113 113 122;
+    --c-muted-2: 161 161 170;
+    --c-accent: 0 135 68;
+    --c-accent-hover: 0 107 54;
+    --c-accent-soft: 230 244 236;
+    --c-accent-soft-2: 207 232 218;
+    --c-on-accent: 255 255 255;
+    --c-success: 22 163 74;
+    --c-success-soft: 220 252 231;
+    --c-danger: 220 38 38;
+    --c-danger-soft: 254 226 226;
+    --c-warning: 217 119 6;
+    --c-warning-soft: 254 243 199;
+    --c-info: 82 82 91;
+    --c-info-soft: 244 244 245;
+  }
+  /* Not in print: Download PDF always prints on white. */
+  @media not print {
+    .dark {
+      color-scheme: dark;
+    --c-background: 11 21 17;
+    --c-surface: 17 30 24;
+    --c-surface-2: 11 21 17;
+    --c-surface-3: 26 44 35;
+    --c-border: 31 51 41;
+    --c-border-strong: 43 69 56;
+    --c-text: 234 243 238;
+    --c-text-2: 200 214 207;
+    --c-muted: 142 167 154;
+    --c-muted-2: 107 133 121;
+    --c-accent: 95 207 151;
+    --c-accent-hover: 125 223 174;
+    --c-accent-soft: 22 51 42;
+    --c-accent-soft-2: 31 74 58;
+    --c-on-accent: 6 19 13;
+    --c-success: 74 222 128;
+    --c-success-soft: 18 53 36;
+    --c-danger: 248 113 113;
+    --c-danger-soft: 58 26 26;
+    --c-warning: 251 191 36;
+    --c-warning-soft: 58 45 16;
+    --c-info: 161 179 170;
+    --c-info-soft: 26 44 35;
+    }
+  }
+
   html, body {
-    background-color: #f7f8fa;
+    background-color: rgb(var(--c-surface-2));
   }
 
   body {
     font-family: "Inter", system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    color: #111827;
+    color: rgb(var(--c-text));
   }
 
   .num {
@@ -27,17 +83,23 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: #d1d5db;
+    background: rgb(var(--c-border-strong));
     border-radius: 4px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #9ca3af;
+    background: rgb(var(--c-muted-2));
   }
 }
 
 @layer components {
   .card {
-    @apply bg-surface border border-border rounded-xl shadow-card;
+    @apply bg-surface border border-border rounded-2xl shadow-card;
+  }
+  .eyebrow {
+    @apply font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-muted;
+  }
+  .pill {
+    @apply rounded-full bg-accent-soft px-2.5 py-0.5 text-[10.5px] font-semibold text-accent;
   }
 }
 
@@ -68,3 +130,8 @@
   #report .weekly-page:last-child { break-after: auto; }
   .no-print { display: none !important; }
 }
+
+/* Recharts: axis labels and the default tooltip follow the theme. */
+.recharts-cartesian-axis-tick-value { fill: rgb(var(--c-muted)); }
+.recharts-default-tooltip { background-color: rgb(var(--c-surface)) !important; border-color: rgb(var(--c-border)) !important; color: rgb(var(--c-text)); }
+.dark .logo-img { filter: invert(1) hue-rotate(180deg); }

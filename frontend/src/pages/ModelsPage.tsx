@@ -1,5 +1,8 @@
 import { Component, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
+import { Play } from "lucide-react";
 import { useModels } from "@/hooks/useModels";
+import { useVideos } from "@/hooks/useVideos";
 import type { ModelCard } from "@/api/endpoints";
 import { cn } from "@/lib/cn";
 import { SectorSentimentSection } from "@/components/SectorSentimentSection";
@@ -8,7 +11,7 @@ import { CrossAssetSection } from "@/components/CrossAssetSection";
 import { Line, LineChart, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { CardHead, ExpandableCard, GraphTile, HowItWorks, NoChart, Panel, TILE_CHART_HEIGHT } from "@/components/modelCard";
 import { ENABLED_MODELS, type ModelId } from "@/models/registry";
-import { PageIntro } from "@/components/layout/PageIntro";
+import { C } from "@/lib/theme";
 
 const WEAK_ACCURACY = 0.55; // near coin-flip for a binary up/down call
 const MAX_DATA_LAG_MONTHS = 3;
@@ -220,7 +223,7 @@ function HistoryChart({ card }: { card: ModelCard }) {
   if (rows.length < 2) return <NoChart text="History appears after the next Refresh." />;
   const unit = SERIES[card.id]?.unit ?? "";
   const last = rows[rows.length - 1];
-  const color = card.up ? "#16a34a" : "#dc2626";
+  const color = card.up ? C.success : C.danger;
   const call = `${card.target_month ? monthLabel(card.target_month).split(" ")[0] : "Next"}: ${Math.round((card.prob ?? 0) * 100)}% ${card.up ? "▲" : "▼"}`;
   return (
     <ResponsiveContainer width="100%" height={TILE_CHART_HEIGHT}>
@@ -228,9 +231,9 @@ function HistoryChart({ card }: { card: ModelCard }) {
         <XAxis dataKey="month" tick={{ fontSize: 10 }} tickFormatter={(m: string) => m.slice(0, 4)}
           ticks={rows.filter((r) => r.month.endsWith("-01")).map((r) => r.month)} />
         <YAxis tick={{ fontSize: 10 }} width={40} tickFormatter={(v: number) => `${+v.toFixed(1)}${unit}`} />
-        <ReferenceLine y={0} stroke="#d4d4d7" strokeDasharray="3 3" />
+        <ReferenceLine y={0} stroke={C.borderStrong} strokeDasharray="3 3" />
         <Tooltip formatter={(v: number) => `${v.toFixed(2)}${unit}`} labelFormatter={(m: string) => monthLabel(m)} />
-        <Line dataKey="value" name={SERIES[card.id]?.name} stroke="#52525b" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+        <Line dataKey="value" name={SERIES[card.id]?.name} stroke={C.text2} strokeWidth={1.5} dot={false} isAnimationActive={false} />
         <ReferenceDot x={last.month} y={last.value} r={4} fill={color} stroke="none"
           label={{ value: call, position: "right", fill: color, fontSize: 11, fontWeight: 600 }} />
       </LineChart>
@@ -310,6 +313,52 @@ class CardBoundary extends Component<{ name: string; children: ReactNode }, { fa
   }
 }
 
+const HERO_CHIPS = ["Macro", "AI", "Semiconductors", "Markets"];
+
+function Hero() {
+  const latest = useVideos().data?.[0];
+  return (
+    <section className="flex flex-col gap-8 rounded-3xl border border-border bg-surface bg-[radial-gradient(120%_140%_at_100%_0%,rgb(var(--c-accent-soft))_0%,transparent_55%)] px-6 py-8 md:flex-row md:items-center md:justify-between md:px-12 md:py-11">
+      <div className="min-w-0 flex-1">
+        <div className="eyebrow">ARC Research · Models</div>
+        <h1 className="mt-4 max-w-3xl text-4xl font-bold leading-[1.04] tracking-[-0.04em] text-text md:text-5xl lg:text-6xl">
+          Macro and AI, <span className="text-accent">explained for everyone.</span>
+        </h1>
+        <p className="mt-4 max-w-xl text-base text-muted md:text-[17px]">
+          In-depth research and live models on the economy, markets and the AI stack. No finance background required.
+        </p>
+        <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
+          <Link to="/docs" className="rounded-full bg-accent px-5 py-2 text-[13px] font-semibold text-on-accent hover:bg-accent-hover">
+            Read the docs
+          </Link>
+          <div className="flex flex-wrap gap-2">
+            {HERO_CHIPS.map((c) => (
+              <span key={c} className="pill px-3.5 py-1.5 text-[12.5px]">{c}</span>
+            ))}
+          </div>
+        </div>
+        {latest && (
+          <a href={latest.url} target="_blank" rel="noopener noreferrer" className="group mt-5 inline-flex items-center gap-3">
+            <span className="grid h-11 w-[72px] place-items-center overflow-hidden rounded-lg bg-gradient-to-br from-[#0b3d24] via-accent to-[#9ad7b6] text-white">
+              {latest.thumbnail ? <img src={latest.thumbnail} alt="" className="col-start-1 row-start-1 h-full w-full object-cover" /> : null}
+              <Play className="col-start-1 row-start-1 h-4 w-4 fill-current drop-shadow" />
+            </span>
+            <span>
+              <span className="block text-[13px] font-semibold text-text group-hover:text-accent">{latest.title}</span>
+              <span className="text-xs text-muted">Watch the latest video · opens Substack ↗</span>
+            </span>
+          </a>
+        )}
+      </div>
+      <img
+        src="/hero.jpg"
+        alt="Manhattan skyline at dusk"
+        className="aspect-[3/2] w-full rounded-2xl object-cover shadow-[0_10px_30px_-10px_rgba(0,60,40,0.35)] md:w-[46%] md:shrink-0 lg:w-[52%]"
+      />
+    </section>
+  );
+}
+
 export default function ModelsPage() {
   const { isLoading } = useModels();
   const [expanded, setExpanded] = useState<string | null>(null); // one card open at a time
@@ -317,13 +366,10 @@ export default function ModelsPage() {
 
   return (
     <div className="p-4 md:p-8 space-y-5">
-      <PageIntro kicker="Models" title="ARC's market models, each as a live graph"
-        steps={["Data refresh", "Model refit", "Graph tiles", "Click for the full card"]}
-        when={{ label: `${ENABLED_MODELS.length} models live`, value: "refit daily" }}>
-        Pulse (will growth expand?), Pressure (will inflation accelerate?), Sector Sentiment, the AI Adoption Index and
-        Cross-Asset Drivers read the economy and markets. Click any graph to open the model's card; the Documentation
-        page explains how each works.
-      </PageIntro>
+      <Hero />
+      <p className="text-xs text-muted">
+        Click a graph for that model's card. Read-only; forecasts older than 24h are marked stale.
+      </p>
       {/* equal-height rows so every card is the same size; off while one is expanded */}
       <div className={cn("grid md:grid-cols-2 gap-6", !expanded && "auto-rows-fr")}>
         {isLoading && <div className="text-sm text-muted">Loading…</div>}

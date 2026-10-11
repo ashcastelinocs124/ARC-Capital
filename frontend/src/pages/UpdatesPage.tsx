@@ -1,10 +1,12 @@
-import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { Download, Link2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { isV2, type DailyRecord } from "@/api/endpoints";
 import { MorningNote } from "@/components/MorningNote";
-import { PageIntro } from "@/components/layout/PageIntro";
+import { DailyPostsFeed } from "@/components/DailyPostsFeed";
+import { useDailyPosts } from "@/hooks/useDailyPosts";
+import { useSectionPosts } from "@/hooks/useSectionPosts";
 import { ACTIVE_STAGES, useLatestUpdate, useUpdateByDate, useUpdateHistory, useUpdateStatus } from "@/hooks/useUpdate";
 import { cn } from "@/lib/cn";
 import { EconomicReleasesTable, isRecord } from "@/components/EconomicReleasesCard";
@@ -36,7 +38,7 @@ function Banner({ stage, error }: { stage: string; error?: string | null }) {
       <div className="flex flex-wrap gap-1.5 mt-2.5">
         {STEPS.map(([s, label], i) => (
           <span key={s} className={cn("text-xs px-2.5 py-1 rounded-full border",
-            i < at ? "bg-accent-soft text-accent border-accent/30" : i === at ? "bg-white font-semibold text-warning border-warning" : "bg-surface-2 text-muted border-border")}>
+            i < at ? "bg-accent-soft text-accent border-accent/30" : i === at ? "bg-surface font-semibold text-warning border-warning" : "bg-surface-2 text-muted border-border")}>
             {i === at ? "● " : ""}{label}
           </span>
         ))}
@@ -223,7 +225,7 @@ function PastUpdates({ items, current, onPick }: {
               it.date === current ? "bg-accent-soft" : "hover:bg-surface-2")}>
             <div className={cn("text-xs font-semibold flex items-center gap-1.5", it.date === current ? "text-accent" : "text-text-2")}>
               {fmtDay(it.date)}
-              {i === 0 && <span className="text-[10px] font-semibold text-accent border border-accent rounded-full px-1.5 bg-white">Latest</span>}
+              {i === 0 && <span className="text-[10px] font-semibold text-accent border border-accent rounded-full px-1.5 bg-surface">Latest</span>}
             </div>
             {it.headline && <div className="text-[12.5px] leading-snug text-muted mt-0.5 line-clamp-2">{it.headline}</div>}
           </button>
@@ -233,7 +235,7 @@ function PastUpdates({ items, current, onPick }: {
   );
 }
 
-export default function UpdatesPage() {
+function OnSiteUpdates() {
   const { data: status } = useUpdateStatus();
   const stage = status?.stage;
   // the shared API client maps 404 to [] (see api/client.ts), so "no briefing" arrives as an array
@@ -277,14 +279,7 @@ export default function UpdatesPage() {
   };
 
   return (
-    <div className="p-4 md:p-8 space-y-5">
-      <PageIntro kicker="Daily Update" title="The Morning Note: what moved markets today"
-        steps={["Orchestrator plans", "Macro · News · Alt · AI analysts", "Editor writes 5 items", "Number guard", "Charts"]}
-        when={{ label: "New note", value: "daily, 17:00 ET" }}>
-        Each evening after the US close, ARC's desk of AI analysts covers macro data, news, alternative data and AI,
-        and an editor writes the five stories that mattered most, with charts. Every figure is checked against its source.
-      </PageIntro>
-    <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-5 items-start">
+    <div className="p-4 md:p-8 grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-5 items-start">
       {items.length > 0 && <PastUpdates items={items} current={rec?.date} onPick={open} />}
       <div className="min-w-0">
         <div className="flex items-baseline justify-between gap-3 mb-3">
@@ -308,6 +303,36 @@ export default function UpdatesPage() {
         )}
       </div>
     </div>
-    </div>
   );
+}
+
+// /updates lists the published Substack daily notes. ?date= (the link in each Substack draft) opens that day's
+// Substack post when it is published, else the on-site note from before Substack.
+export default function UpdatesPage() {
+  const wanted = useSearchParams()[0].get("date");
+  const { data: posts, isLoading } = useDailyPosts();
+  const { data: history } = useUpdateHistory(undefined);
+  const { data: sections } = useSectionPosts();
+  const post = wanted ? posts?.find((p) => p.date === wanted) : undefined;
+  useEffect(() => {
+    if (post) window.location.replace(post.url);
+  }, [post]);
+
+  if (wanted) {
+    if (isLoading || post) return <div className="p-8 text-sm text-muted">Opening the Substack post…</div>;
+    return (
+      <>
+        <Link to="/updates" className="block px-4 pt-4 text-xs font-medium text-accent hover:text-accent-hover md:px-8 md:pt-6">
+          ‹ Back to Daily Update
+        </Link>
+        <OnSiteUpdates />
+      </>
+    );
+  }
+  const onSubstack = new Set((posts ?? []).map((p) => p.date));
+  // A 404 arrives as [] (api/client.ts), and older backends send dates without items.
+  const items = history && !Array.isArray(history)
+    ? history.items ?? (Array.isArray(history.dates) ? history.dates.map((date) => ({ date, headline: "" })) : [])
+    : [];
+  return <DailyPostsFeed posts={posts ?? []} sections={sections ?? []} loading={isLoading} earlier={items.filter((it) => !onSubstack.has(it.date))} />;
 }

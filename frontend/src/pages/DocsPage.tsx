@@ -204,7 +204,7 @@ function Article({ d }: { d: Doc }) {
         <h4 className="mt-5 mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-accent">How to read it</h4>
         <div className="rounded-r-lg border-l-[3px] border-accent bg-surface-2 px-3.5 py-2.5">{d.read}</div>
         <h4 className="mt-5 mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-accent">Limitations</h4>
-        <ul className="rounded-lg bg-warning-soft px-3.5 py-2.5 pl-8 list-disc space-y-1 text-[#7c4a03]">
+        <ul className="rounded-lg bg-warning-soft px-3.5 py-2.5 pl-8 list-disc space-y-1 text-text-2">
           {d.limits.map((l, i) => <li key={i}>{l}</li>)}
         </ul>
       </div>

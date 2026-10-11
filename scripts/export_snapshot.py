@@ -40,6 +40,9 @@ PATHS = [
     "/cross_asset",
     "/research",
     "/refresh/status",
+    "/videos",
+    "/daily_posts",
+    "/section_posts",
 ]
 
 
