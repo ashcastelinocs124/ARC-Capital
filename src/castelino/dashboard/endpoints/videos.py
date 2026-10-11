@@ -22,6 +22,13 @@ _feed: tuple[float, str] = (0.0, "")
 _archive: tuple[float, list] = (0.0, [])
 
 
+# hand-made covers, by post slug (files in frontend/public/thumbs/)
+THUMB_OVERRIDES = {
+    "cheaper-frontier-models-efficient": "/thumbs/chinachip.jpg",
+    "weekly-market-update-1": "/thumbs/weekly-market-update-1.jpg",
+}
+
+
 def feed_xml() -> str:
     """The Substack RSS text, cached for an hour (also read by /daily_posts). Raises on a network error."""
     global _feed
@@ -68,6 +75,7 @@ def parse_videos(xml: str, archive: list[dict] | None = None) -> list[dict]:
         upload = re.search(r"mediaUploadId&quot;:&quot;([0-9a-f-]{36})", body)
         if not thumb and upload and post.get("id"):
             thumb = f"https://substack-video.s3.amazonaws.com/video_upload/post/{post['id']}/{upload.group(1)}/transcoded-00001.png"
+        thumb = THUMB_OVERRIDES.get(link.rsplit("/", 1)[-1], thumb)
         date = parsedate_to_datetime(item.findtext("pubDate") or "").date().isoformat()
         out.append(
             {
