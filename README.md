@@ -17,6 +17,7 @@ This is a portfolio piece, not investment advice.
 | **Sector Sentiment** | Per GICS sector, technical score minus fundamental score over its top 10 stocks; flags euphoric or fearful sectors and whether a move is stock-specific or sector-wide | `/models` |
 | **AI Adoption Index** | Scores companies on Talk (AI claims in SEC filings), Hire (share of open AI/ML roles) and Spend ((capex + R&D) / revenue), rolled up by sector and size | `/models` |
 | **Cross-Asset Drivers** | Explains what moved the S&P 500 and Treasuries over 1 week, 1 month and 3 months: a ridge regression of weekly returns on rates, risk, liquidity, dollar and CFTC positioning moves, with CPI/PCE/payrolls/ISM/GDP entering only as their surprise vs a cited consensus; unexplained moves are shown, not hidden | `/models` |
+| **Weekly Deep Dive** | Every Sunday morning, a sell-side-style report on Monday–Friday: a Lead (OpenAI) picks the week's trends from the Morning Notes and staffs up to 4 specialist desks that pull their own data and share a board; a Deep Editor (Claude Opus 5.5) grills every desk, then writes a paged report (page 1 the week at a glance, then one trend per page). Also drafted in full on Substack | `/deep-research` |
 | **Deep Research** | Multi-agent research: clarify → split into sub-questions → parallel web-search agents → cited report with charts from real market data | `/deep-research` |
 | **Agent catalog** | Every LLM agent's live prompt, model, tools, memory, output schema and API-key status, from `agents.yaml` | `/agents` |
 
@@ -43,6 +44,17 @@ Design rules that hold everywhere:
 - **Numbers come from code, words from LLMs.** Agents interpret, and deterministic code computes. Every LLM output is a Pydantic model, and agents cite facts by id rather than restating numbers.
 - **Guards check the model.** The Morning Note's guard rejects any %, bp or pp figure that isn't in the facts behind the findings an item cites. The AI Adoption extractor keeps a claim only if its quote appears in the filing. The job-board Recipe Writer's output is accepted only if our own replay reproduces it.
 - **All web search goes through one place**, `data/web_search.py` (OpenAI Responses API `web_search`).
+
+### Weekly Deep Dive
+
+`src/castelino/agents/weekly/` runs Sunday 06:00 New York (`scripts/publish_weekly.sh`), and is live by about 08:00:
+
+1. **Deep Lead** (`gpt-6-sol`) reads the week's Morning Notes and memory, picks 3-4 trends and staffs ≤4 desks, each with a name, goal and the tools it may use.
+2. **Desks** (`gpt-6-luna`, in parallel) call `fred_series`, `yahoo_prices`, `bls_series`, `polymarket_odds` and `web_search` (≤12 calls each). Code turns every result into a numbered fact, and related desks share facts on a board.
+3. **Deep Editor** (`claude-opus-5-5`, effort high) grills the desks for up to 2 rounds in one append-only conversation, then writes the report. The number guard checks every %, bp and pp figure against the facts each part cites (one retry), and code draws one exhibit per chart over the window the Editor chose.
+4. The record is written last to `data/deep/<YYYY-Www>.json`, served at `/weekly/*`, exported for the public site and drafted on Substack (`python -m castelino.substack_weekly`).
+
+A report is due from Saturday until it exists, so Refresh only builds a missing one. It needs `ANTHROPIC_API_KEY` as well as `OPENAI_API_KEY`. To rebuild a week by hand: `uv run python -c 'from castelino.agents.weekly.runner import build_default_runner as b; print(b().run_week("2026-W41"))'`.
 
 ### AI Adoption Index: how Hire is read
 
