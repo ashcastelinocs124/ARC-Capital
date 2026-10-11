@@ -22,13 +22,14 @@ _feed: tuple[float, str] = (0.0, "")
 _archive: tuple[float, list] = (0.0, [])
 
 
-# hand-made covers, by post slug (files in frontend/public/thumbs/)
+# hand-made covers for any Substack post (videos, sections, daily notes), by post slug; files in frontend/public/thumbs/
 THUMB_OVERRIDES = {
     "cheaper-frontier-models-efficient": "/thumbs/chinachip.jpg",
     "weekly-market-update-1": "/thumbs/weekly-market-update-1.jpg",
     "money-for-machines": "/thumbs/money-for-machines.jpg",
     "neolabs-and-neoclouds": "/thumbs/neolabs-and-neoclouds.jpg",
     "how-ai-has-become-a-capital-markets": "/thumbs/ai-capital-markets.jpg",
+    "fed-pause-expectations-rose-even": "/thumbs/fed-pause-expectations.jpg",
 }
 
 

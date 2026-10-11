@@ -9,7 +9,7 @@ from datetime import datetime
 import httpx
 from fastapi import APIRouter
 
-from castelino.dashboard.endpoints.videos import _CONTENT, POST_PREFIX, feed_xml
+from castelino.dashboard.endpoints.videos import _CONTENT, POST_PREFIX, THUMB_OVERRIDES, feed_xml
 
 router = APIRouter()
 
@@ -45,7 +45,10 @@ def parse_daily_posts(xml: str) -> list[dict]:
                 "date": datetime.strptime(m.group(1), "%B %d, %Y").date().isoformat(),
                 "title": (item.findtext("title") or "").strip(),
                 "takeaways": takeaways,
-                "image": image if image and image.startswith("https://") else None,
+                "image": THUMB_OVERRIDES.get(
+                    link.rsplit("/", 1)[-1],
+                    image if image and image.startswith("https://") else None,
+                ),
                 "url": link,
             }
         )
