@@ -124,6 +124,45 @@ export const fetchCrossAsset = async (): Promise<CrossAssetSnapshot | null> => {
   return data && !Array.isArray(data) && "assets" in data ? (data as CrossAssetSnapshot) : null;
 };
 
+// ── Weekly Deep Dive (/weekly/*) ───────────────────────────────────────────
+export interface WeeklyFact { id: string; text: string; source_title: string; source_url: string; }
+export interface WeeklyChallenge { question: string; answer: string; verdict: string; }
+export interface WeeklySection {
+  title: string; agent: string; paragraphs: string[]; fact_ids: string[];
+  exhibits: { fact_id: string; window_days: number }[]; challenges: WeeklyChallenge[];
+}
+export interface WeeklyScoreRow {
+  asset: string; level: number; unit: "%" | "level" | "$"; change_unit: "%" | "bp";
+  w1: number | null; m1: number | null; m3: number | null; ytd: number | null;
+}
+export interface WeeklyRecord {
+  version: 1; week: string; start: string; end: string; generated_at: string;
+  plan: {
+    trends: { title: string; why: string }[];
+    agents: { name: string; description: string; goal: string; tools: string[]; trends?: string[] }[]; // trends: older records lack it
+  };
+  facts: WeeklyFact[];
+  findings: { id: string; agent: string }[];
+  grill_log: { agent: string; finding_id: string; question: string; answer: string }[];
+  report: {
+    title: string; subtitle: string; watch: string;
+    bullets: { lead: string; body: string; fact_ids: string[] }[]; sections: WeeklySection[];
+  };
+  exhibits: { n: number; section: number; fact_id: string; title: string; subtitle: string; file: string }[];
+  scorecard: WeeklyScoreRow[];
+  regime: { pulse: number | null; pressure: number | null };
+  counts: { notes: number; agents: number; data_pulls: number; board_posts: number; grill_rounds: number; figures_checked: number; exhibits: number };
+  data_gaps: string[];
+  models: Record<string, string>;
+}
+export interface WeeklyHistory { items: { week: string; start: string; end: string; title: string }[] }
+export const isWeekly = (x: unknown): x is WeeklyRecord =>
+  !!x && !Array.isArray(x) && (x as WeeklyRecord).version === 1 && typeof (x as WeeklyRecord).week === "string";
+export const fetchWeeklyHistory = () => api.get<WeeklyHistory>("/weekly/history");
+export const fetchWeekly = (week: string | null) => api.get<WeeklyRecord>(week ? `/weekly/${week}` : "/weekly/latest");
+export const fetchWeeklyStatus = () =>
+  api.get<{ stage: string; week?: string; error?: string | null; due?: string | null }>("/weekly/status");
+
 // ── Videos (Substack) ───────────────────────────────────────────────────
 export interface Video {
   title: string;

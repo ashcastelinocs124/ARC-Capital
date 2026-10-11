@@ -90,11 +90,13 @@ from castelino.dashboard.endpoints import (  # noqa: E402
 )
 from castelino.dashboard.endpoints import sector_sentiment as sector_sentiment_router  # noqa: E402
 from castelino.dashboard.endpoints import update as update_ep  # noqa: E402
+from castelino.dashboard.endpoints import weekly as weekly_ep  # noqa: E402
 
 app.include_router(models.router)
 app.include_router(macro.router)
 app.include_router(deep_research.router)
 app.include_router(update_ep.router)
+app.include_router(weekly_ep.router)
 app.include_router(agent_catalog.router)
 app.include_router(sector_sentiment_router.router)
 app.include_router(adoption.router)

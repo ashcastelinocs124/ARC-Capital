@@ -6,6 +6,25 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api, STATIC } from "@/api/client";
 import { useAgentCatalog } from "@/hooks/useAgentCatalog";
 import { cn } from "@/lib/cn";
+import { Download, Link2 } from "lucide-react";
+import { isWeekly } from "@/api/endpoints";
+import { useWeekly, useWeeklyHistory } from "@/hooks/useWeekly";
+import { WeeklyReport } from "@/components/WeeklyReport";
+import { PageIntro } from "@/components/layout/PageIntro";
+
+const MD = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+const fmtRange = (start: string, end: string) => {
+  if (!start || !end) return "";
+  const [a, b] = [new Date(`${start}T00:00:00Z`), new Date(`${end}T00:00:00Z`)];
+  return a.getUTCMonth() === b.getUTCMonth() ? `${MD.format(a)}–${b.getUTCDate()}` : `${MD.format(a)}–${MD.format(b)}`;
+};
+// The next Sunday 08:00 ET release (today, if it's Sunday before 08:00 in New York).
+function nextSunday(now = new Date()): string {
+  const ny = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const add = ny.getDay() === 0 && ny.getHours() < 8 ? 0 : (7 - ny.getDay()) % 7 || 7;
+  ny.setDate(ny.getDate() + add);
+  return `${ny.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}, 08:00 ET`;
+}
 
 type Source = { title: string; url: string; snippet?: string };
 type SubQuestion = { id: string; text: string };
@@ -236,6 +255,38 @@ export default function DeepResearchPage() {
   const s = sessRaw && !Array.isArray(sessRaw) ? sessRaw : undefined;
 
   const open = (next: string | null) => setParams(next ? { id: next } : {});
+  const ask = () => { setParams({ ask: "1" }); setQuery(""); };
+
+  // Weekly Deep Dive: the page opens on the latest week; ?week= links a past one.
+  const week = params.get("week");
+  const asking = params.get("ask") === "1";
+  const { data: histRaw } = useWeeklyHistory();
+  const weeks = histRaw && !Array.isArray(histRaw) && Array.isArray(histRaw.items) ? histRaw.items : [];
+  const showWeekly = !id && !asking && weeks.length > 0;
+  const { data: weeklyRaw } = useWeekly(week, showWeekly);
+  const weekly = showWeekly && isWeekly(weeklyRaw) ? weeklyRaw : undefined;
+  const openWeek = (w: string) => setParams(w === weeks[0]?.week ? {} : { week: w });
+  const currentWeek = week ?? weeks[0]?.week;
+  const [copied, setCopied] = useState(false);
+  const copyLink = async () => {
+    if (!weekly) return;
+    const url = `${window.location.origin}/deep-research?week=${weekly.week}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      window.prompt("Copy this link", url); // clipboard blocked (e.g. not https)
+    }
+  };
+  // ponytail: the browser's own Save as PDF (print styles in index.css show only #report).
+  const downloadPdf = () => {
+    if (!weekly) return;
+    const title = document.title;
+    document.title = `ARC Weekly Deep Dive ${weekly.week}`; // the default PDF file name
+    window.print();
+    document.title = title;
+  };
 
   async function start() {
     setBusy(true); setStartError(null);
@@ -258,26 +309,72 @@ export default function DeepResearchPage() {
     } finally { setBusy(false); }
   }
 
+  const SECTION = "px-4 pt-2 pb-1 text-[10.5px] font-bold tracking-[0.1em] uppercase text-muted bg-surface-2/60 border-t border-border";
   return (
-    <div className="p-4 md:p-8 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5 items-start">
+    <div className="p-4 md:p-8 space-y-5">
+      <PageIntro kicker="Deep Research" title="A deep dive into what happened in the markets this week"
+        steps={["Morning Notes", "Lead picks 10–12 trends", "5 specialist agents pull the data", "Editor challenges each finding", "Report + exhibits"]}
+        highlight={3} when={{ label: "Next report", value: nextSunday(), note: "Covers Monday–Friday" }}>
+        Every Sunday morning, ARC's research desk reads the week's Morning Notes, picks the 10 to 12 stories that
+        mattered, and splits them across five specialist agents that pull the data behind each one. An editor then challenges every
+        finding before writing it up. Every number in the report traces back to a cited data series.
+      </PageIntro>
+    <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5 items-start">
       <Card>
         <div className="px-4 py-3 border-b border-border flex justify-between items-center">
           <span className="text-sm font-semibold">Reports</span>
-          {!STATIC && <button onClick={() => { open(null); setQuery(""); }}
-            className="text-xs font-semibold text-on-accent bg-accent hover:bg-accent-hover rounded-lg px-2.5 py-1">+ New</button>}
+          {!STATIC && <button onClick={ask}
+            className="text-xs font-semibold text-on-accent bg-accent hover:bg-accent-hover rounded-lg px-2.5 py-1">+ Ask a question</button>}
         </div>
-        {list.map((r) => (
-          <button key={r.id} onClick={() => open(r.id)}
-            className={cn("w-full text-left px-4 py-2.5 border-t border-border first-of-type:border-0",
-              r.id === id ? "bg-accent-soft" : "hover:bg-surface-2")}>
-            <div className="text-sm leading-snug">{r.original_query}</div>
-            <div className="text-[11px] text-muted mt-1 flex items-center gap-1.5"><StatusPill status={r.status} />{ago(r.updated_at)}</div>
+        <div className={SECTION}>Weekly deep dives</div>
+        {weeks.map((w, i) => (
+          <button key={w.week} onClick={() => openWeek(w.week)}
+            className={cn("w-full text-left px-4 py-2.5 border-t border-border",
+              !id && !asking && currentWeek === w.week ? "bg-accent-soft" : "hover:bg-surface-2")}>
+            <div className={cn("text-xs font-semibold flex items-center gap-1.5",
+              !id && !asking && currentWeek === w.week ? "text-accent" : "text-text-2")}>
+              Week {w.week.split("-W")[1]} · {fmtRange(w.start, w.end)}
+              {i === 0 && <span className="text-[10px] font-semibold text-accent border border-accent rounded-full px-1.5 bg-surface">Latest</span>}
+            </div>
+            <div className="text-[12px] text-muted mt-0.5 line-clamp-2">{w.title}</div>
           </button>
         ))}
-        {list.length === 0 && <div className="px-4 py-6 text-sm text-muted text-center">No reports yet.</div>}
+        {weeks.length === 0 && <div className="px-4 py-3 text-xs text-muted border-t border-border">The first weekly deep dive arrives Sunday morning.</div>}
+        {!STATIC && (
+          <>
+            <div className={SECTION}>Your research</div>
+            {list.map((r) => (
+              <button key={r.id} onClick={() => open(r.id)}
+                className={cn("w-full text-left px-4 py-2.5 border-t border-border",
+                  r.id === id ? "bg-accent-soft" : "hover:bg-surface-2")}>
+                <div className="text-sm leading-snug">{r.original_query}</div>
+                <div className="text-[11px] text-muted mt-1 flex items-center gap-1.5"><StatusPill status={r.status} />{ago(r.updated_at)}</div>
+              </button>
+            ))}
+            {list.length === 0 && <div className="px-4 py-3 text-xs text-muted border-t border-border">No questions asked yet.</div>}
+          </>
+        )}
       </Card>
 
       <div className="space-y-4 min-w-0">
+        {weekly && (
+          <>
+            <div className="flex items-baseline justify-between gap-3">
+              <div className="text-xs text-muted">
+                Week {weekly.week} · published {weekly.generated_at.replace("T", " ").slice(0, 16)} · {weekly.report.sections.length + 2} pages
+              </div>
+              <div className="shrink-0 flex items-center gap-4 no-print">
+                <button onClick={downloadPdf} className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent-hover">
+                  <Download className="h-3.5 w-3.5" />Download PDF
+                </button>
+                <button onClick={copyLink} className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent-hover">
+                  <Link2 className="h-3.5 w-3.5" />{copied ? "Link copied" : "Copy link"}
+                </button>
+              </div>
+            </div>
+            <div id="report"><WeeklyReport rec={weekly} /></div>
+          </>
+        )}
         {keyMissing && !STATIC && (
           <div className="rounded-xl border border-warning bg-warning-soft px-4 py-2.5 text-sm text-warning">
             <b>OPENAI_API_KEY is missing.</b> Research sub-agents search the web through OpenAI web search, so new research
@@ -285,7 +382,7 @@ export default function DeepResearchPage() {
           </div>
         )}
 
-        {!id && !STATIC && (
+        {!id && !STATIC && (asking || weeks.length === 0) && (
           <Card className="p-4">
             <textarea value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Ask a research question…"
               className="w-full h-16 px-3 py-2.5 text-sm border border-border rounded-xl bg-surface-2 resize-none outline-none focus:border-accent" />
@@ -315,6 +412,7 @@ export default function DeepResearchPage() {
           </>
         )}
       </div>
+    </div>
     </div>
   );
 }

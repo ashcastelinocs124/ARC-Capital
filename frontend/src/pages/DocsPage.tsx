@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/cn";
 import { isEnabled } from "@/models/registry";
+import { PageIntro } from "@/components/layout/PageIntro";
 
 // Long-form "how it works" for every model on /models. The cards keep a short version and
 // link here via `/docs#<id>`. No live numbers on purpose, so this page can't go stale.
@@ -233,10 +234,12 @@ export default function DocsPage() {
 
   return (
     <div className="p-4 md:p-8">
-      <h2 className="text-base font-semibold text-text">Documentation</h2>
-      <p className="text-xs text-muted mt-0.5">
-        How each model on the Models page works: what it predicts, what it reads, how it is tested, and where it falls short.
-      </p>
+      <PageIntro kicker="Documentation" title="How every model works, and where it falls short"
+        steps={["What it predicts", "Inputs", "Method", "Testing", "Limitations"]}
+        when={{ label: `${DOCS.length} models`, value: "documented" }}>
+        A plain-English write-up of each model on the Models page: what it predicts, the data it reads, how it is
+        trained and tested, how to read its output, and its known limitations.
+      </PageIntro>
 
       {/* phones: contents as a row of chips */}
       <div className="md:hidden mt-4 flex flex-wrap gap-2">

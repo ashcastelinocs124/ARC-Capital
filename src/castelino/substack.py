@@ -12,7 +12,9 @@ import base64
 import json
 import os
 import sys
+from collections.abc import Callable
 from datetime import date
+from pathlib import Path
 
 import httpx
 
@@ -44,6 +46,14 @@ def _rich(s: str) -> list[dict]:
 
 def _p(*content: dict) -> dict:
     return {"type": "paragraph", "content": list(content)}
+
+
+def _bold(s: str) -> dict:
+    return {"type": "text", "text": s, "marks": [{"type": "bold"}]}
+
+
+def _heading(s: str, level: int = 3) -> dict:
+    return {"type": "heading", "attrs": {"level": level}, "content": [_text(s)]}
 
 
 def _image(up: dict, alt: str) -> dict:
@@ -116,21 +126,20 @@ def _check(r: httpx.Response) -> httpx.Response:
     return r
 
 
-def push_draft(day: str) -> str:
-    cfg = get_settings()
-    updates = cfg.root / cfg.update_agent.updates_dir
+def push(
+    *,
+    marker: Path,
+    title: str,
+    subtitle: str,
+    pngs: dict[str, Path],
+    body: Callable[[dict[str, dict]], dict],
+    label: str,
+) -> str:
+    """Create or update one Substack draft. `marker` remembers the draft id; never publishes."""
     pub = os.getenv("SUBSTACK_PUBLICATION_URL", "").rstrip("/")
     sid, connect = os.getenv("SUBSTACK_SID"), os.getenv("SUBSTACK_CONNECT_SID")
     if not (pub and sid):
         return "skipped: SUBSTACK_PUBLICATION_URL / SUBSTACK_SID not set"
-    path = updates / f"{day}.json"
-    if not path.exists():
-        return f"skipped: no Morning Note for {day}"
-    record = json.loads(path.read_text())
-    if record.get("version") != 2:
-        return f"skipped: {day} is not a v2 Morning Note"
-
-    marker = updates / "substack" / f"{day}.json"
     api = f"{pub}/api/v1"
     cookies = {"substack.sid": sid} | (
         {"connect.sid": connect} if connect else {}
@@ -142,26 +151,22 @@ def push_draft(day: str) -> str:
             if r.status_code == 404:
                 draft_id = None  # deleted in Substack: make a fresh one
             elif _check(r).json().get("is_published"):
-                return f"skipped: {day} is already published on Substack (draft {draft_id})"
+                return f"skipped: {label} is already published on Substack (draft {draft_id})"
 
         uploaded = {}
-        charts = updates / "charts" / day
-        for ex in record.get("exhibits", []):
-            png = charts / ex["file"]
+        for name, png in pngs.items():
             if png.exists():
                 data_uri = "data:image/png;base64," + base64.b64encode(png.read_bytes()).decode()
-                uploaded[ex["file"]] = _check(
-                    http.post(f"{api}/image", json={"image": data_uri})
-                ).json()
+                uploaded[name] = _check(http.post(f"{api}/image", json={"image": data_uri})).json()
 
         fields = {
-            "draft_title": record["note"]["headline"],
-            "draft_subtitle": _subtitle(day),
-            "draft_body": json.dumps(build_doc(record, uploaded), ensure_ascii=False),
+            "draft_title": title,
+            "draft_subtitle": subtitle,
+            "draft_body": json.dumps(body(uploaded), ensure_ascii=False),
         }
         if draft_id:
             _check(http.put(f"{api}/drafts/{draft_id}", json=fields))
-            return f"updated draft {draft_id} for {day} ({len(uploaded)} charts)"
+            return f"updated draft {draft_id} for {label} ({len(uploaded)} images)"
 
         settings = _check(http.get("https://substack.com/api/v1/user-settings")).json()
         user_id = settings["userSettings"][0]["user_id"]
@@ -175,7 +180,30 @@ def push_draft(day: str) -> str:
         draft_id = _check(http.post(f"{api}/drafts", json=payload)).json()["id"]
     marker.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_text(marker, json.dumps({"draft_id": draft_id}))
-    return f"created draft {draft_id} for {day} ({len(uploaded)} charts): {pub}/publish/post/{draft_id}"
+    return (
+        f"created draft {draft_id} for {label} ({len(uploaded)} images): "
+        f"{pub}/publish/post/{draft_id}"
+    )
+
+
+def push_draft(day: str) -> str:
+    cfg = get_settings()
+    updates = cfg.root / cfg.update_agent.updates_dir
+    path = updates / f"{day}.json"
+    if not path.exists():
+        return f"skipped: no Morning Note for {day}"
+    record = json.loads(path.read_text())
+    if record.get("version") != 2:
+        return f"skipped: {day} is not a v2 Morning Note"
+    charts = updates / "charts" / day
+    return push(
+        marker=updates / "substack" / f"{day}.json",
+        title=record["note"]["headline"],
+        subtitle=_subtitle(day),
+        pngs={ex["file"]: charts / ex["file"] for ex in record.get("exhibits", [])},
+        body=lambda up: build_doc(record, up),
+        label=day,
+    )
 
 
 if __name__ == "__main__":

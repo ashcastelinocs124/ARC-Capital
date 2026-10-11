@@ -140,6 +140,29 @@ class DeepResearchCfg(BaseModel):
     chart_lookback_days_default: int = 365
 
 
+class DeepDiveCfg(BaseModel):
+    """Weekly Deep Dive (agents/weekly/): Lead + tool-using sub-agents + Claude Deep Editor."""
+
+    enabled: bool = True
+    lead_model: str = "gpt-6-sol"
+    agent_model: str = "gpt-6-luna"  # sub-agent tool loops
+    search_model: str = "gpt-6-luna"  # their web_search calls
+    editor_model: str = "claude-opus-5-5"
+    editor_effort: str = "high"  # Opus 5.5 defaults to medium; the grill needs high
+    editor_max_tokens: int = 64000  # 10-12 trend sections in one structured reply
+    min_trends: int = 10  # a weekly covers the whole week: 10-12 trends, 2-3 per desk
+    max_trends: int = 12
+    max_agents: int = 5
+    max_tool_calls: int = 16  # per sub-agent research run (a desk covers 2-3 trends)
+    max_answer_tool_calls: int = 4  # extra calls per grill answer
+    max_findings_per_agent: int = 6
+    max_grill_rounds: int = 2
+    max_guard_retries: int = 1
+    min_notes: int = 3  # Morning Notes a week needs before a deep dive runs
+    max_output_tokens: int = 16000  # OpenAI calls; reasoning tokens share this budget
+    data_dir: str = "data/deep"
+
+
 # ────────────────────────── figure_deviation (Wave 1) ────────────────────────
 # Generalises `speech.speakers` into a multi-source, multi-lexicon engine.
 # Existing Fed speakers are ported here in Wave 1. Trump (X API) lands in
@@ -170,6 +193,7 @@ class Settings(BaseModel):
     openbb: OpenBBCfg = OpenBBCfg()
     web_search: WebSearchCfg = WebSearchCfg()
     deep_research: DeepResearchCfg = DeepResearchCfg()
+    deep_dive: DeepDiveCfg = DeepDiveCfg()
     update_agent: UpdateAgentCfg = UpdateAgentCfg()
     model_refit: ModelRefitCfg = ModelRefitCfg()
     sector_sentiment: SectorSentimentCfg = SectorSentimentCfg()
@@ -188,6 +212,13 @@ class Settings(BaseModel):
         key = os.environ.get("OPENAI_API_KEY", "").strip()
         if not key:
             raise RuntimeError("OPENAI_API_KEY is not set. Add it to .env or export it.")
+        return key
+
+    @property
+    def anthropic_api_key(self) -> str:
+        key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+        if not key:
+            raise RuntimeError("ANTHROPIC_API_KEY is not set. Add it to .env or export it.")
         return key
 
     @property

@@ -30,6 +30,9 @@ PATHS = [
     "/update/status",
     "/update/latest",
     "/update/history",
+    "/weekly/status",
+    "/weekly/latest",
+    "/weekly/history",
     "/agents/catalog",
     "/sector_sentiment",
     "/adoption/summary",
@@ -69,6 +72,24 @@ def copy_charts(day: str, rec: dict, updates_dir: Path | None = None) -> int:
     return n
 
 
+def copy_weekly_charts(week: str, rec: dict, deep_dir: Path | None = None) -> int:
+    """Weekly Deep Dive exhibits: copy the PNGs next to the week's snapshot."""
+    if deep_dir is None:
+        from castelino.config import get_settings
+
+        cfg = get_settings()
+        deep_dir = cfg.root / cfg.deep_dive.data_dir
+    n = 0
+    for ex in rec.get("exhibits") or []:
+        f = deep_dir / "charts" / week / ex["file"]
+        if f.is_file():
+            dst = OUT / "weekly" / week / "charts" / ex["file"]
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(f, dst)
+            n += 1
+    return n
+
+
 def run_refresh() -> None:
     for key, fn in refresh._RUNNERS.items():
         try:
@@ -98,9 +119,13 @@ def export() -> int:
         written += 1
         if re.fullmatch(r"/update/\d{4}-\d{2}-\d{2}", path) and data.get("version") == 2:
             copy_charts(path.rsplit("/", 1)[1], data)
+        if re.fullmatch(r"/weekly/\d{4}-W\d{2}", path):
+            copy_weekly_charts(path.rsplit("/", 1)[1], data)
         # Fan out to the parameterised GETs the pages make.
         if path == "/update/history":
             queue += [f"/update/{d}" for d in data.get("dates", [])]
+        elif path == "/weekly/history":
+            queue += [f"/weekly/{i['week']}" for i in data.get("items", [])]
         elif path == "/research" and isinstance(data, list):
             queue += [f"/research/{row['id']}" for row in data if "id" in row]
         elif path == "/adoption/summary":

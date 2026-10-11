@@ -4,6 +4,7 @@ import type { AgentCatalogEntry, AgentSystem } from "@/api/endpoints";
 import { useAgentCatalog } from "@/hooks/useAgentCatalog";
 import { cn } from "@/lib/cn";
 import { AgentArch, FamilyArch, SystemDiagram } from "@/components/SystemDiagram";
+import { PageIntro } from "@/components/layout/PageIntro";
 
 const TABS = ["Arch", "Prompt", "Tools", "Memory", "Output", "Dependencies"] as const;
 type Tab = (typeof TABS)[number];
@@ -231,7 +232,14 @@ export default function AgentsPage() {
   if (isLoading) return <div className="p-4 md:p-8 text-sm text-muted">Loading agents…</div>;
 
   return (
-    <div className="p-4 md:p-8 grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
+    <div className="p-4 md:p-8 space-y-5">
+      <PageIntro kicker="Agents" title="Every AI agent behind ARC Research, in the open"
+        steps={["Prompt", "Model", "Tools + data", "Output schema", "Architecture"]}
+        when={{ label: `${agents.length} agents`, value: `${systems.length} systems` }}>
+        The full catalog of the agents that write ARC's research: what each is asked to do, which model it runs on, the
+        tools and data it can use, and how the agents connect, drawn as one diagram per system.
+      </PageIntro>
+    <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
       <Card className="flex flex-col">
         <div className="p-3.5 border-b border-border">
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search agents, tools, memory…"
@@ -300,6 +308,7 @@ export default function AgentsPage() {
       : current ? <Detail key={current.id} a={current} names={names} open={open}
         system={systems.find((s) => s.group === current.group)} /> : <Card className="p-4 md:p-8 text-sm text-muted">No agents registered.</Card>}
       </div>
+    </div>
     </div>
   );
 }
