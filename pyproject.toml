@@ -40,6 +40,7 @@ dependencies = [
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
     "plotly>=5.18",
+    "anthropic>=0.116",
 ]
 
 [project.optional-dependencies]
