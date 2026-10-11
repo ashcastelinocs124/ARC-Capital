@@ -88,12 +88,29 @@ def job_cross_asset() -> str:
         raise Skipped(str(exc)) from exc
 
 
+def job_weekly_deep_dive() -> str:
+    from castelino import config
+    from castelino.agents.weekly import runner as weekly_runner
+
+    if not config.get_settings().deep_dive.enabled:
+        raise Skipped("disabled in config.yaml (deep_dive.enabled)")
+    result = weekly_runner.build_default_runner().run_if_due()
+    if result == "skipped":
+        raise Skipped("no deep dive due (runs Saturday onwards for Mon–Fri)")
+    if result == "locked":
+        raise Skipped("another deep dive run is in progress")
+    if result == "failed":
+        raise RuntimeError("deep dive failed; see GET /weekly/status")
+    return "weekly deep dive written"
+
+
 LABELS = {
     "update_agent": "Update Agent briefing",
     "model_refit": "Model refit",
     "sector_sentiment": "Sector Sentiment",
     "adoption": "AI Adoption Index",
     "cross_asset": "Cross-Asset Drivers",
+    "weekly_deep_dive": "Weekly Deep Dive",
 }
 # Overridable in tests.
 _RUNNERS: dict[str, Callable[[], str]] = {
@@ -102,6 +119,7 @@ _RUNNERS: dict[str, Callable[[], str]] = {
     "sector_sentiment": job_sector_sentiment,
     "adoption": job_adoption,
     "cross_asset": job_cross_asset,
+    "weekly_deep_dive": job_weekly_deep_dive,
 }
 _state: dict[str, dict] = {}
 _threads: list[threading.Thread] = []
