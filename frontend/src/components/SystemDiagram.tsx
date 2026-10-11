@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { AgentSystem, SystemLane } from "@/api/endpoints";
 import { cn } from "@/lib/cn";
+import { C } from "@/lib/theme";
 
 // Layout: each step is a column, the boxes in a step stack (parallel), and every box in a
 // step links to every box in the next (fan-out / fan-in). Boxes are HTML so text wraps;
@@ -52,7 +53,7 @@ function Lane({ lane, width, names, onAgent, onSystem, highlight }: {
       <div className="relative" style={{ width: w, height: h }}>
         <svg width={w} height={h} className="absolute inset-0 overflow-visible">
           <defs>
-            {[["ar", "#a1a1aa"], ["arg", "#008744"]].map(([id, c]) => (
+            {[["ar", C.muted2], ["arg", C.accent]].map(([id, c]) => (
               <marker key={id} id={id} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
                 <path d="M0,0L10,5L0,10z" fill={c} />
               </marker>
@@ -61,8 +62,8 @@ function Lane({ lane, width, names, onAgent, onSystem, highlight }: {
           {lane.regions?.map((r) => (
             <g key={r.label}>
               <rect x={x(r.from) - 12} y={top - 22} width={x(r.to) + W + 12 - (x(r.from) - 12)} height={inner + 30}
-                rx="12" fill="#f3f8f5" stroke="#cfe8da" strokeDasharray="5 4" />
-              <text x={x(r.from) - 2} y={top - 8} fontSize="10" fontWeight="600" letterSpacing="1" fill="#008744">
+                rx="12" fill={C.soft} stroke={C.soft2} strokeDasharray="5 4" />
+              <text x={x(r.from) - 2} y={top - 8} fontSize="10" fontWeight="600" letterSpacing="1" fill={C.accent}>
                 {r.label.toUpperCase()}
               </text>
             </g>
@@ -70,15 +71,15 @@ function Lane({ lane, width, names, onAgent, onSystem, highlight }: {
           {cols.slice(0, -1).flatMap((col, i) => col.flatMap((a) => cols[i + 1].map((b) => {
             const x1 = a.x + W, y1 = a.y + H / 2, x2 = b.x - 2, y2 = b.y + H / 2, m = (x1 + x2) / 2;
             return <path key={`${i}-${a.y}-${b.y}`} d={`M${x1} ${y1}C${m} ${y1} ${m} ${y2} ${x2} ${y2}`}
-              stroke="#a1a1aa" strokeWidth="1.4" fill="none" markerEnd="url(#ar)" />;
+              stroke={C.muted2} strokeWidth="1.4" fill="none" markerEnd="url(#ar)" />;
           })))}
           {lane.loops?.map((l) => {
             const xa = x(l.from) + W / 2, xb = x(l.to) + W / 2 + 8, yt = 16;
             return (
               <g key={l.label}>
                 <path d={`M${xa} ${colTop(l.from)}V${yt + 6}Q${xa} ${yt} ${xa - 6} ${yt}H${xb + 6}Q${xb} ${yt} ${xb} ${yt + 6}V${colTop(l.to) - 2}`}
-                  stroke="#008744" strokeWidth="1.4" strokeDasharray="5 4" fill="none" markerEnd="url(#arg)" />
-                <text x={(xa + xb) / 2} y={yt - 3} textAnchor="middle" fontSize="10.5" fill="#008744">{l.label}</text>
+                  stroke={C.accent} strokeWidth="1.4" strokeDasharray="5 4" fill="none" markerEnd="url(#arg)" />
+                <text x={(xa + xb) / 2} y={yt - 3} textAnchor="middle" fontSize="10.5" fill={C.accent}>{l.label}</text>
               </g>
             );
           })}

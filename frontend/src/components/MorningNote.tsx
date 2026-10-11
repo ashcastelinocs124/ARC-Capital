@@ -22,9 +22,9 @@ function ExhibitViewer({ src, ex, onClose }: { src: string; ex: Exhibit; onClose
   return (
     <div role="dialog" aria-modal="true" aria-label={ex.title} onClick={onClose}
       className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 md:p-10">
-      <div className="relative bg-white rounded-lg shadow-card-hover max-w-6xl w-full" onClick={(e) => e.stopPropagation()}>
+      <div className="relative bg-surface rounded-lg shadow-card-hover max-w-6xl w-full" onClick={(e) => e.stopPropagation()}>
         <button onClick={onClose} aria-label="Close chart"
-          className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-white border border-border shadow-card flex items-center justify-center hover:text-accent">
+          className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-surface border border-border shadow-card flex items-center justify-center hover:text-accent">
           <X className="h-4 w-4" />
         </button>
         <img src={src} alt={`${ex.title}. ${ex.subtitle}`} className="w-full h-auto max-h-[85vh] object-contain rounded-lg" />
@@ -41,7 +41,7 @@ export function MorningNote({ rec }: { rec: DailyRecordV2 }) {
   const items = [...note.items].sort((a, b) => a.rank - b.rank);
   const [open, setOpen] = useState<Exhibit | null>(null);
   return (
-    <article className="bg-white border border-border shadow-card px-5 py-6 md:px-11 md:py-9">
+    <article className="bg-surface border border-border shadow-card px-5 py-6 md:px-11 md:py-9">
       <div className="flex justify-between items-end gap-3 border-b-[3px] border-accent pb-2.5">
         <div className="text-[13px] font-bold tracking-[0.16em] uppercase text-accent">ARC Research · Morning Note</div>
         <div className="text-xs text-muted text-right leading-[18px]">

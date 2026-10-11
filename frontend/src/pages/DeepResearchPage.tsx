@@ -56,8 +56,8 @@ function Stepper({ status }: { status: string }) {
         const done = i < at, now = i === at;
         return (
           <div key={n} className={cn("flex-1 flex items-center gap-2 text-sm", now ? "text-text font-semibold" : "text-muted")}>
-            <div className={cn("w-6 h-6 rounded-full border-2 flex items-center justify-center text-[11px] font-semibold shrink-0 bg-white",
-              done ? "bg-accent border-accent text-white" : now ? "border-warning text-warning" : "border-border")}>
+            <div className={cn("w-6 h-6 rounded-full border-2 flex items-center justify-center text-[11px] font-semibold shrink-0 bg-surface",
+              done ? "bg-accent border-accent text-on-accent" : now ? "border-warning text-warning" : "border-border")}>
               {done ? "✓" : i + 1}
             </div>
             {n}
@@ -88,11 +88,11 @@ function Clarify({ s, onSubmit, busy }: { s: Session; onSubmit: (a: Record<strin
         ))}
         <div className="flex justify-end gap-2 pt-1">
           <button disabled={busy} onClick={() => onSubmit({})}
-            className="px-3.5 py-1.5 text-sm font-semibold rounded-lg border border-border bg-white hover:bg-surface-2 disabled:opacity-50">
+            className="px-3.5 py-1.5 text-sm font-semibold rounded-lg border border-border bg-surface hover:bg-surface-2 disabled:opacity-50">
             Skip questions, research now
           </button>
           <button disabled={busy} onClick={() => onSubmit(answers)}
-            className="px-3.5 py-1.5 text-sm font-semibold rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50">
+            className="px-3.5 py-1.5 text-sm font-semibold rounded-lg bg-accent text-on-accent hover:bg-accent-hover disabled:opacity-50">
             Research with answers
           </button>
         </div>
@@ -264,7 +264,7 @@ export default function DeepResearchPage() {
         <div className="px-4 py-3 border-b border-border flex justify-between items-center">
           <span className="text-sm font-semibold">Reports</span>
           {!STATIC && <button onClick={() => { open(null); setQuery(""); }}
-            className="text-xs font-semibold text-white bg-accent hover:bg-accent-hover rounded-lg px-2.5 py-1">+ New</button>}
+            className="text-xs font-semibold text-on-accent bg-accent hover:bg-accent-hover rounded-lg px-2.5 py-1">+ New</button>}
         </div>
         {list.map((r) => (
           <button key={r.id} onClick={() => open(r.id)}
@@ -292,7 +292,7 @@ export default function DeepResearchPage() {
             <div className="flex justify-between items-center mt-2.5">
               <span className="text-xs text-muted">Up to 6 sub-questions · ≤{SONAR_BUDGET} web searches · cited report in ~2 min</span>
               <button disabled={busy || !query.trim()} onClick={start}
-                className="px-4 py-1.5 text-sm font-semibold rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50">
+                className="px-4 py-1.5 text-sm font-semibold rounded-lg bg-accent text-on-accent hover:bg-accent-hover disabled:opacity-50">
                 {busy ? "Starting…" : "Research"}
               </button>
             </div>

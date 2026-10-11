@@ -4,35 +4,35 @@ export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
-      colors: {
-        // Monochrome base with functional color accents (P&L green/red kept for semantics)
-        background: "#ffffff",
-        surface: "#ffffff",
-        "surface-2": "#f3f8f5",      // page bg / hover (faint logo-green tint)
-        "surface-3": "#ececef",      // stronger gray
-        border: "#e5e5e7",
-        "border-strong": "#d4d4d7",
-        text: "#0a0a0a",             // near-black
-        "text-2": "#27272a",
-        muted: "#71717a",            // mid gray
-        "muted-2": "#a1a1aa",        // light gray
-
-        // Primary accent: ARC logo green
-        accent: "#008744",
-        "accent-hover": "#006b36",
-        "accent-soft": "#e6f4ec",    // active sidebar bg (logo-green tint)
-        "accent-soft-2": "#cfe8da",
-
-        // Functional colors — kept for trading data semantics
-        success: "#16a34a",
-        "success-soft": "#dcfce7",
-        danger: "#dc2626",
-        "danger-soft": "#fee2e2",
-        warning: "#d97706",
-        "warning-soft": "#fef3c7",
-        info: "#52525b",             // info → muted slate, not blue
-        "info-soft": "#f4f4f5",
-      },
+      // Every color is a CSS variable (src/index.css: :root = light, .dark = dark) so the theme toggle swaps them all.
+      colors: Object.fromEntries(
+        [
+        "background",
+        "surface",
+        "surface-2",
+        "surface-3",
+        "border",
+        "border-strong",
+        "text",
+        "text-2",
+        "muted",
+        "muted-2",
+        "accent",
+        "accent-hover",
+        "accent-soft",
+        "accent-soft-2",
+        "on-accent",
+        "success",
+        "success-soft",
+        "danger",
+        "danger-soft",
+        "warning",
+        "warning-soft",
+        "info",
+        "info-soft",
+        ].map((n) => [n, `rgb(var(--c-${n}) / <alpha-value>)`]),
+      ),
+      // ponytail: info/success/... keep their names; hover:bg-emerald-600 / red-600 in ui/button.tsx stay raw Tailwind.
       fontFamily: {
         sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
         mono: ['JetBrains Mono', 'Menlo', 'monospace'],

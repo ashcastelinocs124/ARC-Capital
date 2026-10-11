@@ -5,6 +5,7 @@ import type { CrossAssetBlock, CrossAssetGroup, CrossAssetSnapshot } from "@/api
 import {
   CardHead, ExpandableCard, GraphTile, HowItWorks, NoChart, Panel, StatCell, StatGrid, StatusBadge, TILE_CHART_HEIGHT, ago,
 } from "@/components/modelCard";
+import { C } from "@/lib/theme";
 
 // Cross-Asset Drivers: what moved equities and Treasuries (cross_asset/ in the backend).
 // Overlapping drivers show as one group bar; the split inside a group is marked uncertain.
@@ -110,7 +111,7 @@ function Waterfall({ block, win }: { block: CrossAssetBlock; win: Win }) {
       {items.map((it) => {
         const a = run;
         run += it.contribution;
-        const color = it.group === "unexplained" ? "#a1a1aa" : it.contribution >= 0 ? "#16a34a" : "#dc2626";
+        const color = it.group === "unexplained" ? C.muted2 : it.contribution >= 0 ? C.success : C.danger;
         const multi = it.members.length > 1;
         const single = it.members.length === 1 ? it.members[0] : null;
         return (
@@ -143,7 +144,7 @@ function Waterfall({ block, win }: { block: CrossAssetBlock; win: Win }) {
       })}
       <div className="flex items-center text-xs border-t border-border pt-1.5 font-semibold">
         <span className="w-32">Actual move</span><span className="w-24" />
-        <div className="relative flex-1 h-5 mx-3">{zero}{bar(0, w.move, "#0a0a0a")}</div>
+        <div className="relative flex-1 h-5 mx-3">{zero}{bar(0, w.move, C.text)}</div>
         <span className={cn("w-14 text-right font-mono", w.move >= 0 ? "text-success" : "text-danger")}>{sgn(w.move)}%</span>
       </div>
     </div>
@@ -272,7 +273,7 @@ export function CrossAssetSection({ expanded, onToggle }: { expanded: boolean; o
               <div className="inline-flex rounded-lg border border-border p-0.5 text-xs font-semibold">
                 {(["1w", "1m", "3m"] as Win[]).map((w) => (
                   <button key={w} onClick={() => setWin(w)}
-                    className={cn("px-2.5 py-1 rounded-md", w === win ? "bg-accent text-white" : "text-muted")}>
+                    className={cn("px-2.5 py-1 rounded-md", w === win ? "bg-accent text-on-accent" : "text-muted")}>
                     {w.toUpperCase()}
                   </button>
                 ))}

@@ -32,7 +32,7 @@ export function FilterPills({ pills, active, onChange, size = "lg" }: Props) {
               "inline-flex items-center gap-2 rounded-full font-medium transition-all",
               isLg ? "px-4 py-2 text-sm" : "px-3 py-1.5 text-xs",
               isActive
-                ? "bg-text text-white shadow-sm"
+                ? "bg-text text-surface shadow-sm"
                 : "bg-surface-2 text-text-2 hover:bg-surface-3 border border-border",
             )}
           >
@@ -41,7 +41,7 @@ export function FilterPills({ pills, active, onChange, size = "lg" }: Props) {
               <span
                 className={cn(
                   "inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full font-semibold text-[10px]",
-                  isActive ? "bg-white/20 text-white" : "bg-surface-3 text-muted",
+                  isActive ? "bg-surface/20 text-surface" : "bg-surface-3 text-muted",
                 )}
               >
                 {pill.count}

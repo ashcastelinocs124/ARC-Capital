@@ -14,7 +14,7 @@ export function VideoCard({ v }: { v: Video }) {
       <div className="relative aspect-video bg-gradient-to-br from-[#0b3d24] via-accent to-[#9ad7b6]">
         {v.thumbnail && <img src={v.thumbnail} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />}
         <span className="absolute inset-0 grid place-items-center">
-          <span className="grid h-12 w-12 place-items-center rounded-full bg-black/45 text-white group-hover:bg-accent">
+          <span className="grid h-12 w-12 place-items-center rounded-full bg-black/45 text-white group-hover:bg-accent group-hover:text-on-accent">
             <Play className="h-5 w-5 fill-current" />
           </span>
         </span>

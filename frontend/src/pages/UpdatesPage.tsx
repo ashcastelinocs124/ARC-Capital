@@ -37,7 +37,7 @@ function Banner({ stage, error }: { stage: string; error?: string | null }) {
       <div className="flex flex-wrap gap-1.5 mt-2.5">
         {STEPS.map(([s, label], i) => (
           <span key={s} className={cn("text-xs px-2.5 py-1 rounded-full border",
-            i < at ? "bg-accent-soft text-accent border-accent/30" : i === at ? "bg-white font-semibold text-warning border-warning" : "bg-surface-2 text-muted border-border")}>
+            i < at ? "bg-accent-soft text-accent border-accent/30" : i === at ? "bg-surface font-semibold text-warning border-warning" : "bg-surface-2 text-muted border-border")}>
             {i === at ? "● " : ""}{label}
           </span>
         ))}
@@ -224,7 +224,7 @@ function PastUpdates({ items, current, onPick }: {
               it.date === current ? "bg-accent-soft" : "hover:bg-surface-2")}>
             <div className={cn("text-xs font-semibold flex items-center gap-1.5", it.date === current ? "text-accent" : "text-text-2")}>
               {fmtDay(it.date)}
-              {i === 0 && <span className="text-[10px] font-semibold text-accent border border-accent rounded-full px-1.5 bg-white">Latest</span>}
+              {i === 0 && <span className="text-[10px] font-semibold text-accent border border-accent rounded-full px-1.5 bg-surface">Latest</span>}
             </div>
             {it.headline && <div className="text-[12.5px] leading-snug text-muted mt-0.5 line-clamp-2">{it.headline}</div>}
           </button>

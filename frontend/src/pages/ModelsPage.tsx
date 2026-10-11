@@ -11,6 +11,7 @@ import { CrossAssetSection } from "@/components/CrossAssetSection";
 import { Line, LineChart, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { CardHead, ExpandableCard, GraphTile, HowItWorks, NoChart, Panel, TILE_CHART_HEIGHT } from "@/components/modelCard";
 import { ENABLED_MODELS, type ModelId } from "@/models/registry";
+import { C } from "@/lib/theme";
 
 const WEAK_ACCURACY = 0.55; // near coin-flip for a binary up/down call
 const MAX_DATA_LAG_MONTHS = 3;
@@ -222,7 +223,7 @@ function HistoryChart({ card }: { card: ModelCard }) {
   if (rows.length < 2) return <NoChart text="History appears after the next Refresh." />;
   const unit = SERIES[card.id]?.unit ?? "";
   const last = rows[rows.length - 1];
-  const color = card.up ? "#16a34a" : "#dc2626";
+  const color = card.up ? C.success : C.danger;
   const call = `${card.target_month ? monthLabel(card.target_month).split(" ")[0] : "Next"}: ${Math.round((card.prob ?? 0) * 100)}% ${card.up ? "▲" : "▼"}`;
   return (
     <ResponsiveContainer width="100%" height={TILE_CHART_HEIGHT}>
@@ -230,9 +231,9 @@ function HistoryChart({ card }: { card: ModelCard }) {
         <XAxis dataKey="month" tick={{ fontSize: 10 }} tickFormatter={(m: string) => m.slice(0, 4)}
           ticks={rows.filter((r) => r.month.endsWith("-01")).map((r) => r.month)} />
         <YAxis tick={{ fontSize: 10 }} width={40} tickFormatter={(v: number) => `${+v.toFixed(1)}${unit}`} />
-        <ReferenceLine y={0} stroke="#d4d4d7" strokeDasharray="3 3" />
+        <ReferenceLine y={0} stroke={C.borderStrong} strokeDasharray="3 3" />
         <Tooltip formatter={(v: number) => `${v.toFixed(2)}${unit}`} labelFormatter={(m: string) => monthLabel(m)} />
-        <Line dataKey="value" name={SERIES[card.id]?.name} stroke="#52525b" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+        <Line dataKey="value" name={SERIES[card.id]?.name} stroke={C.text2} strokeWidth={1.5} dot={false} isAnimationActive={false} />
         <ReferenceDot x={last.month} y={last.value} r={4} fill={color} stroke="none"
           label={{ value: call, position: "right", fill: color, fontSize: 11, fontWeight: 600 }} />
       </LineChart>
@@ -317,7 +318,7 @@ const HERO_CHIPS = ["Macro", "AI", "Semiconductors", "Markets"];
 function Hero() {
   const latest = useVideos().data?.[0];
   return (
-    <section className="flex flex-col gap-8 rounded-3xl border border-border bg-surface bg-[radial-gradient(120%_140%_at_100%_0%,#e6f4ec_0%,rgba(230,244,236,0)_55%)] px-6 py-8 md:flex-row md:items-center md:justify-between md:px-12 md:py-11">
+    <section className="flex flex-col gap-8 rounded-3xl border border-border bg-surface bg-[radial-gradient(120%_140%_at_100%_0%,rgb(var(--c-accent-soft))_0%,transparent_55%)] px-6 py-8 md:flex-row md:items-center md:justify-between md:px-12 md:py-11">
       <div className="min-w-0 flex-1">
         <div className="eyebrow">ARC Research · Models</div>
         <h1 className="mt-4 max-w-3xl text-4xl font-bold leading-[1.04] tracking-[-0.04em] text-text md:text-5xl lg:text-6xl">
@@ -327,7 +328,7 @@ function Hero() {
           In-depth research and live models on the economy, markets and the AI stack. No finance background required.
         </p>
         <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
-          <Link to="/docs" className="rounded-full bg-accent px-5 py-2 text-[13px] font-semibold text-white hover:bg-accent-hover">
+          <Link to="/docs" className="rounded-full bg-accent px-5 py-2 text-[13px] font-semibold text-on-accent hover:bg-accent-hover">
             Read the docs
           </Link>
           <div className="flex flex-wrap gap-2">
