@@ -3,7 +3,7 @@ import { cn } from "@/lib/cn";
 import { useCrossAsset } from "@/hooks/useCrossAsset";
 import type { CrossAssetBlock, CrossAssetGroup, CrossAssetSnapshot } from "@/api/types";
 import {
-  CardHead, ExpandableCard, GraphTile, HowItWorks, NoChart, Panel, StatCell, StatGrid, StatusBadge, TILE_CHART_HEIGHT, ago,
+  CardHead, ExpandableCard, GraphTile, HowItWorks, NoChart, Panel, StatCell, StatGrid, StatusBadge, ago,
 } from "@/components/modelCard";
 import { C } from "@/lib/theme";
 
@@ -31,58 +31,40 @@ const summary = (b: CrossAssetBlock, win: Win) =>
     .join(", ") +
   ".";
 
-function cellBg(v: number, unexplained = false) {
-  const k = Math.min(1, Math.abs(v));
-  if (unexplained) return `rgba(113,113,122,${0.12 + k * 0.3})`;
-  return v >= 0 ? `rgba(22,163,74,${0.08 + k * 0.55})` : `rgba(220,38,38,${0.08 + k * 0.55})`;
-}
-
-// union of group rows across assets, in first-seen order
-function groupRows(s: CrossAssetSnapshot): { group: string; label: string }[] {
-  const seen = new Map<string, string>();
-  for (const a of ASSETS) for (const g of s.assets[a].windows["1w"].groups) if (!seen.has(g.group)) seen.set(g.group, g.label);
-  return [...seen].map(([group, label]) => ({ group, label }));
-}
-
-function Heatmap({ s }: { s: CrossAssetSnapshot }) {
-  const rows = groupRows(s);
+// Tile: one stacked bar per asset, the week's move split into its driver groups plus the grey unexplained part.
+function DriverBars({ s }: { s: CrossAssetSnapshot }) {
   return (
-    <div style={{ minHeight: TILE_CHART_HEIGHT }}>
-      <table className="w-full text-xs num">
-        <thead>
-          <tr className="text-muted">
-            <th className="text-left font-medium pb-1" />
-            {ASSETS.map((a) => <th key={a} className="font-medium">{s.assets[a].name}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(({ group, label }) => (
-            <tr key={group}>
-              <td className="text-left text-text-2 py-[2px] pr-2 whitespace-nowrap">{label}</td>
-              {ASSETS.map((a) => {
-                const g = s.assets[a].windows["1w"].groups.find((x) => x.group === group);
-                return g ? (
-                  <td key={a} className="text-center font-mono rounded" style={{ background: cellBg(g.contribution) }}>{sgn(g.contribution)}</td>
-                ) : <td key={a} className="text-center text-muted-2">·</td>;
-              })}
-            </tr>
-          ))}
-          <tr>
-            <td className="text-left text-text-2 py-[2px]">Unexplained</td>
-            {ASSETS.map((a) => {
-              const u = s.assets[a].windows["1w"].unexplained;
-              return <td key={a} className="text-center font-mono rounded" style={{ background: cellBg(u, true) }}>{sgn(u)}</td>;
-            })}
-          </tr>
-          <tr className="border-t border-border">
-            <td className="text-left font-semibold pt-1">Actual</td>
-            {ASSETS.map((a) => {
-              const m = s.assets[a].windows["1w"].move;
-              return <td key={a} className={cn("text-center font-mono font-bold pt-1", m >= 0 ? "text-success" : "text-danger")}>{sgn(m)}%</td>;
-            })}
-          </tr>
-        </tbody>
-      </table>
+    <div className="grid gap-x-7 gap-y-5 py-1.5 sm:grid-cols-2">
+      {ASSETS.map((a) => {
+        const w = s.assets[a].windows["1w"];
+        const parts = [
+          ...w.groups.filter((g) => Math.abs(g.contribution) >= 0.005).map((g) => ({ label: g.label, v: g.contribution, rest: false })),
+          { label: "Unexplained", v: w.unexplained, rest: true },
+        ];
+        const total = parts.reduce((t, p) => t + Math.abs(p.v), 0) || 1;
+        const color = (p: (typeof parts)[number]) => (p.rest ? "rgb(var(--c-muted-2) / 0.35)" : `rgb(var(--c-${p.v >= 0 ? "accent" : "danger"}) / ${Math.abs(p.v) > 0.05 ? 1 : 0.55})`);
+        return (
+          <div key={a} className="min-w-0">
+            <div className="mb-2 flex justify-between text-[13px]">
+              <b className="font-semibold text-text">{s.assets[a].name}</b>
+              <span className={cn("num font-bold", w.move >= 0 ? "text-accent" : "text-danger")}>{sgn(w.move)}%</span>
+            </div>
+            <div className="flex h-[22px] gap-0.5 overflow-hidden rounded-[5px] bg-surface-2">
+              {parts.map((p) => (
+                <span key={p.label} title={`${p.label} ${sgn(p.v)} pts`} className="block h-full" style={{ width: `${(Math.abs(p.v) / total) * 100}%`, background: color(p) }} />
+              ))}
+            </div>
+            <div className="mt-2.5 flex flex-wrap gap-x-3.5 gap-y-1.5 text-[11.5px] text-muted">
+              {parts.map((p) => (
+                <span key={p.label} className="whitespace-nowrap">
+                  <i className="mr-1.5 inline-block h-[9px] w-[9px] rounded-sm align-[-1px]" style={{ background: color(p) }} />
+                  {p.label} <b className="num font-semibold text-text">{sgn(p.v)}</b>
+                </span>
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -205,7 +187,7 @@ export function CrossAssetSection({ expanded, onToggle }: { expanded: boolean; o
     return (
       <ExpandableCard expanded={false} onToggle={() => {}}
         collapsed={
-          <GraphTile name={name} value={<span className="text-muted">—</span>} caption="Not run yet">
+          <GraphTile kicker="Market signal" name={name} question="What moved stocks and Treasuries this week?" value="—" caption="Not run yet">
             <NoChart text="Click Refresh to build the first snapshot." />
           </GraphTile>
         }
@@ -219,8 +201,16 @@ export function CrossAssetSection({ expanded, onToggle }: { expanded: boolean; o
       expanded={expanded}
       onToggle={onToggle}
       collapsed={
-        <GraphTile name={name} value={<span className="text-text">1W</span>} caption={`% pts of the week to ${s.week_end} by driver`}>
-          <Heatmap s={s} />
+        <GraphTile
+          kicker="Market signal"
+          name={name}
+          question="What moved stocks and Treasuries this week?"
+          value={`${sgn(s.assets.spx.windows["1w"].move, 1)}%`}
+          verdict={{ text: `${s.assets.spx.name}, week to ${new Date(`${s.week_end}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`, tone: "neutral" }}
+          sub="Each move split into its macro drivers; grey is what the model can't explain"
+          caption={`Ridge fit on 104 weeks · walk-forward R² ${ASSETS.map((a) => `${s.assets[a].oos_r2 != null ? Math.round(s.assets[a].oos_r2! * 100) : "–"}% (${s.assets[a].name})`).join(", ")}`}
+        >
+          <DriverBars s={s} />
         </GraphTile>
       }
       full={{

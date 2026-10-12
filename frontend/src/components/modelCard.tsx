@@ -97,8 +97,8 @@ export function ExpandableCard({
       ref={ref}
       onClick={onClick}
       className={cn(
-        "card p-5 group scroll-mt-20",
-        expanded ? "col-span-full ring-2 ring-accent-soft" : "cursor-pointer transition-shadow hover:shadow-card-hover",
+        "card group h-full scroll-mt-20",
+        expanded ? "p-5 ring-2 ring-accent-soft" : "cursor-pointer px-[22px] pb-4 pt-5 transition-shadow hover:shadow-card-hover",
       )}
     >
       {expanded ? (
@@ -115,28 +115,51 @@ export function ExpandableCard({
 
 export const TILE_CHART_HEIGHT = 230;
 
-// Collapsed /models tile: the graph is the tile; clicking it opens the model's full card.
+export type Tone = "up" | "dn" | "neutral";
+const TONE: Record<Tone, string> = {
+  up: "bg-accent-soft text-accent",
+  dn: "bg-danger-soft text-danger",
+  neutral: "border border-border bg-surface-2 text-text-2",
+};
+
+// Collapsed /models tile, read like a research note: kicker · the question · the answer (big number + verdict) · chart.
+// Clicking it opens the model's full card.
 export function GraphTile({
+  kicker,
   name,
+  question,
   value,
+  verdict,
+  sub,
+  stale,
   caption,
   children,
 }: {
+  kicker: string;
   name: string;
-  value: ReactNode;
+  question: string;
+  value: string;
+  verdict?: { text: string; tone: Tone };
+  sub?: string;
+  stale?: string; // shown as an amber badge, e.g. "Data through Sep · stale"
   caption: string;
-  children: ReactNode; // the chart, TILE_CHART_HEIGHT tall
+  children: ReactNode; // the chart, about TILE_CHART_HEIGHT tall
 }) {
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-baseline justify-between gap-3">
-        <div className="text-base font-semibold text-text">{name}</div>
-        <div className="font-mono text-lg font-bold whitespace-nowrap">{value}</div>
+      <div className="flex items-baseline justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">
+        <span>{kicker} · <span className="text-text">{name}</span></span>
+        <span className="whitespace-nowrap normal-case tracking-normal font-medium opacity-0 transition-opacity group-hover:opacity-100 group-hover:text-text">Open card →</span>
       </div>
-      <div className="mt-2 flex-1">{children}</div>
-      <div className="mt-2 text-xs text-muted">
-        {caption} · <span className="group-hover:text-accent">Open card →</span>
+      <h3 className="mt-2 text-[19px] font-semibold leading-tight tracking-[-0.015em] text-text">{question}</h3>
+      <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+        <span className="num text-[34px] font-bold leading-none tracking-[-0.02em] text-text">{value}</span>
+        {verdict && <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", TONE[verdict.tone])}>{verdict.text}</span>}
+        {sub && <span className="text-[12.5px] text-muted">{sub}</span>}
+        {stale && <span className="ml-auto rounded-full bg-warning-soft px-2.5 py-0.5 text-[11px] font-semibold text-warning">{stale}</span>}
       </div>
+      <div className="mt-3.5 flex-1">{children}</div>
+      <div className="mt-2.5 border-t border-border pt-2.5 text-[11.5px] text-muted">{caption}</div>
     </div>
   );
 }

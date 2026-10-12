@@ -192,11 +192,11 @@ function SectorBars({ sectors }: { sectors: SectorScore[] }) {
     <ResponsiveContainer width="100%" height={TILE_CHART_HEIGHT}>
       <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 40, left: 0, bottom: 0 }} barCategoryGap={3}>
         <XAxis type="number" domain={[-0.5, 0.5]} hide />
-        <YAxis type="category" dataKey="sector" width={140} tick={{ fontSize: 10, width: 200 }} interval={0} tickLine={false} axisLine={false} />
-        <ReferenceLine x={0} stroke={C.borderStrong} />
-        <Bar dataKey="divergence" isAnimationActive={false}>
+        <YAxis type="category" dataKey="sector" width={140} tick={{ fontSize: 11, width: 200, fill: C.muted }} interval={0} tickLine={false} axisLine={false} />
+        <ReferenceLine x={0} stroke={C.border} />
+        <Bar dataKey="divergence" radius={3} isAnimationActive={false}>
           {rows.map((r) => <Cell key={r.sector} fill={color(r.divergence)} />)}
-          <LabelList dataKey="divergence" position="right" formatter={fmt} style={{ fontSize: 10, fill: C.muted }} />
+          <LabelList dataKey="divergence" position="right" formatter={fmt} style={{ fontSize: 10.5, fill: C.muted, fontVariantNumeric: "tabular-nums" }} />
         </Bar>
       </BarChart>
     </ResponsiveContainer>
@@ -332,9 +332,13 @@ export function SectorSentimentSection({ expanded, onToggle }: { expanded: boole
         onToggle={onToggle}
         collapsed={
           <GraphTile
+            kicker="Market signal"
             name="Sector Sentiment"
-            value={<span className={top.divergence >= 0 ? "text-danger" : "text-success"}>{fmt(top.divergence)}</span>}
-            caption={`Divergence by sector · ${top.sector} most stretched`}
+            question="Where has price run ahead of fundamentals?"
+            value={fmt(top.divergence)}
+            verdict={{ text: `${top.sector} · ${top.label}`, tone: top.label === "euphoric" ? "dn" : top.label === "fearful" ? "up" : "neutral" }}
+            sub="Technical minus fundamental score, by sector"
+            caption="Red = price ahead of fundamentals (≥ +0.30) · green = fearful (≤ −0.30)"
           >
             <SectorBars sectors={sectors} />
           </GraphTile>

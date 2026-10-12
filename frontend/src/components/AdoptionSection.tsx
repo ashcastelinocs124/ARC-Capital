@@ -306,17 +306,25 @@ function Trend({ data }: { data: AdoptionSummary }) {
 function TileTrend({ data }: { data: AdoptionSummary }) {
   const rows = data.series.map((p) => ({ period: p.period, Large: p.large_ew, Small: p.small_ew }));
   if (rows.length < 2) return <NoChart text="A trend needs at least two runs." />;
+  const day = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  // label each line at its last point instead of a legend
+  const endLabel = (text: string, fill: string, dy: number) =>
+    function EndLabel(p: { x?: number; y?: number; index?: number; value?: number }) {
+      if (p.index !== rows.length - 1 || p.value == null) return <g />;
+      return <text x={(p.x ?? 0) - 6} y={(p.y ?? 0) + dy} textAnchor="end" fontSize={11} fontWeight={600} fill={fill}>{text} {p.value.toFixed(1)}</text>;
+    };
   return (
     <ResponsiveContainer width="100%" height={TILE_CHART_HEIGHT}>
-      <LineChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid stroke={C.grid} />
-        <XAxis dataKey="period" tick={{ fontSize: 10 }} />
-        <YAxis domain={["auto", "auto"]} tick={{ fontSize: 10 }} width={32} />
-        <ReferenceLine y={50} stroke={C.muted2} strokeDasharray="3 3" />
-        <Tooltip />
-        <Legend />
-        <Line type="monotone" dataKey="Large" stroke={C.accent} strokeWidth={2} dot={{ r: 3 }} connectNulls isAnimationActive={false} />
-        <Line type="monotone" dataKey="Small" stroke={C.muted} strokeWidth={2} strokeDasharray="4 3" dot={{ r: 3 }} connectNulls isAnimationActive={false} />
+      <LineChart data={rows} margin={{ top: 18, right: 12, left: 12, bottom: 0 }}>
+        <XAxis dataKey="period" tick={{ fontSize: 10, fill: C.muted2 }} axisLine={false} tickLine={false} tickFormatter={day} interval={0} padding={{ left: 14, right: 14 }} />
+        <YAxis domain={["auto", "auto"]} hide />
+        <ReferenceLine y={50} stroke={C.muted2} strokeDasharray="3 4"
+          label={{ value: "50 = universe average", position: "insideTopLeft", fontSize: 10, fill: C.muted2 }} />
+        <Tooltip labelFormatter={day} />
+        <Line type="monotone" dataKey="Large" stroke={C.accent} strokeWidth={2} dot={{ r: 3 }} connectNulls isAnimationActive={false}
+          label={endLabel("Large caps", C.accent, -10)} />
+        <Line type="monotone" dataKey="Small" stroke={C.muted} strokeWidth={2} strokeDasharray="5 4" dot={false} connectNulls isAnimationActive={false}
+          label={endLabel("Small caps", C.muted, -10)} />
       </LineChart>
     </ResponsiveContainer>
   );
@@ -339,6 +347,7 @@ export function AdoptionSection({ expanded, onToggle }: { expanded: boolean; onT
 
   const s = data.stats;
   const large = data.headline?.large_ew;
+  const small = data.headline?.small_ew;
   return (
     <>
       <ExpandableCard
@@ -346,9 +355,13 @@ export function AdoptionSection({ expanded, onToggle }: { expanded: boolean; onT
         onToggle={onToggle}
         collapsed={
           <GraphTile
+            kicker="AI adoption"
             name="AI Adoption Index"
-            value={<span className={(large ?? 0) >= 50 ? "text-success" : "text-danger"}>{large != null ? large.toFixed(1) : "—"}</span>}
-            caption={`Large vs small caps, equal-weighted · ${data.series.length} run${data.series.length === 1 ? "" : "s"}`}
+            question="Are companies actually putting AI to work?"
+            value={large != null ? large.toFixed(1) : "—"}
+            verdict={large != null && small != null ? (large >= small ? { text: "Large caps lead", tone: "up" } : { text: "Small caps lead", tone: "neutral" }) : undefined}
+            sub={`Large caps${small != null ? ` vs small caps (${small.toFixed(1)})` : ""} · 50 = universe average`}
+            caption={`Talk (filings) + Hire (job posts) + Spend (capex + R&D) · equal-weighted · ${data.series.length} run${data.series.length === 1 ? "" : "s"}`}
           >
             <TileTrend data={data} />
           </GraphTile>

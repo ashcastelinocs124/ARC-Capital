@@ -1,11 +1,14 @@
 import { Component, useState, type ReactNode } from "react";
 import { useModels } from "@/hooks/useModels";
+import { useSectorSentiment } from "@/hooks/useSectorSentiment";
+import { useAdoptionSummary } from "@/hooks/useAdoption";
+import { useCrossAsset } from "@/hooks/useCrossAsset";
 import type { ModelCard } from "@/api/endpoints";
 import { cn } from "@/lib/cn";
 import { SectorSentimentSection } from "@/components/SectorSentimentSection";
 import { AdoptionSection } from "@/components/AdoptionSection";
 import { CrossAssetSection } from "@/components/CrossAssetSection";
-import { Line, LineChart, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { CardHead, ExpandableCard, GraphTile, HowItWorks, NoChart, Panel, TILE_CHART_HEIGHT } from "@/components/modelCard";
 import { ENABLED_MODELS, type ModelId } from "@/models/registry";
 import { C } from "@/lib/theme";
@@ -220,34 +223,51 @@ function HistoryChart({ card }: { card: ModelCard }) {
   if (rows.length < 2) return <NoChart text="History appears after the next Refresh." />;
   const unit = SERIES[card.id]?.unit ?? "";
   const last = rows[rows.length - 1];
-  const color = card.up ? C.success : C.danger;
-  const call = `${card.target_month ? monthLabel(card.target_month).split(" ")[0] : "Next"}: ${Math.round((card.prob ?? 0) * 100)}% ${card.up ? "▲" : "▼"}`;
   return (
     <ResponsiveContainer width="100%" height={TILE_CHART_HEIGHT}>
-      <LineChart data={rows} margin={{ top: 8, right: 72, left: 0, bottom: 0 }}>
-        <XAxis dataKey="month" tick={{ fontSize: 10 }} tickFormatter={(m: string) => m.slice(0, 4)}
+      <AreaChart data={rows} margin={{ top: 8, right: 4, left: 4, bottom: 0 }}>
+        <CartesianGrid vertical={false} stroke={C.border} />
+        <XAxis dataKey="month" tick={{ fontSize: 10, fill: C.muted2 }} axisLine={false} tickLine={false} tickFormatter={(m: string) => m.slice(0, 4)}
           ticks={rows.filter((r) => r.month.endsWith("-01")).map((r) => r.month)} />
-        <YAxis tick={{ fontSize: 10 }} width={40} tickFormatter={(v: number) => `${+v.toFixed(1)}${unit}`} />
-        <ReferenceLine y={0} stroke={C.borderStrong} strokeDasharray="3 3" />
+        <YAxis orientation="right" tick={{ fontSize: 10, fill: C.muted2 }} axisLine={false} tickLine={false} width={40} tickCount={4}
+          tickFormatter={(v: number) => `${+v.toFixed(1)}${unit}`} />
+        <ReferenceLine y={0} stroke={C.muted2} strokeDasharray="3 4" />
         <Tooltip formatter={(v: number) => `${v.toFixed(2)}${unit}`} labelFormatter={(m: string) => monthLabel(m)} />
-        <Line dataKey="value" name={SERIES[card.id]?.name} stroke={C.text2} strokeWidth={1.5} dot={false} isAnimationActive={false} />
-        <ReferenceDot x={last.month} y={last.value} r={4} fill={color} stroke="none"
-          label={{ value: call, position: "right", fill: color, fontSize: 11, fontWeight: 600 }} />
-      </LineChart>
+        <Area dataKey="value" name={SERIES[card.id]?.name} stroke={C.text} strokeWidth={1.6} fill={C.text} fillOpacity={0.04} dot={false} isAnimationActive={false} />
+        <ReferenceDot x={last.month} y={last.value} r={5} fill={card.up ? C.success : C.danger} stroke={C.surface} strokeWidth={2} />
+      </AreaChart>
     </ResponsiveContainer>
   );
 }
 
+// The question each forecaster answers, in plain words, for its target month.
+const QUESTION: Record<string, { kicker: string; ask: (month: string) => string }> = {
+  growth: { kicker: "Growth nowcast", ask: (m) => `Will factory surveys show expansion in ${m}?` },
+  inflation: { kicker: "Inflation nowcast", ask: (m) => `Will CPI inflation speed up in ${m}?` },
+  risk_off: { kicker: "Risk nowcast", ask: () => "Is a risk-off episode coming?" },
+};
+const longMonth = (ym: string) => new Date(`${ym}-01T00:00:00`).toLocaleDateString("en-US", { month: "long" });
+
 function Tile({ card }: { card: ModelCard }) {
+  const q = QUESTION[card.id] ?? { kicker: "Model", ask: () => card.name };
+  const month = card.target_month ? longMonth(card.target_month) : "the coming month";
   if (card.status === "missing") {
-    return <GraphTile name={card.name} value={<span className="text-muted">—</span>} caption="Not trained yet"><NoChart text="No forecast on disk yet." /></GraphTile>;
+    return (
+      <GraphTile kicker={q.kicker} name={card.name} question={q.ask(month)} value="—" caption="Not trained yet">
+        <NoChart text="No forecast on disk yet." />
+      </GraphTile>
+    );
   }
-  const pct = Math.round((card.prob ?? 0) * 100);
   return (
     <GraphTile
+      kicker={q.kicker}
       name={card.name}
-      value={<span className={card.up ? "text-success" : "text-danger"}>{card.up ? "▲" : "▼"} {pct}%</span>}
-      caption={`${SERIES[card.id]?.name ?? card.kind} · dot = ${card.prob_label}${card.target_month ? ` for ${monthLabel(card.target_month)}` : ""}`}
+      question={q.ask(month)}
+      value={`${Math.round((card.prob ?? 0) * 100)}%`}
+      verdict={card.up ? { text: "Likely yes", tone: "up" } : { text: "Likely no", tone: "dn" }}
+      sub={`${card.prob_label}${card.target_month ? ` · ${monthLabel(card.target_month)}` : ""}`}
+      stale={card.status === "stale" && card.feature_month ? `Data through ${monthLabel(card.feature_month).split(" ")[0]} · stale` : undefined}
+      caption={`${SERIES[card.id]?.name ?? card.kind}, last 3 years · dot = next month's call`}
     >
       <HistoryChart card={card} />
     </GraphTile>
@@ -310,25 +330,73 @@ class CardBoundary extends Component<{ name: string; children: ReactNode }, { fa
   }
 }
 
+// Live value per model for the header chips (each hook is already used by its card, so no extra fetches).
+function useChipValues(): Record<string, string | undefined> {
+  const models = useModels().data;
+  const sectors = useSectorSentiment().data?.sectors;
+  const adoption = useAdoptionSummary().data;
+  const cross = useCrossAsset().data;
+  const prob = (id: string) => {
+    const p = models?.find((m) => m.id === id)?.prob;
+    return p == null ? undefined : `${Math.round(p * 100)}%`;
+  };
+  const top = sectors?.length ? sectors.reduce((a, b) => (Math.abs(b.divergence) > Math.abs(a.divergence) ? b : a)) : null;
+  const large = adoption && !Array.isArray(adoption) ? adoption.headline?.large_ew : null;
+  const move = cross?.assets.spx.windows["1w"].move;
+  return {
+    pulse: prob("growth"),
+    pressure: prob("inflation"),
+    "risk-off": prob("risk_off"),
+    "sector-sentiment": top ? `${top.divergence > 0 ? "+" : ""}${top.divergence.toFixed(2)}` : undefined,
+    adoption: large != null ? large.toFixed(1) : undefined,
+    "cross-asset": move != null ? `${move >= 0 ? "+" : ""}${move.toFixed(1)}%` : undefined,
+  };
+}
+
+function Header({ onJump }: { onJump: (id: string) => void }) {
+  const values = useChipValues();
+  return (
+    <section>
+      <div className="eyebrow">ARC Research · Models</div>
+      <h1 className="mt-2.5 text-4xl font-semibold tracking-[-0.035em] text-text">Live models</h1>
+      <p className="mt-2.5 max-w-2xl text-base leading-relaxed text-muted">
+        {ENABLED_MODELS.length} models that read the economy and markets every day. Each one answers a single question; click any of them for the method, inputs and track record.
+      </p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {ENABLED_MODELS.map((m) => (
+          <button key={m.id} onClick={() => onJump(m.id)}
+            className="flex items-baseline gap-2 rounded-full border border-border bg-surface px-3.5 py-1.5 text-[13px] hover:border-text">
+            <b className="font-semibold text-text">{m.name}</b>
+            {values[m.id] && <span className="num text-muted">{values[m.id]}</span>}
+          </button>
+        ))}
+      </div>
+      <div className="mt-3.5 text-xs text-muted">Read-only · refit daily by the Update Agent · a model older than 24h is marked stale</div>
+    </section>
+  );
+}
+
+const WIDE = new Set<string>(["cross-asset"]); // full-width tiles
+
 export default function ModelsPage() {
   const { isLoading } = useModels();
   const [expanded, setExpanded] = useState<string | null>(null); // one card open at a time
   const toggle = (id: string) => setExpanded((cur) => (cur === id ? null : id));
+  const jump = (id: string) => document.getElementById(`model-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   return (
-    <div className="p-4 md:p-8 space-y-5">
-      <p className="text-xs text-muted">
-        Click a graph for that model's card. Read-only; forecasts older than 24h are marked stale.
-      </p>
-      {/* equal-height rows so every card is the same size; off while one is expanded */}
-      <div className={cn("grid md:grid-cols-2 gap-6", !expanded && "auto-rows-fr")}>
+    <div className="space-y-7 p-4 md:p-8">
+      <Header onJump={jump} />
+      <div className="grid gap-5 md:grid-cols-2">
         {isLoading && <div className="text-sm text-muted">Loading…</div>}
         {ENABLED_MODELS.map((m) => {
           const Model = COMPONENTS[m.id];
           return (
-            <CardBoundary key={m.id} name={m.name}>
-              <Model expanded={expanded === m.id} onToggle={() => toggle(m.id)} />
-            </CardBoundary>
+            <div key={m.id} id={`model-${m.id}`} className={cn("min-w-0 scroll-mt-4", (expanded === m.id || WIDE.has(m.id)) && "md:col-span-2")}>
+              <CardBoundary name={m.name}>
+                <Model expanded={expanded === m.id} onToggle={() => toggle(m.id)} />
+              </CardBoundary>
+            </div>
           );
         })}
       </div>
