@@ -164,4 +164,6 @@ export interface WeekAhead {
   events: WeekEvent[];
   spend: { ramp: Record<string, [string, number][]>; openrouter: OpenRouterShare | null };
   gaps: { lane: string; error: string }[];
+  sectors?: SectorRow[];
 }
+export interface SectorRow { sector: string; etf: string; ytd: number; pe: number | null; earnings_growth: number | null }

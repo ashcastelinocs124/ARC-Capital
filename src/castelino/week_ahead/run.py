@@ -14,7 +14,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from castelino.week_ahead import ai, earnings, econ, nasdaq, spend
+from castelino.week_ahead import ai, earnings, econ, nasdaq, sectors, spend
 
 log = logging.getLogger(__name__)
 NY = ZoneInfo("America/New_York")
@@ -71,6 +71,7 @@ def run(
     search=None,
     fetch_fred=spend.default_fred,
     get_text=spend.get_text,
+    build_sectors=sectors.build,
 ) -> str:
     now = now or datetime.now(UTC)
     out = out or out_path()
@@ -121,7 +122,10 @@ def run(
         lambda: spend.openrouter_share(get_text(spend.RANKINGS_URL)),
         prev_spend.get("openrouter"),
     )
-    if failed == 5:
+    sec = lane(
+        "sectors", lambda: build_sectors(now.astimezone(NY).date()), prev.get("sectors") or []
+    )
+    if failed == 6:
         raise RuntimeError("week_ahead: every lane failed; previous file kept")
 
     events = econ_ev + earn_ev + ai_ev
@@ -133,6 +137,7 @@ def run(
             "generated_at": datetime.now(UTC).isoformat(),
             "events": events,
             "spend": {"ramp": ramp, "openrouter": orr},
+            "sectors": sec,
             "gaps": gaps,
         },
     )

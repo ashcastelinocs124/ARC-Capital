@@ -5,6 +5,7 @@ import { InflationExpectations } from "@/components/weekAhead/InflationExpectati
 import { EpsGrowth } from "@/components/weekAhead/EpsGrowth";
 import { OpenRouterBars, RampChart } from "@/components/weekAhead/AiSpend";
 import { GapNote } from "@/components/weekAhead/Tooltip";
+import { SectorValuation } from "@/components/weekAhead/SectorValuation";
 import { C } from "@/lib/theme";
 
 const span = (a: string, b: string) => {
@@ -81,6 +82,21 @@ export default function MacroPage() {
             <Card title="Inflation: previous → consensus" sub="y/y %"><InflationExpectations events={data.events} /></Card>
             <Card title="Expected EPS growth vs a year ago" sub="consensus EPS ÷ year-ago EPS"><EpsGrowth events={data.events} /></Card>
           </div>
+          {data.sectors && data.sectors.length > 0 && (
+            <Card title="Sectors: year-to-date vs valuation" sub="SPDR sector ETFs · YTD price return vs trailing P/E · hover for details">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-2 mb-1">
+                <span className="flex items-center gap-1.5"><i className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: C.earnings }} />Earnings growing (median of top 10)</span>
+                <span className="flex items-center gap-1.5"><i className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: C.danger }} />Earnings shrinking</span>
+                <span className="flex items-center gap-1.5"><i className="inline-block w-2.5 h-2.5 rounded-full border-2" style={{ borderColor: C.text }} />S&amp;P 500 (SPY)</span>
+              </div>
+              <SectorValuation rows={data.sectors} />
+              <p className="text-[11.5px] text-muted mt-2">
+                The dashed lines through the S&amp;P 500 split the chart. A red dot high up means the price ran ahead of shrinking
+                earnings. Earnings growth is the median latest-quarter year-on-year growth of each sector's 10 largest companies.
+              </p>
+              <GapNote gaps={data.gaps} lanes={["sectors"]} />
+            </Card>
+          )}
           <div className="grid gap-6 md:grid-cols-2">
             <Card title="Businesses paying for AI" sub="Ramp AI Index via FRED · % of US businesses · monthly">
               <RampChart ramp={data.spend.ramp} />

@@ -36,6 +36,9 @@ HTML = (
 )
 
 
+SECTORS = [{"sector": "Energy", "etf": "XLE", "ytd": 50.5, "pe": 18.8, "earnings_growth": -14.0}]
+
+
 def fake_fetch(kind, day):
     return ECON if kind == "economicevents" else EARN
 
@@ -48,6 +51,7 @@ def go(tmp_path, now=TUE, **kw):
     kw.setdefault("search", lambda s, u: ("NONE", []))
     kw.setdefault("fetch_fred", lambda sid: pd.Series([1.0], index=pd.to_datetime(["2026-08-01"])))
     kw.setdefault("get_text", lambda url: HTML)
+    kw.setdefault("build_sectors", lambda today: SECTORS)
     out = tmp_path / "week_ahead.json"
     msg = r.run(now, out=out, **kw)
     return msg, json.loads(out.read_text())
@@ -114,7 +118,15 @@ def test_all_lanes_failing_raises_and_keeps_file(tmp_path):
         raise RuntimeError("offline")
 
     with pytest.raises(RuntimeError, match="every lane failed"):
-        go(tmp_path, fetch_day=boom, get_json=boom, search=boom, fetch_fred=boom, get_text=boom)
+        go(
+            tmp_path,
+            fetch_day=boom,
+            get_json=boom,
+            search=boom,
+            fetch_fred=boom,
+            get_text=boom,
+            build_sectors=boom,
+        )
     assert (tmp_path / "week_ahead.json").read_text() == before
 
 
@@ -151,3 +163,15 @@ def test_search_failure_keeps_confirmed_launches(tmp_path):
     _, data = go(tmp_path, get_json=lambda url: models, search=search)
     assert [e["name"] for e in data["events"] if e["kind"] == "ai"] == ["Model"]
     assert data["gaps"] == [{"lane": "ai", "error": "reported launches: credit balance is too low"}]
+
+
+def test_sectors_lane_written_and_kept_on_failure(tmp_path):
+    _, data = go(tmp_path)
+    assert data["sectors"] == SECTORS
+
+    def boom(today):
+        raise RuntimeError("yahoo down")
+
+    _, data = go(tmp_path, build_sectors=boom)
+    assert data["sectors"] == SECTORS
+    assert data["gaps"] == [{"lane": "sectors", "error": "yahoo down"}]
