@@ -5,8 +5,8 @@ import { cn } from "@/lib/cn";
 // (after semianalysis.com). Phone: its own underline row that scrolls sideways.
 const TABS: [string, string][] = [
   ["/", "Overview"],
-  ["/models", "Models"],
   ["/macro", "Radar"],
+  ["/models", "Models"],
   ["/updates", "Memo"],
   ["/deep-research", "Deep Research"],
   ["/videos", "Videos"],
