@@ -13,8 +13,9 @@ from castelino.dashboard.endpoints.videos import _CONTENT, POST_PREFIX, THUMB_OV
 
 router = APIRouter()
 
-# Substack's subtitle is "ARC Daily Note · Thursday, October 8, 2026" (set by castelino/substack.py).
-_SUBTITLE = re.compile(r"^ARC Daily Note\s*\S*\s*\w+, (\w+ \d{1,2}, \d{4})")
+# Substack's subtitle is "ARC Morning Note · Monday, October 12, 2026" (set by castelino/substack.py);
+# early posts were renamed "ARC Daily Note · …" by hand, so both count.
+_SUBTITLE = re.compile(r"^ARC (?:Daily|Morning) Note\s*\S*\s*\w+, (\w+ \d{1,2}, \d{4})")
 
 
 def parse_daily_posts(xml: str) -> list[dict]:
