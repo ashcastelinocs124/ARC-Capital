@@ -72,3 +72,9 @@ def test_comparison_post_scores_each_provider_on_its_own_clause():
 def test_provider_named_without_opinion_in_its_clause_uses_whole_post():
     posts = [{"url": "u", "author": "dev_a", "text": "Tried Claude today. Honestly impressive"}]
     assert score.daily(posts, ACCOUNTS, LEX)["Anthropic"]["pos"] == 1
+
+
+def test_level_uses_the_days_available_before_a_full_week():
+    hist = {"2026-10-01": {"Google": {"net": 100.0}}, "2026-10-02": {"Google": {"net": 0.0}}}
+    assert score.series(hist, "Google") == [("2026-10-01", 100.0), ("2026-10-02", 50.0)]
+    assert score.delta(score.series(hist, "Google")) is None

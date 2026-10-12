@@ -115,18 +115,17 @@ export default function MacroPage() {
             </Card>
           </div>
           <Card title="AI model sentiment on X"
-            sub={sentiment ? `${sentiment.accounts} tracked accounts · word-list scoring · 7-day average · Δ7d = change vs a week ago` : "Grok X Search"}>
+            sub={sentiment ? `${sentiment.accounts} tracked accounts · word-list scoring · 7-day average · Δ7d = change vs a week ago` : "X API"}>
             {sentiment ? (
               <>
                 <AiSentimentCard data={sentiment} />
                 <p className="text-[11.5px] text-muted mt-2">
                   Net = % positive − % negative posts (−100 to +100), averaged over 7 days; Δ7d = today's average minus the average a
-                  week ago. Posts come only from a hand-kept list of credible accounts, their text is fetched from X, and a fixed word
-                  list scores them (hatched = fewer than 10 posts in the week). Lab staff don't count toward their own lab.
+                  week ago. Posts come only from a hand-kept list of credible accounts via the X API, and a fixed word list scores them (hatched = fewer than 10 posts in the week). Lab staff don't count toward their own lab.
                 </p>
               </>
             ) : (
-              <p className="text-sm text-muted">Not configured yet: this indicator needs an xAI API key.</p>
+              <p className="text-sm text-muted">Not configured yet: this indicator needs an X API token.</p>
             )}
           </Card>
         </>

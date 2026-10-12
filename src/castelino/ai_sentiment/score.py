@@ -71,13 +71,13 @@ def daily(posts: list[dict], accounts: dict[str, str], lex: dict) -> dict[str, d
 
 
 def series(history: dict[str, dict], fam: str) -> list[tuple[str, float]]:
-    """7-day average net per day, from the 7th calendar day on; days without posts are skipped."""
+    """7-day average net per day (fewer days at the start of history); days without posts skipped."""
     days = sorted(history)
     if not days:
         return []
     start, end = date.fromisoformat(days[0]), date.fromisoformat(days[-1])
     out = []
-    d = start + timedelta(days=6)
+    d = start
     while d <= end:
         window = [(d - timedelta(days=k)).isoformat() for k in range(7)]
         vals = [history[w][fam]["net"] for w in window if fam in history.get(w, {})]
@@ -92,6 +92,9 @@ def delta(levels: list[tuple[str, float]]) -> float | None:
     if not levels:
         return None
     last_day, last = levels[-1]
-    week_ago = (date.fromisoformat(last_day) - timedelta(days=7)).isoformat()
-    prev = dict(levels).get(week_ago)
+    week_ago = date.fromisoformat(last_day) - timedelta(days=7)
+    # the earlier level must itself be a full week, i.e. 14 days of history
+    if week_ago - timedelta(days=6) < date.fromisoformat(levels[0][0]):
+        return None
+    prev = dict(levels).get(week_ago.isoformat())
     return None if prev is None else round(last - prev, 1)

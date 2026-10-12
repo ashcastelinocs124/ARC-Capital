@@ -1,8 +1,9 @@
-"""Builds data/ai_sentiment.json: one scored day per Refresh, a 14-day backfill on the first run.
+"""Builds data/ai_sentiment.json: one scored day per Refresh, a 7-day backfill on the first run.
 
-Each day: Grok X Search over the tracked accounts (groups of 20 handles) -> post links ->
-X oEmbed text -> word-list score per provider. Missing days in the last 14 are filled; today
-is always refetched. A day where every group failed is not written.
+Each day: X API recent search for posts by the tracked accounts that name a provider ->
+word-list score per provider. X's recent search only reaches back 7 days, so missing days in
+that window are filled and today is always refetched; Δ7d appears once 14 days exist. A day
+whose fetch failed is not written.
 """
 
 from __future__ import annotations
@@ -17,12 +18,12 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from castelino.ai_sentiment import scan, score
+import castelino.config  # noqa: F401 - loads .env, so the token check sees X_BEARER_TOKEN
+from castelino.ai_sentiment import score, xapi
 
 log = logging.getLogger(__name__)
 NY = ZoneInfo("America/New_York")
-GROUP = 20  # x_search takes at most 20 allowed_x_handles
-BACKFILL = 14  # rate of change needs two weeks
+BACKFILL = 7  # X recent search reaches back 7 days
 KEEP_DAYS = 180
 SERIES_DAYS = 60
 QS = re.compile(r"\?\S*")
@@ -33,7 +34,7 @@ class NotConfigured(Exception):  # noqa: N818 - an outcome, mapped to refresh.Sk
 
 
 def has_key() -> bool:
-    return scan.has_key()
+    return xapi.has_key()
 
 
 def _data_dir() -> Path:
@@ -91,42 +92,37 @@ def run(
     out: Path | None = None,
     accounts: dict[str, str] | None = None,
     lex: dict | None = None,
-    find=None,
-    fetch=None,
+    fetch_day=None,
     has_key=None,
 ) -> str:
     if not (has_key or globals()["has_key"])():
-        raise NotConfigured("XAI_API_KEY not set")
+        raise NotConfigured("X_BEARER_TOKEN not set")
     now = now or datetime.now(UTC)
     out = out or out_path()
     accounts = accounts or load_accounts(_data_dir() / "accounts.csv")
     lex = lex or load_lexicon(_data_dir() / "lexicon.yaml")
-    find = find or scan.find_posts
-    fetch = fetch or scan.fetch_posts
+    if fetch_day is None:
+        handles = sorted(accounts)
+
+        def fetch_day(d: date) -> list[dict]:
+            return xapi.fetch_day(handles, lex["families"], d, now)
 
     prev = json.loads(out.read_text()) if out.exists() else {}
     days: dict[str, dict] = prev.get("days") or {}
     today = now.astimezone(NY).date()
     window = [today - timedelta(days=k) for k in range(BACKFILL - 1, -1, -1)]
     todo = [d for d in window if d.isoformat() not in days or d == today]
-    handles = sorted(accounts)
-    groups = [handles[i : i + GROUP] for i in range(0, len(handles), GROUP)]
     gaps: list[dict] = []
 
     for d in todo:
-        urls: list[str] = []
-        ok = 0
-        for g in groups:
-            try:
-                urls += [u for u in find(g, d) if u not in urls]
-                ok += 1
-            except Exception as e:  # noqa: BLE001 - one group never loses the day
-                msg = QS.sub("", str(e))[:200]
-                log.warning("ai_sentiment %s group: %s", d, msg)
-                gaps.append({"day": d.isoformat(), "error": msg})
-        if not ok:
-            continue  # nothing fetched: keep whatever we had for that day
-        days[d.isoformat()] = score.daily(fetch(urls, accounts), accounts, lex)
+        try:
+            posts = [p for p in fetch_day(d) if p["author"] in accounts]
+        except Exception as e:  # noqa: BLE001 - a failed day keeps what we had
+            msg = QS.sub("", str(e))[:200]
+            log.warning("ai_sentiment %s: %s", d, msg)
+            gaps.append({"day": d.isoformat(), "error": msg})
+            continue
+        days[d.isoformat()] = score.daily(posts, accounts, lex)
 
     keep = sorted(days)[-KEEP_DAYS:]
     days = {k: days[k] for k in keep}
