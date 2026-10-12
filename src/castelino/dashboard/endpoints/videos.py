@@ -31,6 +31,7 @@ THUMB_OVERRIDES = {
     "how-ai-has-become-a-capital-markets": "/thumbs/ai-capital-markets.jpg",
     "fed-pause-expectations-rose-even": "/thumbs/fed-pause-expectations.jpg",
     "hike-risk-oil-shocks-and-an-ai-reality": "/thumbs/hike-risk-oil-shocks.jpg",
+    "overview-of-nvidias-open-agent-safety": "/thumbs/nvidia-openagent.jpg",
 }
 
 

@@ -51,7 +51,7 @@ export default function MacroPage() {
   const or = data?.spend.openrouter;
   return (
     <div className="p-4 md:p-8 space-y-6">
-      <PageIntro kicker="Week Ahead" title="What's coming this week"
+      <PageIntro kicker="Radar · Week Ahead" title="What's coming this week"
         when={data ? {
           label: "Week of",
           value: span(data.week_start, data.week_end),
