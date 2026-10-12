@@ -17,7 +17,7 @@ export function TopBar() {
           href="https://archresearch.substack.com/"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 rounded-full bg-accent px-4 py-1.5 text-[13px] font-semibold text-on-accent hover:bg-accent-hover"
+          className="inline-flex items-center gap-1 rounded-full bg-text px-4 py-1.5 text-[13px] font-semibold text-surface hover:bg-text-2"
         >
           Newsletter <ArrowUpRight className="h-3.5 w-3.5" />
         </a>

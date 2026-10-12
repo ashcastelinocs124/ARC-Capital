@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
+import HomePage from "./pages/HomePage";
 import ModelsPage from "./pages/ModelsPage";
 import MacroPage from "./pages/MacroPage";
 import AgentsPage from "./pages/AgentsPage";
@@ -8,9 +9,10 @@ import UpdatesPage from "./pages/UpdatesPage";
 import DocsPage from "./pages/DocsPage";
 import VideosPage from "./pages/VideosPage";
 
-const HOME = "/models";
+const HOME = "/";
 
 const PAGES: [string, React.ReactNode][] = [
+  ["/", <HomePage />],
   ["/models", <ModelsPage />],
   ["/macro", <MacroPage />],
   ["/deep-research", <DeepResearchPage />],

@@ -7,14 +7,14 @@
   :root {
     --c-background: 255 255 255;
     --c-surface: 255 255 255;
-    --c-surface-2: 243 248 245;
+    --c-surface-2: 245 245 247;
     --c-surface-3: 236 236 239;
-    --c-border: 229 229 231;
-    --c-border-strong: 212 212 215;
-    --c-text: 10 10 10;
-    --c-text-2: 39 39 42;
-    --c-muted: 113 113 122;
-    --c-muted-2: 161 161 170;
+    --c-border: 229 229 232;
+    --c-border-strong: 210 210 215;
+    --c-text: 29 29 31;
+    --c-text-2: 66 66 69;
+    --c-muted: 110 110 115;
+    --c-muted-2: 161 161 166;
     --c-accent: 0 135 68;
     --c-accent-hover: 0 107 54;
     --c-accent-soft: 230 244 236;
@@ -33,16 +33,16 @@
   @media not print {
     .dark {
       color-scheme: dark;
-    --c-background: 11 21 17;
-    --c-surface: 17 30 24;
-    --c-surface-2: 11 21 17;
-    --c-surface-3: 26 44 35;
-    --c-border: 31 51 41;
-    --c-border-strong: 43 69 56;
-    --c-text: 234 243 238;
-    --c-text-2: 200 214 207;
-    --c-muted: 142 167 154;
-    --c-muted-2: 107 133 121;
+    --c-background: 17 24 22;
+    --c-surface: 26 34 31;
+    --c-surface-2: 17 24 22;
+    --c-surface-3: 34 43 39;
+    --c-border: 53 64 59;
+    --c-border-strong: 70 82 76;
+    --c-text: 242 245 243;
+    --c-text-2: 214 220 217;
+    --c-muted: 168 176 172;
+    --c-muted-2: 128 138 133;
     --c-accent: 95 207 151;
     --c-accent-hover: 125 223 174;
     --c-accent-soft: 22 51 42;
@@ -55,7 +55,7 @@
     --c-warning: 251 191 36;
     --c-warning-soft: 58 45 16;
     --c-info: 161 179 170;
-    --c-info-soft: 26 44 35;
+    --c-info-soft: 34 43 39;
     }
   }
 
@@ -64,7 +64,7 @@
   }
 
   body {
-    font-family: "Inter", system-ui, -apple-system, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     color: rgb(var(--c-text));
@@ -93,10 +93,10 @@
 
 @layer components {
   .card {
-    @apply bg-surface border border-border rounded-2xl shadow-card;
+    @apply bg-surface border border-border rounded-[10px];
   }
   .eyebrow {
-    @apply font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-muted;
+    @apply text-[11px] font-semibold uppercase tracking-[0.06em] text-muted;
   }
   .pill {
     @apply rounded-full bg-accent-soft px-2.5 py-0.5 text-[10.5px] font-semibold text-accent;

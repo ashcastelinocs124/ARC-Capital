@@ -34,7 +34,7 @@ export default {
       ),
       // ponytail: info/success/... keep their names; hover:bg-emerald-600 / red-600 in ui/button.tsx stay raw Tailwind.
       fontFamily: {
-        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Helvetica', 'Arial', 'sans-serif'],
         mono: ['JetBrains Mono', 'Menlo', 'monospace'],
         serif: ['"Source Serif 4"', 'Georgia', 'serif'],
       },
@@ -49,7 +49,7 @@ export default {
       },
       boxShadow: {
         card: "0 1px 2px 0 rgb(0 0 0 / 0.04)",
-        "card-hover": "0 8px 20px -6px rgb(0 135 68 / 0.2)",
+        "card-hover": "0 0 0 1px rgb(var(--c-text))", // Damnang-style ink outline instead of a lift
       },
     },
   },

@@ -1,8 +1,5 @@
 import { Component, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
-import { Play } from "lucide-react";
 import { useModels } from "@/hooks/useModels";
-import { useVideos } from "@/hooks/useVideos";
 import type { ModelCard } from "@/api/endpoints";
 import { cn } from "@/lib/cn";
 import { SectorSentimentSection } from "@/components/SectorSentimentSection";
@@ -313,52 +310,6 @@ class CardBoundary extends Component<{ name: string; children: ReactNode }, { fa
   }
 }
 
-const HERO_CHIPS = ["Macro", "AI", "Semiconductors", "Markets"];
-
-function Hero() {
-  const latest = useVideos().data?.[0];
-  return (
-    <section className="flex flex-col gap-8 rounded-3xl border border-border bg-surface bg-[radial-gradient(120%_140%_at_100%_0%,rgb(var(--c-accent-soft))_0%,transparent_55%)] px-6 py-8 md:flex-row md:items-center md:justify-between md:px-12 md:py-11">
-      <div className="min-w-0 flex-1">
-        <div className="eyebrow">ARC Research · Models</div>
-        <h1 className="mt-4 max-w-3xl text-4xl font-bold leading-[1.04] tracking-[-0.04em] text-text md:text-5xl lg:text-6xl">
-          Macro and AI, <span className="text-accent">explained for everyone.</span>
-        </h1>
-        <p className="mt-4 max-w-xl text-base text-muted md:text-[17px]">
-          In-depth research and live models on the economy, markets and the AI stack.
-        </p>
-        <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
-          <Link to="/docs" className="rounded-full bg-accent px-5 py-2 text-[13px] font-semibold text-on-accent hover:bg-accent-hover">
-            Read the docs
-          </Link>
-          <div className="flex flex-wrap gap-2">
-            {HERO_CHIPS.map((c) => (
-              <span key={c} className="pill px-3.5 py-1.5 text-[12.5px]">{c}</span>
-            ))}
-          </div>
-        </div>
-        {latest && (
-          <a href={latest.url} target="_blank" rel="noopener noreferrer" className="group mt-6 flex max-w-3xl flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
-            <span className="grid aspect-video w-full shrink-0 place-items-center overflow-hidden rounded-xl shadow-md sm:w-[400px] bg-gradient-to-br from-[#0b3d24] via-accent to-[#9ad7b6] text-white">
-              {latest.thumbnail ? <img src={latest.thumbnail} alt="" className="col-start-1 row-start-1 h-full w-full object-cover" /> : null}
-              <Play className="col-start-1 row-start-1 h-12 w-12 fill-current drop-shadow" />
-            </span>
-            <span>
-              <span className="block text-lg font-semibold text-text group-hover:text-accent">{latest.title}</span>
-              <span className="text-xs text-muted">Watch the latest video · opens Substack ↗</span>
-            </span>
-          </a>
-        )}
-      </div>
-      <img
-        src="/hero.jpg"
-        alt="Manhattan skyline at dusk"
-        className="aspect-[3/2] w-full rounded-2xl object-cover shadow-[0_10px_30px_-10px_rgba(0,60,40,0.35)] md:w-[46%] md:shrink-0 lg:w-[52%]"
-      />
-    </section>
-  );
-}
-
 export default function ModelsPage() {
   const { isLoading } = useModels();
   const [expanded, setExpanded] = useState<string | null>(null); // one card open at a time
@@ -366,7 +317,6 @@ export default function ModelsPage() {
 
   return (
     <div className="p-4 md:p-8 space-y-5">
-      <Hero />
       <p className="text-xs text-muted">
         Click a graph for that model's card. Read-only; forecasts older than 24h are marked stale.
       </p>

@@ -1,8 +1,9 @@
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/cn";
 
-// Models first (it is also the home page); tabs scroll sideways on a phone.
+// Overview first (it is the home page); tabs scroll sideways on a phone.
 const TABS: [string, string][] = [
+  ["/", "Overview"],
   ["/models", "Models"],
   ["/macro", "Macro & Signals"],
   ["/updates", "Memo"],
@@ -19,12 +20,13 @@ export function TopNav() {
         <NavLink
           key={to}
           to={to}
+          end={to === "/"}
           className={({ isActive }) =>
             cn(
               "py-3 text-sm whitespace-nowrap border-b-2 transition-colors",
               isActive
-                ? "border-accent text-accent font-semibold"
-                : "border-transparent text-text-2 font-medium hover:text-accent",
+                ? "border-text text-text font-semibold"
+                : "border-transparent text-text-2 font-medium hover:text-text",
             )
           }
         >
