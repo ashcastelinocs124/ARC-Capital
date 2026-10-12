@@ -43,13 +43,13 @@ function Big({ value, label }: { value: string; label: string }) {
   );
 }
 
-function Tile({ to, title, blurb, wide, children }: { to: string; title: string; blurb: string; wide?: boolean; children: ReactNode }) {
+function Tile({ to, title, blurb, children }: { to: string; title: string; blurb: string; children: ReactNode }) {
   return (
-    <Link to={to} className={cn("card group flex flex-col overflow-hidden transition-shadow hover:shadow-card-hover", wide && "sm:col-span-2")}>
+    <Link to={to} className="card group flex w-full flex-col overflow-hidden transition-shadow hover:shadow-card-hover sm:w-[calc(50%-8px)] lg:w-[calc((100%-32px)/3)]">
       <div className="relative h-[180px] overflow-hidden border-b border-border bg-surface-2">{children}</div>
       <div className="px-3.5 pb-3.5 pt-3">
         <div className="text-[14.5px] font-semibold text-text">{title}</div>
-        <p className="mt-1 text-xs leading-snug text-muted">{blurb}</p>
+        <p className="mt-1 line-clamp-2 min-h-[2.75em] text-xs leading-snug text-muted">{blurb}</p>
       </div>
     </Link>
   );
@@ -122,28 +122,7 @@ function VideosVis() {
 }
 
 function AgentsVis() {
-  const box = (x: number, y: number, w: number, t: string) => (
-    <g key={t}>
-      <rect x={x} y={y} width={w} height={20} rx={4} fill={C.soft2} stroke={C.accent} />
-      <text x={x + w / 2} y={y + 13.5} fontSize={8.5} textAnchor="middle" fill={C.text}>{t}</text>
-    </g>
-  );
-  return (
-    <svg viewBox="0 0 300 132" className="block h-full w-full">
-      {box(10, 56, 66, "Orchestrator")}
-      {["Macro", "News", "Alt", "AI"].map((t, i) => {
-        const y = 10 + i * 29;
-        return (
-          <g key={t}>
-            <path d={`M76 66 C95 66 95 ${y + 10} 112 ${y + 10}`} fill="none" stroke={C.muted2} />
-            <path d={`M174 ${y + 10} C195 ${y + 10} 195 66 212 66`} fill="none" stroke={C.muted2} />
-            {box(112, y, 62, t)}
-          </g>
-        );
-      })}
-      {box(212, 56, 78, "Editor → Memo")}
-    </svg>
-  );
+  return <img src="/thumbs/agents-cover.jpg" alt="" loading="lazy" className="h-full w-full object-cover object-top" />;
 }
 
 // ── page sections ─────────────────────────────────────────────────────────
@@ -248,8 +227,8 @@ function Sections() {
   return (
     <section>
       <Heading n="01" kicker="Browse by section" title="Everything on ARC Research, at a glance." />
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Tile to="/models" title="Models" blurb="Pulse, Pressure, Sector Sentiment, AI Adoption and Cross-Asset Drivers, live." wide><ModelsVis /></Tile>
+      <div className="mt-4 flex flex-wrap justify-center gap-4">
+        <Tile to="/models" title="Models" blurb="Pulse, Pressure and the market signals, updated live."><ModelsVis /></Tile>
         <Tile to="/updates" title="Memo" blurb="The daily note: five ranked items with charts."><MemoVis /></Tile>
         <Tile to="/deep-research" title="Deep Research" blurb="Sunday deep dive: the week in 10–12 trends."><DeepVis /></Tile>
         <Tile to="/videos" title="Videos" blurb={`${n ? `${n} videos · ` : ""}AI Update and Special Topics.`}><VideosVis /></Tile>
