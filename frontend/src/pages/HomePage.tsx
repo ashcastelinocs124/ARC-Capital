@@ -327,28 +327,28 @@ function Hero() {
     ["/videos", "Videos", "AI updates and special topics, explained on camera.", <Cover src={video?.thumbnail} />],
   ];
   return (
-    <section id="hero" className="card grid scroll-mt-4 gap-8 px-6 py-8 md:grid-cols-[1.2fr_1fr] md:px-11 md:py-10">
+    <section id="hero" className="card grid scroll-mt-4 items-center gap-8 px-6 py-10 md:grid-cols-2 md:gap-12 md:px-14 md:py-16">
       <div className="min-w-0">
         <div className="eyebrow">ARC Research</div>
-        <h1 className="mt-4 text-4xl font-semibold leading-[1.03] tracking-[-0.035em] text-text md:text-5xl">
+        <h1 className="mt-4 text-4xl font-semibold leading-[1.03] tracking-[-0.035em] text-text md:text-6xl">
           Macro and AI,<br /><RotatingTagline />
         </h1>
-        <p className="mt-4 max-w-md text-base leading-relaxed text-muted md:text-[17px]">
+        <p className="mt-5 max-w-xl text-base leading-relaxed text-muted md:text-lg">
           A daily memo, a Sunday deep dive and live models on the economy, markets and the AI stack.
         </p>
-        <div className="mt-6 flex flex-wrap gap-2.5">
+        <div className="mt-7 flex flex-wrap gap-3">
           {daily && isPost(daily.url) ? (
-            <a href={daily.url} target="_blank" rel="noopener noreferrer" className="rounded-full bg-accent px-5 py-2 text-[13px] font-semibold text-on-accent hover:bg-accent-hover">Start reading</a>
+            <a href={daily.url} target="_blank" rel="noopener noreferrer" className="rounded-full bg-accent px-6 py-2.5 text-sm font-semibold text-on-accent hover:bg-accent-hover">Start reading</a>
           ) : (
-            <Link to="/updates" className="rounded-full bg-accent px-5 py-2 text-[13px] font-semibold text-on-accent hover:bg-accent-hover">Start reading</Link>
+            <Link to="/updates" className="rounded-full bg-accent px-6 py-2.5 text-sm font-semibold text-on-accent hover:bg-accent-hover">Start reading</Link>
           )}
-          <a href={SUBSTACK} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-full border border-border px-5 py-2 text-[13px] font-semibold text-text hover:border-text">
+          <a href={SUBSTACK} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-full border border-border px-6 py-2.5 text-sm font-semibold text-text hover:border-text">
             Subscribe <ArrowUpRight className="h-3.5 w-3.5" />
           </a>
         </div>
         {video && (
-          <a href={video.url} target="_blank" rel="noopener noreferrer" className="group mt-7 flex items-center gap-3 text-[13px]">
-            <span className="aspect-video w-24 shrink-0 overflow-hidden rounded-md"><Cover src={video.thumbnail} /></span>
+          <a href={video.url} target="_blank" rel="noopener noreferrer" className="group mt-8 flex items-center gap-3.5 text-sm">
+            <span className="aspect-video w-28 shrink-0 overflow-hidden rounded-md"><Cover src={video.thumbnail} /></span>
             <span>
               <span className="block font-semibold text-text group-hover:text-accent">{video.title}</span>
               <span className="text-muted">Latest video{video.duration ? ` · ${clock(video.duration)}` : ""} ↗</span>
@@ -356,13 +356,13 @@ function Hero() {
           </a>
         )}
       </div>
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3.5">
         {entries.map(([to, title, blurb, thumb]) => (
-          <Link key={to} to={to} className="card group flex items-center gap-3.5 px-3.5 py-3 transition-shadow hover:shadow-card-hover">
-            <span className="h-[54px] w-[88px] shrink-0 overflow-hidden rounded-md border border-border bg-surface-2">{thumb}</span>
+          <Link key={to} to={to} className="card group flex items-center gap-4 px-4 py-3.5 transition-shadow hover:shadow-card-hover">
+            <span className="h-[68px] w-[112px] shrink-0 overflow-hidden rounded-md border border-border bg-surface-2">{thumb}</span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[15px] font-semibold text-text">{title}</span>
-              <span className="block text-[12.5px] leading-snug text-muted">{blurb}</span>
+              <span className="block text-base font-semibold text-text">{title}</span>
+              <span className="block text-[13.5px] leading-snug text-muted">{blurb}</span>
             </span>
             <ArrowRight className="h-4 w-4 shrink-0 text-muted group-hover:text-text" />
           </Link>
