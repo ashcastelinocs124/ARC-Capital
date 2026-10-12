@@ -15,4 +15,8 @@ export const C = {
   soft: v("surface-2"),
   soft2: v("accent-soft-2"),
   surface: v("surface"),
+  inflation: v("cat-inflation"),
+  jobs: v("cat-jobs"),
+  ai: v("cat-ai"),
+  earnings: v("cat-earnings"),
 };
