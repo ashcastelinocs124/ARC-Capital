@@ -71,17 +71,11 @@ function ModelsVis() {
 
 function MemoVis() {
   const p = useDailyPosts().data?.[0];
-  if (!p) return null;
   return (
-    <div className="absolute inset-2.5 rounded-md border border-border bg-surface px-3 py-2.5">
-      <div className="text-[8.5px] font-semibold uppercase tracking-[0.08em] text-muted">ARC Daily Note · {short(p.date)}</div>
-      <div className="mt-1 line-clamp-2 text-[11px] font-bold leading-tight text-text">{p.title}</div>
-      <ol className="mt-1.5 space-y-0.5 text-[9px] text-muted">
-        {p.takeaways.slice(0, 3).map((t, i) => (
-          <li key={t} className="truncate"><b className="text-accent">{i + 1}</b> {t}</li>
-        ))}
-      </ol>
-    </div>
+    <>
+      <img src="/thumbs/memo-cover.jpg" alt="" loading="lazy" className="h-full w-full object-cover" />
+      {p && <Big value={short(p.date)} label="Latest daily note" />}
+    </>
   );
 }
 
