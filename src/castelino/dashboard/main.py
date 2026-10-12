@@ -87,6 +87,7 @@ from castelino.dashboard.endpoints import (  # noqa: E402
     refresh,
     section_posts,
     videos,
+    week_ahead,
     weekly_posts,
 )
 from castelino.dashboard.endpoints import sector_sentiment as sector_sentiment_router  # noqa: E402
@@ -102,6 +103,7 @@ app.include_router(agent_catalog.router)
 app.include_router(sector_sentiment_router.router)
 app.include_router(adoption.router)
 app.include_router(cross_asset.router)
+app.include_router(week_ahead.router)
 app.include_router(refresh.router)
 app.include_router(videos.router)
 app.include_router(daily_posts.router)
