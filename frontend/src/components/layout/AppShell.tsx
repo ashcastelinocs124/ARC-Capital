@@ -1,12 +1,18 @@
+import { useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { TopBar } from "./TopBar";
 import { TopNav } from "./TopNav";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  // <main> is the scroller, so a new page would otherwise open at the old page's scroll position.
+  const main = useRef<HTMLElement>(null);
+  const { pathname } = useLocation();
+  useEffect(() => main.current?.scrollTo(0, 0), [pathname]);
   return (
     <div className="flex flex-col h-dvh bg-surface-2">
       <TopBar />
       <TopNav />
-      <main className="flex-1 overflow-auto">
+      <main ref={main} className="flex-1 overflow-auto">
         {children}
         <Disclaimer />
       </main>
