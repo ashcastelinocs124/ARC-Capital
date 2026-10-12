@@ -2,17 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import {
   fetchEconCalendar,
   fetchHypotheses,
-  fetchMacroIndicators,
   fetchNewsFeed,
-  fetchRegimeForecast,
   fetchTriggers,
   fetchYieldCurveChart,
 } from "@/api/endpoints";
 
 const FIVE_MINUTES = 5 * 60_000;
-
-export const useMacroIndicators = () =>
-  useQuery({ queryKey: ["macro_indicators"], queryFn: fetchMacroIndicators, refetchInterval: FIVE_MINUTES });
 
 export const useYieldCurve = () =>
   useQuery({ queryKey: ["yield_curve"], queryFn: fetchYieldCurveChart, refetchInterval: FIVE_MINUTES });
@@ -28,11 +23,3 @@ export const useNewsFeed = () =>
 
 export const useEconCalendar = () =>
   useQuery({ queryKey: ["econ_calendar"], queryFn: fetchEconCalendar, refetchInterval: FIVE_MINUTES });
-
-// Polls every 5s while a background retrain is running, then stops.
-export const useRegimeForecast = () =>
-  useQuery({
-    queryKey: ["regime_forecast"],
-    queryFn: fetchRegimeForecast,
-    refetchInterval: (q) => (q.state.data?.running ? 5_000 : false),
-  });

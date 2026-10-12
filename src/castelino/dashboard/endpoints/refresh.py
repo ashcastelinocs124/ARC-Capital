@@ -88,6 +88,12 @@ def job_cross_asset() -> str:
         raise Skipped(str(exc)) from exc
 
 
+def job_week_ahead() -> str:
+    from castelino.week_ahead import run as week_ahead
+
+    return week_ahead.run()
+
+
 def job_weekly_deep_dive() -> str:
     from castelino import config
     from castelino.agents.weekly import runner as weekly_runner
@@ -110,6 +116,7 @@ LABELS = {
     "sector_sentiment": "Sector Sentiment",
     "adoption": "AI Adoption Index",
     "cross_asset": "Cross-Asset Drivers",
+    "week_ahead": "Week Ahead",
     "weekly_deep_dive": "Weekly Deep Dive",
 }
 # Overridable in tests.
@@ -119,6 +126,7 @@ _RUNNERS: dict[str, Callable[[], str]] = {
     "sector_sentiment": job_sector_sentiment,
     "adoption": job_adoption,
     "cross_asset": job_cross_asset,
+    "week_ahead": job_week_ahead,
     "weekly_deep_dive": job_weekly_deep_dive,
 }
 _state: dict[str, dict] = {}

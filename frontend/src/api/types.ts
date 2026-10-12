@@ -130,3 +130,38 @@ export interface CrossAssetSnapshot {
   releases_checked: { ok: number; total: number };
   data_gaps: string[];
 }
+
+// ── Week Ahead (GET /week_ahead) ─────────────────────────────────────────
+export type WeekKind = "inflation" | "jobs" | "other" | "earnings" | "ai";
+export interface WeekEvent {
+  date: string | null;
+  time_et: string | null;
+  kind: WeekKind;
+  name: string;
+  country?: "US" | "CN" | "DE" | "JP" | "IN";
+  measure?: "y/y" | "m/m" | null;
+  consensus?: number | null;
+  previous?: number | null;
+  actual?: number | null;
+  unit?: string;
+  ticker?: string;
+  company?: string;
+  group?: "sp500" | "ai_extra";
+  market_cap?: number | null;
+  eps_est?: number | null;
+  eps_year_ago?: number | null;
+  session?: "pre" | "post" | null;
+  lab?: string;
+  status?: "launched" | "reported";
+  when?: string | null;
+  source_url?: string;
+}
+export interface OpenRouterShare { week: [string, string]; basis: string; labs: { lab: string; share: number; tokens: number }[] }
+export interface WeekAhead {
+  week_start: string;
+  week_end: string;
+  generated_at: string;
+  events: WeekEvent[];
+  spend: { ramp: Record<string, [string, number][]>; openrouter: OpenRouterShare | null };
+  gaps: { lane: string; error: string }[];
+}

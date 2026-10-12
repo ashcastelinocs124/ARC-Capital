@@ -28,6 +28,11 @@
     --c-warning-soft: 254 243 199;
     --c-info: 82 82 91;
     --c-info-soft: 244 244 245;
+    /* Week Ahead categories (validated with the dataviz palette checker, 2026-10-12) */
+    --c-cat-inflation: 217 72 15;
+    --c-cat-jobs: 28 126 214;
+    --c-cat-ai: 112 72 232;
+    --c-cat-earnings: 0 135 68;
   }
   /* Not in print: Download PDF always prints on white. */
   @media not print {
@@ -56,6 +61,10 @@
     --c-warning-soft: 58 45 16;
     --c-info: 161 179 170;
     --c-info-soft: 34 43 39;
+    --c-cat-inflation: 232 89 12;
+    --c-cat-jobs: 51 154 240;
+    --c-cat-ai: 151 117 250;
+    --c-cat-earnings: 47 163 110;
     }
   }
 

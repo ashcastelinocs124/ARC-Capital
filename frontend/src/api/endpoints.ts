@@ -1,7 +1,7 @@
 /** One function per backend endpoint. Hooks call these. */
 
 import { api } from "./client";
-import type { CrossAssetSnapshot, MacroIndicatorRow, PlotlyChart, SectorSentimentSnapshot } from "./types";
+import type { CrossAssetSnapshot, MacroIndicatorRow, PlotlyChart, SectorSentimentSnapshot, WeekAhead } from "./types";
 
 // ── Models ─────────────────────────────────────────────────────────────
 export interface ModelCard {
@@ -209,4 +209,11 @@ export interface SectionPost extends Video {
 export const fetchSectionPosts = async (): Promise<SectionPost[]> => {
   const data = await api.get<SectionPost[]>("/section_posts"); // the client maps a 404 to []
   return Array.isArray(data) ? data : [];
+};
+
+// ── Week Ahead ───────────────────────────────────────────────────────────
+export const fetchWeekAhead = async (): Promise<WeekAhead | null> => {
+  const data = await api.get<WeekAhead | Record<string, never> | []>("/week_ahead");
+  // the client maps a 404 (static build without the file) to []
+  return data && !Array.isArray(data) && "events" in data ? (data as WeekAhead) : null;
 };
