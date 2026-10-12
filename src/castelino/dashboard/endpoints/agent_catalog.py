@@ -138,6 +138,26 @@ def build_catalog(registry: Path | None = None) -> dict:
     }
 
 
+# What the public site may show of an agent: who it is and where it sits in the diagrams. Everything else
+# (prompts, class paths, model ids, schemas, tools, memory, API-key status, errors) is admin-only.
+_PUBLIC_FIELDS = ("id", "name", "group", "family", "summary")
+
+
+def public_catalog(catalog: dict) -> dict:
+    """A whitelist, so a field added to the full catalog later stays private until someone lists it here."""
+    return {
+        "agents": [{k: a[k] for k in _PUBLIC_FIELDS} for a in catalog["agents"]],
+        "groups": catalog["groups"],
+        "systems": catalog["systems"],
+    }
+
+
 @router.get("/agents/catalog")
 def agent_catalog():
+    return public_catalog(build_catalog())
+
+
+@router.get("/admin/agents/catalog")
+def admin_agent_catalog():
+    """The full catalog. Exported to /api/admin/, which the Vercel middleware password-gates."""
     return build_catalog()

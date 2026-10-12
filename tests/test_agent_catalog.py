@@ -45,10 +45,26 @@ def test_unregistered_and_broken_entries_do_not_500(tmp_path):
 def test_endpoint_serves_catalog(monkeypatch):
     from castelino.dashboard.main import app
 
-    r = TestClient(app).get("/agents/catalog")
+    r = TestClient(app).get("/admin/agents/catalog")
     assert r.status_code == 200
     data = r.json()
     assert len(data["agents"]) >= 13 and data["groups"]
+    assert data["agents"][0]["prompt"] is not None or data["agents"][0]["error"]  # full detail
+
+
+def test_public_catalog_is_high_level_only():
+    from castelino.dashboard.main import app
+
+    r = TestClient(app).get("/agents/catalog")
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data["agents"]) >= 13 and data["groups"] and data["systems"]
+    allowed = {"id", "name", "group", "family", "summary"}
+    assert all(set(a) == allowed for a in data["agents"])
+    assert "unregistered" not in data
+    text = r.text
+    for private in ("class_path", "prompt", "OPENAI_API_KEY", "castelino.agents", "gpt-6"):
+        assert private not in text
 
 
 def test_registry_file_lives_at_repo_root():

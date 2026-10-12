@@ -24,5 +24,13 @@ export default defineConfig({
   build: {
     outDir: "dist",
     sourcemap: true,
+    rollupOptions: {
+      output: {
+        // Private modules (src/admin/private/) become /admin/chunks/*.js (+ .map), a path the Vercel
+        // middleware password-gates. Everything else keeps the default public /assets/ names.
+        chunkFileNames: (chunk) =>
+          chunk.facadeModuleId?.includes("/src/admin/private/") ? "admin/chunks/[name]-[hash].js" : "assets/[name]-[hash].js",
+      },
+    },
   },
 });

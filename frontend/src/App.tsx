@@ -8,6 +8,7 @@ import DeepResearchPage from "./pages/DeepResearchPage";
 import UpdatesPage from "./pages/UpdatesPage";
 import DocsPage from "./pages/DocsPage";
 import VideosPage from "./pages/VideosPage";
+import AdminPage from "./pages/AdminPage";
 
 const HOME = "/";
 
@@ -20,6 +21,7 @@ const PAGES: [string, React.ReactNode][] = [
   ["/videos", <VideosPage />],
   ["/agents", <AgentsPage />],
   ["/docs", <DocsPage />],
+  ["/admin", <AdminPage />], // not in the tabs; password-gated on the public site (middleware.ts)
 ];
 
 export default function App() {

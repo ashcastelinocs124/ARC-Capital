@@ -46,6 +46,7 @@ PATHS = [
     "/daily_posts",
     "/weekly_posts",
     "/section_posts",
+    "/admin/agents/catalog",  # private: /api/admin/ is password-gated by frontend/middleware.ts
 ]
 
 
