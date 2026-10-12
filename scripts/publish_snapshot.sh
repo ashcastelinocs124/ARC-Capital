@@ -34,7 +34,10 @@ fi
 git worktree remove --force "$WT" 2>/dev/null || true
 git worktree prune
 git worktree add -q --detach "$WT" "$DEPLOY"
-rsync -a --delete frontend/public/api/ "$WT/frontend/public/api/" # the snapshot is gitignored
+# The private catalog (api/admin/) ships only in a build that has the password gate.
+EXCLUDE=()
+[[ -f "$WT/frontend/middleware.ts" ]] || EXCLUDE=(--exclude admin/)
+rsync -a --delete "${EXCLUDE[@]}" frontend/public/api/ "$WT/frontend/public/api/" # the snapshot is gitignored
 cp -R frontend/.vercel "$WT/frontend/"                            # project link
 
 cd "$WT/frontend"
