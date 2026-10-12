@@ -1,0 +1,3 @@
+# 17:00 in TZ (America/New_York, set in fly.toml), so the Morning Note covers the full US session.
+# timeout: a stalled job (AI Adoption has no per-company cap) can't block the next day's run.
+0 17 * * * cd /app && timeout 3h scripts/publish_server.sh >> data/publish.log 2>&1

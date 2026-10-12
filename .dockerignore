@@ -1,0 +1,14 @@
+.git
+.venv
+.env
+.claude
+docs
+**/__pycache__
+**/node_modules
+frontend/dist
+frontend/.vercel
+frontend/public/api
+# data/ is the Fly volume; only the committed config files go into the image.
+data/*
+!data/*.yaml
+!data/*.csv

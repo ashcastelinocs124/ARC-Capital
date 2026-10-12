@@ -1,0 +1,17 @@
+# Daily refresh + publish server (Dockerfile, deploy/crontab). No [http_service]: nothing is public,
+# so nobody can trigger paid refreshes, and with no service Fly never auto-stops the machine.
+app = "arc-research-backend"
+primary_region = "iad"
+
+[env]
+  TZ = "America/New_York"
+  VERCEL_ORG_ID = "team_BsHOg3CKHR9ZEzbgdX9M1U19"
+  VERCEL_PROJECT_ID = "prj_oxSCUqfLdewuJyglbdzYBwDaLn2t"
+
+[mounts]
+  source = "arc_data"
+  destination = "/app/data"
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "2gb"
