@@ -84,6 +84,10 @@ export default function MacroPage() {
           <div className="grid gap-6 md:grid-cols-2">
             <Card title="Businesses paying for AI" sub="Ramp AI Index via FRED · % of US businesses · monthly">
               <RampChart ramp={data.spend.ramp} />
+              <p className="text-[11.5px] text-muted mt-2">
+                "Any AI" is the share of US businesses on Ramp that paid for at least one AI product that month, from any
+                vendor. Many pay more than one provider, so the provider lines add up to more than it.
+              </p>
               <GapNote gaps={data.gaps} lanes={["ramp"]} />
             </Card>
             <Card title="Who developers' tokens go to" sub={or ? `OpenRouter · ${or.basis} · ${span(or.week[0], or.week[1])}` : "OpenRouter"}>
