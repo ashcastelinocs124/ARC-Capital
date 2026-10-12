@@ -6,9 +6,6 @@ import { useWeekly, useWeeklyPosts } from "@/hooks/useWeekly";
 import { useSectionPosts } from "@/hooks/useSectionPosts";
 import { useVideos } from "@/hooks/useVideos";
 import { useModels } from "@/hooks/useModels";
-import { useSectorSentiment } from "@/hooks/useSectorSentiment";
-import { useCrossAsset } from "@/hooks/useCrossAsset";
-import { useMacroIndicators } from "@/hooks/useMacro";
 import { isWeekly } from "@/api/endpoints";
 import { clock } from "@/pages/VideosPage";
 import { C } from "@/lib/theme";
@@ -39,17 +36,17 @@ function Spark({ values, color = C.accent, dot = true, pad = [46, 14] }: { value
 
 function Big({ value, label }: { value: string; label: string }) {
   return (
-    <div className="absolute left-3 top-2.5 rounded bg-surface-2/85 px-1.5 py-0.5">
+    <div className="absolute bottom-2.5 left-3 rounded bg-surface-2/85 px-1.5 py-0.5">
       <div className="num text-[22px] font-bold leading-tight text-text">{value}</div>
       <div className="text-[10.5px] text-muted">{label}</div>
     </div>
   );
 }
 
-function Tile({ to, title, blurb, children }: { to: string; title: string; blurb: string; children: ReactNode }) {
+function Tile({ to, title, blurb, wide, children }: { to: string; title: string; blurb: string; wide?: boolean; children: ReactNode }) {
   return (
-    <Link to={to} className="card group flex flex-col overflow-hidden transition-shadow hover:shadow-card-hover">
-      <div className="relative h-[132px] overflow-hidden border-b border-border bg-surface-2">{children}</div>
+    <Link to={to} className={cn("card group flex flex-col overflow-hidden transition-shadow hover:shadow-card-hover", wide && "sm:col-span-2")}>
+      <div className="relative h-[180px] overflow-hidden border-b border-border bg-surface-2">{children}</div>
       <div className="px-3.5 pb-3.5 pt-3">
         <div className="text-[14.5px] font-semibold text-text">{title}</div>
         <p className="mt-1 text-xs leading-snug text-muted">{blurb}</p>
@@ -66,64 +63,8 @@ function ModelsVis() {
   const pulse = useModels().data?.find((m) => m.id === "growth");
   return (
     <>
-      <Spark values={(pulse?.history ?? []).slice(-24).map((h) => h.value)} />
+      <img src="/thumbs/models-cover.jpg" alt="" loading="lazy" className="h-full w-full object-cover object-top" />
       <Big value={pct(pulse?.prob)} label={`Pulse · ${pulse?.prob_label ?? "P(expansion)"}`} />
-    </>
-  );
-}
-
-function SectorVis() {
-  const sectors = [...(useSectorSentiment().data?.sectors ?? [])].sort((a, b) => b.divergence - a.divergence);
-  if (!sectors.length) return null;
-  const top = sectors.reduce((a, b) => (Math.abs(b.divergence) > Math.abs(a.divergence) ? b : a));
-  const w = 276 / sectors.length;
-  return (
-    <>
-      <svg viewBox="0 0 300 132" className="block h-full w-full">
-        <line x1={8} x2={292} y1={100} y2={100} stroke={C.border} />
-        {sectors.map((s, i) => {
-          const h = Math.max(Math.abs(s.divergence) * 70, 1.5);
-          const fill = s.label === "euphoric" ? C.danger : s.label === "fearful" ? C.accent : C.muted2;
-          return <rect key={s.sector} x={12 + i * w} y={s.divergence > 0 ? 100 - h : 100} width={w - 8} height={h} rx={2} fill={fill} />;
-        })}
-      </svg>
-      <Big value={`${top.sector.split(" ")[0]} ${top.divergence > 0 ? "+" : ""}${top.divergence.toFixed(2)}`} label={`Sector Sentiment · ${top.label}`} />
-    </>
-  );
-}
-
-function CrossVis() {
-  const snap = useCrossAsset().data;
-  if (!snap) return null;
-  const spx = snap.assets.spx.windows["1w"], ief = snap.assets.ief.windows["1w"];
-  const rows = spx.groups.slice(0, 4).map((g) => [g.label, g.contribution, ief.groups.find((x) => x.group === g.group)?.contribution ?? 0] as const);
-  const max = Math.max(0.05, ...rows.flatMap(([, a, b]) => [Math.abs(a), Math.abs(b)]));
-  const cell = (v: number) => ({ backgroundColor: `rgb(var(--c-${v >= 0 ? "accent" : "danger"}) / ${(0.12 + (Math.abs(v) / max) * 0.75).toFixed(2)})` });
-  return (
-    <>
-      <div className="absolute inset-x-3 bottom-2.5 grid grid-cols-[1fr_1.3fr_1.3fr] gap-x-1 gap-y-[3px] text-[9px] text-muted">
-        <span /><span className="text-center">S&amp;P 500</span><span className="text-center">Treasuries</span>
-        {rows.map(([label, a, b]) => (
-          <div key={label} className="contents">
-            <span className="truncate">{label}</span>
-            <span className="h-3 rounded-sm" style={cell(a)} />
-            <span className="h-3 rounded-sm" style={cell(b)} />
-          </div>
-        ))}
-      </div>
-      <Big value={`${spx.move >= 0 ? "+" : ""}${spx.move.toFixed(1)}%`} label="Cross-Asset · S&P this week" />
-    </>
-  );
-}
-
-function MacroVis() {
-  const rows = (useMacroIndicators().data ?? []).filter((r) => Number(r.UNRATE) > 0);
-  const vals = rows.map((r) => Number(r.UNRATE));
-  if (!vals.length) return null;
-  return (
-    <>
-      <Spark values={vals} color={C.text} />
-      <Big value={`${vals[vals.length - 1].toFixed(1)}%`} label="Macro · unemployment rate" />
     </>
   );
 }
@@ -149,27 +90,16 @@ function DeepVis() {
   const rec = useWeekly(null).data;
   const counts = isWeekly(rec) ? rec.counts : null;
   const trends = isWeekly(rec) ? rec.report.sections.length : p?.takeaways.length;
-  if (!p) return null;
   return (
-    <div className="absolute inset-0 flex items-center gap-4 px-4">
-      <div className="relative h-[104px] flex-1">
-        {[2, 1, 0].map((i) => (
-          <div key={i} className="absolute inset-0 rounded-md border border-border bg-surface" style={{ transform: `translate(${i * 6}px, ${i * 5}px)` }} />
-        ))}
-        <div className="absolute inset-0 px-3 py-2.5">
-          <div className="text-[8.5px] font-semibold uppercase tracking-[0.08em] text-muted">{weekNo(p.week)} · Deep Dive</div>
-          <ol className="mt-1.5 space-y-0.5 text-[9.5px] text-text">
-            {p.takeaways.slice(0, 4).map((t, i) => (
-              <li key={t} className="truncate"><b className="text-accent">{String(i + 1).padStart(2, "0")}</b> {t}</li>
-            ))}
-          </ol>
-        </div>
-      </div>
-      <div className="shrink-0 space-y-2 pr-1">
-        {trends ? <div><div className="num text-xl font-bold leading-none text-text">{trends}</div><div className="text-[9px] text-muted">trends</div></div> : null}
-        {counts ? <div><div className="num text-xl font-bold leading-none text-text">{counts.figures_checked}</div><div className="text-[9px] text-muted">figures checked</div></div> : null}
-      </div>
-    </div>
+    <>
+      <img src="/thumbs/deep-research-cover.jpg" alt="" loading="lazy" className="h-full w-full object-cover object-top" />
+      {p && (
+        <Big
+          value={weekNo(p.week)}
+          label={[trends && `${trends} trends`, counts && `${counts.figures_checked} figures checked`].filter(Boolean).join(" · ") || "Weekly Deep Dive"}
+        />
+      )}
+    </>
   );
 }
 
@@ -318,11 +248,8 @@ function Sections() {
   return (
     <section>
       <Heading n="01" kicker="Browse by section" title="Everything on ARC Research, at a glance." />
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Tile to="/models" title="Models" blurb="Pulse & Pressure: will growth expand, will CPI accelerate?"><ModelsVis /></Tile>
-        <Tile to="/models" title="Sector Sentiment" blurb="Where price has run ahead of fundamentals."><SectorVis /></Tile>
-        <Tile to="/models" title="Cross-Asset Drivers" blurb="What moved stocks and Treasuries this week."><CrossVis /></Tile>
-        <Tile to="/macro" title="Macro & Signals" blurb="Indicators, the regime map and this week's releases."><MacroVis /></Tile>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Tile to="/models" title="Models" blurb="Pulse, Pressure, Sector Sentiment, AI Adoption and Cross-Asset Drivers, live." wide><ModelsVis /></Tile>
         <Tile to="/updates" title="Memo" blurb="The daily note: five ranked items with charts."><MemoVis /></Tile>
         <Tile to="/deep-research" title="Deep Research" blurb="Sunday deep dive: the week in 10–12 trends."><DeepVis /></Tile>
         <Tile to="/videos" title="Videos" blurb={`${n ? `${n} videos · ` : ""}AI Update and Special Topics.`}><VideosVis /></Tile>
