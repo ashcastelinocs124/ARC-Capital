@@ -31,7 +31,7 @@ export function GapNote({ gaps, lanes }: { gaps: { lane: string; error: string }
   if (!hit.length) return null;
   return (
     <p className="text-[11.5px] text-warning mt-2">
-      Some data unavailable this run ({hit.map((g) => g.lane).join(", ")}); showing the last good data for this week.
+      Some data unavailable this run ({hit.map((g) => g.lane).join(", ")}); anything shown for it is from an earlier run this week.
     </p>
   );
 }

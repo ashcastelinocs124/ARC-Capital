@@ -79,3 +79,9 @@ def test_fetch_week_handles_empty_day():
     evs = econ.fetch_week(date(2026, 10, 12), fetch=fetch)
     assert len(calls) == 5 and all(k == "economicevents" for k, _ in calls)
     assert evs and not [e for e in evs if e["date"] == "2026-10-12"]
+
+
+def test_fetch_week_raises_when_whole_week_is_empty():
+    # five empty days across five economies never happens: Nasdaq changed its reply
+    with pytest.raises(RuntimeError, match="no releases"):
+        econ.fetch_week(date(2026, 10, 12), fetch=lambda kind, day: [])

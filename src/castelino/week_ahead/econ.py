@@ -100,4 +100,6 @@ def fetch_week(monday: date, fetch=nasdaq.fetch_day) -> list[dict]:
     for i in range(5):
         d = monday + timedelta(days=i)
         out += events_for_day(fetch("economicevents", d), d)
+    if not out:  # five economies never go a whole week without a release: Nasdaq changed its reply
+        raise RuntimeError(f"nasdaq: no releases for the week of {monday}")
     return out

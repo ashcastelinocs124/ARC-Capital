@@ -52,7 +52,7 @@ export default function MacroPage() {
         when={data ? {
           label: "Week of",
           value: span(data.week_start, data.week_end),
-          note: `updated ${new Date(data.generated_at).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" })}`,
+          note: `updated ${new Date(data.generated_at).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" })} ET`,
         } : undefined}>
         Inflation and jobs releases from the five largest economies, S&amp;P 500 and big AI-company earnings and AI model
         launches on one timeline, then what the market expects and where AI money is going. Refreshed each evening after the close.

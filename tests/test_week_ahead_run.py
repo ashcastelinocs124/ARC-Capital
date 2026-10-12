@@ -140,3 +140,14 @@ def test_refresh_registers_job():
     from castelino.dashboard.endpoints import refresh
 
     assert "week_ahead" in refresh._RUNNERS and refresh.LABELS["week_ahead"] == "Week Ahead"
+
+
+def test_search_failure_keeps_confirmed_launches(tmp_path):
+    models = {"data": [{"id": "a/m", "name": "Lab: Model", "created": 1791460000}]}  # Oct 8
+
+    def search(s, u):
+        raise RuntimeError("credit balance is too low")
+
+    _, data = go(tmp_path, get_json=lambda url: models, search=search)
+    assert [e["name"] for e in data["events"] if e["kind"] == "ai"] == ["Model"]
+    assert data["gaps"] == [{"lane": "ai", "error": "reported launches: credit balance is too low"}]

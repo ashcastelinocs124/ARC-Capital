@@ -38,6 +38,7 @@ PATHS = [
     "/adoption/summary",
     "/adoption/companies",
     "/cross_asset",
+    "/week_ahead",
     "/research",
     "/refresh/status",
     "/videos",

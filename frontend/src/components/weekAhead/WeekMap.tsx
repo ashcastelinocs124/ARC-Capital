@@ -84,7 +84,8 @@ export function WeekMap({ data }: { data: WeekAhead }) {
       if (cur + 2 * r > end) { hidden++; return; }
       const X = cur + r, Y = cy(5);
       cur = X + r + 3;
-      const g = e.eps_est != null && e.eps_year_ago ? ((e.eps_est / e.eps_year_ago - 1) * 100).toFixed(1) : null;
+      // growth off a zero or negative base is meaningless (same rule as EpsGrowth)
+      const g = (e.eps_est ?? 0) > 0 && (e.eps_year_ago ?? 0) > 0 ? ((e.eps_est! / e.eps_year_ago! - 1) * 100).toFixed(1) : null;
       const session = e.session === "pre" ? "pre-market" : e.session === "post" ? "after the close" : "time not given";
       marks.push(
         <g key={`e${d}-${j}`} onMouseLeave={hide} onMouseMove={(ev) => show(ev, <>
@@ -101,22 +102,36 @@ export function WeekMap({ data }: { data: WeekAhead }) {
     if (hidden) marks.push(<text key={`h${d}`} x={cur + 2} y={cy(5) + 4} fontSize={10} fill={C.muted}>+{hidden}</text>);
   });
 
-  // AI: launched before the week sit at Monday's left edge; in-week launches and dated reports on their day.
-  const before = data.events.filter((e) => e.kind === "ai" && e.date && e.date < start);
-  data.events.filter((e) => e.kind === "ai" && e.date && e.date <= data.week_end).forEach((e, i) => {
-    const pre = e.date! < start;
-    const X = pre ? x(0, 1.5 + before.indexOf(e) * 4) : x(dayIdx(start, e.date!), 12), Y = cy(6);
-    const reported = e.status === "reported";
-    marks.push(
-      <g key={`a${i}`} onMouseLeave={hide}
-        onMouseMove={(ev) => show(ev, <><b>{e.name}</b><div>{e.lab} · {reported ? `reported for ${e.when}` : `launched ${e.date} on OpenRouter`}</div></>)}>
-        <a href={e.source_url} target="_blank" rel="noreferrer">
-          <rect x={X - 7} y={Y - 7} width={14} height={14} transform={`rotate(45 ${X} ${Y})`}
-            fill={reported ? C.surface : C.ai} stroke={C.ai} strokeWidth={2} strokeDasharray={reported ? "3 2" : undefined} />
-          <circle cx={X} cy={Y} r={12} fill="transparent" />
-        </a>
-      </g>,
-    );
+  // AI: pre-week launches pack into Monday's left strip, in-week ones pack from midday on their day;
+  // each slot is ~2.6 h (one diamond wide) and overflow becomes "+N".
+  const aiSlots = new Map<number, WeekEvent[]>(); // -1 = before the week
+  data.events.filter((e) => e.kind === "ai" && e.date && e.date <= data.week_end).forEach((e) => {
+    const d = e.date! < start ? -1 : dayIdx(start, e.date!);
+    aiSlots.set(d, [...(aiSlots.get(d) ?? []), e]);
+  });
+  aiSlots.forEach((list, d) => {
+    const [day, h0, cap] = d < 0 ? [0, 0.8, 3] : [d, 12, 4];
+    list.slice(0, cap).forEach((e, j) => {
+      const X = x(day, h0 + j * 2.6), Y = cy(6);
+      const reported = e.status === "reported";
+      marks.push(
+        <g key={`a${d}-${j}`} onMouseLeave={hide}
+          onMouseMove={(ev) => show(ev, <><b>{e.name}</b><div>{e.lab} · {reported ? `reported for ${e.when}` : `launched ${e.date} on OpenRouter`}</div></>)}>
+          <a href={e.source_url} target="_blank" rel="noreferrer">
+            <rect x={X - 7} y={Y - 7} width={14} height={14} transform={`rotate(45 ${X} ${Y})`}
+              fill={reported ? C.surface : C.ai} stroke={C.ai} strokeWidth={2} strokeDasharray={reported ? "3 2" : undefined} />
+            <circle cx={X} cy={Y} r={12} fill="transparent" />
+          </a>
+        </g>,
+      );
+    });
+    if (list.length > cap) {
+      const more = list.slice(cap).map((e) => e.name).join(", ");
+      marks.push(
+        <text key={`ah${d}`} x={x(day, h0 + cap * 2.6) - 4} y={cy(6) + 4} fontSize={10} fill={C.muted}
+          onMouseMove={(ev) => show(ev, <>{more}</>)} onMouseLeave={hide}>+{list.length - cap}</text>,
+      );
+    }
   });
   const nx = nowX(start);
 

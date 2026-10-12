@@ -106,7 +106,11 @@ def run(
         if search is None and not _has_key():
             gaps.append({"lane": "ai", "error": "no OPENAI_API_KEY: reported launches skipped"})
             return evs
-        return evs + ai.reported(monday, search or _default_search)
+        try:  # a failed search (timeout, no credit) must not drop the confirmed launches
+            return evs + ai.reported(monday, search or _default_search)
+        except Exception as e:  # noqa: BLE001
+            gaps.append({"lane": "ai", "error": "reported launches: " + QS.sub("", str(e))[:200]})
+            return evs
 
     econ_ev = lane("econ", lambda: econ.fetch_week(monday, fetch_day), kept(ECON_KINDS))
     earn_ev = lane("earnings", earnings_lane, kept({"earnings"}))
