@@ -176,3 +176,6 @@ html:not(.dark) .splash-logo { filter: brightness(1.06); } /* its tile is off-wh
 .logo-in { opacity: 0; animation: logo-in .9s cubic-bezier(.2,.8,.2,1) forwards; }
 @keyframes logo-in { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .logo-in { animation: none; opacity: 1; } }
+/* sideways-scrolling tab rows on phones: swipeable, no grey bar */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

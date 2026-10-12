@@ -20,7 +20,7 @@ export function TopNav({ pill = false }: { pill?: boolean }) {
       className={
         pill
           ? "hidden items-center gap-1 rounded-full border border-border bg-surface-2 p-1 lg:flex"
-          : "flex shrink-0 gap-7 overflow-x-auto border-b border-border bg-surface px-4 lg:hidden"
+          : "no-scrollbar flex shrink-0 gap-7 overflow-x-auto border-b border-border bg-surface px-4 lg:hidden"
       }
     >
       {TABS.map(([to, label]) => (

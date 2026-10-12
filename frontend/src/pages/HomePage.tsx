@@ -23,19 +23,6 @@ const weekNo = (w: string) => `Week ${Number(w.split("W")[1])}`;
 const pct = (p: number | undefined) => (p == null ? "–" : `${Math.round(p * 100)}%`);
 
 // ── small drawing helpers ────────────────────────────────────────────────
-function Spark({ values, color = C.accent, dot = true, pad = [46, 14] }: { values: number[]; color?: string; dot?: boolean; pad?: [number, number] }) {
-  if (values.length < 2) return null;
-  const lo = Math.min(...values), hi = Math.max(...values), [top, bot] = pad;
-  const y = (v: number) => top + (1 - (v - lo) / (hi - lo || 1)) * (132 - top - bot);
-  const x = (i: number) => 8 + (i * 276) / (values.length - 1);
-  return (
-    <svg viewBox="0 0 300 132" preserveAspectRatio="none" className="block h-full w-full">
-      <polyline fill="none" stroke={color} strokeWidth={2} vectorEffect="non-scaling-stroke" points={values.map((v, i) => `${x(i)},${y(v)}`).join(" ")} />
-      {dot && <circle cx={x(values.length - 1)} cy={y(values[values.length - 1])} r={4} fill={color} />}
-    </svg>
-  );
-}
-
 function Big({ value, label }: { value: string; label: string }) {
   return (
     <div className="absolute bottom-2.5 left-3 rounded bg-surface-2/85 px-1.5 py-0.5">
@@ -319,11 +306,10 @@ function Hero() {
   const video = useVideos().data?.find((v) => isPost(v.url));
   const models = useModels().data;
   const prob = (id: string) => pct(models?.find((m) => m.id === id)?.prob);
-  const growth = (models?.find((m) => m.id === "growth")?.history ?? []).slice(-24).map((h) => h.value);
   const entries: [string, string, string, ReactNode][] = [
     ["/updates", "Daily Memo", "The day's macro in five items, with charts.", <Cover src={daily?.image} />],
     ["/deep-research", "Weekly Deep Dive", "Every Sunday: 10–12 trends, checked against the data.", <Cover src={weekly?.image} />],
-    ["/models", "Live models", `Pulse ${prob("growth")} · Pressure ${prob("inflation")} · Sector Sentiment · Cross-Asset`, <Spark values={growth} pad={[18, 18]} />],
+    ["/models", "Live models", `Pulse ${prob("growth")} · Pressure ${prob("inflation")} · Sector Sentiment · Cross-Asset`, <Cover src="/thumbs/live-models.jpg" />],
     ["/videos", "Videos", "AI updates and special topics, explained on camera.", <Cover src={video?.thumbnail} />],
   ];
   return (
@@ -358,8 +344,8 @@ function Hero() {
       </div>
       <div className="flex flex-col gap-3.5">
         {entries.map(([to, title, blurb, thumb]) => (
-          <Link key={to} to={to} className="card group flex items-center gap-4 px-4 py-3.5 transition-shadow hover:shadow-card-hover">
-            <span className="h-[68px] w-[112px] shrink-0 overflow-hidden rounded-md border border-border bg-surface-2">{thumb}</span>
+          <Link key={to} to={to} className="card group flex items-center gap-3 px-3 py-3 transition-shadow md:gap-4 md:px-4 md:py-3.5 hover:shadow-card-hover">
+            <span className="h-[54px] w-[84px] shrink-0 md:h-[68px] md:w-[112px] overflow-hidden rounded-md border border-border bg-surface-2">{thumb}</span>
             <span className="min-w-0 flex-1">
               <span className="block text-base font-semibold text-text">{title}</span>
               <span className="block text-[13.5px] leading-snug text-muted">{blurb}</span>
@@ -459,13 +445,19 @@ function Sections() {
     main.scrollTo({ top: main.scrollTop - scrolled + ((i + 0.05) / panes.length) * total, behavior: "smooth" });
   };
   const active = Math.floor(pos);
+  const tabRow = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // on a phone the tabs overflow sideways: keep the active one in view
+    const row = tabRow.current, tab = row?.children[active] as HTMLElement | undefined;
+    if (row && tab) row.scrollTo({ left: tab.offsetLeft - 16, behavior: "smooth" });
+  }, [active]);
 
   return (
     <section>
       <Heading n="01" kicker="Browse by section" title="Everything on ARC Research, at a glance." />
       <div ref={track} className="relative mt-4" style={{ height: `${panes.length * 55 + 60}vh` }}>
         <div className="card sticky top-4 flex h-[calc(100dvh-9rem)] max-h-[640px] flex-col overflow-hidden">
-          <div className="flex shrink-0 overflow-x-auto border-b border-border">
+          <div ref={tabRow} className="no-scrollbar flex shrink-0 overflow-x-auto border-b border-border">
             {panes.map((p, i) => (
               <button key={p.to} onClick={() => go(i)} className={cn("relative shrink-0 border-r border-border px-5 py-3 text-left", i === active ? "bg-surface" : "bg-surface-2")}>
                 <span className="absolute left-0 top-0 h-0.5 bg-accent" style={{ width: `${i < active ? 100 : i === active ? (pos - active) * 100 : 0}%` }} />
