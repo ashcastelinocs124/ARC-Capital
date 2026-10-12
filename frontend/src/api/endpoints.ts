@@ -1,7 +1,7 @@
 /** One function per backend endpoint. Hooks call these. */
 
 import { api } from "./client";
-import type { CrossAssetSnapshot, MacroIndicatorRow, PlotlyChart, SectorSentimentSnapshot, WeekAhead } from "./types";
+import type { CrossAssetSnapshot, MacroIndicatorRow, PlotlyChart, SectorSentimentSnapshot, WeekAhead, AiSentiment } from "./types";
 
 // ── Models ─────────────────────────────────────────────────────────────
 export interface ModelCard {
@@ -216,4 +216,10 @@ export const fetchWeekAhead = async (): Promise<WeekAhead | null> => {
   const data = await api.get<WeekAhead | Record<string, never> | []>("/week_ahead");
   // the client maps a 404 (static build without the file) to []
   return data && !Array.isArray(data) && "events" in data ? (data as WeekAhead) : null;
+};
+
+// ── AI Model Sentiment ───────────────────────────────────────────────────
+export const fetchAiSentiment = async (): Promise<AiSentiment | null> => {
+  const data = await api.get<AiSentiment | Record<string, never> | []>("/ai_sentiment");
+  return data && !Array.isArray(data) && "providers" in data ? (data as AiSentiment) : null;
 };

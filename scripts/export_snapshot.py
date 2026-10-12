@@ -39,6 +39,7 @@ PATHS = [
     "/adoption/companies",
     "/cross_asset",
     "/week_ahead",
+    "/ai_sentiment",
     "/research",
     "/refresh/status",
     "/videos",

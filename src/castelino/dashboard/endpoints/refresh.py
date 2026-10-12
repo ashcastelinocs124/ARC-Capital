@@ -94,6 +94,15 @@ def job_week_ahead() -> str:
     return week_ahead.run()
 
 
+def job_ai_sentiment() -> str:
+    from castelino.ai_sentiment import run as ai_sentiment
+
+    try:
+        return ai_sentiment.run()
+    except ai_sentiment.NotConfigured as exc:
+        raise Skipped(str(exc)) from exc
+
+
 def job_weekly_deep_dive() -> str:
     from castelino import config
     from castelino.agents.weekly import runner as weekly_runner
@@ -117,6 +126,7 @@ LABELS = {
     "adoption": "AI Adoption Index",
     "cross_asset": "Cross-Asset Drivers",
     "week_ahead": "Week Ahead",
+    "ai_sentiment": "AI Model Sentiment",
     "weekly_deep_dive": "Weekly Deep Dive",
 }
 # Overridable in tests.
@@ -127,6 +137,7 @@ _RUNNERS: dict[str, Callable[[], str]] = {
     "adoption": job_adoption,
     "cross_asset": job_cross_asset,
     "week_ahead": job_week_ahead,
+    "ai_sentiment": job_ai_sentiment,
     "weekly_deep_dive": job_weekly_deep_dive,
 }
 _state: dict[str, dict] = {}

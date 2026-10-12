@@ -1,0 +1,104 @@
+# AI Model Sentiment word list (edit freely). Matching is whole words, lower case; phrases
+# ("rate limit") win over single words. A negator up to 3 words before a term flips it.
+families:
+  Anthropic: [claude, anthropic, opus, sonnet, haiku, claude code]
+  OpenAI: [gpt, chatgpt, openai, codex, sora]
+  Google: [gemini, deepmind, nano banana, veo, gemma]
+  xAI: [grok, xai]
+  DeepSeek: [deepseek]
+  Meta: [llama, meta ai, muse spark]
+  Mistral: [mistral, le chat, codestral]
+  Qwen: [qwen]
+negators: [not, no, never, "isn't", "doesn't", "don't", "didn't", "can't", "won't", "wasn't", hardly, barely]
+positive:
+  - amazing
+  - awesome
+  - beats
+  - best
+  - better
+  - blazing
+  - brilliant
+  - cheap
+  - cheaper
+  - clean
+  - crushes
+  - crushing
+  - excellent
+  - faster
+  - fast
+  - fantastic
+  - game changer
+  - goat
+  - good
+  - great
+  - impressed
+  - impressive
+  - improved
+  - incredible
+  - insane
+  - love
+  - loving
+  - magic
+  - mind blowing
+  - nailed
+  - nails
+  - outperforms
+  - powerful
+  - reliable
+  - smart
+  - smarter
+  - solid
+  - sota
+  - state of the art
+  - stellar
+  - superb
+  - unbeatable
+  - upgrade
+  - useful
+  - wins
+  - wow
+negative:
+  - annoying
+  - awful
+  - bad
+  - broken
+  - buggy
+  - censored
+  - degraded
+  - disappointed
+  - disappointing
+  - downgrade
+  - dumb
+  - dumber
+  - expensive
+  - fails
+  - failed
+  - frustrating
+  - garbage
+  - hallucinates
+  - hallucinating
+  - hallucination
+  - hallucinations
+  - lazy
+  - meh
+  - mess
+  - mid
+  - nerfed
+  - outage
+  - overhyped
+  - overpriced
+  - rate limit
+  - rate limits
+  - rate limited
+  - regression
+  - slop
+  - slow
+  - slower
+  - sucks
+  - terrible
+  - unusable
+  - useless
+  - worse
+  - worst
+  - wrong
+  - "don't reproduce"

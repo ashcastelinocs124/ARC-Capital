@@ -309,6 +309,26 @@ agents:
       writes: ["Recipe → data/adoption/recipes/<TICKER>.json (saved by the script)"]
       persists: "Only the accepted recipe file; nothing carries over between companies."
 
+  - id: ai_sentiment_finder
+    name: AI Model Sentiment · X post finder
+    group: Research metrics
+    dependencies:
+      - {key: XAI_API_KEY, required: true, why: "Grok 4.7 X Search (xAI Responses API)"}
+    prompt: "castelino.ai_sentiment.scan:PROMPT"
+    summary: >-
+      Finds posts about AI models by a hand-kept list of credible X accounts (data/ai_sentiment/
+      accounts.csv), one X Search call per group of 20 handles per day. It only returns post links:
+      the text and author come from X's oEmbed, and a fixed word list (lexicon.yaml) scores each
+      post, so the model never labels or scores anything. Feeds the sentiment card on /macro.
+    tools:
+      - {name: "x_search", does: "Read-only X search limited to the listed handles and one day"}
+      - {name: "oEmbed author check (code)", does: "Drops any post whose author, as reported by X, is not on the list"}
+      - {name: "Word-list score (code)", does: "Per-provider clause scoring with negation; lab staff never count toward their own lab"}
+    memory:
+      reads: ["Up to 20 tracked handles and one date"]
+      writes: ["Post links → scored day in data/ai_sentiment.json"]
+      persists: "Nothing in the model; 180 days of scored history in data/ai_sentiment.json."
+
   # ── Triggers ────────────────────────────────────────────────────────────
 # System architecture diagrams on /agents: one entry per `group` above. The first entry is
 # the page's default view. A lane is a list of steps (left → right) and each step is a list
@@ -363,6 +383,8 @@ systems:
       - title: "Hire pillar · layer 3"
         flow: [["Custom careers site"], ["agent:recipe_writer|≤15 steps, $3"], ["code:Replay test|≥90% coverage"], ["end:Saved recipe|replayed, no model"]]
         loops: [{from: 2, to: 1, label: "rejected → try again"}]
+      - title: "AI Model Sentiment"
+        flow: [["Tracked X accounts"], ["agent:ai_sentiment_finder|links only"], ["code:X oEmbed|real text + author check"], ["code:Word-list score|per provider"], ["end:Sentiment card|level + Δ7d"]]
 
   - group: Weekly deep dive
     trigger: "Sunday 06:00 ET (cron), or Refresh once a report is due"

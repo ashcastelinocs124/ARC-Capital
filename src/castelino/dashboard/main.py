@@ -79,6 +79,7 @@ def get_apps():
 from castelino.dashboard.endpoints import (  # noqa: E402
     adoption,
     agent_catalog,
+    ai_sentiment,
     cross_asset,
     daily_posts,
     deep_research,
@@ -104,6 +105,7 @@ app.include_router(sector_sentiment_router.router)
 app.include_router(adoption.router)
 app.include_router(cross_asset.router)
 app.include_router(week_ahead.router)
+app.include_router(ai_sentiment.router)
 app.include_router(refresh.router)
 app.include_router(videos.router)
 app.include_router(daily_posts.router)

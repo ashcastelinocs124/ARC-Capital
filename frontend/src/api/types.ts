@@ -167,3 +167,19 @@ export interface WeekAhead {
   sectors?: SectorRow[];
 }
 export interface SectorRow { sector: string; etf: string; ytd: number; pe: number | null; earnings_growth: number | null }
+
+// ── AI Model Sentiment (GET /ai_sentiment) ─────────────────────────────────
+export interface SentimentPost { url: string; author: string; text: string; score: number; hits: string[] }
+export interface SentimentProvider {
+  level: number;
+  delta: number | null;
+  n7: number;
+  series: [string, number][];
+  samples: SentimentPost[];
+}
+export interface AiSentiment {
+  generated_at: string;
+  accounts: number;
+  providers: Record<string, SentimentProvider>;
+  gaps: { day: string; error: string }[];
+}
