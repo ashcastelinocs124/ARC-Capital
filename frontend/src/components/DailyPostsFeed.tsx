@@ -6,7 +6,12 @@ const DAY = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short",
 const SHORT = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 const day = (d: string) => new Date(`${d}T00:00:00Z`);
 
-function PostCard({ p, latest }: { p: DailyPost; latest: boolean }) {
+// One published Substack post: cover left, title and takeaways right (also the Deep Research weekly feed).
+export function PostCard({ p, latest, eyebrow }: {
+  p: Pick<DailyPost, "title" | "takeaways" | "image" | "url">;
+  latest: boolean;
+  eyebrow: string;
+}) {
   return (
     <a
       href={p.url}
@@ -19,7 +24,7 @@ function PostCard({ p, latest }: { p: DailyPost; latest: boolean }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2.5">
-          <span className="eyebrow">{DAY.format(day(p.date))}</span>
+          <span className="eyebrow">{eyebrow}</span>
           <span className="pill">{latest ? "LATEST · SUBSTACK" : "SUBSTACK"}</span>
         </div>
         <h3 className="mt-3 text-xl font-semibold leading-snug tracking-tight text-text md:text-2xl">{p.title}</h3>
@@ -112,7 +117,7 @@ export function DailyPostsFeed({ posts, sections, loading, earlier }: {
       )}
       <div className="space-y-4">
         {posts.map((p, i) => (
-          <PostCard key={p.url} p={p} latest={i === 0} />
+          <PostCard key={p.url} p={p} latest={i === 0} eyebrow={DAY.format(day(p.date))} />
         ))}
       </div>
       {SECTIONS.map((s) => (

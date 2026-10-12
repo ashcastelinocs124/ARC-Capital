@@ -165,6 +165,12 @@ export const isWeekly = (x: unknown): x is WeeklyRecord =>
   !!x && !Array.isArray(x) && (x as WeeklyRecord).version === 1 && typeof (x as WeeklyRecord).week === "string";
 export const fetchWeeklyHistory = () => api.get<WeeklyHistory>("/weekly/history");
 export const fetchWeekly = (week: string | null) => api.get<WeeklyRecord>(week ? `/weekly/${week}` : "/weekly/latest");
+// Published Weekly Deep Dive posts on Substack (newest first).
+export interface WeeklyPost { week: string; start: string; end: string; title: string; takeaways: string[]; image: string | null; url: string }
+export const fetchWeeklyPosts = async (): Promise<WeeklyPost[]> => {
+  const data = await api.get<WeeklyPost[]>("/weekly_posts"); // the client maps a 404 to []
+  return Array.isArray(data) ? data : [];
+};
 export const fetchWeeklyStatus = () =>
   api.get<{ stage: string; week?: string; error?: string | null; due?: string | null }>("/weekly/status");
 

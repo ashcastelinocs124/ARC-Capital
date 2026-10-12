@@ -42,6 +42,7 @@ PATHS = [
     "/refresh/status",
     "/videos",
     "/daily_posts",
+    "/weekly_posts",
     "/section_posts",
 ]
 
