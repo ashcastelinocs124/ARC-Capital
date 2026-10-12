@@ -92,7 +92,7 @@ function DeepVis() {
   const trends = isWeekly(rec) ? rec.report.sections.length : p?.takeaways.length;
   return (
     <>
-      <img src="/thumbs/deep-research-cover.jpg" alt="" loading="lazy" className="h-full w-full object-cover object-top" />
+      <img src="/thumbs/deep-research-desk.jpg" alt="" loading="lazy" className="h-full w-full object-cover object-top" />
       {p && (
         <Big
           value={weekNo(p.week)}
