@@ -140,7 +140,39 @@
   .no-print { display: none !important; }
 }
 
+/* Home hero (after semianalysis.com): circuit traces draw in, then the text rises. */
+.trace { stroke-dasharray: 1; stroke-dashoffset: 1; animation: trace-draw 1.6s cubic-bezier(.6,0,.2,1) forwards; }
+@keyframes trace-draw { to { stroke-dashoffset: 0; } }
+.rise { opacity: 0; animation: rise .6s ease-out forwards; }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.twinkle { opacity: 0; animation: twinkle 4s ease-in-out infinite; }
+@keyframes twinkle { 0%, 100% { opacity: .12; } 50% { opacity: .7; } }
+/* skyline extras: chips bob in the air, robots walk the street (SVG user units) */
+.float { animation: float 5s ease-in-out infinite; }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.chip-die { opacity: .25; animation: twinkle 3s ease-in-out infinite; }
+.walk { transform: translateX(-40px); animation: walk 40s linear infinite; }
+@keyframes walk { from { transform: translateX(-40px); } to { transform: translateX(1240px); } }
+.bob { animation: bob .5s ease-in-out infinite alternate; }
+@keyframes bob { to { transform: translateY(-1.5px); } }
+.leg-a, .leg-b { transform-box: fill-box; transform-origin: top; animation: step .5s ease-in-out infinite alternate; }
+.leg-b { animation-direction: alternate-reverse; }
+@keyframes step { from { transform: rotate(-18deg); } to { transform: rotate(18deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .trace, .rise { animation: none; stroke-dashoffset: 0; opacity: 1; }
+  .twinkle, .chip-die { animation: none; opacity: .35; }
+  .float, .bob, .leg-a, .leg-b { animation: none; }
+  .walk { animation: none; transform: translateX(300px); }
+}
+
 /* Recharts: axis labels and the default tooltip follow the theme. */
 .recharts-cartesian-axis-tick-value { fill: rgb(var(--c-muted)); }
 .recharts-default-tooltip { background-color: rgb(var(--c-surface)) !important; border-color: rgb(var(--c-border)) !important; color: rgb(var(--c-text)); }
 .dark .logo-img { filter: invert(1) hue-rotate(180deg); }
+/* the logo PNG has a white tile: multiply hides it on light, screen on dark (where logo-img inverts it) */
+.splash-logo { mix-blend-mode: multiply; }
+.dark .splash-logo { mix-blend-mode: screen; }
+html:not(.dark) .splash-logo { filter: brightness(1.06); } /* its tile is off-white, which multiply leaves as a faint box */
+.logo-in { opacity: 0; animation: logo-in .9s cubic-bezier(.2,.8,.2,1) forwards; }
+@keyframes logo-in { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .logo-in { animation: none; opacity: 1; } }
