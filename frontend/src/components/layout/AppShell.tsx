@@ -7,7 +7,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // <main> is the scroller, so a new page would otherwise open at the old page's scroll position.
   const main = useRef<HTMLElement>(null);
   const { pathname } = useLocation();
-  useEffect(() => main.current?.scrollTo(0, 0), [pathname]);
+  useEffect(() => {
+    main.current?.scrollTo(0, 0); // braces: scrollTo can return a Promise, and an effect may only return a cleanup
+  }, [pathname]);
   return (
     <div className="flex flex-col h-dvh bg-surface-2">
       <TopBar />
