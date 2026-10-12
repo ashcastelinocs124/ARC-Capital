@@ -325,7 +325,7 @@ function Hero() {
           Macro and AI, <span className="text-accent">explained for everyone.</span>
         </h1>
         <p className="mt-4 max-w-xl text-base text-muted md:text-[17px]">
-          In-depth research and live models on the economy, markets and the AI stack. No finance background required.
+          In-depth research and live models on the economy, markets and the AI stack.
         </p>
         <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
           <Link to="/docs" className="rounded-full bg-accent px-5 py-2 text-[13px] font-semibold text-on-accent hover:bg-accent-hover">

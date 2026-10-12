@@ -90,13 +90,14 @@ export interface AgentTool { name: string; does: string; }
 export interface AgentCatalogEntry {
   id: string; name: string; group: string; summary: string;
   family?: string | null; // main agent it belongs to, e.g. "Update Agent"
-  tools: AgentTool[];
-  memory: { reads: string[]; writes: string[]; persists: string };
-  class_path: string | null; tier: string | null; model: string | null;
-  prompt: string | null; prompt_source: string | null;
-  output: { name: string; fields: { name: string; type: string; description: string }[] } | null;
-  error: string | null;
-  dependencies: { key: string; required: boolean; why: string; set: boolean }[];
+  // Everything below is admin-only: the public catalog (/agents/catalog) carries only the fields above.
+  tools?: AgentTool[];
+  memory?: { reads: string[]; writes: string[]; persists: string };
+  class_path?: string | null; tier?: string | null; model?: string | null;
+  prompt?: string | null; prompt_source?: string | null;
+  output?: { name: string; fields: { name: string; type: string; description: string }[] } | null;
+  error?: string | null;
+  dependencies?: { key: string; required: boolean; why: string; set: boolean }[];
 }
 export interface SystemLane {
   title: string;
@@ -107,9 +108,10 @@ export interface SystemLane {
 export interface AgentSystem { group: string; trigger: string; output: string; blurb: string; lanes: SystemLane[] }
 export interface AgentCatalog {
   agents: AgentCatalogEntry[]; groups: string[]; systems?: AgentSystem[];
-  unregistered: { class_name: string; class_path: string; file: string }[];
+  unregistered?: { class_name: string; class_path: string; file: string }[]; // admin only
 }
-export const fetchAgentCatalog = () => api.get<AgentCatalog>("/agents/catalog");
+export const fetchAgentCatalog = (admin = false) =>
+  api.get<AgentCatalog>(admin ? "/admin/agents/catalog" : "/agents/catalog");
 
 // ── Sector Sentiment ───────────────────────────────────────────────────
 export const fetchSectorSentiment = async (): Promise<SectorSentimentSnapshot | null> => {
