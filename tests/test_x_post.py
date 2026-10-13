@@ -1,0 +1,113 @@
+from fastapi.testclient import TestClient
+
+from castelino import x_post
+from castelino.dashboard.endpoints import admin_desk
+
+URL = "https://archresearch.substack.com/p/saudi-strikes-lifted-oil"
+
+
+def test_signature_matches_xs_documented_example():
+    # https://developer.x.com/en/docs/authentication/oauth-1-0a/creating-a-signature
+    params = {
+        "status": "Hello Ladies + Gentlemen, a signed OAuth request!",
+        "include_entities": "true",
+        "oauth_consumer_key": "xvz1evFS4wEEPTGEFPHBog",
+        "oauth_nonce": "kYjzVBB8Y0ZFabxSWbWovY3uYSQ2pTgmZeNu2VS4cg",
+        "oauth_signature_method": "HMAC-SHA1",
+        "oauth_timestamp": "1318622958",
+        "oauth_token": "370773112-GmHxMAgYyLbNEtIKZeRNFsMKPR9EyMZeS9weJAEb",
+        "oauth_version": "1.0",
+    }
+    sig = x_post.signature(
+        "POST",
+        "https://api.twitter.com/1.1/statuses/update.json",
+        params,
+        "kAcSOqF21Fu85e7zjz7ZN2U4ZRhfV3WpwPAoE3Z7kBw",
+        "LswwdoUaIvS8ltyTt5jkRh4J50vUPVVHtR2YPi5kE",
+    )
+    assert sig == "hCtSmYh+iHYCEqBWrE7C7hYmtUk="
+
+
+def test_xlen_counts_links_as_23_and_emoji_as_2():
+    assert x_post.xlen("see " + URL) == 4 + 23
+    assert x_post.xlen("ab 🧵") == 5
+
+
+def test_drafts_daily_is_teaser_plus_link_reply_weekly_is_a_thread():
+    d = x_post.drafts("daily", "Oil up", ["a", "b", "c", "d"], URL)
+    assert d == ["Oil up\n\n• a\n• b\n• c", f"Full note on Substack → {URL}"]
+    long = x_post.drafts("daily", "H" * 150, ["a" * 80, "b" * 80, "c" * 80], URL)
+    assert long[0] == "H" * 150 + "\n\n• " + "a" * 80  # stops adding bullets before 280
+    w = x_post.drafts("weekly", "Week 41", [str(i) for i in range(12)], URL)
+    assert w[0] == "Week 41 🧵" and w[1] == "1/ 0" and len(w) == 7 and URL in w[-1]
+
+
+def _setup(tmp_path, monkeypatch, fail_at=None):
+    from castelino.dashboard.main import app
+
+    rows = [
+        {
+            "kind": "daily",
+            "when": "2026-10-12",
+            "title": "Oil up",
+            "takeaways": ["a"],
+            "url": URL,
+            "slug": "saudi-strikes-lifted-oil",
+        }
+    ]
+    monkeypatch.setattr(admin_desk, "_published", lambda: rows)
+    monkeypatch.setattr(admin_desk, "_x_dir", lambda: tmp_path)
+    for k in x_post.KEYS:
+        monkeypatch.setenv(k, "k")
+    sent = []
+
+    def fake_post(text, reply_to=None):
+        if fail_at is not None and len(sent) == fail_at:
+            raise RuntimeError("X said 503")
+        sent.append((text, reply_to))
+        return f"id{len(sent)}"
+
+    monkeypatch.setattr(x_post, "post", fake_post)
+    return TestClient(app), sent
+
+
+def test_post_chain_replies_in_order_and_never_twice(tmp_path, monkeypatch):
+    c, sent = _setup(tmp_path, monkeypatch)
+    texts = ["Oil up\n\n• a", f"Full note → {URL}"]
+    r = c.post("/admin/desk/x/saudi-strikes-lifted-oil", json={"texts": texts})
+    assert r.json() == {"posted_ids": ["id1", "id2"], "total": 2, "error": None}
+    assert sent == [(texts[0], None), (texts[1], "id1")]
+    assert (
+        c.post("/admin/desk/x/saudi-strikes-lifted-oil", json={"texts": texts}).status_code == 409
+    )
+    assert c.get("/admin/desk/x").json()["posts"][0]["posted_ids"] == ["id1", "id2"]
+
+
+def test_failed_reply_keeps_first_and_retry_continues(tmp_path, monkeypatch):
+    c, sent = _setup(tmp_path, monkeypatch, fail_at=1)
+    texts = ["Oil up", f"Full note → {URL}"]
+    r = c.post("/admin/desk/x/saudi-strikes-lifted-oil", json={"texts": texts}).json()
+    assert r["posted_ids"] == ["id1"] and "503" in r["error"]
+    monkeypatch.setattr(
+        x_post, "post", lambda t, reply_to=None: sent.append((t, reply_to)) or "id9"
+    )
+    r = c.post("/admin/desk/x/saudi-strikes-lifted-oil", json={"texts": ["edited"]}).json()
+    assert r["posted_ids"] == ["id1", "id9"] and sent[-1] == (
+        texts[1],
+        "id1",
+    )  # resumed the original chain
+
+
+def test_rejects_long_posts_missing_link_and_unknown_slugs(tmp_path, monkeypatch):
+    c, _ = _setup(tmp_path, monkeypatch)
+    assert (
+        c.post(
+            "/admin/desk/x/saudi-strikes-lifted-oil", json={"texts": ["x" * 281, URL]}
+        ).status_code
+        == 400
+    )
+    assert (
+        c.post("/admin/desk/x/saudi-strikes-lifted-oil", json={"texts": ["no link"]}).status_code
+        == 400
+    )
+    assert c.post("/admin/desk/x/other-post", json={"texts": [URL]}).status_code == 404

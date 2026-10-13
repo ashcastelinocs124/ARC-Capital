@@ -5,7 +5,7 @@ import { STATIC } from "@/api/client";
 // Admin Daily desk: one day's Morning Note agents — read, question, re-run, rebuild, send to Substack.
 // Locally it talks to `ckm serve`; on the public site /api/admin/live/* is forwarded to the Fly machine
 // (frontend/vercel.json), behind the same admin password.
-const BASE = STATIC ? "/api/admin/live" : "/api/admin/desk";
+export const BASE = STATIC ? "/api/admin/live" : "/api/admin/desk";
 const AGENTS = [
   ["macro", "Macro"],
   ["news", "News"],
@@ -29,7 +29,7 @@ type Detail = {
 };
 type Msg = { role: "user" | "agent"; text: string };
 
-async function call<T>(path: string, body?: unknown): Promise<T> {
+export async function call<T>(path: string, body?: unknown): Promise<T> {
   const r = await fetch(`${BASE}${path}`, {
     method: body === undefined ? "GET" : "POST",
     headers: { "Content-Type": "application/json" },

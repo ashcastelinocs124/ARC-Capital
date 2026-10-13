@@ -70,6 +70,7 @@ data/week_ahead.json
 data/sector_sentiment.json
 data/cross_asset.json
 data/cross_asset/
+data/x_posts/
 data/sector_universe.json
 data/approval_queue.json
 data/research/

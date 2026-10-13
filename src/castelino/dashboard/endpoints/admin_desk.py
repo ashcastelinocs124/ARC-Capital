@@ -64,6 +64,126 @@ def days():
     return {"days": out}
 
 
+# ── X posts (declared before /{day} so "x" isn't read as a day) ───────────────────────────────
+
+_SUBSTACK = "https://archresearch.substack.com/p/"
+_x_lock = threading.Lock()  # one post chain at a time: a double click must not post twice
+
+
+def _x_dir():
+    from castelino.config import get_settings
+
+    return get_settings().root / "data" / "x_posts"
+
+
+def _published() -> list[dict]:
+    """Published Substack posts we can share: the last 14 daily notes and 4 weekly deep dives."""
+    from castelino.dashboard.endpoints.daily_posts import daily_posts
+    from castelino.dashboard.endpoints.weekly_posts import weekly_posts
+
+    rows = [
+        {
+            "kind": "daily",
+            "when": p["date"],
+            "title": p["title"],
+            "takeaways": p.get("takeaways", []),
+            "url": p["url"],
+        }
+        for p in daily_posts()[:14]
+    ] + [
+        {
+            "kind": "weekly",
+            "when": p["start"],
+            "title": p["title"],
+            "takeaways": p.get("takeaways", []),
+            "url": p["url"],
+        }
+        for p in weekly_posts()[:4]
+    ]
+    out = []
+    for r in sorted(rows, key=lambda r: r["when"], reverse=True):
+        if not r["url"].startswith(_SUBSTACK):
+            continue
+        slug = r["url"][len(_SUBSTACK) :].strip("/").split("?")[0]
+        if re.fullmatch(r"[a-z0-9-]+", slug):
+            out.append({**r, "slug": slug})
+    return out
+
+
+def _x_record(slug: str) -> dict:
+    p = _x_dir() / f"{slug}.json"
+    return json.loads(p.read_text()) if p.exists() else {"ids": [], "texts": []}
+
+
+@router.get("/x")
+def x_posts():
+    from castelino import x_post
+
+    out = []
+    for r in _published():
+        rec = _x_record(r["slug"])
+        out.append(
+            {
+                **r,
+                "drafts": rec["texts"]
+                or x_post.drafts(r["kind"], r["title"], r["takeaways"], r["url"]),
+                "posted_ids": rec["ids"],
+            }
+        )
+    return {"can_post": x_post.can_post(), "posts": out}
+
+
+class XPostIn(BaseModel):
+    texts: list[str]
+
+
+@router.post("/x/{slug}")
+def x_post_chain(slug: str, body: XPostIn):
+    """Post the chain; each post replies to the previous. Ids are saved as they succeed, so a failed
+    reply can be retried from where it stopped and a finished chain is never posted twice."""
+    from castelino import x_post
+
+    match = next((r for r in _published() if r["slug"] == slug), None)
+    if not match:
+        raise HTTPException(404, "not a published Substack post")
+    if not x_post.can_post():
+        raise HTTPException(
+            503,
+            "X posting keys aren't set (X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET)",
+        )
+    if not _x_lock.acquire(blocking=False):
+        raise HTTPException(409, "another X post is going out; try again in a moment")
+    try:
+        rec = _x_record(slug)
+        if rec["ids"] and len(rec["ids"]) >= len(rec["texts"]):
+            raise HTTPException(409, "already posted to X")
+        if rec["ids"]:
+            texts = rec["texts"]  # resume the chain exactly as it started
+        else:
+            texts = [t.strip() for t in body.texts if t.strip()]
+            if not texts or len(texts) > 8:
+                raise HTTPException(400, "send 1 to 8 posts")
+            if too_long := [i + 1 for i, t in enumerate(texts) if x_post.xlen(t) > x_post.LIMIT]:
+                raise HTTPException(400, f"post(s) {too_long} are over {x_post.LIMIT} characters")
+            if match["url"] not in texts[-1]:
+                raise HTTPException(400, "the last post must carry the Substack link")
+        rec["texts"] = texts
+        path = _x_dir() / f"{slug}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        error = None
+        for t in texts[len(rec["ids"]) :]:
+            try:
+                rec["ids"].append(x_post.post(t, reply_to=rec["ids"][-1] if rec["ids"] else None))
+            except Exception as e:  # noqa: BLE001 — keep what went out, report the rest
+                error = str(e)[:300]
+                break
+            finally:
+                path.write_text(json.dumps(rec, indent=1))
+        return {"posted_ids": rec["ids"], "total": len(texts), "error": error}
+    finally:
+        _x_lock.release()
+
+
 @router.get("/{day}")
 def day_detail(day: str):
     _, updates = desk._dirs()
