@@ -7,7 +7,9 @@ on:
   push:
     branches: [main]
   pull_request:
-  workflow_dispatch: # "Run workflow" on GitHub: re-ship main by hand (e.g. after a skipped deploy)
+  workflow_dispatch: # "Run workflow" on GitHub: re-ship main by hand
+  schedule:
+    - cron: "30 1 * * *" # nightly re-ship (21:30 EDT / 20:30 EST): catches a deploy skipped in the 17:00 window
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -66,8 +68,8 @@ jobs:
   # CD: ships a green main commit to the Fly.io refresh server (fly.toml), then republishes the site from
   # it with the data already on the volume (no refresh, no API spend). Data lives on the volume, so a
   # deploy never overwrites it. Skipped until the FLY_API_TOKEN secret exists. A deploy restarts the
-  # machine, so none runs 16:45-20:30 New York while the 17:00 publish may be running; that evening's
-  # cron run ships the new code anyway (re-run this workflow later to publish sooner).
+  # machine, so none runs 16:45-20:30 New York while the 17:00 publish may be running; the 17:00 run
+  # then uses the code Fly already has, and the nightly scheduled run ships the skipped commit.
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: [python, frontend]
