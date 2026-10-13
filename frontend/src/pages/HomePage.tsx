@@ -207,7 +207,7 @@ function Skyline() {
     for (let x = 0; x < 1200; ) {
       const hit = LANDMARKS.find(([l, r]) => x + 20 > l && x < r);
       if (hit) { x = hit[1] + 4; continue; }
-      const w = 26 + rnd() * 44, h = 80 + rnd() * 170, top = 300 - h;
+      const w = 30 + rnd() * 50, h = 100 + rnd() * 180, top = 300 - h;
       blocks.push(rnd() < 0.3 ? `M${x},300 V${top + 10} H${x + w * 0.3} V${top} H${x + w * 0.7} V${top + 10} H${x + w} V300` : `M${x},300 V${top} H${x + w} V300`);
       for (let k = 0; k < 5; k++) if (rnd() < 0.6) windows.push([x + 5 + rnd() * (w - 12), top + 16 + rnd() * (h - 30), rnd()]);
       x += w + 2 + rnd() * 6;
@@ -216,7 +216,7 @@ function Skyline() {
   }, []);
   const draw = (i: number) => ({ animationDelay: `${BG + 0.2 + (i % 12) * 0.06}s`, animationDuration: "2.2s" });
   return (
-    <svg aria-hidden viewBox="0 0 1200 300" preserveAspectRatio="xMidYMax slice" overflow="visible" className="pointer-events-none absolute inset-x-0 bottom-0 h-[60%] w-full text-accent" fill="none" stroke="currentColor" strokeWidth={1.2}>
+    <svg aria-hidden viewBox="0 0 1200 300" preserveAspectRatio="xMidYMax slice" overflow="visible" className="pointer-events-none absolute inset-x-0 bottom-0 h-[68%] w-full text-accent" fill="none" stroke="currentColor" strokeWidth={1.2}>
       {blocks.map((d, i) => <path key={i} d={d} pathLength={1} className="trace" strokeOpacity={0.28} style={draw(i)} />)}
       {/* landmarks stretched 1.4× up from the ground line (y' = 1.4y − 120 keeps y=300 fixed) */}
       <g transform="translate(0 -120) scale(1 1.4)">
@@ -234,7 +234,7 @@ function Skyline() {
 
 // Chips float over the skyline; robots walk along the street (both drawn in the skyline's box).
 const CHIPS: [number, number, number][] = [[60, 40, 28], [170, 70, 34], [290, 22, 24], [420, 30, 26], [470, 95, 20], [780, 40, 40], [800, 130, 22], [900, 30, 28], [1010, 92, 30], [1130, 50, 34]]; // x, y, size
-const ROBOTS: [number, number, number][] = [[38, 0, 1.1], [52, -20, 0.9], [45, -34, 1.3], [60, -8, 1], [34, -16, 1.05], [48, -42, 1.2], [56, -28, 0.85]]; // seconds to cross, delay, scale
+const ROBOTS: [number, number, number][] = [[38, 0, 1.1], [52, -20, 0.9], [45, -34, 1.3], [60, -8, 1], [34, -16, 1.05], [48, -42, 1.2], [56, -28, 0.85], [42, -6, 1.15], [64, -50, 0.95], [36, -26, 1.25], [50, -12, 1], [58, -38, 1.1]]; // seconds to cross, delay, scale
 
 function Chip({ x, y, s, delay }: { x: number; y: number; s: number; delay: number }) {
   const pins = [0.2, 0.4, 0.6, 0.8].map((f) => f * s);
