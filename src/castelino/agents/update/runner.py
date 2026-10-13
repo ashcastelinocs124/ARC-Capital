@@ -9,7 +9,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from castelino.agents.update.fsio import acquire_lock, atomic_write_text, release_lock
-from castelino.agents.update.guard import check_note
+from castelino.agents.update.guard import check_note, clean_picks
 from castelino.agents.update.memory import MemoryStore
 from castelino.agents.update.models import (
     AgentOutput,
@@ -30,6 +30,10 @@ AGENTS = ("macro", "news", "alt", "ai")
 MIN_FINDINGS = 3
 
 AgentFn = Callable[[str, str | None], AgentOutput]
+# (findings, facts, day, updates_dir) -> (findings with background ids linked, facts, data gaps)
+BackgroundFn = Callable[
+    [list[Finding], list[Fact], str, Path], tuple[list[Finding], list[Fact], list[str]]
+]
 
 
 def read_status(data_dir: Path) -> dict:
@@ -59,14 +63,16 @@ class UpdateRunner:
         review_fn: Callable[[list[Finding], int], Review],
         agent_fns: dict[str, AgentFn],
         editor_fn: Callable[[list[Finding], list[Fact], str, str, list[str] | None], MorningNote],
-        chart_fn: Callable[[list[Finding], Path], list[Exhibit]],
+        chart_fn: Callable[[MorningNote, list[Finding], list[Fact], Path], list[Exhibit]],
         today_fn: Callable[[], date] = date.today,
+        background_fn: BackgroundFn | None = None,
     ):
         self.data_dir, self.updates_dir = Path(data_dir), Path(updates_dir)
         self.memory = memory
         self.max_rounds, self.max_retries, self.max_items = max_rounds, max_retries, max_items
         self.plan_fn, self.review_fn, self.agent_fns = plan_fn, review_fn, agent_fns
         self.editor_fn, self.chart_fn, self.today_fn = editor_fn, chart_fn, today_fn
+        self.background_fn = background_fn
         self._day = ""
         self._gaps: list[str] = []
 
@@ -157,7 +163,7 @@ class UpdateRunner:
         if len(findings) < MIN_FINDINGS:
             raise RuntimeError(f"only {len(findings)} findings; need {MIN_FINDINGS}")
 
-        note, exhibits = self._compose(findings, facts, mem, long)
+        note, exhibits, findings, facts = self._compose(findings, facts, mem, long)
 
         snap = outputs["macro"].snapshot if "macro" in outputs else None
         self.memory.apply(note, snap or MarketSnapshot(date=self._day), today)
@@ -180,8 +186,18 @@ class UpdateRunner:
 
     def _compose(
         self, findings: list[Finding], facts: list[Fact], mem: str, long: str
-    ) -> tuple[MorningNote, list[Exhibit]]:
-        """Editor → guard (with retries) → charts. Raises before touching any file if the guard fails."""
+    ) -> tuple[MorningNote, list[Exhibit], list[Finding], list[Fact]]:
+        """Background → Editor → guard (with retries) → charts. Raises before touching any file
+        if the guard fails. Returns the findings and facts with the background linked in."""
+        if self.background_fn is not None:
+            try:
+                findings, facts, gaps = self.background_fn(
+                    findings, facts, self._day, self.updates_dir
+                )
+                self._gaps += gaps
+            except Exception as exc:  # noqa: BLE001 — background is never load-bearing
+                log.warning("background step failed; writing without it", exc_info=True)
+                self._gaps.append(f"background step failed: {exc}")
         errors: list[str] | None = None
         for _attempt in range(self.max_retries + 1):
             self._set(Stage.WRITING)
@@ -193,17 +209,17 @@ class UpdateRunner:
         if errors:
             raise RuntimeError(f"guard failed: {errors}")
 
+        note = clean_picks(note, findings, facts)
         self._set(Stage.CHARTING)
-        by_id = {f.id: f for f in findings}
-        ranked = sorted(note.items, key=lambda i: i.rank)
-        wanted = [by_id[it.chart] for it in ranked if it.chart in by_id]
-        return note, self.chart_fn(wanted, self.updates_dir / "charts" / self._day)
+        exhibits = self.chart_fn(note, findings, facts, self.updates_dir / "charts" / self._day)
+        return note, exhibits, findings, facts
 
     def rebuild(self, day: str) -> str:
         """Rewrite `day`'s note from its stored findings + facts (admin Daily desk).
 
-        Memory is not touched: it already took this day in. The previous record and charts are
-        copied to hidden-rebuild-<time>/ first; a guard failure leaves the old note in place.
+        Memory is not touched: it already took this day in. The previous record, raw facts and
+        charts are copied to hidden-rebuild-<time>/ first; a guard failure leaves the old note in
+        place.
         """
         path = self.updates_dir / f"{day}.json"
         old = DailyRecordV2.model_validate_json(path.read_text())
@@ -213,15 +229,23 @@ class UpdateRunner:
         backup = self.updates_dir / f"hidden-rebuild-{datetime.now():%Y%m%d-%H%M%S}"
         backup.mkdir(parents=True)
         shutil.copy2(path, backup / path.name)
+        if (raw := self.updates_dir / "raw" / f"{day}.json").exists():  # rebuild rewrites it too
+            (backup / "raw").mkdir()
+            shutil.copy2(raw, backup / "raw" / raw.name)
         if (charts := self.updates_dir / "charts" / day).exists():
             shutil.copytree(charts, backup / "charts" / day)
 
         self._day = day
-        note, exhibits = self._compose(
+        note, exhibits, findings, facts = self._compose(
             old.findings, facts, self.memory.read_short(), self.memory.read_long()
+        )
+        atomic_write_text(
+            self.updates_dir / "raw" / f"{day}.json",
+            json.dumps([f.model_dump() for f in facts], indent=1),
         )
         new = old.model_copy(
             update={
+                "findings": findings,
                 "note": note,
                 "exhibits": exhibits,
                 "generated_at": datetime.now().isoformat(timespec="seconds"),
@@ -236,7 +260,16 @@ class UpdateRunner:
 
 
 def build_default_runner() -> UpdateRunner:
-    from castelino.agents.update import ai, alt, charts, editor, macro, news, orchestrator
+    from castelino.agents.update import (
+        ai,
+        alt,
+        background,
+        editor,
+        exhibits,
+        macro,
+        news,
+        orchestrator,
+    )
     from castelino.config import get_settings
 
     cfg = get_settings()
@@ -258,5 +291,6 @@ def build_default_runner() -> UpdateRunner:
         review_fn=orchestrator.review,
         agent_fns={"macro": macro.run, "news": news.run, "alt": alt.run, "ai": ai.run},
         editor_fn=editor.write_note,
-        chart_fn=charts.make_exhibits,
+        chart_fn=exhibits.make_note_exhibits,
+        background_fn=background.enrich,
     )

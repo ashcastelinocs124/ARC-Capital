@@ -13,14 +13,41 @@ macro investors. From the findings, write:
 - headline: one sentence, the day's main story.
 - takeaways: exactly 3 one-sentence bullets.
 - items: exactly {items} items ranked by importance (rank 1 = most important). Each has a short
-  title, a body, the finding ids it rests on, and chart = one of ITS OWN finding ids marked
-  [chartable], or null. Spread items across macro, news and alt; on a quiet day use smaller stories rather than fewer items.
+  title, a body, the finding ids it rests on, an exhibit (below) and chart = one of ITS OWN
+  finding ids marked [chartable] as a fallback line chart, or null. Spread items across macro,
+  news and alt; on a quiet day use smaller stories rather than fewer items.
 - If there are any (ai) findings, at least one item must cite one: the day's AI models and chips.
-- Each item body is ONE paragraph of 80-120 words covering: what happened; how it
-  compares with the prior reading (use the prior values in the evidence, e.g. "up from 3.54%");
-  and why it matters for markets (rates, equities, the Fed path), linking to other items where
-  they connect.
+- Each item body is about 400 words (380 to 420): three paragraphs separated by a blank line,
+  then a closing "**What to watch:**" line as its own short paragraph. Never label or head the
+  paragraphs; the order carries the structure:
+  1. What happened: today's facts and figures, and how they compare with the prior reading
+     (use the prior values in the evidence, e.g. "up from 3.54%").
+  2. Why it happened: the cause, and the chain from cause to market effect.
+  3. How it came about and why it matters: use the Background evidence (a stock's recent run
+     and 52-week range, a series' recent readings and streak, what ARC's earlier notes said) to
+     show how today fits the trend, then what it means for rates, equities and the Fed path,
+     linking to other items where they connect.
   Headline and takeaways stay short.
+- Never write about what did not happen or what the sources did not find: no "no new earnings,
+  analyst call or deal", "no comment", "no catalyst was cited". Explain a move from what the
+  evidence does show (flows, the sector, rates, the stock's run).
+- exhibit: the chart that shows the item's key numbers most clearly, or null. Pick the form that
+  fits the numbers, and vary forms across items:
+  range: one stock's [52-week low, last close, 52-week high] from its Background fact, unit $.
+  movers: 2-8 bars of the same measure across names or assets (today's % moves vs peers).
+  ladder: one asset across horizons in order (1 week, 1 month, 3 months, year to date).
+  columns: fact_ids = [one evidence fact tagged {{history}}]: its readings, streak highlighted.
+  dumbbell: exactly 2 points, [before, after] (yesterday's odds then today's, prior reading then
+    latest).
+  vs_expected: exactly 2 points, [the estimate or consensus, the actual].
+  compare: fact_ids = 2-4 evidence facts tagged {{series}}, over window_days.
+  line: fact_ids = [one evidence fact tagged {{series}}], over window_days. Use it only when no
+    other form fits.
+  Every point is {{fact_id, label, value}}: fact_id is a fact in the item's own findings' evidence
+  and value is copied exactly from that fact. Labels are short ("Cerebras", "1 month", "Estimate").
+  title: a plain sentence saying what the chart shows ("Cerebras sits near its 52-week high"),
+  no dashes. unit: the unit of the values. window_days: 30 unless the form uses a window
+  (line, compare: 7 to 365); points: [] for line, compare and columns; fact_ids: [] for the others.
 Rules:
 - Use ONLY figures that appear in the evidence of the findings an item cites (headline and
   takeaways: any finding), always with their unit (%, bp or pp). Never invent, round differently
@@ -35,6 +62,19 @@ Rules:
 
 # ARC house voice for item bodies, distilled from the ARC Research Substack. Edit the file to retune.
 STYLE = Path(__file__).with_name("style.md").read_text()
+
+
+def _tag(f: Fact) -> str:
+    """Which chart forms a fact can feed: {series} = a daily series (line, compare),
+    {history} = a release's recent readings (columns)."""
+    ref = f.series
+    if ref is None:
+        return ""
+    if ref.kind == "daily" and ref.provider in ("fred", "yahoo"):
+        return " {series}"
+    if ref.kind == "release" and len(ref.points) >= 3:
+        return " {history}"
+    return ""
 
 
 class UpdateEditor(StructuredAgent[MorningNote]):
@@ -64,10 +104,12 @@ class UpdateEditor(StructuredAgent[MorningNote]):
         by_id = {f.id: f for f in facts}
         blocks = []
         for f in findings:
-            evidence = " | ".join(by_id[i].text for i in f.fact_ids if i in by_id)
+            evidence = "\n".join(
+                f"    [{i}]{_tag(by_id[i])} {by_id[i].text}" for i in f.fact_ids if i in by_id
+            )
             tag = " [chartable]" if f.series else ""
             blocks.append(
-                f"[{f.id}] ({f.agent}){tag} {f.claim}\n  evidence: {evidence}"
+                f"[{f.id}] ({f.agent}){tag} {f.claim}\n  evidence:\n{evidence}"
                 f"\n  source: {f.source_title}"
             )
         parts = [

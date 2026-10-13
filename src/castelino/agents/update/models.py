@@ -193,12 +193,40 @@ class Review(BaseModel):
     followups: list[FollowUp]
 
 
+class NotePoint(BaseModel):
+    fact_id: str  # the fact the value comes from; it must be one of that fact's numbers
+    label: str
+    value: float
+
+
+ExhibitForm = Literal[
+    "line", "compare", "columns", "movers", "ladder", "dumbbell", "range", "vs_expected"
+]
+
+
+class ItemExhibit(BaseModel):
+    """The Editor picks the chart form for an item; code draws it from the cited facts.
+
+    line: one fact's series over window_days · compare: 2-4 series facts · columns: one fact's
+    release history (last readings, streak highlighted) · movers: 2-8 bars on one measure ·
+    ladder: one asset across horizons, in order · dumbbell: [before, after] · range: [low, last,
+    high] · vs_expected: [expected, actual]."""
+
+    kind: ExhibitForm
+    title: str
+    fact_ids: list[str]
+    window_days: int
+    points: list[NotePoint]
+    unit: Literal["%", "bp", "pp", "level", "$", ""]
+
+
 class NoteItem(BaseModel):
     rank: int
     title: str
     body: str
     finding_ids: list[str]
-    chart: str | None
+    chart: str | None  # fallback line chart: one of its own chartable findings
+    exhibit: ItemExhibit | None = None  # the Editor's chart pick (older notes have none)
 
 
 class MorningNote(BaseModel):
@@ -212,6 +240,7 @@ class MorningNote(BaseModel):
 class Exhibit(BaseModel):
     n: int
     finding_id: str
+    item: int | None = None  # rank of the item it belongs to (older notes match on finding_id)
     title: str
     subtitle: str
     file: str

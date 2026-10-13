@@ -84,11 +84,21 @@ def _num(v: float) -> str:
 def _fmt(v: float, unit: str, signed: bool = True) -> str:
     sign = "+" if signed and v > 0 else ""
     if unit == "$":
-        return f"${_num(v)}"
+        return f"${v:,.2f}"  # money always shows cents
     return f"{sign}{_num(v)}{unit if unit != 'level' else ''}"
 
 
-def _frame(n: int, title: str, sub: str, data: str, path: Path, draw, left=0.1, bottom=0.2) -> None:
+def _frame(
+    n: int,
+    title: str,
+    sub: str,
+    data: str,
+    path: Path,
+    draw,
+    left=0.1,
+    bottom=0.2,
+    kicker: str = "WEEKLY DEEP DIVE",
+) -> None:
     plt.rcParams.update(
         {
             "font.family": "sans-serif",
@@ -109,7 +119,7 @@ def _frame(n: int, title: str, sub: str, data: str, path: Path, draw, left=0.1, 
     fig.text(
         0.06,
         0.965,
-        "ARC RESEARCH | WEEKLY DEEP DIVE",
+        f"ARC RESEARCH | {kicker}",
         fontsize=8.5,
         fontweight="bold",
         color="#475569",
@@ -128,8 +138,8 @@ def _frame(n: int, title: str, sub: str, data: str, path: Path, draw, left=0.1, 
     plt.close(fig)
 
 
-def _bars(ex: ExhibitPick, diverging: bool):
-    pts = sorted(ex.points, key=lambda p: p.value, reverse=True)
+def _bars(ex: ExhibitPick, diverging: bool, keep_order: bool = False):
+    pts = list(ex.points) if keep_order else sorted(ex.points, key=lambda p: p.value, reverse=True)
     labels, vals = [p.label for p in pts], [p.value for p in pts]
 
     def draw(ax):
@@ -173,7 +183,7 @@ def _bars(ex: ExhibitPick, diverging: bool):
                 )
             ax.set_xlim(min(min(vals), 0) - 0.25 * span, max(max(vals), 0) + 0.25 * span)
 
-    top = pts[0]
+    top = max(pts, key=lambda p: p.value)
     sub = f"Highest: {top.label} {_fmt(top.value, ex.unit)}"
     return draw, sub
 

@@ -8,9 +8,12 @@ Editor cannot add a number no source gave.
 
 from __future__ import annotations
 
+import logging
 import re
 
-from castelino.agents.update.models import Fact, Finding, MorningNote
+from castelino.agents.update.models import Fact, Finding, MorningNote, NoteItem
+
+log = logging.getLogger(__name__)
 
 # ponytail: only figures carrying a unit are checked; plain counts like "day 10" or years pass.
 _UNIT = r"(%|percent|per cent|pct|percentage[\s-]points?|ppts?|pp|basis[\s-]points?|bps|bp)"
@@ -84,3 +87,76 @@ def check_note(
         f"headline/takeaways: {t}" for t in unsupported([note.headline, *note.takeaways], every)
     ]
     return errs
+
+
+# ── chart picks ────────────────────────────────────────────────────────────
+POINTS = {
+    "movers": (2, 8),
+    "ladder": (2, 6),
+    "dumbbell": (2, 2),
+    "range": (3, 3),
+    "vs_expected": (2, 2),
+}
+
+
+def _series(f: Fact | None, kind: str) -> bool:
+    if f is None or f.series is None or f.series.kind != kind:
+        return False
+    if kind == "release":
+        return len(f.series.points) >= 3
+    return f.series.provider in ("fred", "yahoo")
+
+
+def pick_errors(it: NoteItem, findings: list[Finding], facts: list[Fact]) -> list[str]:
+    """Why an item's chart pick can't be drawn truthfully ([] = fine). Not fatal: the runner
+    drops a bad pick and the item keeps its line chart."""
+    ex = it.exhibit
+    if ex is None:
+        return []
+    fact_by = {f.id: f for f in facts}
+    find_by = {f.id: f for f in findings}
+    own = {i for fid in it.finding_ids if fid in find_by for i in find_by[fid].fact_ids}
+    ids = ex.fact_ids + [p.fact_id for p in ex.points]
+    errs = [f"{i} is not one of the item's facts" for i in dict.fromkeys(ids) if i not in own]
+    if ex.kind in ("line", "compare") and not 5 <= ex.window_days <= 3650:
+        errs.append(f"window {ex.window_days} days is out of range")
+    if ex.kind == "line" and not (
+        len(ex.fact_ids) == 1 and _series(fact_by.get(ex.fact_ids[0]), "daily")
+    ):
+        errs.append("line needs one fact with a daily series")
+    elif ex.kind == "compare" and not (
+        2 <= len(ex.fact_ids) <= 4 and all(_series(fact_by.get(i), "daily") for i in ex.fact_ids)
+    ):
+        errs.append("compare needs 2-4 facts with a daily series")
+    elif ex.kind == "columns" and not (
+        len(ex.fact_ids) == 1 and _series(fact_by.get(ex.fact_ids[0]), "release")
+    ):
+        errs.append("columns needs one fact with a release history")
+    elif ex.kind in POINTS:
+        lo, hi = POINTS[ex.kind]
+        if not lo <= len(ex.points) <= hi:
+            errs.append(f"{ex.kind} needs {lo}-{hi} points")
+        elif (
+            ex.kind == "range"
+            and not ex.points[0].value <= ex.points[1].value <= ex.points[2].value
+        ):
+            errs.append("range points must be [low, last, high]")
+    for p in ex.points:
+        nums = set(fact_by[p.fact_id].numbers) if p.fact_id in fact_by else set()
+        txt = f"{p.value:g}"
+        decimals = len(txt.split(".")[1]) if "." in txt else 0
+        if not _supported(p.value, decimals, True, nums):
+            errs.append(f"point {p.label}={txt} is not a number of {p.fact_id}")
+    nums = {n for i in own if i in fact_by for n in fact_by[i].numbers}
+    errs += [f"title: {t}" for t in unsupported([ex.title], nums)]
+    return errs
+
+
+def clean_picks(note: MorningNote, findings: list[Finding], facts: list[Fact]) -> MorningNote:
+    items = []
+    for it in note.items:
+        if errs := pick_errors(it, findings, facts):
+            log.warning("item %s chart pick dropped: %s", it.rank, "; ".join(errs))
+            it = it.model_copy(update={"exhibit": None})
+        items.append(it)
+    return note.model_copy(update={"items": items})

@@ -107,7 +107,7 @@ update_agent:
   max_findings_per_agent: 6
   items: 5
   max_guard_retries: 1
-  max_output_tokens: 16000
+  max_output_tokens: 32000  # ~400-word items x 5 plus reasoning outgrew 16000
   short_term_notes: 5
   long_term_notes: 20
   long_term_refresh_days: 7

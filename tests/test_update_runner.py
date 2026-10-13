@@ -103,11 +103,12 @@ def build(tmp_path, *, agents=None, review=None, editor=None, max_rounds=2):
         calls.editor.append(errors)
         return editor(len(calls.editor)) if editor else make_note()
 
-    def chart_fn(findings, out_dir):
-        calls.charts = [f.id for f in findings]
+    def chart_fn(note, findings, facts, out_dir):
+        ranked = sorted(note.items, key=lambda i: i.rank)
+        calls.charts = [it.chart for it in ranked if it.chart]
         return [
-            Exhibit(n=i, finding_id=f.id, title="t", subtitle="s", file=f"exhibit_{i}.png")
-            for i, f in enumerate(findings, 1)
+            Exhibit(n=i, finding_id=c, item=r, title="t", subtitle="s", file=f"exhibit_{i}.png")
+            for i, (r, c) in enumerate(((it.rank, it.chart) for it in ranked if it.chart), 1)
         ]
 
     runner = UpdateRunner(

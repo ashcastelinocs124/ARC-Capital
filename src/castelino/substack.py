@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import sys
 from collections.abc import Callable
 from datetime import date
@@ -83,7 +84,9 @@ def _image(up: dict, alt: str) -> dict:
 def build_doc(record: dict, uploaded: dict[str, dict]) -> dict:
     """Substack editor doc for a v2 record. `uploaded` maps exhibit file name -> image upload reply."""
     note, day = record["note"], record["date"]
-    exhibits = {e["finding_id"]: e for e in record.get("exhibits", [])}
+    all_ex = record.get("exhibits", [])
+    by_item = {e["item"]: e for e in all_ex if e.get("item") is not None}
+    exhibits = {} if by_item else {e["finding_id"]: e for e in all_ex}  # older notes
     content: list[dict] = [
         {
             "type": "bullet_list",
@@ -100,8 +103,10 @@ def build_doc(record: dict, uploaded: dict[str, dict]) -> dict:
                 "content": [_text(f"{item['rank']}. {item['title']}")],
             }
         )
-        content.append(_p(*_rich(item["body"])))
-        ex = exhibits.get(item.get("chart") or "")
+        for para in re.split(r"\n\s*\n", item["body"]):
+            if para.strip():
+                content.append(_p(*_rich(para.strip())))
+        ex = by_item.get(item["rank"]) or exhibits.get(item.get("chart") or "")
         if ex and ex["file"] in uploaded:
             content.append(_image(uploaded[ex["file"]], ex["title"]))
     url = f"{SITE}/updates?date={day}"

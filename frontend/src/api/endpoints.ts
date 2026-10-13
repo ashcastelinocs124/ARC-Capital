@@ -68,7 +68,7 @@ export interface NoteFinding {
   provenance: "data" | "reported"; source_title: string; source_url: string;
 }
 export interface NoteItem { rank: number; title: string; body: string; finding_ids: string[]; chart: string | null; }
-export interface Exhibit { n: number; finding_id: string; title: string; subtitle: string; file: string; }
+export interface Exhibit { n: number; finding_id: string; item?: number | null; title: string; subtitle: string; file: string; } // item = the note item's rank (older notes: match finding_id)
 export interface DailyRecordV2 {
   version: 2; date: string; generated_at: string;
   findings: NoteFinding[]; exhibits: Exhibit[]; releases: ReleaseRow[]; rounds: number; data_gaps: string[];

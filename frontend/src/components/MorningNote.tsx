@@ -41,6 +41,7 @@ export function MorningNote({ rec }: { rec: DailyRecordV2 }) {
   const { note } = rec;
   const findings = Object.fromEntries(rec.findings.map((f) => [f.id, f]));
   const exhibits = Object.fromEntries(rec.exhibits.map((e) => [e.finding_id, e]));
+  const byItem = Object.fromEntries(rec.exhibits.filter((e) => e.item != null).map((e) => [e.item, e]));
   const items = [...note.items].sort((a, b) => a.rank - b.rank);
   const [open, setOpen] = useState<Exhibit | null>(null);
   return (
@@ -66,7 +67,7 @@ export function MorningNote({ rec }: { rec: DailyRecordV2 }) {
         </ul>
       </div>
       {items.map((it) => {
-        const ex = it.chart ? exhibits[it.chart] : undefined;
+        const ex = byItem[it.rank] ?? (it.chart && !rec.exhibits.some((e) => e.item != null) ? exhibits[it.chart] : undefined);
         const lead = findings[it.finding_ids[0]];
         const sources = it.finding_ids.map((id) => findings[id]).filter(Boolean);
         return (
@@ -80,7 +81,9 @@ export function MorningNote({ rec }: { rec: DailyRecordV2 }) {
                 )}
               </div>
               <h3 className="font-serif font-bold text-[19px] leading-[26px] mt-1.5 mb-2">{it.title}</h3>
-              <p className="text-[13.5px] leading-[22px] text-text-2">{withBold(it.body)}</p>
+              {it.body.split(/\n\s*\n/).map((para, i) => (
+                <p key={i} className="text-[13.5px] leading-[22px] text-text-2 mt-2.5 first:mt-0">{withBold(para.trim())}</p>
+              ))}
               <div className="text-[11px] text-muted mt-1.5">
                 {sources.map((f, i) => (
                   <span key={f.id}>
