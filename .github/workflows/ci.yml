@@ -1,12 +1,13 @@
-# CI for every push to main and every pull request. scripts/publish_snapshot.sh (the 17:00 NY cron)
-# only deploys a main commit whose run of this workflow succeeded, so this is the gate for the
-# public site at arcresearch.markets.
+# CI/CD for arcresearch.markets. Every push to main and every pull request runs the tests; a green main
+# push then ships the code to the Fly.io refresh server and republishes the site with the current data
+# (job `deploy`). scripts/publish_snapshot.sh (the Mac fallback) also only deploys a green main commit.
 name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch: # "Run workflow" on GitHub: re-ship main by hand (e.g. after a skipped deploy)
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -61,3 +62,37 @@ jobs:
       - run: npm ci
       - run: npm run lint # tsc --noEmit
       - run: VITE_STATIC=1 npx vite build # the public build that publish_snapshot.sh ships
+
+  # CD: ships a green main commit to the Fly.io refresh server (fly.toml), then republishes the site from
+  # it with the data already on the volume (no refresh, no API spend). Data lives on the volume, so a
+  # deploy never overwrites it. Skipped until the FLY_API_TOKEN secret exists. A deploy restarts the
+  # machine, so none runs 16:45-20:30 New York while the 17:00 publish may be running; that evening's
+  # cron run ships the new code anyway (re-run this workflow later to publish sooner).
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [python, frontend]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    concurrency: fly-deploy
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      APP: arc-research-backend
+    steps:
+      - name: Check the token and the 17:00 window
+        id: gate
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then echo "::notice::FLY_API_TOKEN not set: deploy skipped"; echo "go=no" >> "$GITHUB_OUTPUT"; exit 0; fi
+          now=$(TZ=America/New_York date +%H%M)
+          if [ "$now" -ge 1645 ] && [ "$now" -lt 2030 ]; then
+            echo "::notice::17:00 publish window ($now New York): deploy skipped so it can't kill the run"; echo "go=no" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "go=yes" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.go == 'yes'
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+        if: steps.gate.outputs.go == 'yes'
+      - run: flyctl deploy --remote-only -a "$APP"
+        if: steps.gate.outputs.go == 'yes'
+      - name: Republish the site with the new code
+        if: steps.gate.outputs.go == 'yes'
+        run: flyctl ssh console -a "$APP" -C "env SKIP_SUBSTACK=1 /app/scripts/publish_server.sh --no-refresh"
