@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Lock } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { STATIC } from "@/api/client";
 import AgentsPage from "@/pages/AgentsPage";
 import DailyDesk from "@/components/admin/DailyDesk";
 import XPosts from "@/components/admin/XPosts";
@@ -38,6 +39,29 @@ function AdminDocs() {
   );
 }
 
+// Public site only: the session's end time (from the middleware) and Sign out.
+function Session() {
+  const [until, setUntil] = useState<string | null>(null);
+  useEffect(() => {
+    if (!STATIC) return;
+    fetch("/api/admin/session")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => j?.expires && setUntil(new Date(j.expires * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })))
+      .catch(() => {});
+  }, []);
+  if (!STATIC) return null;
+  const signOut = () =>
+    fetch("/api/admin/logout", { method: "POST" }).finally(() => { location.href = "/admin/login"; });
+  return (
+    <>
+      {until && <span className="text-danger/80">Signed in until {until}</span>}
+      <button onClick={signOut} className="rounded-full border border-danger/40 px-3 py-1 text-xs font-semibold hover:bg-danger/10">
+        Sign out
+      </button>
+    </>
+  );
+}
+
 export default function AdminPage() {
   const [tab, setTab] = useState<(typeof TABS)[number]>("Agents");
   return (
@@ -47,7 +71,10 @@ export default function AdminPage() {
           <Lock className="h-4 w-4" />
           Private. This page and its data sit behind the admin password and are never part of the public files.
         </span>
-        <Link to="/models" className="font-semibold underline">Back to the site</Link>
+        <span className="inline-flex flex-wrap items-center gap-3">
+          <Session />
+          <Link to="/models" className="font-semibold underline">Back to the site</Link>
+        </span>
       </div>
       <div className="mx-4 flex gap-2 md:mx-8">
         {TABS.map((t) => (

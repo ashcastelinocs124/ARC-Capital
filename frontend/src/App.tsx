@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
 import HomePage from "./pages/HomePage";
 import ModelsPage from "./pages/ModelsPage";
@@ -9,6 +9,7 @@ import UpdatesPage from "./pages/UpdatesPage";
 import DocsPage from "./pages/DocsPage";
 import VideosPage from "./pages/VideosPage";
 import AdminPage from "./pages/AdminPage";
+import AdminLoginPage from "./pages/AdminLoginPage";
 import SectionPage from "./pages/SectionPage";
 
 const HOME = "/";
@@ -28,6 +29,8 @@ const PAGES: [string, React.ReactNode][] = [
 ];
 
 export default function App() {
+  // the admin sign-in page stands alone, without the site's top bar and footer
+  if (useLocation().pathname.replace(/\/$/, "") === "/admin/login") return <AdminLoginPage />;
   return (
     <AppShell>
       <Routes>

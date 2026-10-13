@@ -96,6 +96,29 @@ def test_fly_app_requires_the_admin_password(tmp_path, monkeypatch):
     )  # only the desk is served
 
 
+def test_session_cookie_matches_the_site_and_opens_fly(tmp_path, monkeypatch):
+    from castelino.dashboard import desk_app
+
+    # same exp + secret as frontend/middleware.ts sign() → identical signature
+    assert (
+        desk_app.session_sig(1800000000, "s3cret:with:colons")
+        == "smEVKfcHCDy6cu9reOa4c-0zU9pAQgN9v_T7RNLKYy0"
+    )
+    (tmp_path / "updates").mkdir()
+    monkeypatch.setattr(desk, "_dirs", lambda: (tmp_path, tmp_path / "updates"))
+    monkeypatch.setenv("ADMIN_PASSWORD", "s3cret")
+    c = TestClient(desk_app.app)
+    exp = 4000000000
+    good = f"arc_admin={exp}.{desk_app.session_sig(exp, 's3cret')}"
+    assert c.get("/admin/desk/days", headers={"cookie": f"x=1; {good}"}).status_code == 200
+    bad = f"arc_admin={exp + 1}.{desk_app.session_sig(exp, 's3cret')}"
+    assert c.get("/admin/desk/days", headers={"cookie": bad}).status_code == 401
+    old = f"arc_admin=1000.{desk_app.session_sig(1000, 's3cret')}"
+    assert c.get("/admin/desk/days", headers={"cookie": old}).status_code == 401  # expired
+    r = c.get("/admin/desk/days")
+    assert r.status_code == 401 and "www-authenticate" not in r.headers
+
+
 def test_rerun_endpoint_merges_findings(tmp_path, monkeypatch):
     from castelino.dashboard.endpoints import admin_desk
     from castelino.dashboard.main import app

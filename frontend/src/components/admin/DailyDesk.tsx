@@ -35,6 +35,9 @@ export async function call<T>(path: string, body?: unknown): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
+  if (r.status === 401 && STATIC) {
+    location.href = "/admin/login?expired=1&next=/admin"; // the 12-hour session ended while the page was open
+  }
   if (!r.ok) {
     const j = await r.json().catch(() => null);
     throw new Error((j && typeof j.detail === "string" && j.detail) || `${r.status} ${r.statusText}`);
