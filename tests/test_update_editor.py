@@ -51,6 +51,7 @@ def test_item_bodies_run_what_why_how_without_labels():
     assert "How it came about" in system and "Background evidence" in system
     assert "compare with the prior reading" in system
     assert "Never write about what did not happen" in system
+    assert "Never write about the evidence itself" in system and "under 50 characters" in system
     assert "no claims about history the evidence doesn't show" in system
 
 

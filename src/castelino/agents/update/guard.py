@@ -92,6 +92,7 @@ def check_note(
 # ── chart picks ────────────────────────────────────────────────────────────
 POINTS = {
     "movers": (2, 8),
+    "bars": (2, 8),
     "ladder": (2, 6),
     "dumbbell": (2, 2),
     "range": (3, 3),

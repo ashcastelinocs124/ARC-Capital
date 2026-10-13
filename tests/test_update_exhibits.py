@@ -40,6 +40,8 @@ PICKS = {
                          points=pts(("bg-s1", "52-week low", 71.2), ("bg-s1", "Last", 149.08), ("bg-s1", "52-week high", 158.9))),
     "movers": ItemExhibit(kind="movers", title="Cerebras beat the chip leaders", fact_ids=[], window_days=30, unit="%",
                           points=pts(("I1", "Cerebras", 1.68), ("I1", "Nvidia", 0.97), ("I1", "Semis", -0.23))),
+    "bars": ItemExhibit(kind="bars", title="Odds by outcome", fact_ids=[], window_days=30, unit="%",
+                        points=pts(("I1", "3.7%", 1.68), ("I1", "3.8%", 0.97))),
     "ladder": ItemExhibit(kind="ladder", title="The rally built for months", fact_ids=[], window_days=30, unit="%",
                           points=pts(("bg-s1", "1 month", 12.4), ("bg-s1", "3 months", 31.8))),
     "columns": ItemExhibit(kind="columns", title="Inflation rose three months running", fact_ids=["bg-d1"], window_days=30, unit="%", points=[]),
@@ -104,8 +106,10 @@ def test_every_form_draws_a_png_and_bad_ones_fall_back_to_line(tmp_path):
     out = exhibits.make_note_exhibits(note, FINDS, FACTS, tmp_path, fake_fetch, fake_series)
     assert [e.item for e in out] == list(range(1, len(items) + 1))
     assert all((tmp_path / e.file).stat().st_size > 10_000 for e in out)
-    assert out[-1].title.startswith("Exhibit 9: Cerebras")  # fallback line chart of news-1's series
+    assert out[-1].title.startswith(
+        "Exhibit 10: Cerebras"
+    )  # fallback line chart of news-1's series
     rng = next(e for e in out if e.item == 1)
     assert rng.title == "Exhibit 1: Cerebras sits near its high" and "% of the way" in rng.subtitle
-    cols = next(e for e in out if e.item == 4)
+    cols = next(e for e in out if e.item == 5)
     assert "3 straight rises to 3.80%" in cols.subtitle

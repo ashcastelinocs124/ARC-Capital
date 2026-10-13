@@ -1,6 +1,6 @@
 """Morning Note exhibits: each item's chart in the form the Editor picked, drawn by code.
 
-Forms: line, compare, movers and dumbbell reuse the Weekly Deep Dive's renderers; range (where a
+Forms: line, compare, movers, bars and dumbbell reuse the Weekly Deep Dive's renderers; range (where a
 price sits between its 52-week low and high), ladder (one asset across horizons, in order),
 columns (a release's last readings, the current streak in green) and vs_expected (actual next to
 the estimate) are drawn here. Every plotted number is a fact's number or a fact's fetched series
@@ -164,8 +164,10 @@ def draw_pick(
     elif ex.kind == "columns":
         draw, sub = _columns(by[ex.fact_ids[0]])
         kw = {"bottom": 0.24}
-    elif ex.kind in ("movers", "ladder"):
-        draw, sub = _bars(ex, diverging=False, keep_order=ex.kind == "ladder")
+    elif ex.kind in ("movers", "bars", "ladder"):
+        draw, sub = _bars(
+            ex, diverging=False, keep_order=ex.kind == "ladder", signed=ex.kind != "bars"
+        )
         kw = {"left": 0.26, "bottom": 0.14}
     elif ex.kind == "dumbbell":
         draw, sub = _dumbbell(ex)

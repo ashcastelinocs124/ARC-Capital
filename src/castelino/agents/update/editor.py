@@ -31,10 +31,17 @@ macro investors. From the findings, write:
 - Never write about what did not happen or what the sources did not find: no "no new earnings,
   analyst call or deal", "no comment", "no catalyst was cited". Explain a move from what the
   evidence does show (flows, the sector, rates, the stock's run).
+- Never write about the evidence itself: no "cited", "background data", "the trading report",
+  "according to the evidence", "one source says". State the facts directly; the item's
+  sources are listed under it. If two figures for the same thing differ slightly, use the
+  one from today's findings.
 - exhibit: the chart that shows the item's key numbers most clearly, or null. Pick the form that
   fits the numbers, and vary forms across items:
   range: one stock's [52-week low, last close, 52-week high] from its Background fact, unit $.
-  movers: 2-8 bars of the same measure across names or assets (today's % moves vs peers).
+  movers: 2-8 signed changes of the same measure across names or assets (today's % moves vs
+    peers). Never use it for levels.
+  bars: 2-8 levels of the same measure across categories (odds for each outcome, shares of a
+    total), shown without a sign.
   ladder: one asset across horizons in order (1 week, 1 month, 3 months, year to date).
   columns: fact_ids = [one evidence fact tagged {{history}}]: its readings, streak highlighted.
   dumbbell: exactly 2 points, [before, after] (yesterday's odds then today's, prior reading then
@@ -45,8 +52,8 @@ macro investors. From the findings, write:
     other form fits.
   Every point is {{fact_id, label, value}}: fact_id is a fact in the item's own findings' evidence
   and value is copied exactly from that fact. Labels are short ("Cerebras", "1 month", "Estimate").
-  title: a plain sentence saying what the chart shows ("Cerebras sits near its 52-week high"),
-  no dashes. unit: the unit of the values. window_days: 30 unless the form uses a window
+  title: a plain sentence under 50 characters saying what the chart shows ("Cerebras sits
+  near its 52-week high"), no dashes. unit: the unit of the values. window_days: 30 unless the form uses a window
   (line, compare: 7 to 365); points: [] for line, compare and columns; fact_ids: [] for the others.
 Rules:
 - Use ONLY figures that appear in the evidence of the findings an item cites (headline and

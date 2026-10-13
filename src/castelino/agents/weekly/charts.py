@@ -124,7 +124,9 @@ def _frame(
         fontweight="bold",
         color="#475569",
     )
-    fig.text(0.06, 0.905, f"Exhibit {n}: {title}"[:62], fontsize=13, fontweight="bold")
+    head = f"Exhibit {n}: {title}"[:72]
+    # shrink a long title so it stops short of the logo (13pt fits ~52 characters)
+    fig.text(0.06, 0.905, head, fontsize=min(13, 13 * 52 / len(head)), fontweight="bold")
     fig.text(0.06, 0.855, sub, fontsize=10, color=INK2)
     fig.text(0.06, 0.055, "Source: ARC Research", fontsize=9, fontweight="bold")
     fig.text(0.06, 0.02, f"Data: {data}"[:110], fontsize=8, color=INK2)
@@ -138,7 +140,7 @@ def _frame(
     plt.close(fig)
 
 
-def _bars(ex: ExhibitPick, diverging: bool, keep_order: bool = False):
+def _bars(ex: ExhibitPick, diverging: bool, keep_order: bool = False, signed: bool = True):
     pts = list(ex.points) if keep_order else sorted(ex.points, key=lambda p: p.value, reverse=True)
     labels, vals = [p.label for p in pts], [p.value for p in pts]
 
@@ -158,7 +160,7 @@ def _bars(ex: ExhibitPick, diverging: bool, keep_order: bool = False):
                 ax.text(
                     b.get_x() + b.get_width() / 2,
                     v,
-                    _fmt(v, ex.unit),
+                    _fmt(v, ex.unit, signed),
                     ha="center",
                     va="bottom" if v >= 0 else "top",
                     fontsize=8.5,
@@ -175,7 +177,7 @@ def _bars(ex: ExhibitPick, diverging: bool, keep_order: bool = False):
                 ax.text(
                     v + (0.02 if v >= 0 else -0.02) * span,
                     yi,
-                    _fmt(v, ex.unit),
+                    _fmt(v, ex.unit, signed),
                     va="center",
                     ha="left" if v >= 0 else "right",
                     fontsize=8.5,
@@ -184,7 +186,7 @@ def _bars(ex: ExhibitPick, diverging: bool, keep_order: bool = False):
             ax.set_xlim(min(min(vals), 0) - 0.25 * span, max(max(vals), 0) + 0.25 * span)
 
     top = max(pts, key=lambda p: p.value)
-    sub = f"Highest: {top.label} {_fmt(top.value, ex.unit)}"
+    sub = f"Highest: {top.label} {_fmt(top.value, ex.unit, signed)}"
     return draw, sub
 
 

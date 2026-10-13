@@ -200,7 +200,7 @@ class NotePoint(BaseModel):
 
 
 ExhibitForm = Literal[
-    "line", "compare", "columns", "movers", "ladder", "dumbbell", "range", "vs_expected"
+    "line", "compare", "columns", "movers", "bars", "ladder", "dumbbell", "range", "vs_expected"
 ]
 
 
@@ -208,7 +208,8 @@ class ItemExhibit(BaseModel):
     """The Editor picks the chart form for an item; code draws it from the cited facts.
 
     line: one fact's series over window_days · compare: 2-4 series facts · columns: one fact's
-    release history (last readings, streak highlighted) · movers: 2-8 bars on one measure ·
+    release history (last readings, streak highlighted) · movers: 2-8 signed changes · bars: 2-8
+    levels (odds, shares) ·
     ladder: one asset across horizons, in order · dumbbell: [before, after] · range: [low, last,
     high] · vs_expected: [expected, actual]."""
 
