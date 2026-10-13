@@ -129,7 +129,7 @@ def test_every_agent_appears_in_its_groups_diagram():
     assert not missing, f"add these agents to their group's diagram in agents.yaml: {missing}"
 
 
-def test_update_agent_family_groups_its_six_agents():
+def test_update_agent_family_groups_its_seven_agents():
     fam = [e["id"] for e in cat.build_catalog()["agents"] if e.get("family") == "Update Agent"]
     assert fam == [
         "update_orchestrator",
@@ -138,4 +138,5 @@ def test_update_agent_family_groups_its_six_agents():
         "alt_agent",
         "ai_agent",
         "update_editor",
+        "desk_chat",
     ]

@@ -3,13 +3,14 @@ import { Link } from "react-router-dom";
 import { Lock } from "lucide-react";
 import { cn } from "@/lib/cn";
 import AgentsPage from "@/pages/AgentsPage";
+import DailyDesk from "@/components/admin/DailyDesk";
 import { Article, DOCS_LIST, type DocDetail } from "@/pages/DocsPage";
 import { PageIntro } from "@/components/layout/PageIntro";
 
 // PRIVATE area. The data (/api/admin/*) and the detailed docs module (/admin/chunks/*) are password-gated
 // by frontend/middleware.ts on the public site; locally the backend serves them without a login.
 // This page's own code holds no private data, so it can safely ship in the public bundle.
-const TABS = ["Agents", "Docs"] as const;
+const TABS = ["Agents", "Docs", "Daily desk"] as const;
 
 function AdminDocs() {
   const [detail, setDetail] = useState<Record<string, DocDetail> | null>(null);
@@ -56,7 +57,7 @@ export default function AdminPage() {
           </button>
         ))}
       </div>
-      {tab === "Agents" ? <AgentsPage admin /> : <AdminDocs />}
+      {tab === "Agents" ? <AgentsPage admin /> : tab === "Docs" ? <AdminDocs /> : <DailyDesk />}
     </div>
   );
 }

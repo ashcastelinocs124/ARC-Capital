@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import shutil
 from collections.abc import Callable
 from datetime import date, datetime
 from pathlib import Path
@@ -123,6 +124,10 @@ class UpdateRunner:
 
         self._set(Stage.PLANNING)
         briefs = self.plan_fn(mem, long, self._day)
+        # kept so the admin Daily desk can re-run an agent on its original brief
+        atomic_write_text(
+            self.updates_dir / "briefs" / f"{self._day}.json", briefs.model_dump_json(indent=1)
+        )
 
         self._set(Stage.RESEARCHING)
         outputs = self._gather(
@@ -152,22 +157,7 @@ class UpdateRunner:
         if len(findings) < MIN_FINDINGS:
             raise RuntimeError(f"only {len(findings)} findings; need {MIN_FINDINGS}")
 
-        errors: list[str] | None = None
-        for _attempt in range(self.max_retries + 1):
-            self._set(Stage.WRITING)
-            note = self.editor_fn(findings, facts, mem, long, errors)
-            self._set(Stage.GUARDING)
-            errors = check_note(note, findings, facts, items=self.max_items)
-            if not errors:
-                break
-        if errors:
-            raise RuntimeError(f"guard failed: {errors}")
-
-        self._set(Stage.CHARTING)
-        by_id = {f.id: f for f in findings}
-        ranked = sorted(note.items, key=lambda i: i.rank)
-        wanted = [by_id[it.chart] for it in ranked if it.chart in by_id]
-        exhibits = self.chart_fn(wanted, self.updates_dir / "charts" / self._day)
+        note, exhibits = self._compose(findings, facts, mem, long)
 
         snap = outputs["macro"].snapshot if "macro" in outputs else None
         self.memory.apply(note, snap or MarketSnapshot(date=self._day), today)
@@ -187,6 +177,59 @@ class UpdateRunner:
         )
         # written last: its existence is what marks the day done
         atomic_write_text(self.updates_dir / f"{self._day}.json", record.model_dump_json(indent=2))
+
+    def _compose(
+        self, findings: list[Finding], facts: list[Fact], mem: str, long: str
+    ) -> tuple[MorningNote, list[Exhibit]]:
+        """Editor → guard (with retries) → charts. Raises before touching any file if the guard fails."""
+        errors: list[str] | None = None
+        for _attempt in range(self.max_retries + 1):
+            self._set(Stage.WRITING)
+            note = self.editor_fn(findings, facts, mem, long, errors)
+            self._set(Stage.GUARDING)
+            errors = check_note(note, findings, facts, items=self.max_items)
+            if not errors:
+                break
+        if errors:
+            raise RuntimeError(f"guard failed: {errors}")
+
+        self._set(Stage.CHARTING)
+        by_id = {f.id: f for f in findings}
+        ranked = sorted(note.items, key=lambda i: i.rank)
+        wanted = [by_id[it.chart] for it in ranked if it.chart in by_id]
+        return note, self.chart_fn(wanted, self.updates_dir / "charts" / self._day)
+
+    def rebuild(self, day: str) -> str:
+        """Rewrite `day`'s note from its stored findings + facts (admin Daily desk).
+
+        Memory is not touched: it already took this day in. The previous record and charts are
+        copied to hidden-rebuild-<time>/ first; a guard failure leaves the old note in place.
+        """
+        path = self.updates_dir / f"{day}.json"
+        old = DailyRecordV2.model_validate_json(path.read_text())
+        facts = [
+            Fact(**f) for f in json.loads((self.updates_dir / "raw" / f"{day}.json").read_text())
+        ]
+        backup = self.updates_dir / f"hidden-rebuild-{datetime.now():%Y%m%d-%H%M%S}"
+        backup.mkdir(parents=True)
+        shutil.copy2(path, backup / path.name)
+        if (charts := self.updates_dir / "charts" / day).exists():
+            shutil.copytree(charts, backup / "charts" / day)
+
+        self._day = day
+        note, exhibits = self._compose(
+            old.findings, facts, self.memory.read_short(), self.memory.read_long()
+        )
+        new = old.model_copy(
+            update={
+                "note": note,
+                "exhibits": exhibits,
+                "generated_at": datetime.now().isoformat(timespec="seconds"),
+            }
+        )
+        atomic_write_text(path, new.model_dump_json(indent=2))
+        self._set(Stage.DONE)
+        return note.headline
 
 
 # ── production wiring ──────────────────────────────────────────────────────

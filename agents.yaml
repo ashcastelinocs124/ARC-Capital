@@ -108,6 +108,20 @@ agents:
         Two-tier markdown in data/update_agent/memory/. Caps (5 short / 20 long) and eviction by
         importance minus whole months unused are enforced in code, not the prompt.
 
+  - id: desk_chat
+    name: Desk Chat
+    group: Briefings
+    family: Update Agent
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "LLM call (gpt-6-luna)"}
+    class: castelino.agents.update.desk.DeskChatAgent
+    summary: >-
+      On the private admin Daily desk, answers questions about one agent's work on one day
+      (Macro, News, Alt, AI or the Editor), from that day's saved findings and facts only, citing
+      their ids. Read-only: re-runs, rebuilds and Substack drafts are separate buttons.
+    tools: []
+    memory: {reads: ["The day's findings and facts for that agent (the Editor also sees the note)", "The conversation so far, sent by the browser"], writes: [], persists: "Nothing."}
+
   - id: sector_narrative
     name: Sector Sentiment Narrative
     group: Briefings
@@ -332,6 +346,8 @@ systems:
       - title: "Daily Update 2 · Write"
         flow: [["agent:update_editor|Morning Note"], ["code:Number guard|1 retry"], ["code:Chart agent|exhibits"], ["end:/updates|+ 2-tier memory"]]
         loops: [{from: 1, to: 0, label: "retry with errors"}]
+      - title: "Admin · Daily desk"
+        flow: [["Your question on /admin"], ["agent:desk_chat|one day · one agent"], ["end:Answer with fact ids"]]
       - title: "Model refit"
         flow: [["Refresh"], ["code:Refit Pulse / Pressure|XGBoost"], ["code:Promotion gate|Brier +0.02"], ["end:/models · /macro"]]
       - title: "Sector Sentiment"

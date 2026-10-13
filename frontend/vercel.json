@@ -1,3 +1,6 @@
 {
-  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/api/admin/live/:path*", "destination": "https://arc-research-backend.fly.dev/admin/desk/:path*" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
 }

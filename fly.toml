@@ -1,5 +1,5 @@
-# Daily refresh + publish server (Dockerfile, deploy/crontab). No [http_service]: nothing is public,
-# so nobody can trigger paid refreshes, and with no service Fly never auto-stops the machine.
+# Daily refresh + publish server (Dockerfile, deploy/crontab). The only public service is the
+# admin Daily desk API (dashboard/desk_app.py), behind ADMIN_PASSWORD; Refresh is not reachable.
 app = "arc-research-backend"
 primary_region = "iad"
 
@@ -7,6 +7,13 @@ primary_region = "iad"
   TZ = "America/New_York"
   VERCEL_ORG_ID = "team_BsHOg3CKHR9ZEzbgdX9M1U19"
   VERCEL_PROJECT_ID = "prj_oxSCUqfLdewuJyglbdzYBwDaLn2t"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"  # the 17:00 cron needs the machine up
+  auto_start_machines = false
+  min_machines_running = 1
 
 [mounts]
   source = "arc_data"

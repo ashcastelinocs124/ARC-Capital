@@ -77,6 +77,7 @@ def get_apps():
 
 
 from castelino.dashboard.endpoints import (  # noqa: E402
+    admin_desk,
     adoption,
     agent_catalog,
     ai_sentiment,
@@ -111,6 +112,9 @@ app.include_router(videos.router)
 app.include_router(daily_posts.router)
 app.include_router(weekly_posts.router)
 app.include_router(section_posts.router)
+app.include_router(
+    admin_desk.router
+)  # local: no login; on Fly it runs alone behind a password (desk_app.py)
 
 
 # ── Frontend static files ──────────────────────────────────────────────────
