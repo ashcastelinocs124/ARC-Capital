@@ -7,10 +7,8 @@ import { useSectionPosts } from "@/hooks/useSectionPosts";
 import { useVideos } from "@/hooks/useVideos";
 import { useModels } from "@/hooks/useModels";
 import { useWeekAhead } from "@/hooks/useWeekAhead";
-import type { WeekKind } from "@/api/types";
 import { isWeekly } from "@/api/endpoints";
 import { clock } from "@/pages/VideosPage";
-import { C } from "@/lib/theme";
 import { cn } from "@/lib/cn";
 
 // The home page: an overview of everything on the site (layout after map.damnang.com).
@@ -56,37 +54,12 @@ function MemoVis() {
   );
 }
 
-// this week's calendar: one stacked bar per weekday, coloured by release type (same colours as /macro)
-const WEEK_KINDS: [WeekKind, string][] = [["other", C.muted2], ["jobs", C.jobs], ["inflation", C.inflation], ["earnings", C.earnings], ["ai", C.ai]];
 function MacroVis() {
   const wa = useWeekAhead().data;
-  if (!wa) return null;
-  const days = Array.from({ length: 5 }, (_, i) => {
-    const d = new Date(`${wa.week_start}T12:00:00`);
-    d.setDate(d.getDate() + i);
-    return d.toISOString().slice(0, 10);
-  });
-  const counts = days.map((d) => WEEK_KINDS.map(([k]) => wa.events.filter((e) => e.date === d && e.kind === k).length));
-  const max = Math.max(1, ...counts.map((c) => c.reduce((a, b) => a + b, 0)));
-  const total = counts.flat().reduce((a, b) => a + b, 0);
   return (
     <>
-      <svg viewBox="0 0 300 180" className="block h-full w-full">
-        {counts.map((c, i) => {
-          let y = 150;
-          return (
-            <g key={i}>
-              {c.map((n, k) => {
-                const h = (n / max) * 120;
-                y -= h;
-                return n ? <rect key={k} x={118 + i * 36} y={y} width={24} height={h} fill={WEEK_KINDS[k][1]} rx={2} /> : null;
-              })}
-              <text x={130 + i * 36} y={166} textAnchor="middle" fontSize={10} fill={C.muted}>{"MTWTF"[i]}</text>
-            </g>
-          );
-        })}
-      </svg>
-      <Big value={`${total} events`} label={`Week of ${short(wa.week_start)}`} />
+      <img src="/thumbs/radar-cover.jpg" alt="" loading="lazy" className="h-full w-full object-cover" />
+      {wa && <Big value={`${wa.events.length} events`} label={`Week of ${short(wa.week_start)}`} />}
     </>
   );
 }
