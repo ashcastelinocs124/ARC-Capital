@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
-import type { DailyPost, SectionPost } from "@/api/endpoints";
-import { VideoCard } from "@/pages/VideosPage";
+import type { DailyPost } from "@/api/endpoints";
 
 const DAY = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 const SHORT = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
@@ -66,42 +65,8 @@ function Earlier({ items }: { items: { date: string; headline: string }[] }) {
   );
 }
 
-// Substack sections shown under the daily notes (slug = the Substack section's URL slug).
-const SECTIONS: { slug: string; name: string; blurb: string }[] = [
-  { slug: "artificial-intelligence-update", name: "AI Update", blurb: "Models, chips and the AI stack" },
-  { slug: "special-topics", name: "Special Topics", blurb: "Deeper dives and presentations" },
-];
-
-function Section({ name, blurb, slug, posts }: { name: string; blurb: string; slug: string; posts: SectionPost[] }) {
-  if (posts.length === 0) return null;
-  return (
-    <section>
-      <div className="mb-3 flex items-end justify-between border-b border-border pb-2">
-        <div>
-          <h3 className="text-[17px] font-semibold tracking-tight text-text">{name}</h3>
-          <span className="text-xs text-muted">{blurb}</span>
-        </div>
-        <a
-          href={`https://archresearch.substack.com/s/${slug}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[12.5px] font-semibold text-accent hover:text-accent-hover"
-        >
-          View all on Substack ↗
-        </a>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {posts.map((p) => (
-          <VideoCard key={p.url} v={p} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-export function DailyPostsFeed({ posts, sections, loading, earlier }: {
+export function DailyPostsFeed({ posts, loading, earlier }: {
   posts: DailyPost[];
-  sections: SectionPost[];
   loading: boolean;
   earlier: { date: string; headline: string }[];
 }) {
@@ -109,7 +74,7 @@ export function DailyPostsFeed({ posts, sections, loading, earlier }: {
     <div className="space-y-5 p-4 md:p-8">
       <div>
         <h2 className="text-xl font-semibold tracking-tight text-text">Memo</h2>
-        <p className="mt-0.5 text-xs text-muted">Daily Notes, AI Update and Special Topics from the ARC Research Substack. Each one opens the post.</p>
+        <p className="mt-0.5 text-xs text-muted">Daily Notes from the ARC Research Substack. Each one opens the post.</p>
       </div>
       {loading && <div className="text-sm text-muted">Loading…</div>}
       {!loading && posts.length === 0 && (
@@ -120,9 +85,6 @@ export function DailyPostsFeed({ posts, sections, loading, earlier }: {
           <PostCard key={p.url} p={p} latest={i === 0} eyebrow={DAY.format(day(p.date))} />
         ))}
       </div>
-      {SECTIONS.map((s) => (
-        <Section key={s.slug} {...s} posts={sections.filter((p) => p.section === s.slug)} />
-      ))}
       <Earlier items={earlier} />
     </div>
   );

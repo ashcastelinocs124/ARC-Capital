@@ -2,8 +2,8 @@ import { PageIntro } from "@/components/layout/PageIntro";
 import { useSectionPosts } from "@/hooks/useSectionPosts";
 import { VideoCard } from "@/pages/VideosPage";
 
-// One Substack section as its own feed (/ai, /special-topics); the same posts also list under Memo.
-// `slug` is the Substack section's URL slug, as in section_posts.py and DailyPostsFeed.tsx.
+// One Substack section as its own feed (/ai, /special-topics).
+// `slug` is the Substack section's URL slug, as in section_posts.py.
 export default function SectionPage({ slug, kicker, title, blurb }: { slug: string; kicker: string; title: string; blurb: string }) {
   const { data, isLoading } = useSectionPosts();
   const posts = (data ?? []).filter((p) => p.section === slug);
