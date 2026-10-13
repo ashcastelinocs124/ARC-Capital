@@ -1,4 +1,4 @@
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Lock } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { RefreshButton } from "@/components/layout/RefreshButton";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
@@ -14,6 +14,11 @@ export function TopBar() {
       <TopNav pill />
       <div className="flex items-center justify-end gap-3 md:gap-4 text-sm">
         {!STATIC && <RefreshButton />}
+        {/* a full page load, not a router Link: only a real request to /admin reaches the password middleware */}
+        <a href="/admin" className="inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] text-muted hover:text-accent" aria-label="Admin login">
+          <Lock className="h-3.5 w-3.5" />
+          <span className="hidden md:inline">Admin login</span>
+        </a>
         <ThemeToggle />
         <a
           href="https://archresearch.substack.com/"
