@@ -14,9 +14,9 @@ const span = (a: string, b: string) => {
   return `${f(a)} – ${f(b)}`;
 };
 
-function Card({ title, sub, children }: { title: string; sub?: string; children: React.ReactNode }) {
+function Card({ id, title, sub, children }: { id?: string; title: string; sub?: string; children: React.ReactNode }) {
   return (
-    <section className="bg-surface border border-border rounded-xl shadow-card px-4 py-4 md:px-5 min-w-0">
+    <section id={id} className="bg-surface border border-border rounded-xl shadow-card px-4 py-4 md:px-5 min-w-0 scroll-mt-4">
       <div className="flex items-baseline justify-between gap-3 mb-2">
         <h2 className="text-[15px] font-semibold text-text">{title}</h2>
         {sub && <span className="text-xs text-muted text-right">{sub}</span>}
@@ -114,7 +114,7 @@ export default function MacroPage() {
               <GapNote gaps={data.gaps} lanes={["openrouter"]} />
             </Card>
           </div>
-          <Card title="AI model sentiment on X"
+          <Card id="ai-sentiment" title="AI model sentiment on X"
             sub={sentiment ? `${sentiment.accounts} tracked accounts · word-list scoring · 7-day average · Δ7d = change vs a week ago` : "X API"}>
             {sentiment ? (
               <>

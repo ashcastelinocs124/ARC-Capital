@@ -6,10 +6,22 @@ import { TopNav } from "./TopNav";
 export function AppShell({ children }: { children: React.ReactNode }) {
   // <main> is the scroller, so a new page would otherwise open at the old page's scroll position.
   const main = useRef<HTMLElement>(null);
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
   useEffect(() => {
     main.current?.scrollTo(0, 0); // braces: scrollTo can return a Promise, and an effect may only return a cleanup
   }, [pathname]);
+  // A #hash (nav links such as /models#model-adoption) scrolls to that card once it has rendered;
+  // cards wait on data, so look for it for up to 3 s.
+  useEffect(() => {
+    if (!hash) return;
+    let tries = 0;
+    const t = setInterval(() => {
+      const el = document.getElementById(decodeURIComponent(hash.slice(1)));
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (el || ++tries > 30) clearInterval(t);
+    }, 100);
+    return () => clearInterval(t);
+  }, [pathname, hash]);
   return (
     <div className="flex flex-col h-dvh bg-surface-2">
       <TopBar />
