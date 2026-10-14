@@ -23,17 +23,25 @@ def search_cited(
 
     start/end index into the returned text (not stripped). Raises on API failure.
     """
+    import time
+
     from openai import OpenAI
+
+    from castelino import benchmark
 
     cfg = get_settings()
     # a reasoning model + live search often runs past the 60 s default; a timeout just wastes the call
     client = OpenAI(api_key=cfg.openai_api_key, timeout=max(cfg.openai.request_timeout_s, 180))
-    resp = client.responses.create(
-        model=model or cfg.web_search.model,
-        instructions=system,
-        input=user,
-        tools=[{"type": "web_search"}],
-    )
+    model = model or cfg.web_search.model
+    sent = {"system": system, "user": user, "tools": ["web_search"]}
+    started = time.monotonic()
+    try:
+        resp = client.responses.create(
+            model=model, instructions=system, input=user, tools=[{"type": "web_search"}]
+        )
+    except Exception as e:
+        benchmark.record_call("web_search", model, sent, started=started, error=str(e)[:500])
+        raise
     cites: list[tuple[str, str, int, int]] = []
     for item in resp.output:
         for part in getattr(item, "content", None) or []:
@@ -48,6 +56,14 @@ def search_cited(
                             int(getattr(ann, "end_index", 0) or 0),
                         )
                     )
+    benchmark.record_call(
+        "web_search",
+        model,
+        sent,
+        {**benchmark.response_output(resp), "citations": [c[:2] for c in cites]},
+        started=started,
+        tokens=benchmark.usage_of(resp),
+    )
     return resp.output_text or "", cites
 
 

@@ -173,7 +173,8 @@ def chat_context(record: DailyRecordV2, facts: list[Fact], agent: str) -> str:
 MAX_TURNS, MAX_CHARS = 20, 2000
 
 
-def chat(day: str, agent: str, history: list[dict]) -> str:
+def chat(day: str, agent: str, history: list[dict]) -> tuple[str, str | None]:
+    """The agent's answer and the benchmark id of the call that wrote it."""
     if agent not in DESK:
         raise ValueError(f"unknown agent {agent!r}")
     history = [
@@ -185,6 +186,6 @@ def chat(day: str, agent: str, history: list[dict]) -> str:
     ]
     _, updates_dir = _dirs()
     record, facts = load_day(updates_dir, day)
-    return DeskChatAgent()(
-        day=day, agent=agent, context=chat_context(record, facts, agent), history=history
-    ).answer
+    bot = DeskChatAgent()
+    reply = bot(day=day, agent=agent, context=chat_context(record, facts, agent), history=history)
+    return reply.answer, bot.last_call_id

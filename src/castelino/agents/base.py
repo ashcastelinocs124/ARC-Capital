@@ -13,6 +13,7 @@ Tests pass a `FakeLLMClient` that returns deterministic stub objects.
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -78,6 +79,11 @@ class OpenAIClient(LLMClient):
         self._client = OpenAI(api_key=api_key or get_settings().openai_api_key)
         self._max_retries = max_retries
         self.stats = CallStats()
+        self._local = threading.local()  # agents run in threads; each reads its own usage
+
+    @property
+    def last_usage(self) -> tuple[int | None, int | None]:
+        return getattr(self._local, "usage", (None, None))
 
     def parse(
         self,
@@ -112,6 +118,11 @@ class OpenAIClient(LLMClient):
                 )
                 elapsed = time.monotonic() - start
                 self._record(model, resp, elapsed)
+                u = getattr(resp, "usage", None)
+                self._local.usage = (
+                    getattr(u, "prompt_tokens", None),
+                    getattr(u, "completion_tokens", None),
+                )
                 parsed = resp.choices[0].message.parsed
                 if parsed is None:
                     raise LLMError(
@@ -236,15 +247,37 @@ class StructuredAgent(Generic[T], ABC):
     @abstractmethod
     def user_prompt(self, **ctx) -> str: ...
 
+    last_call_id: str | None = None  # the benchmark record of the latest call (ratings point at it)
+
     def __call__(self, **ctx) -> T:
+        from castelino import benchmark
+
         cfg = get_settings()
         model_id = self.model or _resolve_model_id(cfg, self.tier)
         log.info("agent=%s model=%s tier=%s", self.name, model_id, self.tier)
         client = get_llm_client()
-        return client.parse(
-            model=model_id,
-            system=self.system_prompt(),
-            user=self.user_prompt(**ctx),
-            schema=self.output_schema,
-            max_tokens=self.max_output_tokens,
+        system, user = self.system_prompt(), self.user_prompt(**ctx)
+        sent = {"system": system, "user": user, "schema": self.output_schema.__name__}
+        started = time.monotonic()
+        try:
+            out = client.parse(
+                model=model_id,
+                system=system,
+                user=user,
+                schema=self.output_schema,
+                max_tokens=self.max_output_tokens,
+            )
+        except Exception as e:
+            self.last_call_id = benchmark.record_call(
+                self.name, model_id, sent, started=started, error=str(e)[:500]
+            )
+            raise
+        self.last_call_id = benchmark.record_call(
+            self.name,
+            model_id,
+            sent,
+            out,
+            started=started,
+            tokens=getattr(client, "last_usage", (None, None)),
         )
+        return out

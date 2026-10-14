@@ -209,6 +209,16 @@ def x_post_chain(slug: str, body: XPostIn):
                 break
             finally:
                 path.write_text(json.dumps(rec, indent=1))
+        from castelino import benchmark
+
+        benchmark.record_action(
+            "x_post",
+            slug=slug,
+            texts=texts,
+            ids=rec["ids"],
+            image=media_id is not None,
+            error=error,
+        )
         return {"posted_ids": rec["ids"], "total": len(texts), "error": error}
     finally:
         _x_lock.release()
@@ -239,13 +249,42 @@ class ChatIn(BaseModel):
 def chat(day: str, agent: str, body: ChatIn):
     if agent not in desk.DESK:
         raise HTTPException(404, f"unknown agent {agent}")
+    from castelino import benchmark
+
+    asked = next(
+        (str(m.get("text", "")) for m in reversed(body.messages) if m.get("role") == "user"), ""
+    )
     try:
-        return {"answer": desk.chat(_day_ok(day), agent, body.messages)}
+        answer, call_id = desk.chat(_day_ok(day), agent, body.messages)
     except Exception as e:  # noqa: BLE001 — show the model error in the chat, don't 500
+        benchmark.record_action("chat", day=day, agent=agent, text=asked, error=str(e)[:300])
         raise HTTPException(502, f"chat failed: {str(e)[:200]}") from e
+    benchmark.record_action("chat", day=day, agent=agent, text=asked, call_id=call_id)
+    return {"answer": answer, "call_id": call_id}
 
 
-def _start(day: str, kind: str, fn) -> dict:
+class RateIn(BaseModel):
+    call_id: str
+    rating: str  # "up" | "down"
+    better: str = ""  # what the answer should have been (the benchmark's right answer)
+
+
+@router.post("/rate")
+def rate(body: RateIn):
+    """A 👍 / 👎 on a chat answer, kept with the call it rates for testing new models later."""
+    from castelino import benchmark
+
+    if body.rating not in ("up", "down") or not re.fullmatch(r"[0-9a-f]{16}", body.call_id):
+        raise HTTPException(400, "rating must be up or down, for a recorded call")
+    benchmark.record_action(
+        "rate", call_id=body.call_id, rating=body.rating, better=body.better.strip()[:4000]
+    )
+    return {"ok": True}
+
+
+def _start(day: str, kind: str, fn, **record) -> dict:
+    from castelino import benchmark
+
     with _jobs_lock:
         if (_jobs.get(day) or {}).get("state") == "running":
             raise HTTPException(409, f"{_jobs[day]['kind']} is already running for {day}")
@@ -261,6 +300,10 @@ def _start(day: str, kind: str, fn) -> dict:
             job.update(state="done", message=fn())
         except Exception as e:  # noqa: BLE001 — reported to the page
             job.update(state="failed", message=str(e)[:400])
+        action = {"re-run": "rerun", "substack": "push_draft"}.get(kind.split()[0], kind.split()[0])
+        benchmark.record_action(
+            action, day=day, **record, result=job["message"][:400], state=job["state"]
+        )
 
     threading.Thread(target=work, daemon=True).start()
     return job
@@ -277,7 +320,9 @@ def rerun(day: str, agent: str, body: RerunIn):
     ask = body.ask.strip()[: desk.MAX_CHARS]
     if not ask:
         raise HTTPException(400, "write what the agent should look into")
-    return _start(_day_ok(day), f"re-run {agent}", lambda: desk.rerun(day, agent, ask))
+    return _start(
+        _day_ok(day), f"re-run {agent}", lambda: desk.rerun(day, agent, ask), agent=agent, text=ask
+    )
 
 
 @router.post("/{day}/rebuild")

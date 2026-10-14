@@ -245,6 +245,25 @@ class RecipeWriter:
             return r, [], f"replay failed: {type(e).__name__}: {str(e)[:300]}"
         return r, titles, "" if titles else "replay returned no titles"
 
+    def _create(self, **kw):
+        import time
+
+        from castelino import benchmark
+
+        started = time.monotonic()
+        resp = self._client.responses.create(
+            model=self._cfg.recipe_model, instructions=SYSTEM, tools=TOOLS, **kw
+        )
+        benchmark.record_call(
+            "recipe_writer",
+            self._cfg.recipe_model,
+            {"system": SYSTEM, **kw},
+            benchmark.response_output(resp),
+            started=started,
+            tokens=benchmark.usage_of(resp),
+        )
+        return resp
+
     def run(self, ticker: str, name: str, start_url: str) -> RecipeResult:
         res = RecipeResult(ticker)
         allowed = {_site(urlparse(start_url).hostname or "")}
@@ -257,9 +276,7 @@ class RecipeWriter:
             except Exception as e:  # noqa: BLE001
                 log.info("start page probe failed for %s: %s", ticker, e)
             user = f"Company: {name} (ticker {ticker}). Careers start URL: {start_url}"
-            resp = self._client.responses.create(
-                model=self._cfg.recipe_model, instructions=SYSTEM, input=user, tools=TOOLS
-            )
+            resp = self._create(input=user)
             while True:
                 res.steps += 1
                 res.cost_usd += self._cost(resp.usage)
@@ -287,13 +304,7 @@ class RecipeWriter:
                 if res.cost_usd >= self._cfg.recipe_max_usd:
                     res.note = f"spend cap (${self._cfg.recipe_max_usd:.2f}) reached"
                     return res
-                resp = self._client.responses.create(
-                    model=self._cfg.recipe_model,
-                    instructions=SYSTEM,
-                    previous_response_id=resp.id,
-                    input=outputs,
-                    tools=TOOLS,
-                )
+                resp = self._create(previous_response_id=resp.id, input=outputs)
         finally:
             browser.close()
 

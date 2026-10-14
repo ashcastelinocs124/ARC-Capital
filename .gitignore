@@ -114,3 +114,6 @@ data/publish_last_sha
 
 # per-project Claude memory (local only)
 .claude/memory/
+
+# benchmark recorder: every AI call + admin action (castelino/benchmark.py); admin-only
+data/benchmark/

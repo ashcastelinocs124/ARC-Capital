@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from datetime import date
 
 from castelino.agents.update.models import Fact
@@ -126,14 +127,29 @@ class AgentSession:
         self.prev: str | None = None
 
     def _create(self, input_: list, prev: str | None):
-        return self.client.responses.create(
+        from castelino import benchmark
+
+        tools = self.toolbox.specs()
+        sent = {"system": self.system, "input": input_, "previous_response_id": prev,
+                "tools": [t.get("name") for t in tools]}  # fmt: skip
+        started = time.monotonic()
+        resp = self.client.responses.create(
             model=self.model,
             instructions=self.system,
             input=input_,
-            tools=self.toolbox.specs(),
+            tools=tools,
             tool_choice="none" if self.toolbox.exhausted() else "auto",
             previous_response_id=prev,
         )
+        benchmark.record_call(
+            f"deep_trend_agent:{self.spec.name}",
+            self.model,
+            sent,
+            benchmark.response_output(resp),
+            started=started,
+            tokens=benchmark.usage_of(resp),
+        )
+        return resp
 
     def _loop(self, text: str) -> None:
         resp = self._create([{"role": "user", "content": text}], self.prev)
@@ -154,12 +170,28 @@ class AgentSession:
         self.prev = resp.id
 
     def _parse(self, ask: str, schema):
+        from castelino import benchmark
+
+        started = time.monotonic()
         r = self.client.responses.parse(
             model=self.model,
             instructions=self.system,
             input=[{"role": "user", "content": ask}],
             previous_response_id=self.prev,
             text_format=schema,
+        )
+        benchmark.record_call(
+            f"deep_trend_agent:{self.spec.name}",
+            self.model,
+            {
+                "system": self.system,
+                "input": ask,
+                "previous_response_id": self.prev,
+                "schema": schema.__name__,
+            },  # fmt: skip
+            r.output_parsed,
+            started=started,
+            tokens=benchmark.usage_of(r),
         )
         self.prev = r.id
         if r.output_parsed is None:

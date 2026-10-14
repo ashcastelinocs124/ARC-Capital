@@ -95,6 +95,24 @@ class AnthropicEditorClient:
         )
 
     def parse(self, *, system: str, messages: list[dict], schema: type[T]) -> tuple[T, list]:
+        import time
+
+        from castelino import benchmark
+
+        sent = {"system": system, "messages": messages, "schema": schema.__name__}
+        started = time.monotonic()
+        try:
+            out, content, usage = self._parse(system=system, messages=messages, schema=schema)
+        except Exception as e:
+            benchmark.record_call(
+                "deep_editor", self.model, sent, started=started, error=str(e)[:500]
+            )
+            raise
+        tokens = (getattr(usage, "input_tokens", None), getattr(usage, "output_tokens", None))
+        benchmark.record_call("deep_editor", self.model, sent, out, started=started, tokens=tokens)
+        return out, content
+
+    def _parse(self, *, system: str, messages: list[dict], schema: type[T]):
         kw = dict(
             model=self.model,
             max_tokens=self.max_tokens,
@@ -114,7 +132,7 @@ class AnthropicEditorClient:
             raise RuntimeError(f"editor refused: {getattr(resp, 'stop_details', None)}")
         if resp.parsed_output is None:
             raise RuntimeError(f"editor returned no {schema.__name__} (stop: {resp.stop_reason})")
-        return resp.parsed_output, resp.content
+        return resp.parsed_output, resp.content, getattr(resp, "usage", None)
 
 
 def desk_brief(

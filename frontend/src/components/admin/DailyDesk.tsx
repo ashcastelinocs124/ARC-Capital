@@ -27,7 +27,8 @@ type Detail = {
   draft: Draft;
   job: Job;
 };
-type Msg = { role: "user" | "agent"; text: string };
+// call_id: the benchmark record of the answer, so a 👍 / 👎 (and a right answer) can point at it
+type Msg = { role: "user" | "agent"; text: string; call_id?: string | null; rating?: "up" | "down"; saved?: boolean };
 
 export async function call<T>(path: string, body?: unknown): Promise<T> {
   const r = await fetch(`${BASE}${path}`, {
@@ -84,6 +85,8 @@ export default function DailyDesk() {
 
   const key = `${day}:${agent}`;
   const msgs = chats[key] ?? [];
+  const patch = (i: number, u: Partial<Msg>) =>
+    setChats((c) => ({ ...c, [key]: (c[key] ?? []).map((m, j) => (j === i ? { ...m, ...u } : m)) }));
   const ask = () => {
     const text = q.trim();
     if (!text || !day || asking) return;
@@ -91,8 +94,8 @@ export default function DailyDesk() {
     setChats((c) => ({ ...c, [key]: next }));
     setQ("");
     setAsking(true);
-    call<{ answer: string }>(`/${day}/${agent}/chat`, { messages: next })
-      .then((r) => setChats((c) => ({ ...c, [key]: [...next, { role: "agent", text: r.answer }] })))
+    call<{ answer: string; call_id: string | null }>(`/${day}/${agent}/chat`, { messages: next.map(({ role, text }) => ({ role, text })) })
+      .then((r) => setChats((c) => ({ ...c, [key]: [...next, { role: "agent", text: r.answer, call_id: r.call_id }] })))
       .catch((e) => setChats((c) => ({ ...c, [key]: [...next, { role: "agent", text: `⚠ ${e.message ?? e}` }] })))
       .finally(() => setAsking(false));
   };
@@ -201,8 +204,10 @@ export default function DailyDesk() {
                   </div>
                 )}
                 {msgs.map((m, i) => (
-                  <div key={i} className={cn("max-w-[90%] whitespace-pre-wrap rounded-xl px-3 py-2",
-                    m.role === "user" ? "self-end bg-accent-soft" : "bg-surface-2")}>{m.text}</div>
+                  <div key={i} className={cn("flex max-w-[90%] flex-col", m.role === "user" && "self-end")}>
+                    <div className={cn("whitespace-pre-wrap rounded-xl px-3 py-2", m.role === "user" ? "bg-accent-soft" : "bg-surface-2")}>{m.text}</div>
+                    {m.role === "agent" && m.call_id && <Rate m={m} onChange={(u) => patch(i, u)} />}
+                  </div>
                 ))}
                 {asking && <div className="rounded-xl bg-surface-2 px-3 py-2 text-muted">Thinking…</div>}
               </div>
@@ -222,6 +227,40 @@ export default function DailyDesk() {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+// 👍 saves at once; 👎 opens an optional "right answer" box. Both go to the benchmark (POST /rate).
+function Rate({ m, onChange }: { m: Msg; onChange: (u: Partial<Msg>) => void }) {
+  const [better, setBetter] = useState("");
+  const [err, setErr] = useState("");
+  const send = (rating: "up" | "down", text = "") =>
+    call("/rate", { call_id: m.call_id, rating, better: text })
+      .then(() => { setErr(""); onChange({ rating, saved: true }); })
+      .catch((e) => setErr(String(e.message ?? e)));
+  const btn = (on: boolean, down: boolean) =>
+    cn("rounded-full border px-2 py-0.5 text-xs", on ? (down ? "border-danger text-danger" : "border-accent bg-accent-soft text-accent") : "border-border text-text-2 hover:border-border-strong");
+  return (
+    <div className="mt-1 text-[11.5px] text-muted">
+      <div className="flex items-center gap-1.5">
+        <button className={btn(m.rating === "up", false)} onClick={() => send("up")}>👍</button>
+        <button className={btn(m.rating === "down", true)} onClick={() => onChange({ rating: "down", saved: false })}>👎</button>
+        <span className={cn(m.saved && "text-accent")}>
+          {m.saved ? (m.rating === "up" ? "rated 👍 · saved" : "rated 👎 · saved") : m.rating === "down" ? "add the right answer (optional), then Save" : "rate this answer"}
+        </span>
+      </div>
+      {m.rating === "down" && !m.saved && (
+        <div className="mt-1.5 rounded-lg border border-border bg-surface-2 p-2">
+          <textarea value={better} onChange={(e) => setBetter(e.target.value)} maxLength={4000}
+            placeholder="What should the answer have been? Saved as the right answer for testing new models."
+            className="h-16 w-full resize-none rounded-md border border-border bg-surface p-1.5 text-[13px] text-text" />
+          <div className="mt-1 flex justify-end">
+            <button onClick={() => send("down", better)} className="rounded-md border border-border px-3 py-1 text-xs font-medium text-text">Save</button>
+          </div>
+        </div>
+      )}
+      {err && <div className="mt-1 text-danger">{err}</div>}
     </div>
   );
 }
