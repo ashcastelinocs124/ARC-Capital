@@ -35,19 +35,16 @@ def xlen(text: str) -> int:
 
 
 def drafts(kind: str, title: str, takeaways: list[str], url: str) -> list[str]:
-    """Daily: teaser + a reply with the link. Weekly: a thread (title, ≤5 takeaways, link)."""
-    if kind == "daily":
-        teaser = title
-        for i, t in enumerate(takeaways[:3]):
-            nxt = f"{teaser}{chr(10) * 2 if i == 0 else chr(10)}• {t}"
-            if xlen(nxt) > LIMIT:
-                break  # keep the teaser postable as drafted: fewer bullets rather than a cut sentence
-            teaser = nxt
-        return [teaser, f"Full note on Substack → {url}"]
+    """A thread for both kinds: the title 🧵, one post per takeaway (≤5), then the link."""
+    end = (
+        "Full note on Substack"
+        if kind == "daily"
+        else "The full deep dive, with charts and sources"
+    )
     return [
         f"{title} 🧵",
         *(f"{i}/ {t}" for i, t in enumerate(takeaways[:5], 1)),
-        f"The full deep dive, with charts and sources → {url}",
+        f"{end} → {url}",
     ]
 
 

@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 import { call } from "@/components/admin/DailyDesk";
 
-// Admin X posts: share a published Substack post on X. Daily note = teaser + a reply with the link;
-// weekly deep dive = a thread. Drafts come from the post's own title and takeaways (src/castelino/x_post.py).
+// Admin X posts: share a published Substack post on X as a thread (title, one post per takeaway,
+// then the link), for daily notes and weekly deep dives alike. Drafts come from the post's own title and takeaways (src/castelino/x_post.py).
 type Post = {
   kind: "daily" | "weekly";
   when: string;
@@ -112,9 +112,7 @@ export default function XPosts() {
             )}
             <h4 className="font-serif text-lg font-semibold leading-snug">{post.title}</h4>
             <p className="mb-3 text-xs text-muted">
-              {post.kind === "daily"
-                ? "A teaser post, then a reply with the link (X shows posts with links to fewer people)."
-                : "A thread: the title, one post per takeaway, then the link. Edit or remove posts before sending."}{" "}
+              A thread: the title, one post per takeaway, then the link. Edit or remove posts before sending.{" "}
               · <a className="underline" href={post.url} target="_blank" rel="noreferrer">Substack post ↗</a>
             </p>
             <div className="space-y-3">

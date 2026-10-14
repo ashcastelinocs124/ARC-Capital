@@ -33,11 +33,9 @@ def test_xlen_counts_links_as_23_and_emoji_as_2():
     assert x_post.xlen("ab 🧵") == 5
 
 
-def test_drafts_daily_is_teaser_plus_link_reply_weekly_is_a_thread():
-    d = x_post.drafts("daily", "Oil up", ["a", "b", "c", "d"], URL)
-    assert d == ["Oil up\n\n• a\n• b\n• c", f"Full note on Substack → {URL}"]
-    long = x_post.drafts("daily", "H" * 150, ["a" * 80, "b" * 80, "c" * 80], URL)
-    assert long[0] == "H" * 150 + "\n\n• " + "a" * 80  # stops adding bullets before 280
+def test_drafts_are_threads_for_daily_and_weekly():
+    d = x_post.drafts("daily", "Oil up", ["a", "b", "c"], URL)
+    assert d == ["Oil up 🧵", "1/ a", "2/ b", "3/ c", f"Full note on Substack → {URL}"]
     w = x_post.drafts("weekly", "Week 41", [str(i) for i in range(12)], URL)
     assert w[0] == "Week 41 🧵" and w[1] == "1/ 0" and len(w) == 7 and URL in w[-1]
 
