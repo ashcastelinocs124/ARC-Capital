@@ -1,0 +1,6 @@
+# ARC Research (arcresearch.markets): public macro research. Search crawlers and AI agents are welcome,
+# including the JSON snapshot under /api/. Only the password-gated admin area is off limits.
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api/admin/
