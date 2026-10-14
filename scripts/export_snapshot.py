@@ -1,9 +1,9 @@
 """Freeze the dashboard API into JSON files for the public, read-only Vercel build.
 
-Runs the Refresh-button jobs (unless --no-refresh), then calls every GET endpoint the
+Runs the Refresh-button jobs (unless --no-refresh; --jobs=a,b runs only those), then calls every GET endpoint the
 frontend uses through FastAPI's TestClient and writes each response to
 frontend/public/api/<path>.json, where the VITE_STATIC=1 build reads it (api/client.ts).
-Usage: uv run python scripts/export_snapshot.py [--no-refresh]
+Usage: uv run python scripts/export_snapshot.py [--no-refresh | --jobs=model_refit,cross_asset]
 """
 
 from __future__ import annotations
@@ -113,8 +113,10 @@ def copy_theme_charts(run_id: str, rec: dict, themes_dir: Path | None = None) ->
     return n
 
 
-def run_refresh() -> None:
+def run_refresh(only: list[str] | None = None) -> None:
     for key, fn in refresh._RUNNERS.items():
+        if only and key not in only:
+            continue
         try:
             print(f"[refresh] {key}: {fn()}")
         except refresh.Skipped as e:
@@ -165,6 +167,9 @@ def export() -> int:
 
 
 if __name__ == "__main__":
+    jobs = next((a[7:].split(",") for a in sys.argv if a.startswith("--jobs=")), None)
+    if bad := set(jobs or ()) - set(refresh._RUNNERS):  # a typo in a crontab must not silently skip
+        sys.exit(f"unknown --jobs {sorted(bad)}; known: {', '.join(refresh._RUNNERS)}")
     if "--no-refresh" not in sys.argv:
-        run_refresh()
+        run_refresh(jobs)
     sys.exit(0 if export() else 1)
