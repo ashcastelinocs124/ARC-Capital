@@ -112,8 +112,7 @@ agents:
 
   - id: theme_picker
     name: Theme Picker
-    group: Briefings
-    family: Theme Charts
+    group: Theme Charts
     dependencies:
       - {key: OPENAI_API_KEY, required: true, why: "LLM call (gpt-6-sol) + web search (gpt-6-luna)"}
       - {key: FRED_API_KEY, required: false, why: "FRED series; falls back to the keyless CSV endpoint when unset"}
@@ -125,7 +124,7 @@ agents:
     tools:
       - {name: "gather() (code)", does: "One cited web search for the most-discussed macro themes, 1d/1w/1m market moves, Polymarket economy + Fed odds swings"}
       - {name: "resolve() (code)", does: "Fetches each fred:/yahoo: series a chart names; the weekly guard drops a chart that can't be drawn"}
-      - {name: "Chart renderer (code)", does: "The Weekly Deep Dive's line / compare / movers exhibits, kicker THEME CHARTS"}
+      - {name: "Chart renderer (code)", does: "The Weekly Deep Dive's line / compare / movers exhibits plus heatmap, scatter and range (theme_charts.py), kicker THEME CHARTS"}
       - {name: "Number guard", does: "Every %, bp or pp in the theme, why and signals must be in the cited facts; one retry"}
     memory:
       reads: ["The last 6 runs' themes (data/themes/*.json)"]
@@ -370,15 +369,26 @@ systems:
       - title: "Daily Update 2 · Write"
         flow: [["code:Background|stock · data · past notes"], ["agent:update_editor|Morning Note"], ["code:Number guard|1 retry"], ["code:Chart agent|8 chart forms"], ["end:/updates|+ 2-tier memory"]]
         loops: [{from: 2, to: 1, label: "retry with errors"}]
-      - title: "Theme Charts"
-        flow: [["08:00 · 20:00 ET"], ["code:Signals|news + X · moves · Polymarket"], ["agent:theme_picker|#1 theme + charts"], ["code:Number guard|1 retry"], ["end:/themes|2-4 charts"]]
-        loops: [{from: 3, to: 2, label: "retry with errors"}]
       - title: "Admin · Daily desk"
         flow: [["Your question on /admin"], ["agent:desk_chat|one day · one agent"], ["end:Answer with fact ids"]]
       - title: "Model refit"
         flow: [["Refresh"], ["code:Refit Pulse / Pressure|XGBoost"], ["code:Promotion gate|Brier +0.02"], ["end:/models · /macro"]]
       - title: "Sector Sentiment"
         flow: [["Refresh"], ["code:Divergence scores|top-10 per sector"], ["agent:sector_narrative|1 call", "agent:sector_prose|11 calls"], ["end:Card on /models"]]
+
+  - group: Theme Charts
+    trigger: "Cron on the Fly server at 08:00 and 20:00 ET"
+    output: "The /themes page: the top macro theme, three signals and 2-4 charts, redeployed each run"
+    blurb: >-
+      Code gathers three signals: what news and financial X discuss most, the biggest market moves
+      and Polymarket odds swings. One Theme Picker call names the theme and picks the charts; code
+      fetches and draws every plotted number, and a guard checks each figure.
+    lanes:
+      - title: "Theme Charts 1 · Pick"
+        flow: [["08:00 · 20:00 ET"], ["code:News & X|cited web search", "code:Market moves|1d · 1w · 1m", "code:Polymarket|odds swings"], ["agent:theme_picker|#1 theme + 2-4 charts"], ["code:Number guard|1 retry"], ["end:↓ to stage 2"]]
+        loops: [{from: 3, to: 2, label: "retry with errors"}]
+      - title: "Theme Charts 2 · Chart & publish"
+        flow: [["code:Fetch series|FRED · Yahoo"], ["code:Chart forms|heatmap · scatter · range"], ["code:Save run|last 6 runs = memory"], ["end:/themes|deployed each run"]]
 
   - group: Deep research
     trigger: "A question asked on /deep-research"
