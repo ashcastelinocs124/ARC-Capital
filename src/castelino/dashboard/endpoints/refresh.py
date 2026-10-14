@@ -42,8 +42,12 @@ def job_model_refit() -> str:
     from castelino import config
     from castelino.agents.update import refit
     from castelino.agents.update.registry import ModelRegistry
-    from castelino.forecast.regime import train_and_forecast
+    from castelino.forecast.regime import rebuild_ism_proxy, train_and_forecast
 
+    try:
+        rebuild_ism_proxy()  # Pulse's target is a CSV; without this it never gets a new month
+    except Exception:  # noqa: BLE001 — FRED down: refit on the CSV we have
+        log.warning("could not rebuild the ISM proxy CSV; using the existing one", exc_info=True)
     cfg = config.get_settings()
     out = refit.run_refit(
         registry=ModelRegistry(cfg.root / cfg.update_agent.data_dir / "models"),

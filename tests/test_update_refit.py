@@ -51,3 +51,24 @@ def test_refresh_lists_model_refit_job():
     from castelino.dashboard.endpoints import refresh
 
     assert "model_refit" in refresh._RUNNERS and refresh.LABELS["model_refit"] == "Model refit"
+
+
+def test_ism_proxy_waits_for_both_surveys(tmp_path, monkeypatch):
+    import pandas as pd
+
+    from castelino.forecast import regime
+
+    def fred(sid):  # Philly has 1999 alone; Empire is out for October, Philly isn't yet
+        if sid == "GACDFSA066MSFRBPHI":
+            return pd.Series(
+                [4.0, 2.0, 6.0], pd.to_datetime(["1999-01-01", "2026-08-01", "2026-09-01"])
+            )
+        return pd.Series(
+            [10.0, 8.0, 12.0], pd.to_datetime(["2026-08-01", "2026-09-01", "2026-10-01"])
+        )
+
+    monkeypatch.setattr(regime, "_fetch_fred_series", fred)
+    monkeypatch.setattr(regime, "ISM_PROXY_CSV", tmp_path / "ism.csv")
+    assert regime.rebuild_ism_proxy() == "2026-09"
+    s = regime._fetch_local_csv(str(tmp_path / "ism.csv"))
+    assert s.tolist() == [4.0, 6.0, 7.0]

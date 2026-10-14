@@ -1,9 +1,7 @@
 # ISM Manufacturing PMI target series for the growth nowcaster.
-# ---------------------------------------------------------------------------
 # Mean of FRED GACDISA066MSFRBNY (Empire State) + GACDFSA066MSFRBPHI (Philly Fed)
-# general business conditions; 0 = neutral. ISM proxy; swap in licensed ISM if available.
-# Regenerate: PYTHONPATH=src python scripts/build_ism_pmi_proxy.py
-# ---------------------------------------------------------------------------
+# general business conditions; 0 = neutral. Rewritten by every Model refit
+# (castelino.forecast.regime.rebuild_ism_proxy).
 date,value
 1968-05-31,32.2000
 1968-06-30,18.4000

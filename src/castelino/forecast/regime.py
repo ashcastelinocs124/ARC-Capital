@@ -376,6 +376,38 @@ def _to_month_end(s: pd.Series) -> pd.Series:
     return s.resample("ME").mean()
 
 
+ISM_PROXY_CSV = ROOT / "data" / "ism_manufacturing_pmi.csv"
+
+
+def rebuild_ism_proxy() -> str:
+    """Rewrite the growth target CSV from FRED: mean of Empire State + Philly Fed (0 = neutral).
+
+    FRED removed the official ISM series (`NAPM`) in 2024. Run by every Model refit; returns the
+    latest month written.
+    """
+    both = pd.concat(
+        [
+            _to_month_end(_fetch_fred_series("GACDISA066MSFRBNY")),
+            _to_month_end(_fetch_fred_series("GACDFSA066MSFRBPHI")),
+        ],
+        axis=1,
+        sort=True,
+    )
+    # A month counts only once both surveys are out, so the target never changes after the
+    # refit that first saw it. Before 2001 (Empire's start) it is Philly alone.
+    proxy = both.loc[: both.dropna().index.max()].mean(axis=1).dropna()
+    lines = [
+        "# ISM Manufacturing PMI target series for the growth nowcaster.",
+        "# Mean of FRED GACDISA066MSFRBNY (Empire State) + GACDFSA066MSFRBPHI (Philly Fed)",
+        "# general business conditions; 0 = neutral. Rewritten by every Model refit",
+        "# (castelino.forecast.regime.rebuild_ism_proxy).",
+        "date,value",
+        *(f"{ts.strftime('%Y-%m-%d')},{v:.4f}" for ts, v in proxy.items()),
+    ]
+    ISM_PROXY_CSV.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return proxy.index.max().strftime("%Y-%m")
+
+
 SeriesProvider = Callable[[list[IndicatorSpec]], dict[str, pd.Series]]
 
 
