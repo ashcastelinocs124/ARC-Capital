@@ -19,7 +19,7 @@ const HOW: [string, string][] = [
 
 const PUBS: [string, string, string, string][] = [
   ["/updates", "Every weekday", "Memo", "The daily note: what moved, and why it matters."],
-  ["/deep-research", "Sundays", "Deep Research", "The week's 10–12 trends, researched in depth."],
+  ["/deep-research", "Sundays", "Deep Research", "The week's 10 to 12 trends, researched in depth."],
   ["/models", "Always on", "Models", "Growth and inflation nowcasts, sector sentiment, AI adoption, cross-asset drivers."],
 ];
 
@@ -27,8 +27,8 @@ export default function AboutPage() {
   return (
     <div className="space-y-5 p-4 md:p-8">
       <PageIntro kicker="About" title="Independent macro and AI research">
-        ARC Research follows the forces moving markets — growth, rates and inflation, and the AI build-out: frontier
-        models, chips and the semiconductor supply chain. It publishes every weekday, written by one independent
+        ARC Research follows the forces moving markets: growth, rates and inflation, and the AI build-out, from frontier
+        models to chips and the semiconductor supply chain. It publishes every weekday, written by one independent
         researcher with a desk of self-built AI agents, and every number is checked against its source before it goes out.
       </PageIntro>
 
@@ -44,14 +44,14 @@ export default function AboutPage() {
           </div>
           <div className="mt-5 space-y-3 text-[14.5px] leading-relaxed text-text-2">
             <p>
-              I'm Ashleyn Castelino, and I do independent research on macroeconomics and AI — from rates, inflation and
+              I'm Ashleyn Castelino, and I do independent research on macroeconomics and AI, from rates, inflation and
               growth to AI models, chips and semiconductors. I started ARC to make that research daily, open and
               checkable: the data comes straight from the source, the reasoning is written out, and the methods are
               documented on this site.
             </p>
             <p>
               I also build the systems behind it: the AI agents that gather the day's data and write the Morning Note and
-              the Sunday deep dive, and the machine-learning models on this site — growth and inflation nowcasters,
+              the Sunday deep dive, and the machine-learning models on this site: growth and inflation nowcasters,
               sector sentiment, an AI adoption index and cross-asset drivers.
             </p>
           </div>

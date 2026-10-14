@@ -144,7 +144,7 @@ function Splash() {
     <section className="card relative flex min-h-[calc(100svh-10rem)] lg:min-h-[calc(100svh-9rem)] flex-col items-center justify-center gap-2 overflow-hidden">
       <CircuitTraces />
       <Skyline />
-      <img src="/arc-logo.png" alt="" className="logo-in logo-img relative splash-logo h-48 w-auto md:h-72" style={{ animationDelay: "0.1s" }} />
+      <img src="/arc-logo.png" alt="" className="logo-in logo-img relative splash-logo h-56 w-auto md:h-80" style={{ animationDelay: "0.1s" }} />
       <span className="rise relative text-xl font-semibold tracking-[-0.02em] text-text md:text-2xl" style={{ animationDelay: "0.7s" }}>
         ARC <span className="text-accent">Research</span>
       </span>
