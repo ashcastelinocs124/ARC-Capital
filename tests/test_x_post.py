@@ -109,3 +109,23 @@ def test_rejects_long_posts_missing_link_and_unknown_slugs(tmp_path, monkeypatch
         == 400
     )
     assert c.post("/admin/desk/x/other-post", json={"texts": [URL]}).status_code == 404
+
+
+def test_card_meta_reads_large_and_small_cards():
+    large = (
+        '<meta data-rh="true" property="og:title" content="Fed &amp; yields"/>'
+        '<meta data-rh="true" property="og:image" content="https://cdn/og.jpg"/>'
+        '<meta data-rh="true" name="twitter:image" content="https://cdn/tw.jpg?v=4"/>'
+        '<meta data-rh="true" name="twitter:card" content="summary_large_image"/>'
+    )
+    assert admin_desk.card_meta(large) == {
+        "large": True,
+        "image": "https://cdn/tw.jpg?v=4",
+        "title": "Fed & yields",
+    }
+    small = '<meta name="twitter:card" content="summary"><meta property="og:image" content="https://cdn/logo.png">'
+    assert admin_desk.card_meta(small) == {
+        "large": False,
+        "image": "https://cdn/logo.png",
+        "title": "",
+    }

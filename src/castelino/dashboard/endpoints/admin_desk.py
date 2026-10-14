@@ -11,7 +11,9 @@ import os
 import re
 import threading
 from datetime import datetime
+from html import unescape
 
+import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -135,6 +137,42 @@ def x_posts():
 
 class XPostIn(BaseModel):
     texts: list[str]
+
+
+_META = re.compile(r"<meta\s[^>]*>", re.I)
+_ATTR = re.compile(r'([\w:-]+)="([^"]*)"')
+
+
+def card_meta(html: str) -> dict:
+    """The link card X builds from a page: large picture card or small one, its image and title."""
+    tags = {}
+    for tag in _META.findall(html):
+        a = dict(_ATTR.findall(tag))
+        key = a.get("property") or a.get("name")
+        if key and "content" in a:
+            tags.setdefault(key, unescape(a["content"]))
+    return {
+        "large": tags.get("twitter:card") == "summary_large_image",
+        "image": tags.get("twitter:image") or tags.get("og:image"),
+        "title": tags.get("twitter:title") or tags.get("og:title") or "",
+    }
+
+
+@router.get("/x/{slug}/card")
+def x_card(slug: str):
+    """The card X will attach to the thread's link post, read from the Substack page (not cached,
+    so a cover added in Substack shows on the next look)."""
+    match = next((r for r in _published() if r["slug"] == slug), None)
+    if not match:
+        raise HTTPException(404, "not a published Substack post")
+    try:
+        r = httpx.get(
+            match["url"], headers={"User-Agent": "Mozilla/5.0"}, timeout=10, follow_redirects=True
+        )
+        r.raise_for_status()
+    except httpx.HTTPError as e:
+        raise HTTPException(502, f"couldn't read the Substack page: {e}") from e
+    return card_meta(r.text)
 
 
 @router.post("/x/{slug}")
