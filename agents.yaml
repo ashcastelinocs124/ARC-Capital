@@ -131,6 +131,26 @@ agents:
       writes: ["data/themes/<date>-<am|pm>.json + charts/<run>/exhibit_N.png"]
       persists: "Each run's record; its theme and streak are the next run's memory."
 
+  - id: move_explainer
+    name: Move Explainer
+    group: Market alerts
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "Web search (web_search.model)"}
+      - {key: X_API_KEY, required: false, why: "With X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET and X_MOVES_LIVE=1, posts go live; else dry run"}
+    prompt: "castelino.x_moves:SYSTEM"
+    summary: >-
+      Every 30 minutes in US trading hours code checks 10 markets on Yahoo; one that moves at least
+      2.5x its typical daily move is posted to X. Code writes every number; this one cited web
+      search adds the one-sentence "Why:" line, dropped when the search cited nothing.
+    tools:
+      - {name: "check() (code)", does: "5y of Yahoo daily bars per market: today's move, z vs the past 252 days, last day as big"}
+      - {name: "web_search", does: "One cited search per post; only a cited sentence of at most 200 characters is kept"}
+      - {name: "compose() + post (code)", does: "Lead move, up to 3 others, the why if it fits 280 characters, the link; x_post.post or the dry-run log"}
+    memory:
+      reads: ["Today's posts (data/x_posts/moves/<date>.json)"]
+      writes: ["data/x_posts/moves/<date>.json"]
+      persists: "Each day's posts: a market posts once a day, at most 3 posts a day."
+
   - id: desk_chat
     name: Desk Chat
     group: Briefings
@@ -389,6 +409,16 @@ systems:
         loops: [{from: 3, to: 2, label: "retry with errors"}]
       - title: "Theme Charts 2 · Chart & publish"
         flow: [["code:Fetch series|FRED · Yahoo"], ["code:Chart forms|heatmap · scatter · range"], ["code:Save run|last 6 runs = memory"], ["end:/themes|deployed each run"]]
+
+  - group: Market alerts
+    trigger: "Cron on the Fly server every 30 minutes, 9:35-16:05 ET on weekdays"
+    output: "A post on X for each market move of at least 2.5 sigma (dry run until X_MOVES_LIVE=1)"
+    blurb: >-
+      Code measures today's move in 10 markets against their past year and decides what to post.
+      One Move Explainer search adds a cited reason; code writes every number in the post.
+    lanes:
+      - title: "Market alerts"
+        flow: [["Every 30 min"], ["code:Market check|10 markets · z ≥ 2.5"], ["agent:move_explainer|cited why"], ["code:Compose|≤ 280 · 1/market/day"], ["end:Post on X|or dry-run log"]]
 
   - group: Deep research
     trigger: "A question asked on /deep-research"

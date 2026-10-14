@@ -9,3 +9,6 @@
 # Pulse/Pressure refit, Sector Sentiment, Cross-Asset, then a publish (no Substack). AI Adoption stays
 # on the 17:00 run: it can take hours.
 30 9 * * * cd /app && flock /tmp/arc-publish.lock timeout 1h env SKIP_SUBSTACK=1 scripts/publish_server.sh --jobs=model_refit,sector_sentiment,cross_asset >> data/publish.log 2>&1
+# Market alerts (x_moves.py): every 30 min, the job itself skips outside 9:35-16:05 ET on weekdays.
+# Dry run (log only) until X_MOVES_LIVE=1 and the four X_API_* / X_ACCESS_* keys are Fly secrets.
+5,35 9-16 * * 1-5 cd /app && timeout 10m python -m castelino.x_moves >> data/x_moves.log 2>&1
