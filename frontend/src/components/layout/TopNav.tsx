@@ -11,16 +11,14 @@ type Item = { to: string; label: string; desc: string };
 type Entry = { label: string; to: string } | { label: string; items: Item[] };
 
 const NAV: Entry[] = [
+  { label: "Models", to: "/models" },
   { label: "Markets", items: [
     { to: "/macro", label: "Radar", desc: "The week ahead: releases, earnings, AI launches" },
     { to: "/updates", label: "Memo", desc: "The daily note, every weekday" },
     { to: "/deep-research", label: "Deep Research", desc: "The Sunday deep dive" },
   ] },
-  { label: "Models", to: "/models" },
   { label: "AI", items: [
     { to: "/ai", label: "AI Update", desc: "Models, chips and the AI stack" },
-    { to: "/macro#ai-sentiment", label: "AI Model Sentiment", desc: "What builders on X say about each lab" },
-    { to: "/models#model-adoption", label: "AI Adoption Index", desc: "Who is really using AI, by sector and size" },
   ] },
   { label: "Special Topics", items: [
     { to: "/special-topics", label: "Special Topics", desc: "Deeper dives and presentations" },

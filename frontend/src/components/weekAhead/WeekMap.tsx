@@ -137,7 +137,7 @@ export function WeekMap({ data }: { data: WeekAhead }) {
 
   return (
     <div className="overflow-x-auto">
-      <svg viewBox={`0 0 ${W} ${H}`} className="min-w-[760px] w-full h-auto overflow-visible" role="img"
+      <svg viewBox={`0 0 ${W} ${H}`} className="mx-auto min-w-[760px] w-full max-w-[1150px] h-auto overflow-visible" role="img"
         aria-label="This week's releases, earnings and AI launches on a timeline">
         {DAYS.map((d, i) => (
           <g key={d}>
