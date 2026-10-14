@@ -32,6 +32,7 @@ THUMB_OVERRIDES = {
     "fed-pause-expectations-rose-even": "/thumbs/fed-pause-expectations.jpg",
     "hike-risk-oil-shocks-and-an-ai-reality": "/thumbs/hike-risk-oil-shocks.jpg",
     "overview-of-nvidias-open-agent-safety": "/thumbs/nvidia-openagent.jpg",
+    "fed-officials-kept-another-hike-in": "/thumbs/fed-officials-another-hike.jpg",
 }
 
 
