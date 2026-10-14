@@ -28,6 +28,7 @@ const NAV: Entry[] = [
     { to: "/agents", label: "Agents", desc: "How ARC's own agents are built" },
     { to: "/docs", label: "Docs", desc: "What each model predicts and how to read it" },
   ] },
+  { label: "About", to: "/about" },
 ];
 
 const holds = (items: Item[], path: string) => items.some((i) => !i.to.includes("#") && i.to === path);

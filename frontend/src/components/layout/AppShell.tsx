@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { TopBar } from "./TopBar";
 import { TopNav } from "./TopNav";
 
@@ -44,7 +44,7 @@ function Disclaimer() {
       third-party data that may be incomplete, delayed or wrong, and past performance does not predict future
       results. Do your own research or consult a licensed professional before making any investment decision.
       You use this site at your own risk; ARC Research and its authors accept no liability for any loss arising
-      from its use.
+      from its use. <Link to="/about" className="font-semibold text-text-2 underline hover:text-text">About ARC</Link>
     </footer>
   );
 }
