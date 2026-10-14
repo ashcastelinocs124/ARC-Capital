@@ -80,54 +80,57 @@ export default function MacroPage() {
             )}
             <GapNote gaps={data.gaps} lanes={["econ", "earnings", "ai"]} />
           </Card>
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card title="Inflation: previous → consensus" sub="y/y %"><InflationExpectations events={data.events} /></Card>
-            <Card title="Expected EPS growth vs a year ago" sub="consensus EPS ÷ year-ago EPS"><EpsGrowth events={data.events} /></Card>
-          </div>
-          {data.sectors && data.sectors.length > 0 && (
-            <Card title="Sectors: year-to-date vs valuation" sub="SPDR sector ETFs · YTD price return vs trailing P/E · hover for details">
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-2 mb-1">
-                <span className="flex items-center gap-1.5"><i className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: C.earnings }} />Earnings growing (median of top 10)</span>
-                <span className="flex items-center gap-1.5"><i className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: C.danger }} />Earnings shrinking</span>
-                <span className="flex items-center gap-1.5"><i className="inline-block w-2.5 h-2.5 rounded-full border-2" style={{ borderColor: C.text }} />S&amp;P 500 (SPY)</span>
-              </div>
-              <SectorValuation rows={data.sectors} />
-              <p className="text-[11.5px] text-muted mt-2">
-                The dashed lines through the S&amp;P 500 split the chart. A red dot high up means the price ran ahead of shrinking
-                earnings. Earnings growth is the median latest-quarter year-on-year growth of each sector's 10 largest companies.
-              </p>
-              <GapNote gaps={data.gaps} lanes={["sectors"]} />
-            </Card>
-          )}
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card title="Businesses paying for AI" sub="Ramp AI Index via FRED · % of US businesses · monthly">
-              <RampChart ramp={data.spend.ramp} />
-              <p className="text-[11.5px] text-muted mt-2">
-                "Any AI" is the share of US businesses on Ramp that paid for at least one AI product that month, from any
-                vendor. Many pay more than one provider, so the provider lines add up to more than it.
-              </p>
-              <GapNote gaps={data.gaps} lanes={["ramp"]} />
-            </Card>
-            <Card title="Who developers' tokens go to" sub={or ? `OpenRouter · ${or.basis} · ${span(or.week[0], or.week[1])}` : "OpenRouter"}>
-              <OpenRouterBars or={or ?? null} />
-              <p className="text-[11.5px] text-muted mt-2">Developer traffic routed through OpenRouter, not total market spend.</p>
-              <GapNote gaps={data.gaps} lanes={["openrouter"]} />
-            </Card>
-          </div>
-          <Card id="ai-sentiment" title="AI model sentiment on X"
-            sub={sentiment ? `${sentiment.accounts} tracked accounts · word-list scoring · 7-day average · Δ7d = change vs a week ago` : "X API"}>
-            {sentiment ? (
-              <>
-                <AiSentimentCard data={sentiment} />
+          {/* everything after the week map sits ~15% narrower; charts are w-full so they shrink with their cards */}
+          <div className="space-y-6 md:w-[85%] md:mx-auto">
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card title="Inflation: previous → consensus" sub="y/y %"><InflationExpectations events={data.events} /></Card>
+              <Card title="Expected EPS growth vs a year ago" sub="consensus EPS ÷ year-ago EPS"><EpsGrowth events={data.events} /></Card>
+            </div>
+            {data.sectors && data.sectors.length > 0 && (
+              <Card title="Sectors: year-to-date vs valuation" sub="SPDR sector ETFs · YTD price return vs trailing P/E · hover for details">
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-2 mb-1">
+                  <span className="flex items-center gap-1.5"><i className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: C.earnings }} />Earnings growing (median of top 10)</span>
+                  <span className="flex items-center gap-1.5"><i className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: C.danger }} />Earnings shrinking</span>
+                  <span className="flex items-center gap-1.5"><i className="inline-block w-2.5 h-2.5 rounded-full border-2" style={{ borderColor: C.text }} />S&amp;P 500 (SPY)</span>
+                </div>
+                <SectorValuation rows={data.sectors} />
                 <p className="text-[11.5px] text-muted mt-2">
-                  Net = % positive − % negative posts (−100 to +100), averaged over 7 days; Δ7d = today's average minus the average a
-                  week ago. Posts come only from a hand-kept list of credible accounts via the X API, and a fixed word list scores them (hatched = fewer than 10 posts in the week). Lab staff don't count toward their own lab.
+                  The dashed lines through the S&amp;P 500 split the chart. A red dot high up means the price ran ahead of shrinking
+                  earnings. Earnings growth is the median latest-quarter year-on-year growth of each sector's 10 largest companies.
                 </p>
-              </>
-            ) : (
-              <p className="text-sm text-muted">Not configured yet: this indicator needs an X API token.</p>
+                <GapNote gaps={data.gaps} lanes={["sectors"]} />
+              </Card>
             )}
-          </Card>
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card title="Businesses paying for AI" sub="Ramp AI Index via FRED · % of US businesses · monthly">
+                <RampChart ramp={data.spend.ramp} />
+                <p className="text-[11.5px] text-muted mt-2">
+                  "Any AI" is the share of US businesses on Ramp that paid for at least one AI product that month, from any
+                  vendor. Many pay more than one provider, so the provider lines add up to more than it.
+                </p>
+                <GapNote gaps={data.gaps} lanes={["ramp"]} />
+              </Card>
+              <Card title="Who developers' tokens go to" sub={or ? `OpenRouter · ${or.basis} · ${span(or.week[0], or.week[1])}` : "OpenRouter"}>
+                <OpenRouterBars or={or ?? null} />
+                <p className="text-[11.5px] text-muted mt-2">Developer traffic routed through OpenRouter, not total market spend.</p>
+                <GapNote gaps={data.gaps} lanes={["openrouter"]} />
+              </Card>
+            </div>
+            <Card id="ai-sentiment" title="AI model sentiment on X"
+              sub={sentiment ? `${sentiment.accounts} tracked accounts · word-list scoring · 7-day average · Δ7d = change vs a week ago` : "X API"}>
+              {sentiment ? (
+                <>
+                  <AiSentimentCard data={sentiment} />
+                  <p className="text-[11.5px] text-muted mt-2">
+                    Net = % positive − % negative posts (−100 to +100), averaged over 7 days; Δ7d = today's average minus the average a
+                    week ago. Posts come only from a hand-kept list of credible accounts via the X API, and a fixed word list scores them (hatched = fewer than 10 posts in the week). Lab staff don't count toward their own lab.
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-muted">Not configured yet: this indicator needs an X API token.</p>
+              )}
+            </Card>
+          </div>
         </>
       )}
     </div>
