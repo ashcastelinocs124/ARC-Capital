@@ -1,6 +1,6 @@
 """Sector Sentiment explainers — OpenAI prose around numbers Python already computed.
 
-Two StructuredAgents, run once per daily refresh (1 narrative + 11 sector calls):
+Two StructuredAgents, run once per daily refresh (1 narrative + 1 call per sector row):
   - SectorNarrativeAgent: 3-5 sentence read of the whole snapshot.
   - SectorProseAgent: 2-3 sentences per sector explaining its concentration
     verdict (stock_specific / sector_wide / mixed), which code has decided.
@@ -80,7 +80,10 @@ def narrative_context(snap: SectorSentimentSnapshot, prev_narrative: str | None 
             if s.delta_since_prev is not None
             else ""
         )
-        lines.append(f"- {s.sector} ({s.etf}): divergence {s.divergence:+.2f} [{s.label}]{z}{d}")
+        part = f" (not a GICS sector: its stocks also count in {s.part_of})" if s.part_of else ""
+        lines.append(
+            f"- {s.sector} ({s.etf}){part}: divergence {s.divergence:+.2f} [{s.label}]{z}{d}"
+        )
 
     verdicts = [(s.sector, s.explanation) for s in snap.sectors if s.explanation]
     if verdicts:

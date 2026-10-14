@@ -265,7 +265,7 @@ function Sections() {
       points: [["Data releases", "US, China, Germany, Japan, India"], ["Earnings", "S&P 500 + AI names"], ["AI launches", "New models and reported releases"], ["AI spend", "Ramp AI Index, token share"]] },
     { to: "/models", title: "Models", sub: "Live nowcasts", vis: <ModelsVis />,
       blurb: "Pulse and Pressure read where growth and inflation are heading next month, next to Sector Sentiment, the AI Adoption Index and Cross-Asset Drivers.",
-      points: [["Pulse", "P(expansion next month)"], ["Pressure", "P(CPI accelerates)"], ["Sector Sentiment", "11 GICS sectors"], ["Cross-Asset", "What moved stocks and bonds"]] },
+      points: [["Pulse", "P(expansion next month)"], ["Pressure", "P(CPI accelerates)"], ["Sector Sentiment", "11 GICS sectors + Semis"], ["Cross-Asset", "What moved stocks and bonds"]] },
     { to: "/updates", title: "Memo", sub: "Every weekday", vis: <MemoVis />,
       blurb: "The daily note: the day's macro in five ranked items, each with a chart, and every number checked against its source.",
       points: [["Five items", "Ranked by what moved"], ["Exhibits", "One chart per item"], ["Checked", "Every figure traced to data"]] },

@@ -125,7 +125,12 @@ function SectorDrawer({ s, names, onClose }: { s: SectorScore; names: Record<str
 const FRESH_HOURS = 24;
 const count = (n: number) => `${n} sector${n === 1 ? "" : "s"}`;
 const pct = (v: number | null | undefined) => (v == null ? "—" : `${v > 0 ? "+" : ""}${(v * 100).toFixed(0)}%`);
-const KIND = "Technical − fundamental divergence · 11 GICS sectors, top 10 stocks each";
+// A stock in a sector and the Semiconductors overlay is one stock in two rows.
+function stocksScored(rows: SectorStockRow[]) {
+  const n = new Set(rows.map((r) => r.symbol)).size;
+  return n < rows.length ? `${n} (${rows.length - n} in two rows)` : String(n);
+}
+const KIND = "Technical − fundamental divergence · 11 GICS sectors + Semiconductors, top 10 stocks each";
 
 const HOW: { short: string; steps: ReactNode[] } = {
   short:
@@ -135,6 +140,7 @@ const HOW: { short: string; steps: ReactNode[] } = {
     <><b>Fundamental score:</b> revenue growth, earnings growth and P/E relative to the sector median (cheaper scores higher), scored the same way.</>,
     <><b>Divergence</b> = technical − fundamental per stock, then cap-weighted across the sector's top 10.</>,
     <><b>Labels:</b> ≥ +0.30 euphoric (price ahead of fundamentals), ≤ −0.30 fearful (fundamentals nobody is buying), otherwise fair.</>,
+    <><b>Semiconductors</b> is an extra row, not a GICS sector: the 10 largest chip and chip-equipment stocks. They also count in Technology.</>,
     <><b>Explainer:</b> code works out whether a reading is sector-wide or driven by one stock; an LLM writes the prose, which describes and does not recommend.</>,
   ],
 };
@@ -167,7 +173,7 @@ function Summary({ snap, expanded, onToggle }: { snap: SectorSentimentSnapshot; 
         <StatCell label="Euphoric (≥ +0.30)" value={count(sectors.filter((s) => s.label === "euphoric").length)} />
         <StatCell label="Fearful (≤ −0.30)" value={count(sectors.filter((s) => s.label === "fearful").length)} />
         {lowest && <StatCell label="Most negative" value={`${lowest.sector} ${fmt(lowest.divergence)}`} />}
-        <StatCell label="Stocks scored" value={String(snap.stocks.length)} />
+        <StatCell label="Stocks scored" value={stocksScored(snap.stocks)} />
         <StatCell
           label="As of"
           value={new Date(snap.as_of).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
@@ -218,7 +224,14 @@ function SectorRows({ sectors, onOpen }: { sectors: SectorScore[]; onOpen: (s: s
         <tbody>
           {sectors.map((s) => (
             <tr key={s.sector} data-stop onClick={() => onOpen(s.sector)} className="border-t border-border cursor-pointer hover:bg-surface-2">
-              <td className="py-1.5">{s.sector}</td>
+              <td className="py-1.5">
+                {s.sector}
+                {s.part_of && (
+                  <span className="ml-1.5 whitespace-nowrap rounded-full border border-accent/40 px-1.5 text-[9.5px] font-semibold uppercase tracking-wide text-accent">
+                    in {s.part_of === "Technology" ? "Tech" : s.part_of}
+                  </span>
+                )}
+              </td>
               <td className="text-right font-mono">{fmt(s.tech_score)}</td>
               <td className="text-right font-mono">{fmt(s.fund_score)}</td>
               <td className="text-right"><DivergenceChip v={s.divergence} /></td>

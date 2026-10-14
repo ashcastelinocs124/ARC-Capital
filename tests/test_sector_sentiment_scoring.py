@@ -124,3 +124,20 @@ def test_aggregate_skips_stocks_without_divergence():
     assert len(sectors) == 1  # only Technology, from OK1/OK2
     # SKIP's monster cap must not influence the sector (it was renormalized out)
     assert sectors[0].label in {"euphoric", "fair", "fearful"}
+
+
+def test_stock_in_sector_and_overlay_scored_per_row():
+    # NVDA sits in Technology and Semiconductors with a different P/E-vs-median in each
+    rows = [
+        _row(symbol="NVDA", sector="Technology", pe_rel=0.5),
+        _row(symbol="NVDA", sector="Semiconductors", pe_rel=2.0),
+        _row(symbol="AAPL", sector="Technology", pe_rel=1.0),
+        _row(symbol="MU", sector="Semiconductors", pe_rel=1.0),
+    ]
+    out = score_stocks(rows)
+    tech_nvda, semi_nvda = out[0], out[1]
+    assert tech_nvda.fund_score > semi_nvda.fund_score  # cheaper vs its group scores higher
+    assert tech_nvda.tech_score == semi_nvda.tech_score
+    by = {s.sector: s for s in aggregate_sectors(out)}
+    assert by["Semiconductors"].etf == "SMH" and by["Semiconductors"].part_of == "Technology"
+    assert by["Technology"].etf == "XLK" and by["Technology"].part_of is None

@@ -41,6 +41,16 @@ SECTOR_ETFS: dict[str, tuple[str, str]] = {
     "Comm. Services": ("XLC", "communication-services"),
 }
 
+# Extra rows that are not GICS sectors: name -> (ETF, the GICS sector they sit inside, yfinance
+# industry keys). Their stocks also count in that sector, so NVDA is in Technology and here.
+OVERLAYS: dict[str, tuple[str, str, tuple[str, ...]]] = {
+    "Semiconductors": (
+        "SMH",
+        "Technology",
+        ("semiconductors", "semiconductor-equipment-materials"),
+    ),
+}
+
 _TECH_METRICS = ("rsi14", "macd_hist", "vs_sma50", "vs_sma200", "ret_3m")
 # pe_rel inverted (cheap = good) before scoring; see score_stocks.
 _FUND_METRICS = ("rev_yoy", "earnings_growth", "pe_rel_inv")
@@ -110,6 +120,7 @@ class SectorScore(BaseModel):
     avg_fund: float | None = None
     zscore: float | None = None
     delta_since_prev: float | None = None
+    part_of: str | None = None  # overlays only: the GICS sector whose stocks this row shares
 
 
 class SectorSentimentSnapshot(BaseModel):
@@ -141,26 +152,32 @@ def score_stocks(rows: list[StockRow]) -> list[StockRow]:
     stock with NO fundamental metrics gets fundamentals_missing=True and no
     fund/divergence (never zero-filled).
     """
+
     # ponytail: equal weights, tune when history justifies
+    # Keyed per row, not per symbol: a stock in a sector and an overlay has a different pe_rel in
+    # each. ponytail: it then counts twice in the z-score stats (6 of ~120 rows); dedupe if that grows.
+    def key(r: StockRow) -> str:
+        return f"{r.sector}|{r.symbol}"
+
     metric_values: dict[str, dict[str, float | None]] = {}
     for m in _TECH_METRICS:
-        metric_values[m] = {r.symbol: getattr(r, m) for r in rows}
-    metric_values["rev_yoy"] = {r.symbol: r.rev_yoy for r in rows}
-    metric_values["earnings_growth"] = {r.symbol: r.earnings_growth for r in rows}
+        metric_values[m] = {key(r): getattr(r, m) for r in rows}
+    metric_values["rev_yoy"] = {key(r): r.rev_yoy for r in rows}
+    metric_values["earnings_growth"] = {key(r): r.earnings_growth for r in rows}
     metric_values["pe_rel_inv"] = {
-        r.symbol: (-r.pe_rel if r.pe_rel is not None else None) for r in rows
+        key(r): (-r.pe_rel if r.pe_rel is not None else None) for r in rows
     }
 
     scored = {m: cross_sectional_score(vals) for m, vals in metric_values.items()}
 
-    def _avg(symbol: str, metrics: tuple[str, ...]) -> float | None:
-        vals = [scored[m][symbol] for m in metrics if symbol in scored[m]]
+    def _avg(k: str, metrics: tuple[str, ...]) -> float | None:
+        vals = [scored[m][k] for m in metrics if k in scored[m]]
         return sum(vals) / len(vals) if vals else None
 
     out: list[StockRow] = []
     for r in rows:
-        tech = _avg(r.symbol, _TECH_METRICS)
-        fund = _avg(r.symbol, _FUND_METRICS)
+        tech = _avg(key(r), _TECH_METRICS)
+        fund = _avg(key(r), _FUND_METRICS)
         update: dict = {"tech_score": tech, "fund_score": fund}
         if fund is None:
             update["fundamentals_missing"] = True
@@ -243,11 +260,12 @@ def aggregate_sectors(
 
         div = _wavg("divergence")
         label = "euphoric" if div >= euphoric else "fearful" if div <= fearful else "fair"
-        etf = SECTOR_ETFS.get(sector, ("?", ""))[0]
+        etf = (SECTOR_ETFS.get(sector) or OVERLAYS.get(sector) or ("?",))[0]
         scores.append(
             SectorScore(
                 sector=sector,
                 etf=etf,
+                part_of=OVERLAYS[sector][1] if sector in OVERLAYS else None,
                 divergence=div,
                 tech_score=_wavg("tech_score"),
                 fund_score=_wavg("fund_score"),
@@ -291,22 +309,52 @@ def _yf_top_companies(sector_key: str, limit: int) -> list[dict]:
     return out
 
 
+def _yf_top_industries(industry_keys: tuple[str, ...], limit: int) -> list[dict]:
+    """Top companies across several yfinance industries: [{symbol, name, market_cap}]. Yahoo's
+    market weight is a share of its own industry, so the merged list is ranked by market cap."""
+    import yfinance as yf
+
+    names: dict[str, str] = {}
+    for key in industry_keys:
+        df = yf.Industry(key).top_companies
+        if df is not None:
+            for symbol, row in df.head(limit).iterrows():
+                names[str(symbol)] = str(row.get("name", symbol))
+    caps: dict[str, float] = {}
+    for symbol in names:
+        try:
+            caps[symbol] = float(yf.Ticker(symbol).fast_info["market_cap"] or 0.0)
+        except Exception:  # noqa: BLE001 — an unknown cap ranks last rather than failing the row
+            caps[symbol] = 0.0
+    top = sorted(caps, key=caps.__getitem__, reverse=True)[:limit]
+    return [{"symbol": s, "name": names[s], "market_cap": caps[s]} for s in top]
+
+
 def get_universe(force: bool = False) -> dict[str, list[dict]]:
-    """Sector -> top-N stocks: [{symbol, name}]. Screened via yfinance sector
+    """Sector (and overlay) -> top-N stocks: [{symbol, name}]. Screened via yfinance
     rankings; cached on disk for cfg.sector_sentiment.universe_cache_hours."""
     cfg = get_settings().sector_sentiment
     path = _universe_path()
+    fetchers = {
+        s: (lambda k=k: _yf_top_companies(k, cfg.top_n_per_sector))
+        for s, (_e, k) in SECTOR_ETFS.items()
+    }
+    fetchers |= {
+        s: (lambda k=k: _yf_top_industries(k, cfg.top_n_per_sector))
+        for s, (_e, _p, k) in OVERLAYS.items()
+    }
     if not force and path.exists():
         raw = json.loads(path.read_text())
         fetched = datetime.fromisoformat(raw["fetched_at"])
         age_h = (datetime.now(UTC) - fetched).total_seconds() / 3600
-        if age_h < cfg.universe_cache_hours:
+        # a group missing from the cache (new, or failed last time) refetches the lot
+        if age_h < cfg.universe_cache_hours and set(fetchers) <= set(raw["universe"]):
             return raw["universe"]
 
     universe: dict[str, list[dict]] = {}
-    for sector, (_etf, yf_key) in SECTOR_ETFS.items():
+    for sector, fetch in fetchers.items():
         try:
-            results = _yf_top_companies(yf_key, cfg.top_n_per_sector)
+            results = fetch()
         except Exception:
             log.warning("sector sentiment: sector ranking failed for %s", sector)
             continue
@@ -483,7 +531,9 @@ def _technicals_from_closes(closes: list[float]) -> dict:
 def collect_rows(universe: dict[str, list[dict]]) -> list[StockRow]:
     """Fetch raw metrics for every stock in the universe. pe_rel is the
     stock's P/E divided by its sector's median P/E."""
-    all_symbols = [m["symbol"] for members in universe.values() for m in members]
+    # a stock in a sector and an overlay is fetched once
+    all_symbols = list(dict.fromkeys(m["symbol"] for members in universe.values() for m in members))
+    funds: dict[str, dict] = {}
     try:
         closes_by_symbol = _yf_closes(all_symbols)
     except Exception:
@@ -495,7 +545,9 @@ def collect_rows(universe: dict[str, list[dict]]) -> list[StockRow]:
     for sector, members in universe.items():
         for m in members:
             tech = _technicals_from_closes(closes_by_symbol.get(m["symbol"], []))
-            fund = _yf_fundamentals(m["symbol"])
+            if m["symbol"] not in funds:
+                funds[m["symbol"]] = _yf_fundamentals(m["symbol"])
+            fund = funds[m["symbol"]]
             rows.append(
                 StockRow(
                     symbol=m["symbol"],

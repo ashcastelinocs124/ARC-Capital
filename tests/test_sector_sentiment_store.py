@@ -100,11 +100,24 @@ def test_get_universe_uses_cache(tmp_store, monkeypatch):
             {"symbol": "BBB", "name": "B Corp"},
         ]
 
+    def fake_industries(keys, limit):
+        calls.append(keys)
+        return [{"symbol": "NVDA", "name": "NVIDIA", "market_cap": 5e12}]
+
     monkeypatch.setattr(ss, "_yf_top_companies", fake_top)
+    monkeypatch.setattr(ss, "_yf_top_industries", fake_industries)
     uni = ss.get_universe()
-    assert len(calls) == 11  # one screen per sector
+    assert len(calls) == 12  # one screen per sector + the Semiconductors overlay
     assert uni["Technology"][0]["symbol"] == "AAA"
+    assert uni["Semiconductors"][0]["symbol"] == "NVDA"
     calls.clear()
     uni2 = ss.get_universe()  # second call inside TTL -> cache, no API
     assert calls == []
     assert uni2 == uni
+
+    # a cache written before the overlay existed is refetched, not served without it
+    raw = json.loads(ss._universe_path().read_text())
+    del raw["universe"]["Semiconductors"]
+    ss._universe_path().write_text(json.dumps(raw))
+    assert "Semiconductors" in ss.get_universe()
+    assert len(calls) == 12

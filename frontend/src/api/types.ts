@@ -51,6 +51,7 @@ export interface SectorScore {
   avg_fund: number | null;
   zscore: number | null;
   delta_since_prev: number | null;
+  part_of?: string | null; // overlay rows only (Semiconductors): the GICS sector whose stocks it shares
 }
 
 export interface SectorStockRow {
