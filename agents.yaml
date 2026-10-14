@@ -151,6 +151,26 @@ agents:
       writes: ["data/x_posts/moves/<date>.json"]
       persists: "Each day's posts: a market posts once a day, at most 3 posts a day."
 
+  - id: x_chart_picker
+    name: Chart Picker
+    group: Market alerts
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "LLM call (fast tier)"}
+      - {key: FRED_API_KEY, required: false, why: "A fred: context series; falls back to the keyless CSV endpoint when unset"}
+    class: castelino.x_moves.ChartPicker
+    summary: >-
+      Picks the one chart for each market-alert post: today's intraday path (the default) or a
+      context chart of one series the Why line points at (a yield, oil, a stock, a release). Code
+      fetches and draws every plotted value; any failure falls back to the intraday chart, then to
+      a text-only post.
+    tools:
+      - {name: "intraday_chart() (code)", does: "Yahoo 5-minute bars, change since yesterday's close, one line per market of the lead's unit"}
+      - {name: "context_chart() (code)", does: "One fred:/yahoo: series over 30-365 days via Theme Charts' fetch_series, drawn with the Morning Note's line chart"}
+    memory:
+      reads: ["The post being made: its markets, moves and Why line"]
+      writes: ["data/x_posts/moves/<date>/<HHMM>.png"]
+      persists: "Nothing; the day file records which chart went out and why."
+
   - id: desk_chat
     name: Desk Chat
     group: Briefings
@@ -412,13 +432,13 @@ systems:
 
   - group: Market alerts
     trigger: "Cron on the Fly server every 30 minutes, 9:35-16:05 ET on weekdays"
-    output: "A post on X for each market move of at least 2.5 sigma (dry run until X_MOVES_LIVE=1)"
+    output: "A post on X with one chart for each market move of at least 2.5 sigma (dry run until X_MOVES_LIVE=1)"
     blurb: >-
       Code measures today's move in 10 markets against their past year and decides what to post.
       One Move Explainer search adds a cited reason; code writes every number in the post.
     lanes:
       - title: "Market alerts"
-        flow: [["Every 30 min"], ["code:Market check|10 markets · z ≥ 2.5"], ["agent:move_explainer|cited why"], ["code:Compose|≤ 280 · 1/market/day"], ["end:Post on X|or dry-run log"]]
+        flow: [["Every 30 min"], ["code:Market check|10 markets · z ≥ 2.5"], ["agent:move_explainer|cited why"], ["agent:x_chart_picker|intraday or context chart"], ["end:Post on X|+ chart · or dry-run log"]]
 
   - group: Deep research
     trigger: "A question asked on /deep-research"
