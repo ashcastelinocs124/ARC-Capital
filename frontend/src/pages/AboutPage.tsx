@@ -39,7 +39,7 @@ export default function AboutPage() {
               className="h-[84px] w-[84px] shrink-0 rounded-full border-2 border-accent/50 object-cover object-[40%_30%]" />
             <div>
               <h2 className="font-serif text-[22px] font-semibold leading-tight text-text">Ashleyn Castelino</h2>
-              <p className="mt-0.5 text-[13px] text-muted">Founder · macro &amp; AI research · agents &amp; ML systems</p>
+              <p className="mt-0.5 text-[13px] text-muted">Chief Analyst · macro &amp; AI research · agents &amp; ML systems</p>
             </div>
           </div>
           <div className="mt-5 space-y-3 text-[14.5px] leading-relaxed text-text-2">
