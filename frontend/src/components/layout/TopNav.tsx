@@ -16,6 +16,7 @@ const NAV: Entry[] = [
     { to: "/macro", label: "Radar", desc: "The week ahead: releases, earnings, AI launches" },
     { to: "/updates", label: "Memo", desc: "The daily note, every weekday" },
     { to: "/deep-research", label: "Deep Research", desc: "The Sunday deep dive" },
+    { to: "/themes", label: "Theme Charts", desc: "The day's top macro theme, charted at 08:00 and 20:00 ET" },
   ] },
   { label: "AI", items: [
     { to: "/ai", label: "AI Update", desc: "Models, chips and the AI stack" },

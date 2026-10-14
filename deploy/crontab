@@ -1,3 +1,7 @@
 # 17:00 in TZ (America/New_York, set in fly.toml), so the Morning Note covers the full US session.
 # timeout: a stalled job (AI Adoption has no per-company cap) can't block the next day's run.
-0 17 * * * cd /app && timeout 3h scripts/publish_server.sh >> data/publish.log 2>&1
+# flock: every publish takes the same lock, so two Vercel builds never run at once.
+0 17 * * * cd /app && flock /tmp/arc-publish.lock timeout 3h scripts/publish_server.sh >> data/publish.log 2>&1
+# Theme Charts (agents/themes.py): the #1 macro theme at 08:00 and 20:00, then a code-only publish
+# (no data refresh, no Substack). A failed run exits non-zero, so the site keeps the previous one.
+0 8,20 * * * cd /app && flock /tmp/arc-publish.lock timeout 1h sh -c 'python -m castelino.agents.themes && SKIP_SUBSTACK=1 scripts/publish_server.sh --no-refresh' >> data/themes.log 2>&1

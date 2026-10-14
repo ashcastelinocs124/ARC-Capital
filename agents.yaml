@@ -110,6 +110,28 @@ agents:
         Two-tier markdown in data/update_agent/memory/. Caps (5 short / 20 long) and eviction by
         importance minus whole months unused are enforced in code, not the prompt.
 
+  - id: theme_picker
+    name: Theme Picker
+    group: Briefings
+    family: Theme Charts
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "LLM call (gpt-6-sol) + web search (gpt-6-luna)"}
+      - {key: FRED_API_KEY, required: false, why: "FRED series; falls back to the keyless CSV endpoint when unset"}
+    class: castelino.agents.themes.ThemePicker
+    summary: >-
+      At 08:00 and 20:00 ET, picks the single most popular US macro theme from what news and
+      financial X discuss, the biggest market moves and Polymarket odds swings, then picks 2-4
+      charts that show it for the /themes page. Code fetches and draws every plotted number.
+    tools:
+      - {name: "gather() (code)", does: "One cited web search for the most-discussed macro themes, 1d/1w/1m market moves, Polymarket economy + Fed odds swings"}
+      - {name: "resolve() (code)", does: "Fetches each fred:/yahoo: series a chart names; the weekly guard drops a chart that can't be drawn"}
+      - {name: "Chart renderer (code)", does: "The Weekly Deep Dive's line / compare / movers exhibits, kicker THEME CHARTS"}
+      - {name: "Number guard", does: "Every %, bp or pp in the theme, why and signals must be in the cited facts; one retry"}
+    memory:
+      reads: ["The last 6 runs' themes (data/themes/*.json)"]
+      writes: ["data/themes/<date>-<am|pm>.json + charts/<run>/exhibit_N.png"]
+      persists: "Each run's record; its theme and streak are the next run's memory."
+
   - id: desk_chat
     name: Desk Chat
     group: Briefings
@@ -348,6 +370,9 @@ systems:
       - title: "Daily Update 2 · Write"
         flow: [["code:Background|stock · data · past notes"], ["agent:update_editor|Morning Note"], ["code:Number guard|1 retry"], ["code:Chart agent|8 chart forms"], ["end:/updates|+ 2-tier memory"]]
         loops: [{from: 2, to: 1, label: "retry with errors"}]
+      - title: "Theme Charts"
+        flow: [["08:00 · 20:00 ET"], ["code:Signals|news + X · moves · Polymarket"], ["agent:theme_picker|#1 theme + charts"], ["code:Number guard|1 retry"], ["end:/themes|2-4 charts"]]
+        loops: [{from: 3, to: 2, label: "retry with errors"}]
       - title: "Admin · Daily desk"
         flow: [["Your question on /admin"], ["agent:desk_chat|one day · one agent"], ["end:Answer with fact ids"]]
       - title: "Model refit"

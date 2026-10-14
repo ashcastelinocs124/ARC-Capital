@@ -258,6 +258,8 @@ def make_weekly_exhibits(
     out_dir: Path,
     fetch=default_fetch,
     series=default_series,
+    kicker: str = "WEEKLY DEEP DIVE",
+    forms: dict | None = None,  # extra kind -> fn(pick, facts, series) -> (draw, sub, frame kw)
 ) -> list[WeeklyExhibit]:
     by = {f.id: f for f in facts}
     out: list[WeeklyExhibit] = []
@@ -297,7 +299,7 @@ def make_weekly_exhibits(
                     shim = SimpleNamespace(
                         id=fact.id, agent="", series=ref, source_title=fact.source_title
                     )
-                    ex = _render(n, shim, pts, path, kicker="WEEKLY DEEP DIVE", window_label=label)
+                    ex = _render(n, shim, pts, path, kicker=kicker, window_label=label)
                     title, sub = ex.title.removeprefix(f"Exhibit {n}: "), ex.subtitle
                 elif pick.kind == "compare":
                     if not 2 <= len(cited) <= 4 or any(f.series is None for f in cited):
@@ -308,18 +310,31 @@ def make_weekly_exhibits(
                     )
                     draw, sub = _compare(df, rebased)
                     sub = f"{sub} · {window_label(pick.window_days)}"
-                    _frame(n, title, sub, _data_line(cited), path, draw)
+                    _frame(n, title, sub, _data_line(cited), path, draw, kicker=kicker)
                 elif pick.kind in ("breakdown", "movers"):
                     if len(pick.points) < 2:
                         raise ValueError("needs 2+ points")
                     draw, sub = _bars(pick, diverging=pick.kind == "movers")
                     left = 0.1 if pick.kind == "movers" else 0.32  # room for category labels
-                    _frame(n, title, sub, _data_line(cited), path, draw, left=left, bottom=0.24)
+                    _frame(
+                        n,
+                        title,
+                        sub,
+                        _data_line(cited),
+                        path,
+                        draw,
+                        left=left,
+                        bottom=0.24,
+                        kicker=kicker,
+                    )
                 elif pick.kind == "dumbbell":
                     if len(pick.points) != 2:
                         raise ValueError("needs 2 points")
                     draw, sub = _dumbbell(pick)
-                    _frame(n, title, sub, _data_line(cited), path, draw)
+                    _frame(n, title, sub, _data_line(cited), path, draw, kicker=kicker)
+                elif pick.kind in (forms or {}):
+                    draw, sub, kw = forms[pick.kind](pick, cited, series)
+                    _frame(n, title, sub, _data_line(cited), path, draw, kicker=kicker, **kw)
                 else:
                     raise ValueError(f"unknown form {pick.kind}")
                 out.append(

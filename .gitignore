@@ -105,6 +105,8 @@ data/update_agent/
 data/updates/
 # Weekly Deep Dive runtime data (records, charts, raw facts, Substack draft ids)
 data/deep/
+# Theme Charts runs + charts (agents/themes.py)
+data/themes/
 
 # Public Vercel snapshot (scripts/publish_snapshot.sh)
 frontend/public/api/

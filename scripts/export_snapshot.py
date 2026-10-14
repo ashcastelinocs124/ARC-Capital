@@ -33,6 +33,8 @@ PATHS = [
     "/weekly/status",
     "/weekly/latest",
     "/weekly/history",
+    "/themes/latest",
+    "/themes/history",
     "/agents/catalog",
     "/sector_sentiment",
     "/adoption/summary",
@@ -94,6 +96,23 @@ def copy_weekly_charts(week: str, rec: dict, deep_dir: Path | None = None) -> in
     return n
 
 
+def copy_theme_charts(run_id: str, rec: dict, themes_dir: Path | None = None) -> int:
+    """Theme Charts exhibits: copy the PNGs next to the run's snapshot."""
+    if themes_dir is None:
+        from castelino.agents.themes import _dir
+
+        themes_dir = _dir()
+    n = 0
+    for ex in rec.get("exhibits") or []:
+        f = themes_dir / "charts" / run_id / ex["file"]
+        if f.is_file():
+            dst = OUT / "themes" / run_id / "charts" / ex["file"]
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(f, dst)
+            n += 1
+    return n
+
+
 def run_refresh() -> None:
     for key, fn in refresh._RUNNERS.items():
         try:
@@ -125,11 +144,15 @@ def export() -> int:
             copy_charts(path.rsplit("/", 1)[1], data)
         if re.fullmatch(r"/weekly/\d{4}-W\d{2}", path):
             copy_weekly_charts(path.rsplit("/", 1)[1], data)
+        if re.fullmatch(r"/themes/\d{4}-\d{2}-\d{2}-(am|pm)", path):
+            copy_theme_charts(path.rsplit("/", 1)[1], data)
         # Fan out to the parameterised GETs the pages make.
         if path == "/update/history":
             queue += [f"/update/{d}" for d in data.get("dates", [])]
         elif path == "/weekly/history":
             queue += [f"/weekly/{i['week']}" for i in data.get("items", [])]
+        elif path == "/themes/history":
+            queue += [f"/themes/{i['run_id']}" for i in data.get("items", [])]
         elif path == "/research" and isinstance(data, list):
             queue += [f"/research/{row['id']}" for row in data if "id" in row]
         elif path == "/adoption/summary":

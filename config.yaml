@@ -114,6 +114,14 @@ update_agent:
   data_dir: data/update_agent
   updates_dir: data/updates
 
+themes:
+  # Theme Charts: the #1 macro theme at 08:00 and 20:00 ET, charted, on /themes (deploy/crontab).
+  picker_model: gpt-6-sol
+  search_model: gpt-6-luna
+  max_charts: 4
+  memory_runs: 6
+  data_dir: data/themes
+
 model_refit:
   gate_tolerance: 0.02
 

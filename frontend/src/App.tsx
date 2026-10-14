@@ -12,6 +12,7 @@ import AdminPage from "./pages/AdminPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import AboutPage from "./pages/AboutPage";
 import SectionPage from "./pages/SectionPage";
+import ThemesPage from "./pages/ThemesPage";
 
 const HOME = "/";
 
@@ -21,6 +22,7 @@ const PAGES: [string, React.ReactNode][] = [
   ["/macro", <MacroPage />],
   ["/deep-research", <DeepResearchPage />],
   ["/updates", <UpdatesPage />],
+  ["/themes", <ThemesPage />],
   ["/videos", <VideosPage />],
   ["/ai", <SectionPage slug="artificial-intelligence-update" kicker="AI · AI Update" title="Models, chips and the AI stack" blurb="Every AI Update post, newest first." />],
   ["/special-topics", <SectionPage slug="special-topics" kicker="Special Topics" title="Deeper dives and presentations" blurb="Every Special Topics post, newest first." />],

@@ -97,6 +97,17 @@ class UpdateAgentCfg(BaseModel):
     updates_dir: str = "data/updates"
 
 
+class ThemesCfg(BaseModel):
+    """Theme Charts (agents/themes.py): the #1 macro theme, charted at 08:00 and 20:00 ET."""
+
+    picker_model: str = "gpt-6-sol"
+    search_model: str = "gpt-6-luna"
+    max_charts: int = 4
+    memory_runs: int = 6  # recent themes the picker sees, so it can say "still #1"
+    max_output_tokens: int = 16000  # reasoning tokens share this budget
+    data_dir: str = "data/themes"
+
+
 class ModelRefitCfg(BaseModel):
     gate_tolerance: float = 0.02  # max Brier worsening a refit may show and still be promoted
 
@@ -195,6 +206,7 @@ class Settings(BaseModel):
     deep_research: DeepResearchCfg = DeepResearchCfg()
     deep_dive: DeepDiveCfg = DeepDiveCfg()
     update_agent: UpdateAgentCfg = UpdateAgentCfg()
+    themes: ThemesCfg = ThemesCfg()
     model_refit: ModelRefitCfg = ModelRefitCfg()
     sector_sentiment: SectorSentimentCfg = SectorSentimentCfg()
     adoption: AdoptionCfg = AdoptionCfg()

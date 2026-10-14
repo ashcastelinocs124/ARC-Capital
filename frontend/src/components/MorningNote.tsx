@@ -16,7 +16,7 @@ const LONG_DATE = new Intl.DateTimeFormat("en-GB", {
 });
 
 /** A chart opened over the page at full size; ✕, Esc or a click outside closes it. */
-function ExhibitViewer({ src, ex, onClose }: { src: string; ex: Exhibit; onClose: () => void }) {
+export function ExhibitViewer({ src, ex, onClose }: { src: string; ex: Pick<Exhibit, "title" | "subtitle">; onClose: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
