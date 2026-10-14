@@ -51,6 +51,7 @@ def _setup(tmp_path, monkeypatch, fail_at=None):
             "takeaways": ["a"],
             "url": URL,
             "slug": "saudi-strikes-lifted-oil",
+            "image": "/thumbs/fed-officials-another-hike.jpg",
         }
     ]
     monkeypatch.setattr(admin_desk, "_published", lambda: rows)
@@ -59,10 +60,10 @@ def _setup(tmp_path, monkeypatch, fail_at=None):
         monkeypatch.setenv(k, "k")
     sent = []
 
-    def fake_post(text, reply_to=None):
+    def fake_post(text, reply_to=None, media_id=None):
         if fail_at is not None and len(sent) == fail_at:
             raise RuntimeError("X said 503")
-        sent.append((text, reply_to))
+        sent.append((text, reply_to) if media_id is None else (text, reply_to, media_id))
         return f"id{len(sent)}"
 
     monkeypatch.setattr(x_post, "post", fake_post)
@@ -87,7 +88,7 @@ def test_failed_reply_keeps_first_and_retry_continues(tmp_path, monkeypatch):
     r = c.post("/admin/desk/x/saudi-strikes-lifted-oil", json={"texts": texts}).json()
     assert r["posted_ids"] == ["id1"] and "503" in r["error"]
     monkeypatch.setattr(
-        x_post, "post", lambda t, reply_to=None: sent.append((t, reply_to)) or "id9"
+        x_post, "post", lambda t, reply_to=None, media_id=None: sent.append((t, reply_to)) or "id9"
     )
     r = c.post("/admin/desk/x/saudi-strikes-lifted-oil", json={"texts": ["edited"]}).json()
     assert r["posted_ids"] == ["id1", "id9"] and sent[-1] == (
@@ -111,21 +112,38 @@ def test_rejects_long_posts_missing_link_and_unknown_slugs(tmp_path, monkeypatch
     assert c.post("/admin/desk/x/other-post", json={"texts": [URL]}).status_code == 404
 
 
-def test_card_meta_reads_large_and_small_cards():
-    large = (
-        '<meta data-rh="true" property="og:title" content="Fed &amp; yields"/>'
-        '<meta data-rh="true" property="og:image" content="https://cdn/og.jpg"/>'
-        '<meta data-rh="true" name="twitter:image" content="https://cdn/tw.jpg?v=4"/>'
-        '<meta data-rh="true" name="twitter:card" content="summary_large_image"/>'
+def test_cover_goes_on_the_first_post_only(tmp_path, monkeypatch):
+    c, sent = _setup(tmp_path, monkeypatch)
+    uploads = []
+    monkeypatch.setattr(x_post, "upload_image", lambda data: uploads.append(len(data)) or "m1")
+    texts = ["Oil up 🧵", f"Full note → {URL}"]
+    r = c.post("/admin/desk/x/saudi-strikes-lifted-oil", json={"texts": texts, "image": True})
+    assert r.json()["posted_ids"] == ["id1", "id2"]
+    assert sent == [(texts[0], None, "m1"), (texts[1], "id1")]
+    assert uploads and uploads[0] > 10_000  # read the real /thumbs/ cover from the repo
+
+
+def test_failed_upload_posts_nothing(tmp_path, monkeypatch):
+    c, sent = _setup(tmp_path, monkeypatch)
+
+    def boom(data):
+        raise RuntimeError("X image upload said 400")
+
+    monkeypatch.setattr(x_post, "upload_image", boom)
+    r = c.post(
+        "/admin/desk/x/saudi-strikes-lifted-oil",
+        json={"texts": ["Oil up", f"Full note → {URL}"], "image": True},
     )
-    assert admin_desk.card_meta(large) == {
-        "large": True,
-        "image": "https://cdn/tw.jpg?v=4",
-        "title": "Fed & yields",
-    }
-    small = '<meta name="twitter:card" content="summary"><meta property="og:image" content="https://cdn/logo.png">'
-    assert admin_desk.card_meta(small) == {
-        "large": False,
-        "image": "https://cdn/logo.png",
-        "title": "",
-    }
+    assert r.status_code == 502 and "couldn't attach the cover" in r.json()["detail"]
+    assert sent == [] and c.get("/admin/desk/x").json()["posts"][0]["posted_ids"] == []
+
+
+def test_as_jpeg_shrinks_wide_images():
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGBA", (3000, 1500), (0, 135, 68, 255)).save(buf, "PNG")
+    out = Image.open(io.BytesIO(x_post.as_jpeg(buf.getvalue())))
+    assert out.format == "JPEG" and out.size == (1600, 800)

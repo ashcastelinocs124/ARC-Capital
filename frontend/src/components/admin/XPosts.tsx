@@ -12,10 +12,8 @@ type Post = {
   slug: string;
   drafts: string[];
   posted_ids: string[];
+  image: string | null; // the post's cover, attached to the first post (X hides link cards on thread replies)
 };
-
-// The card X builds from the link post, read from the Substack page (GET /x/<slug>/card).
-type Card = { large: boolean; image: string | null; title: string };
 
 const LIMIT = 280;
 // X's weighted length: a link counts 23, emoji and CJK 2 (same rule as x_post.xlen).
@@ -37,7 +35,7 @@ export default function XPosts() {
   const [texts, setTexts] = useState<Record<string, string[]>>({});
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
-  const [cards, setCards] = useState<Record<string, Card | null>>({}); // null = couldn't read it
+  const [noImage, setNoImage] = useState<Record<string, boolean>>({}); // slugs whose cover is unticked
 
   const load = () =>
     call<{ can_post: boolean; posts: Post[] }>("/x")
@@ -49,12 +47,6 @@ export default function XPosts() {
       })
       .catch((e) => setMsg({ tone: "err", text: String(e.message ?? e) }));
   useEffect(() => { load(); }, []);
-  useEffect(() => {
-    if (!sel || sel in cards) return;
-    call<Card>(`/x/${sel}/card`)
-      .then((c) => setCards((x) => ({ ...x, [sel]: c })))
-      .catch(() => setCards((x) => ({ ...x, [sel]: null })));
-  }, [sel, cards]);
 
   const post = posts?.find((p) => p.slug === sel);
   const t = (post && texts[post.slug]) || [];
@@ -70,7 +62,8 @@ export default function XPosts() {
     if (!window.confirm(`Post ${what} to X now? This can't be undone from here.`)) return;
     setBusy(true);
     setMsg(null);
-    call<{ posted_ids: string[]; total: number; error: string | null }>(`/x/${post.slug}`, { texts: t })
+    const image = !!post.image && !noImage[post.slug];
+    call<{ posted_ids: string[]; total: number; error: string | null }>(`/x/${post.slug}`, { texts: t, image })
       .then((r) => {
         setMsg(r.error
           ? { tone: "err", text: `${r.posted_ids.length} of ${r.total} posted, then: ${r.error}. Use Retry the rest.` }
@@ -143,7 +136,17 @@ export default function XPosts() {
                           <button onClick={() => remove(i)} className="text-muted hover:text-danger">remove</button>
                         )}
                       </div>
-                      {i === t.length - 1 && <LinkCard card={cards[post.slug]} />}
+                      {i === 0 && post.image && (
+                        <div className="mt-2 max-w-[520px]">
+                          <img src={post.image} alt="" loading="lazy"
+                            className={cn("block aspect-video w-full rounded-2xl border border-border object-cover", noImage[post.slug] && "opacity-30")} />
+                          <label className="mt-1.5 flex items-center gap-2 text-[11.5px] text-muted">
+                            <input type="checkbox" checked={!noImage[post.slug]} disabled={done || partial || busy}
+                              onChange={(e) => setNoImage((x) => ({ ...x, [post.slug]: !e.target.checked }))} />
+                            Attach the post's cover to this post (the same picture the site shows)
+                          </label>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -162,28 +165,6 @@ export default function XPosts() {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function LinkCard({ card }: { card: Card | null | undefined }) {
-  if (card === undefined) return <p className="mt-2 text-[11.5px] text-muted">Reading the link card from Substack…</p>;
-  if (card === null || !card.image) return <p className="mt-2 text-[11.5px] text-warning">Couldn't read the link card from the Substack page.</p>;
-  return (
-    <div className="mt-2 max-w-[520px]">
-      <div className={cn("overflow-hidden rounded-2xl border border-border", !card.large && "flex")}>
-        <img src={card.image} alt="" loading="lazy"
-          className={card.large ? "block aspect-[2/1] w-full object-cover" : "h-32 w-32 shrink-0 border-r border-border object-cover"} />
-        <div className={cn("px-3 py-2 text-[12.5px]", !card.large && "flex flex-col justify-center")}>
-          <div className="text-muted">{card.large ? "From archresearch.substack.com" : "archresearch.substack.com"}</div>
-          <div className="text-text">{card.title}</div>
-        </div>
-      </div>
-      <p className={cn("mt-1.5 text-[11.5px]", card.large ? "text-muted" : "text-warning")}>
-        {card.large
-          ? "Link card X will show under this post, read from the Substack page. Large picture card: the post has a cover image."
-          : "Small card with the ARC logo: this Substack post has no cover image. Add one in Substack (post settings → Cover image), then reload this tab to see the large card."}
-      </p>
     </div>
   );
 }

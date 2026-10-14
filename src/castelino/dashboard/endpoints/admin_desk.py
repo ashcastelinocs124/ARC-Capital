@@ -11,7 +11,6 @@ import os
 import re
 import threading
 from datetime import datetime
-from html import unescape
 
 import httpx
 from fastapi import APIRouter, HTTPException
@@ -90,6 +89,7 @@ def _published() -> list[dict]:
             "title": p["title"],
             "takeaways": p.get("takeaways", []),
             "url": p["url"],
+            "image": p.get("image"),
         }
         for p in daily_posts()[:14]
     ] + [
@@ -99,6 +99,7 @@ def _published() -> list[dict]:
             "title": p["title"],
             "takeaways": p.get("takeaways", []),
             "url": p["url"],
+            "image": p.get("image"),
         }
         for p in weekly_posts()[:4]
     ]
@@ -137,42 +138,20 @@ def x_posts():
 
 class XPostIn(BaseModel):
     texts: list[str]
+    image: bool = False  # attach the post's cover to the first post
 
 
-_META = re.compile(r"<meta\s[^>]*>", re.I)
-_ATTR = re.compile(r'([\w:-]+)="([^"]*)"')
+def _cover_bytes(image: str) -> bytes:
+    """The post's cover as the site shows it: a hand-made /thumbs/ file, else Substack's image."""
+    from castelino.config import get_settings
 
-
-def card_meta(html: str) -> dict:
-    """The link card X builds from a page: large picture card or small one, its image and title."""
-    tags = {}
-    for tag in _META.findall(html):
-        a = dict(_ATTR.findall(tag))
-        key = a.get("property") or a.get("name")
-        if key and "content" in a:
-            tags.setdefault(key, unescape(a["content"]))
-    return {
-        "large": tags.get("twitter:card") == "summary_large_image",
-        "image": tags.get("twitter:image") or tags.get("og:image"),
-        "title": tags.get("twitter:title") or tags.get("og:title") or "",
-    }
-
-
-@router.get("/x/{slug}/card")
-def x_card(slug: str):
-    """The card X will attach to the thread's link post, read from the Substack page (not cached,
-    so a cover added in Substack shows on the next look)."""
-    match = next((r for r in _published() if r["slug"] == slug), None)
-    if not match:
-        raise HTTPException(404, "not a published Substack post")
-    try:
-        r = httpx.get(
-            match["url"], headers={"User-Agent": "Mozilla/5.0"}, timeout=10, follow_redirects=True
-        )
-        r.raise_for_status()
-    except httpx.HTTPError as e:
-        raise HTTPException(502, f"couldn't read the Substack page: {e}") from e
-    return card_meta(r.text)
+    if image.startswith("/thumbs/"):
+        return (get_settings().root / "frontend" / "public" / image.lstrip("/")).read_bytes()
+    if not image.startswith("https://"):
+        raise ValueError(f"unexpected cover address {image[:60]}")
+    r = httpx.get(image, timeout=30, follow_redirects=True)
+    r.raise_for_status()
+    return r.content
 
 
 @router.post("/x/{slug}")
@@ -208,10 +187,23 @@ def x_post_chain(slug: str, body: XPostIn):
         rec["texts"] = texts
         path = _x_dir() / f"{slug}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
+        media_id = None
+        if body.image and not rec["ids"] and match.get("image"):
+            try:  # before anything goes out, so a failed upload never leaves half a thread
+                media_id = x_post.upload_image(_cover_bytes(match["image"]))
+            except Exception as e:  # noqa: BLE001
+                raise HTTPException(502, f"couldn't attach the cover: {str(e)[:250]}") from e
         error = None
         for t in texts[len(rec["ids"]) :]:
             try:
-                rec["ids"].append(x_post.post(t, reply_to=rec["ids"][-1] if rec["ids"] else None))
+                first = not rec["ids"]
+                rec["ids"].append(
+                    x_post.post(
+                        t,
+                        reply_to=None if first else rec["ids"][-1],
+                        media_id=media_id if first else None,
+                    )
+                )
             except Exception as e:  # noqa: BLE001 — keep what went out, report the rest
                 error = str(e)[:300]
                 break

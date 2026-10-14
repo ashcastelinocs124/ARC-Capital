@@ -19,6 +19,7 @@ from urllib.parse import quote
 import httpx
 
 TWEETS = "https://api.x.com/2/tweets"
+MEDIA = "https://api.x.com/2/media/upload"
 LIMIT = 280
 _URL = re.compile(r"https?://\S+")
 KEYS = ("X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_SECRET")
@@ -82,11 +83,38 @@ def _auth_header(method: str, url: str) -> str:
     return "OAuth " + ", ".join(f'{_enc(k)}="{_enc(v)}"' for k, v in sorted(oauth.items()))
 
 
-def post(text: str, reply_to: str | None = None) -> str:
+def as_jpeg(data: bytes, width: int = 1600) -> bytes:
+    """A cover as a JPEG X accepts (images must be under 5 MB): at most `width` px wide."""
+    import io
+
+    from PIL import Image
+
+    img = Image.open(io.BytesIO(data)).convert("RGB")
+    if img.width > width:
+        img = img.resize((width, round(img.height * width / img.width)), Image.LANCZOS)
+    out = io.BytesIO()
+    img.save(out, "JPEG", quality=88)
+    return out.getvalue()
+
+
+def upload_image(data: bytes) -> str:
+    """Upload an image for a post; returns its media id. Raises with X's message on failure."""
+    body = {"media": base64.b64encode(as_jpeg(data)).decode(), "media_category": "tweet_image"}
+    r = httpx.post(
+        MEDIA, json=body, headers={"Authorization": _auth_header("POST", MEDIA)}, timeout=60
+    )
+    if r.status_code >= 400:
+        raise RuntimeError(f"X image upload said {r.status_code}: {r.text[:300]}")
+    return r.json()["data"]["id"]
+
+
+def post(text: str, reply_to: str | None = None, media_id: str | None = None) -> str:
     """One post; returns its id. Raises with X's message on failure."""
     body: dict = {"text": text}
     if reply_to:
         body["reply"] = {"in_reply_to_tweet_id": reply_to}
+    if media_id:
+        body["media"] = {"media_ids": [media_id]}
     r = httpx.post(
         TWEETS, json=body, headers={"Authorization": _auth_header("POST", TWEETS)}, timeout=30
     )
