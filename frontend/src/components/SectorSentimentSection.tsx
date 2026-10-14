@@ -137,7 +137,7 @@ const HOW: { short: string; steps: ReactNode[] } = {
     "Scores each sector's top 10 stocks on technicals and on fundamentals; the gap between the two shows where price has run ahead of the business, or fallen behind it.",
   steps: [
     <><b>Technical score:</b> RSI-14, MACD histogram, price vs 50- and 200-day averages and 3-month return. Each metric is z-scored across all stocks, clipped at ±3σ, scaled to −1…+1 and averaged.</>,
-    <><b>Fundamental score:</b> revenue growth, earnings growth and P/E relative to the sector median (cheaper scores higher), scored the same way.</>,
+    <><b>Fundamental score:</b> ⅔ forward: forward P/E vs the sector median (cheaper scores higher) and the 90-day change in analysts' next-year EPS estimate; ⅓ trailing: last fiscal year's revenue growth, earnings growth and P/E vs the sector median. Scored the same way.</>,
     <><b>Divergence</b> = technical − fundamental per stock, then cap-weighted across the sector's top 10.</>,
     <><b>Labels:</b> ≥ +0.30 euphoric (price ahead of fundamentals), ≤ −0.30 fearful (fundamentals nobody is buying), otherwise fair.</>,
     <><b>Semiconductors</b> is an extra row, not a GICS sector: the 10 largest chip and chip-equipment stocks. They also count in Technology.</>,
@@ -281,6 +281,8 @@ function Stocks({ rows, full }: { rows: SectorStockRow[]; full: boolean }) {
         ["3-mo ret", (r) => pct(r.ret_3m)],
         ["Rev YoY", (r) => pct(r.rev_yoy)],
         ["P/E vs sector", (r) => (r.pe_rel != null ? `${r.pe_rel.toFixed(1)}×` : "—")],
+        ["Fwd P/E vs sector", (r) => (r.fwd_pe_rel != null ? `${r.fwd_pe_rel.toFixed(1)}×` : "—")],
+        ["EPS est. 90d", (r) => pct(r.eps_rev_90d)],
         ["Tech", (r) => fmt(r.tech_score)],
         ["Fund", (r) => fmt(r.fund_score)],
       ]

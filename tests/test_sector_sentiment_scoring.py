@@ -141,3 +141,59 @@ def test_stock_in_sector_and_overlay_scored_per_row():
     by = {s.sector: s for s in aggregate_sectors(out)}
     assert by["Semiconductors"].etf == "SMH" and by["Semiconductors"].part_of == "Technology"
     assert by["Technology"].etf == "XLK" and by["Technology"].part_of is None
+
+
+def test_fund_score_weights_forward_two_thirds():
+    from castelino.signals.sector_sentiment import FORWARD_WEIGHT
+
+    # AAA beats BBB on every forward metric and loses on every trailing one
+    rows = [
+        _row(
+            symbol="AAA",
+            rev_yoy=0.0,
+            earnings_growth=0.0,
+            pe_rel=2.0,
+            fwd_pe_rel=0.5,
+            eps_rev_90d=0.2,
+        ),
+        _row(
+            symbol="BBB",
+            rev_yoy=0.2,
+            earnings_growth=0.2,
+            pe_rel=0.5,
+            fwd_pe_rel=2.0,
+            eps_rev_90d=0.0,
+        ),
+    ]
+    a, b = score_stocks(rows)
+    # two stocks z-score to +-1/3 on every metric, so each side averages +-1/3
+    assert a.fund_score == pytest.approx(FORWARD_WEIGHT / 3 - (1 - FORWARD_WEIGHT) / 3)
+    assert a.fund_score > 0 > b.fund_score
+
+
+def test_fund_score_one_side_missing_counts_the_other_alone():
+    rows = [
+        _row(symbol="AAA", rev_yoy=0.0, earnings_growth=0.0, pe_rel=2.0),  # no forward data
+        _row(symbol="BBB", rev_yoy=0.2, earnings_growth=0.2, pe_rel=0.5),
+    ]
+    a, b = score_stocks(rows)
+    assert a.fund_score == pytest.approx(-1 / 3) and b.fund_score == pytest.approx(1 / 3)
+
+
+def test_yf_fundamentals_reads_forward_and_treats_zero_estimate_as_missing(monkeypatch):
+    import pandas as pd
+    import yfinance
+
+    from castelino.signals import sector_sentiment as ss
+
+    class FakeTicker:
+        def __init__(self, symbol):
+            self.income_stmt = None
+            self.info = {"trailingPE": 28.0, "forwardPE": 14.0, "marketCap": 5e12}
+            ago = 0.0 if symbol == "SKHY" else 12.8
+            self.eps_trend = pd.DataFrame({"current": [16.0], "90daysAgo": [ago]}, index=["+1y"])
+
+    monkeypatch.setattr(yfinance, "Ticker", FakeTicker)
+    nvda = ss._yf_fundamentals("NVDA")
+    assert nvda["fwd_pe"] == 14.0 and nvda["eps_rev_90d"] == pytest.approx(0.25)
+    assert ss._yf_fundamentals("SKHY")["eps_rev_90d"] is None

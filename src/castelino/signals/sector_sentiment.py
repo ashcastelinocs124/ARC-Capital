@@ -53,7 +53,11 @@ OVERLAYS: dict[str, tuple[str, str, tuple[str, ...]]] = {
 
 _TECH_METRICS = ("rsi14", "macd_hist", "vs_sma50", "vs_sma200", "ret_3m")
 # pe_rel inverted (cheap = good) before scoring; see score_stocks.
-_FUND_METRICS = ("rev_yoy", "earnings_growth", "pe_rel_inv")
+_TRAILING_METRICS = ("rev_yoy", "earnings_growth", "pe_rel_inv")
+# Forward metrics carry FORWARD_WEIGHT of the fundamental score: markets price expected earnings,
+# and estimate revisions are what moves stocks. Trailing (last fiscal year) carries the rest.
+_FORWARD_METRICS = ("fwd_pe_rel_inv", "eps_rev_90d")
+FORWARD_WEIGHT = 2 / 3
 
 
 class StockRow(BaseModel):
@@ -71,6 +75,8 @@ class StockRow(BaseModel):
     rev_yoy: float | None
     earnings_growth: float | None
     pe_rel: float | None  # P/E relative to sector median (1.0 = at median)
+    fwd_pe_rel: float | None = None  # forward P/E relative to the row's median forward P/E
+    eps_rev_90d: float | None = None  # next-year EPS estimate now / 90 days ago - 1
     # computed
     tech_score: float | None = None
     fund_score: float | None = None
@@ -148,12 +154,13 @@ def cross_sectional_score(values: dict[str, float | None]) -> dict[str, float]:
 def score_stocks(rows: list[StockRow]) -> list[StockRow]:
     """Fill tech_score/fund_score/divergence on each row, cross-sectionally.
 
-    A metric missing on a stock just drops out of that stock's average; a
-    stock with NO fundamental metrics gets fundamentals_missing=True and no
-    fund/divergence (never zero-filled).
+    fund_score = FORWARD_WEIGHT x mean(forward metrics) + the rest x mean(trailing metrics).
+    A metric missing on a stock just drops out of its side's average, and a side with no metrics
+    leaves the other to count alone; a stock with NO fundamental metrics gets
+    fundamentals_missing=True and no fund/divergence (never zero-filled).
     """
 
-    # ponytail: equal weights, tune when history justifies
+    # ponytail: equal weights within each side, tune when history justifies
     # Keyed per row, not per symbol: a stock in a sector and an overlay has a different pe_rel in
     # each. ponytail: it then counts twice in the z-score stats (6 of ~120 rows); dedupe if that grows.
     def key(r: StockRow) -> str:
@@ -164,9 +171,11 @@ def score_stocks(rows: list[StockRow]) -> list[StockRow]:
         metric_values[m] = {key(r): getattr(r, m) for r in rows}
     metric_values["rev_yoy"] = {key(r): r.rev_yoy for r in rows}
     metric_values["earnings_growth"] = {key(r): r.earnings_growth for r in rows}
-    metric_values["pe_rel_inv"] = {
-        key(r): (-r.pe_rel if r.pe_rel is not None else None) for r in rows
-    }
+    for m in ("pe_rel", "fwd_pe_rel"):  # inverted: cheaper scores higher
+        metric_values[f"{m}_inv"] = {
+            key(r): (-getattr(r, m) if getattr(r, m) is not None else None) for r in rows
+        }
+    metric_values["eps_rev_90d"] = {key(r): r.eps_rev_90d for r in rows}
 
     scored = {m: cross_sectional_score(vals) for m, vals in metric_values.items()}
 
@@ -177,7 +186,11 @@ def score_stocks(rows: list[StockRow]) -> list[StockRow]:
     out: list[StockRow] = []
     for r in rows:
         tech = _avg(key(r), _TECH_METRICS)
-        fund = _avg(key(r), _FUND_METRICS)
+        trailing, forward = _avg(key(r), _TRAILING_METRICS), _avg(key(r), _FORWARD_METRICS)
+        if trailing is not None and forward is not None:
+            fund = FORWARD_WEIGHT * forward + (1 - FORWARD_WEIGHT) * trailing
+        else:
+            fund = forward if forward is not None else trailing
         update: dict = {"tech_score": tech, "fund_score": fund}
         if fund is None:
             update["fundamentals_missing"] = True
@@ -474,10 +487,17 @@ def _yf_closes(symbols: list[str]) -> dict[str, list[float]]:
 
 
 def _yf_fundamentals(symbol: str) -> dict:
-    """rev_yoy, earnings_growth, pe, market_cap from Yahoo — None on any gap."""
+    """rev_yoy, earnings_growth, pe, fwd_pe, eps_rev_90d, market_cap from Yahoo — None on any gap."""
     import yfinance as yf
 
-    out = {"rev_yoy": None, "earnings_growth": None, "pe": None, "market_cap": None}
+    out = {
+        "rev_yoy": None,
+        "earnings_growth": None,
+        "pe": None,
+        "fwd_pe": None,
+        "eps_rev_90d": None,
+        "market_cap": None,
+    }
     try:
         t = yf.Ticker(symbol)
         inc = t.income_stmt
@@ -502,6 +522,15 @@ def _yf_fundamentals(symbol: str) -> dict:
             out["pe"] = float(info["trailingPE"])
         if info.get("marketCap") is not None:
             out["market_cap"] = float(info["marketCap"])
+        if info.get("forwardPE") is not None:
+            out["fwd_pe"] = float(info["forwardPE"])
+        trend = t.eps_trend  # analysts' EPS estimates: now and 7/30/60/90 days ago
+        if trend is not None and "+1y" in trend.index:
+            now, ago = float(trend.loc["+1y", "current"]), float(trend.loc["+1y", "90daysAgo"])
+            if (
+                now > 0 and ago > 0
+            ):  # Yahoo sends 0 for a missing estimate (SK hynix); NaN fails too
+                out["eps_rev_90d"] = now / ago - 1.0
     except Exception:
         log.debug("fundamentals: yfinance failed for %s", symbol)
     return out
@@ -529,8 +558,8 @@ def _technicals_from_closes(closes: list[float]) -> dict:
 
 
 def collect_rows(universe: dict[str, list[dict]]) -> list[StockRow]:
-    """Fetch raw metrics for every stock in the universe. pe_rel is the
-    stock's P/E divided by its sector's median P/E."""
+    """Fetch raw metrics for every stock in the universe. pe_rel (fwd_pe_rel) is the
+    stock's trailing (forward) P/E divided by its row's median."""
     # a stock in a sector and an overlay is fetched once
     all_symbols = list(dict.fromkeys(m["symbol"] for members in universe.values() for m in members))
     funds: dict[str, dict] = {}
@@ -541,7 +570,7 @@ def collect_rows(universe: dict[str, list[dict]]) -> list[StockRow]:
         closes_by_symbol = {}
 
     rows: list[StockRow] = []
-    pe_by_sector: dict[str, list[tuple[int, float]]] = {}
+    pe_by_sector: dict[tuple[str, str], list[tuple[int, float]]] = {}
     for sector, members in universe.items():
         for m in members:
             tech = _technicals_from_closes(closes_by_symbol.get(m["symbol"], []))
@@ -557,18 +586,22 @@ def collect_rows(universe: dict[str, list[dict]]) -> list[StockRow]:
                     pe_rel=None,
                     rev_yoy=fund["rev_yoy"],
                     earnings_growth=fund["earnings_growth"],
+                    eps_rev_90d=fund["eps_rev_90d"],
                     **tech,
                 )
             )
-            if fund["pe"] is not None and fund["pe"] > 0:
-                pe_by_sector.setdefault(sector, []).append((len(rows) - 1, fund["pe"]))
-    # pe_rel: stock P/E / sector median P/E
-    for pairs in pe_by_sector.values():
+            for field in ("pe", "fwd_pe"):
+                if fund[field] is not None and fund[field] > 0:
+                    pe_by_sector.setdefault((sector, field), []).append(
+                        (len(rows) - 1, fund[field])
+                    )
+    # pe_rel / fwd_pe_rel: stock P/E / its row's median P/E
+    for (_sector, field), pairs in pe_by_sector.items():
         pes = sorted(p for _, p in pairs)
         median = pes[len(pes) // 2]
         if median > 0:
             for idx, pe in pairs:
-                rows[idx] = rows[idx].model_copy(update={"pe_rel": pe / median})
+                rows[idx] = rows[idx].model_copy(update={f"{field}_rel": pe / median})
     return rows
 
 

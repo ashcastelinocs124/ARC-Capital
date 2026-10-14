@@ -25,7 +25,9 @@ log = logging.getLogger(__name__)
 _DEFINITION = """\
 divergence = technical score - fundamental score, each -1..+1; positive =
 price running ahead of fundamentals ("euphoric" at >= +0.30), negative =
-strong fundamentals nobody is buying ("fearful" at <= -0.30)."""
+strong fundamentals nobody is buying ("fearful" at <= -0.30). The fundamental
+score is 2/3 forward (forward P/E vs sector, 90-day change in next-year EPS
+estimates) and 1/3 trailing (last fiscal year)."""
 
 NARRATIVE_SYSTEM = f"""\
 You are the analyst voice of ARC Research's Sector Sentiment tool.
@@ -102,7 +104,8 @@ def narrative_context(snap: SectorSentimentSnapshot, prev_narrative: str | None 
     for r in sorted(notable, key=lambda r: -abs(r.divergence or 0))[:15]:
         lines.append(
             f"- {r.symbol} ({r.sector}): div {r.divergence:+.2f}, RSI {r.rsi14}, "
-            f"vs SMA200 {r.vs_sma200}, rev YoY {r.rev_yoy}, P/E vs sector {r.pe_rel}"
+            f"vs SMA200 {r.vs_sma200}, rev YoY {r.rev_yoy}, P/E vs sector {r.pe_rel}, "
+            f"fwd P/E vs sector {r.fwd_pe_rel}, EPS est 90d {r.eps_rev_90d}"
         )
 
     if prev_narrative:
@@ -129,7 +132,8 @@ def sector_context(s: SectorScore, rows: list[StockRow]) -> str:
         if r is not None:
             extra = (
                 f", {r.name}, RSI {r.rsi14 and round(r.rsi14)}, vs SMA200 {r.vs_sma200}, "
-                f"rev YoY {r.rev_yoy}, P/E vs sector {r.pe_rel}"
+                f"rev YoY {r.rev_yoy}, P/E vs sector {r.pe_rel}, "
+                f"fwd P/E vs sector {r.fwd_pe_rel}, EPS est 90d {r.eps_rev_90d}"
             )
         lines.append(f"- {c.symbol}: div {c.divergence:+.2f}, contrib {c.contribution:+.3f}{extra}")
     return "\n".join(lines)

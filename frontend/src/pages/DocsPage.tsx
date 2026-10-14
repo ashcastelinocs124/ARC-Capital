@@ -75,6 +75,7 @@ const ALL_DOCS: Doc[] = [
       "Only the 10 largest stocks per sector are scored.",
       "Semiconductors (the 10 largest chip and chip-equipment stocks) is not a GICS sector: its stocks also count in Technology, so don't add the two.",
       "Yahoo Finance fundamentals have gaps; a stock with none is scored on technicals only and flagged.",
+      "Two thirds of the fundamental score are analysts' forward estimates, which can lag a fast selloff.",
     ],
   },
   {

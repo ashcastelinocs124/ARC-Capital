@@ -67,6 +67,8 @@ export interface SectorStockRow {
   rev_yoy: number | null;
   earnings_growth: number | null;
   pe_rel: number | null;
+  fwd_pe_rel?: number | null; // forward P/E ÷ the row's median
+  eps_rev_90d?: number | null; // next-year EPS estimate now ÷ 90 days ago − 1
   tech_score: number | null;
   fund_score: number | null;
   divergence: number | null;
