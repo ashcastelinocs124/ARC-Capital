@@ -6,13 +6,14 @@ import { STATIC } from "@/api/client";
 import AgentsPage from "@/pages/AgentsPage";
 import DailyDesk from "@/components/admin/DailyDesk";
 import XPosts from "@/components/admin/XPosts";
+import TradeLab from "@/components/admin/trade/TradeLab";
 import { Article, DOCS_LIST, type DocDetail } from "@/pages/DocsPage";
 import { PageIntro } from "@/components/layout/PageIntro";
 
 // PRIVATE area. The data (/api/admin/*) and the detailed docs module (/admin/chunks/*) are password-gated
 // by frontend/middleware.ts on the public site; locally the backend serves them without a login.
 // This page's own code holds no private data, so it can safely ship in the public bundle.
-const TABS = ["Agents", "Models", "Docs", "Daily desk", "X posts"] as const;
+const TABS = ["Agents", "Models", "Docs", "Daily desk", "X posts", "Trade Lab"] as const;
 
 const LoadFailed = ({ what }: { what: string }) => (
   <div className="rounded-xl border border-danger bg-danger-soft px-5 py-3 text-sm">
@@ -99,7 +100,7 @@ export default function AdminPage() {
           </button>
         ))}
       </div>
-      {tab === "Agents" ? <AgentsPage /> : tab === "Models" ? <AdminModels /> : tab === "Docs" ? <AdminDocs /> : tab === "Daily desk" ? <DailyDesk /> : <XPosts />}
+      {tab === "Agents" ? <AgentsPage /> : tab === "Models" ? <AdminModels /> : tab === "Docs" ? <AdminDocs /> : tab === "Daily desk" ? <DailyDesk /> : tab === "Trade Lab" ? <TradeLab /> : <XPosts />}
     </div>
   );
 }
