@@ -67,9 +67,12 @@ const DOTS = WORLD_ROWS.flatMap((row, i) =>
 // Planes fly the routes between the financial centres, arcing over the map (SVG motion, so it runs in
 // every browser; left out for prefers-reduced-motion, which keeps only the dashed routes).
 const AIR: [string, string, number, number][] = [
-  // from, to, seconds per flight, start (after BG)
-  ["NEW YORK", "LONDON", 11, 3], ["LONDON", "DUBAI", 10, 5], ["DUBAI", "KUALA LUMPUR", 9, 7.5],
-  ["SHANGHAI", "TOKYO", 6, 4], ["PARIS", "NEW YORK", 12, 9], ["KUALA LUMPUR", "SHANGHAI", 8, 11],
+  // from, to, seconds per flight, start (after BG); return legs reuse the same arc
+  ["NEW YORK", "LONDON", 5.5, 2], ["LONDON", "NEW YORK", 6, 4.5], ["NEW YORK", "PARIS", 5.5, 7],
+  ["PARIS", "NEW YORK", 6, 3.2], ["LONDON", "DUBAI", 4.5, 2.6], ["DUBAI", "LONDON", 4.5, 5.4],
+  ["PARIS", "DUBAI", 4.2, 6.3], ["DUBAI", "KUALA LUMPUR", 4, 3.6], ["KUALA LUMPUR", "DUBAI", 4, 6.8],
+  ["KUALA LUMPUR", "SHANGHAI", 3.6, 2.9], ["SHANGHAI", "TOKYO", 3, 3.9], ["TOKYO", "SHANGHAI", 3, 5.7],
+  ["TAIPEI", "TOKYO", 2.8, 4.4], ["LONDON", "SHANGHAI", 6.5, 5],
 ];
 const at = (city: string) => LANDMARKS.find((m) => m.city === city)!;
 const FLIGHTS = AIR.map(([a, b, dur, start]) => {
