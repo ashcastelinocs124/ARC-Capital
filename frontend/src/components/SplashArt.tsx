@@ -30,7 +30,7 @@ export function CircuitTraces() {
 }
 
 // A line-drawn world skyline along the bottom of the splash (global macro: one landmark per
-// financial centre), in map order west → east with each city named under it, below a dotted
+// financial centre), in map order west → east, below a dotted
 // world map; a dashed line ties each landmark to its city, and planes fly between the cities. Outlines draw in like the traces,
 // then the map fades in and a few windows twinkle. Landmarks are hand-drawn in a 1200×300 box
 // (ground at y=300) and placed at `x`; the filler blocks come from a seeded random so the skyline
@@ -127,9 +127,9 @@ export function Skyline() {
   }, []);
   const draw = (i: number) => ({ animationDelay: `${BG + 0.2 + (i % 12) * 0.06}s`, animationDuration: "2.2s" });
   return (
-    // As wide as the splash (its height follows the 1200×330 box); on phones the 45% floor makes `slice`
+    // As wide as the splash (its height follows the 1200×304 box); on phones the 45% floor makes `slice`
     // show the middle of the skyline, as before. The map and the landmarks' tops overflow upward.
-    <svg aria-hidden viewBox="0 0 1200 330" preserveAspectRatio="xMidYMax slice" overflow="visible" className="pointer-events-none absolute inset-x-0 bottom-0 aspect-[1200/330] min-h-[45%] w-full text-accent" fill="none" stroke="currentColor" strokeWidth={1.2}>
+    <svg aria-hidden viewBox="0 0 1200 304" preserveAspectRatio="xMidYMax slice" overflow="visible" className="pointer-events-none absolute inset-x-0 bottom-0 aspect-[1200/304] min-h-[45%] w-full text-accent" fill="none" stroke="currentColor" strokeWidth={1.2}>
       <path d={DOTS} className="rise" strokeWidth={3} strokeLinecap="round" strokeOpacity={0.3} style={{ animationDelay: `${BG + 0.6}s` }} />
       <Flights />
       <g className="rise" style={{ animationDelay: `${BG + 1.8}s` }}>
@@ -151,9 +151,6 @@ export function Skyline() {
       {CHIPS.map(([x, y, s], i) => <Chip key={i} x={x} y={y} s={s} delay={BG + 1.4 + i * 0.15} kind={(["cpu", "gpu", "agent"] as const)[i % 3]} />)}
       <g className="rise" style={{ animationDelay: `${BG + 1.6}s` }}>{ROBOTS.map(([dur, delay, scale], i) => <Robot key={i} dur={dur} delay={delay} scale={scale} />)}</g>
       <line x1={0} y1={299.5} x2={1200} y2={299.5} strokeOpacity={0.45} />
-      <g className="rise" fill="currentColor" stroke="none" fontSize={9} fontWeight={600} letterSpacing="0.14em" textAnchor="middle" opacity={0.6} style={{ animationDelay: `${BG + 1.2}s` }}>
-        {LANDMARKS.map((m, i) => <text key={i} x={m.x} y={318}>{m.city}</text>)}
-      </g>
     </svg>
   );
 }
