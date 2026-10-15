@@ -8,6 +8,8 @@ import { OpenRouterBars, RampChart } from "@/components/weekAhead/AiSpend";
 import { GapNote } from "@/components/weekAhead/Tooltip";
 import { SectorValuation } from "@/components/weekAhead/SectorValuation";
 import { C } from "@/lib/theme";
+import { SectorSentimentSection } from "@/components/SectorSentimentSection";
+import { CardBoundary } from "@/components/modelCard";
 
 const span = (a: string, b: string) => {
   const f = (d: string) => new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -58,7 +60,8 @@ export default function MacroPage() {
           note: `updated ${new Date(data.generated_at).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" })} ET`,
         } : undefined}>
         Inflation and jobs releases from the five largest economies, S&amp;P 500 and big AI-company earnings and AI model
-        launches on one timeline, then what the market expects and where AI money is going. Refreshed each evening after the close.
+        launches on one timeline, then what the market expects, how fearful or greedy it is, and where AI money is going.
+        Refreshed each evening after the close.
       </PageIntro>
       {!data ? (
         <p className="text-sm text-muted">{isLoading ? "Loading…" : "No Week Ahead data yet."}</p>
@@ -101,6 +104,11 @@ export default function MacroPage() {
                 <GapNote gaps={data.gaps} lanes={["sectors"]} />
               </Card>
             )}
+            {/* moved here from /models on 2026-10-15, when the other models went admin-only */}
+            <Card id="sector-sentiment" title="Fear & Greed · Sector Sentiment"
+              sub="5 market signals vs their last 2 years · sectors: technical − fundamental divergence">
+              <CardBoundary name="Fear & Greed"><SectorSentimentSection /></CardBoundary>
+            </Card>
             <div className="grid gap-6 md:grid-cols-2">
               <Card title="Businesses paying for AI" sub="Ramp AI Index via FRED · % of US businesses · monthly">
                 <RampChart ramp={data.spend.ramp} />

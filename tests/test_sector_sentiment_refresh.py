@@ -9,6 +9,11 @@ from castelino.signals import sector_sentiment as ss
 def tmp_store(tmp_path, monkeypatch):
     monkeypatch.setattr(ss, "_store_path", lambda: tmp_path / "sector_sentiment.json")
     monkeypatch.setattr(ss, "_universe_path", lambda: tmp_path / "sector_universe.json")
+    monkeypatch.setattr(ss.fear_greed, "compute", _offline)
+
+
+def _offline(stocks):
+    raise RuntimeError("no network in tests")  # refresh() must ship the sectors without the needle
 
 
 @pytest.fixture(autouse=True)

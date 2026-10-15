@@ -11,9 +11,8 @@ type Item = { to: string; label: string; desc: string };
 type Entry = { label: string; to: string } | { label: string; items: Item[] };
 
 const NAV: Entry[] = [
-  { label: "Models", to: "/models" },
   { label: "Markets", items: [
-    { to: "/macro", label: "Radar", desc: "The week ahead: releases, earnings, AI launches" },
+    { to: "/macro", label: "Radar", desc: "The week ahead, plus market Fear & Greed" },
     { to: "/updates", label: "Memo", desc: "The daily note, every weekday" },
     { to: "/deep-research", label: "Deep Research", desc: "The Sunday deep dive" },
     { to: "/themes", label: "Theme Charts", desc: "The day's top macro theme, charted at 08:00 and 20:00 ET" },

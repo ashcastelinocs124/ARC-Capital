@@ -24,8 +24,6 @@ OUT = Path(__file__).resolve().parent.parent / "frontend" / "public" / "api"
 
 # The GETs the public pages make.
 PATHS = [
-    "/models",
-    "/regime_forecast",
     "/macro_indicators",
     "/update/status",
     "/update/latest",
@@ -37,9 +35,6 @@ PATHS = [
     "/themes/history",
     "/agents/catalog",
     "/sector_sentiment",
-    "/adoption/summary",
-    "/adoption/companies",
-    "/cross_asset",
     "/week_ahead",
     "/ai_sentiment",
     "/research",
@@ -48,7 +43,12 @@ PATHS = [
     "/daily_posts",
     "/weekly_posts",
     "/section_posts",
-    "/admin/agents/catalog",  # private: /api/admin/ is password-gated by frontend/middleware.ts
+    # private: /api/admin/ is password-gated by frontend/middleware.ts
+    "/admin/agents/catalog",
+    "/admin/models",  # the models are admin-only since 2026-10-15
+    "/admin/adoption/summary",
+    "/admin/adoption/companies",
+    "/admin/cross_asset",
 ]
 
 
@@ -157,9 +157,9 @@ def export() -> int:
             queue += [f"/themes/{i['run_id']}" for i in data.get("items", [])]
         elif path == "/research" and isinstance(data, list):
             queue += [f"/research/{row['id']}" for row in data if "id" in row]
-        elif path == "/adoption/summary":
+        elif path == "/admin/adoption/summary":
             queue += [
-                f"/adoption/companies?{urlencode({'sector': c['sector'], 'bucket': c['bucket']})}"
+                f"/admin/adoption/companies?{urlencode({'sector': c['sector'], 'bucket': c['bucket']})}"
                 for c in data.get("cells", [])
             ]
     print(f"[export] wrote {written} files to {OUT}")

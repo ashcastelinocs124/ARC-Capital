@@ -52,6 +52,7 @@ export interface SectorScore {
   zscore: number | null;
   delta_since_prev: number | null;
   part_of?: string | null; // overlay rows only (Semiconductors): the GICS sector whose stocks it shares
+  fg_score?: number | null; // divergence on the Fear & Greed 0-100 scale (75 / 25 = the euphoric / fearful lines)
 }
 
 export interface SectorStockRow {
@@ -81,6 +82,19 @@ export interface SectorSentimentSnapshot {
   stocks: SectorStockRow[];
   narrative: string | null;
   narrative_generated_at: string | null;
+  fear_greed?: FearGreed | null; // null if the market signals couldn't be fetched
+}
+
+// Market Fear & Greed (signals/fear_greed.py): 5 signals, each ranked 0-100 against its last 2 years.
+export interface FearGreed {
+  score: number;
+  zone: string;
+  as_of: string;
+  components: { key: string; name: string; score: number; raw: string }[];
+  previous: number | null;
+  week_ago: number | null;
+  month_ago: number | null;
+  year_ago: number | null;
 }
 
 // ── Cross-Asset Drivers (GET /cross_asset) ─────────────────────────────

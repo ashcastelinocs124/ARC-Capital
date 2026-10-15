@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/cn";
-import { isEnabled } from "@/models/registry";
+import { isEnabled, isPublic } from "@/models/registry";
 import { PageIntro } from "@/components/layout/PageIntro";
 
 // High-level guide for every model on /models (cards link here via `/docs#<id>`). No live numbers on
@@ -66,12 +66,14 @@ const ALL_DOCS: Doc[] = [
   {
     id: "sector-sentiment",
     group: "Signals",
-    name: "Sector Sentiment",
-    lead: "Where has price run ahead of the business, or fallen behind it? Technical score minus fundamental score, for each GICS sector's 10 largest stocks, plus a Semiconductors row.",
-    facts: [["Type", "Rules-based score"], ["Output", "Divergence, −1 to +1"], ["Universe", "11 sectors + Semis × top 10"], ["Refresh", "Refresh button"]],
-    overview: "How strongly each sector's stocks are trending (technical) against how well the underlying businesses are doing (fundamental). A large gap means price has run ahead of, or fallen behind, the business.",
-    read: <>A euphoric tech sector flagged stock-specific usually means one mega-cap is carrying the reading. Check the stock table before reading it as a sector call.</>,
+    name: "Fear & Greed · Sector Sentiment",
+    lead: "How fearful or greedy is the market, and where has price run ahead of the business or fallen behind it? A 0–100 needle from five market signals, plus a 0–100 score for each GICS sector and Semiconductors.",
+    facts: [["Type", "Rules-based scores"], ["Output", "0–100: fear → greed"], ["Universe", "5 signals · 11 sectors + Semis × top 10"], ["Refresh", "09:30 and 17:00 New York"]],
+    overview: "The needle averages five market signals (momentum, breadth, volatility, junk-bond demand, safe-haven demand), each ranked against its own last two years, the way CNN builds its Fear & Greed Index. Each sector's score compares how strongly its stocks are trending (technical) with how well the businesses are doing (fundamental): above 50, price has run ahead of the business; below 50, it has fallen behind.",
+    read: <>Read the needle as the market's mood against its own recent past, not as a forecast: fear means the signals sit near their most fearful levels of the last two years. For a sector, a high score flagged stock-specific usually means one mega-cap is carrying the reading; check the stock table before reading it as a sector call.</>,
     limits: [
+      "The needle ranks each signal against only the last two years, so a long calm stretch makes small wobbles look extreme.",
+      "CNN's put/call ratio and NYSE highs-vs-lows have no free source; breadth uses our ~115 stocks, today's largest, which flatters the past.",
       "Only the 10 largest stocks per sector are scored.",
       "Semiconductors (the 10 largest chip and chip-equipment stocks) is not a GICS sector: its stocks also count in Technology, so don't add the two.",
       "Yahoo Finance fundamentals have gaps; a stock with none is scored on technicals only and flagged.",
@@ -111,8 +113,10 @@ const ALL_DOCS: Doc[] = [
 
 // only models switched on in models/registry.ts
 const DOCS = ALL_DOCS.filter((d) => isEnabled(d.id));
+// the public page documents only the public card; /admin → Docs shows them all (DOCS_LIST)
+const PUBLIC_DOCS = DOCS.filter((d) => isPublic(d.id));
 
-const GROUPS = [...new Set(DOCS.map((d) => d.group))];
+const GROUPS = [...new Set(PUBLIC_DOCS.map((d) => d.group))];
 
 export type DocDetail = [string, ReactNode][];
 
@@ -151,7 +155,7 @@ export function Article({ d, detail }: { d: Doc; detail?: DocDetail }) {
           {d.limits.map((l, i) => <li key={i}>{l}</li>)}
         </ul>
       </div>
-      <Link to="/models" className="mt-4 inline-block text-xs font-medium text-accent hover:underline">See the live card on Models →</Link>
+      {isPublic(d.id) && <Link to="/macro#sector-sentiment" className="mt-4 inline-block text-xs font-medium text-accent hover:underline">See the live card on Radar →</Link>}
     </article>
   );
 }
@@ -160,7 +164,7 @@ export const DOCS_LIST = DOCS;
 
 export default function DocsPage() {
   const { hash } = useLocation();
-  const [active, setActive] = useState(DOCS[0].id);
+  const [active, setActive] = useState(PUBLIC_DOCS[0].id);
 
   // react-router doesn't scroll to #anchors on its own
   useEffect(() => {
@@ -173,22 +177,22 @@ export default function DocsPage() {
       (entries) => entries.forEach((e) => e.isIntersecting && setActive(e.target.id)),
       { rootMargin: "0px 0px -70% 0px" },
     );
-    DOCS.forEach((d) => { const el = document.getElementById(d.id); if (el) io.observe(el); });
+    PUBLIC_DOCS.forEach((d) => { const el = document.getElementById(d.id); if (el) io.observe(el); });
     return () => io.disconnect();
   }, []);
 
   return (
     <div className="p-4 md:p-8">
-      <PageIntro kicker="Documentation" title="What every model tells you, and where it falls short"
-        steps={["What it predicts", "How to read it", "Limitations"]}
-        when={{ label: `${DOCS.length} models`, value: "documented" }}>
-        A plain-English guide to each model on the Models page: what it predicts, how to read its output, and its
-        known limitations.
+      <PageIntro kicker="Documentation" title="What the Fear & Greed gauge tells you, and where it falls short"
+        steps={["What it measures", "How to read it", "Limitations"]}
+        when={{ label: "Fear & Greed", value: "on Radar" }}>
+        A plain-English guide to the Fear &amp; Greed · Sector Sentiment card on Radar: what it measures, how to read its
+        output, and its known limitations.
       </PageIntro>
 
       {/* phones: contents as a row of chips */}
       <div className="md:hidden mt-4 flex flex-wrap gap-2">
-        {DOCS.map((d) => (
+        {PUBLIC_DOCS.map((d) => (
           <a key={d.id} href={`#${d.id}`} className="text-xs px-2.5 py-1 rounded-full border border-border text-text-2">{d.name}</a>
         ))}
       </div>
@@ -198,7 +202,7 @@ export default function DocsPage() {
           {GROUPS.map((g) => (
             <div key={g}>
               <div className="mt-3 mb-1 ml-2.5 text-[10.5px] font-semibold uppercase tracking-wider text-muted-2">{g}</div>
-              {DOCS.filter((d) => d.group === g).map((d) => (
+              {PUBLIC_DOCS.filter((d) => d.group === g).map((d) => (
                 <a key={d.id} href={`#${d.id}`}
                   className={cn("block px-2.5 py-1 border-l-2 text-[12.5px]",
                     active === d.id ? "border-accent text-accent font-semibold bg-surface-2" : "border-border text-muted hover:text-text")}>
@@ -209,7 +213,7 @@ export default function DocsPage() {
           ))}
         </nav>
         <div className="space-y-5">
-          {DOCS.map((d) => <Article key={d.id} d={d} />)}
+          {PUBLIC_DOCS.map((d) => <Article key={d.id} d={d} />)}
         </div>
       </div>
     </div>

@@ -21,6 +21,8 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from castelino.config import get_settings
+from castelino.signals import fear_greed
+from castelino.signals.fear_greed import FearGreed
 
 log = logging.getLogger(__name__)
 
@@ -127,6 +129,7 @@ class SectorScore(BaseModel):
     zscore: float | None = None
     delta_since_prev: float | None = None
     part_of: str | None = None  # overlays only: the GICS sector whose stocks this row shares
+    fg_score: int | None = None  # divergence on the Fear & Greed 0-100 scale
 
 
 class SectorSentimentSnapshot(BaseModel):
@@ -135,6 +138,7 @@ class SectorSentimentSnapshot(BaseModel):
     stocks: list[StockRow]
     narrative: str | None = None
     narrative_generated_at: datetime | None = None
+    fear_greed: FearGreed | None = None  # the market needle (signals/fear_greed.py)
 
 
 def cross_sectional_score(values: dict[str, float | None]) -> dict[str, float]:
@@ -283,6 +287,7 @@ def aggregate_sectors(
                 tech_score=_wavg("tech_score"),
                 fund_score=_wavg("fund_score"),
                 label=label,
+                fg_score=fear_greed.sector_score(div, euphoric, fearful),
                 explanation=explain_concentration(
                     members, top_share=top_share, min_agree=min_agree
                 ),
@@ -648,7 +653,14 @@ def refresh(force: bool = False) -> SectorSentimentSnapshot:
             update["delta_since_prev"] = s.divergence - prev_by_sector[s.sector]
         sectors[i] = s.model_copy(update=update)
 
-    snap = SectorSentimentSnapshot(as_of=datetime.now(UTC), sectors=sectors, stocks=rows)
+    try:
+        fg = fear_greed.compute(sorted({r.symbol for r in rows}))
+    except Exception as e:  # noqa: BLE001 - the sector numbers still ship without the needle
+        log.warning("fear & greed failed: %s", e)
+        fg = None
+    snap = SectorSentimentSnapshot(
+        as_of=datetime.now(UTC), sectors=sectors, stocks=rows, fear_greed=fg
+    )
     # Narrative is written by the Claude explainer in scripts/refresh_snapshot.py,
     # after the history backfill (it needs trends + events as context).
     save_snapshot(snap)

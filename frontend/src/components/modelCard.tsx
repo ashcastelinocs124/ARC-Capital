@@ -1,9 +1,9 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { Component, useEffect, useRef, type ReactNode } from "react";
 import { Maximize2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/cn";
 
-// Building blocks that mirror the forecaster cards on the Models page (pages/ModelsPage.tsx),
+// Building blocks that mirror the forecaster cards on the admin Models tab (admin/private/ModelsPage.tsx),
 // so indicator cards (Sector Sentiment, AI Adoption) read the same way.
 
 export function ago(iso: string) {
@@ -266,4 +266,20 @@ export function Measures({ question, output }: { question: string; output: strin
       <div className="text-xs text-muted mt-0.5">Output: {output}</div>
     </div>
   );
+}
+
+// One card's crash (e.g. a half-saved snapshot) must not blank the whole page.
+export class CardBoundary extends Component<{ name: string; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <div className="card p-5 text-sm text-muted">
+        {this.props.name} couldn't be shown: its latest data is incomplete. It comes back with the next refresh.
+      </div>
+    );
+  }
 }

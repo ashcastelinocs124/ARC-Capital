@@ -1,16 +1,14 @@
-import { Component, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useModels } from "@/hooks/useModels";
-import { useSectorSentiment } from "@/hooks/useSectorSentiment";
 import { useAdoptionSummary } from "@/hooks/useAdoption";
 import { useCrossAsset } from "@/hooks/useCrossAsset";
 import type { ModelCard } from "@/api/endpoints";
 import { cn } from "@/lib/cn";
-import { SectorSentimentSection } from "@/components/SectorSentimentSection";
 import { AdoptionSection } from "@/components/AdoptionSection";
 import { CrossAssetSection } from "@/components/CrossAssetSection";
 import { Area, AreaChart, CartesianGrid, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { CardHead, ExpandableCard, GraphTile, HowItWorks, NoChart, Panel, TILE_CHART_HEIGHT } from "@/components/modelCard";
-import { ENABLED_MODELS, type ModelId } from "@/models/registry";
+import { CardBoundary, CardHead, ExpandableCard, GraphTile, HowItWorks, NoChart, Panel, TILE_CHART_HEIGHT } from "@/components/modelCard";
+import { PRIVATE_MODELS, type ModelId } from "@/models/registry";
 import { C } from "@/lib/theme";
 
 const WEAK_ACCURACY = 0.55; // near coin-flip for a binary up/down call
@@ -304,50 +302,31 @@ function ForecastCard({ id, ...p }: CardProps & { id: string }) {
   return card ? <Card card={card} {...p} /> : null;
 }
 
-// One component per model; which ones show is decided in models/registry.ts.
-const COMPONENTS: Record<ModelId, (p: CardProps) => ReactNode> = {
+// One component per private model (registry.ts); Fear & Greed · Sector Sentiment is public, on Radar.
+const COMPONENTS: Record<Exclude<ModelId, "sector-sentiment">, (p: CardProps) => ReactNode> = {
   pulse: (p) => <ForecastCard id="growth" {...p} />,
   pressure: (p) => <ForecastCard id="inflation" {...p} />,
   "risk-off": (p) => <ForecastCard id="risk_off" {...p} />,
-  "sector-sentiment": (p) => <SectorSentimentSection {...p} />,
   adoption: (p) => <AdoptionSection {...p} />,
   "cross-asset": (p) => <CrossAssetSection {...p} />,
 };
 
 // A model whose data breaks its card shows a notice instead of blanking the whole page.
-class CardBoundary extends Component<{ name: string; children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-  render() {
-    if (!this.state.failed) return this.props.children;
-    return (
-      <div className="card p-5 text-sm text-muted">
-        {this.props.name} couldn't be shown: its latest data is incomplete. Click Refresh to rebuild it.
-      </div>
-    );
-  }
-}
-
 // Live value per model for the header chips (each hook is already used by its card, so no extra fetches).
 function useChipValues(): Record<string, string | undefined> {
   const models = useModels().data;
-  const sectors = useSectorSentiment().data?.sectors;
   const adoption = useAdoptionSummary().data;
   const cross = useCrossAsset().data;
   const prob = (id: string) => {
     const p = models?.find((m) => m.id === id)?.prob;
     return p == null ? undefined : `${Math.round(p * 100)}%`;
   };
-  const top = sectors?.length ? sectors.reduce((a, b) => (Math.abs(b.divergence) > Math.abs(a.divergence) ? b : a)) : null;
   const large = adoption && !Array.isArray(adoption) ? adoption.headline?.large_ew : null;
   const move = cross?.assets.spx.windows["1w"].move;
   return {
     pulse: prob("growth"),
     pressure: prob("inflation"),
     "risk-off": prob("risk_off"),
-    "sector-sentiment": top ? `${top.divergence > 0 ? "+" : ""}${top.divergence.toFixed(2)}` : undefined,
     adoption: large != null ? large.toFixed(1) : undefined,
     "cross-asset": move != null ? `${move >= 0 ? "+" : ""}${move.toFixed(1)}%` : undefined,
   };
@@ -360,10 +339,10 @@ function Header({ onJump }: { onJump: (id: string) => void }) {
       <div className="eyebrow">ARC Research · Models</div>
       <h1 className="mt-2.5 text-4xl font-semibold tracking-[-0.035em] text-text">Live models</h1>
       <p className="mt-2.5 max-w-2xl text-base leading-relaxed text-muted">
-        {ENABLED_MODELS.length} models that read the economy and markets every day. Each one answers a single question; click any of them for the method, inputs and track record.
+        {PRIVATE_MODELS.length} models that read the economy and markets every day, shown only here. Each one answers a single question; click any of them for the method, inputs and track record.
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
-        {ENABLED_MODELS.map((m) => (
+        {PRIVATE_MODELS.map((m) => (
           <button key={m.id} onClick={() => onJump(m.id)}
             className="flex items-baseline gap-2 rounded-full border border-border bg-surface px-3.5 py-1.5 text-[13px] hover:border-text">
             <b className="font-semibold text-text">{m.name}</b>
@@ -376,7 +355,7 @@ function Header({ onJump }: { onJump: (id: string) => void }) {
   );
 }
 
-const WIDE = new Set<string>(["cross-asset"]); // full-width tiles
+const WIDE = new Set<string>(["adoption", "cross-asset"]); // full-width tiles (4 models: 2 halves + 2 wide)
 
 export default function ModelsPage() {
   const { isLoading } = useModels();
@@ -389,7 +368,7 @@ export default function ModelsPage() {
       <Header onJump={jump} />
       <div className="grid gap-5 md:grid-cols-2">
         {isLoading && <div className="text-sm text-muted">Loading…</div>}
-        {ENABLED_MODELS.map((m) => {
+        {PRIVATE_MODELS.map((m) => {
           const Model = COMPONENTS[m.id];
           return (
             <div key={m.id} id={`model-${m.id}`} className={cn("min-w-0 scroll-mt-4", (expanded === m.id || WIDE.has(m.id)) && "md:col-span-2")}>

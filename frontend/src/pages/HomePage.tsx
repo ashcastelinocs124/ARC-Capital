@@ -5,7 +5,7 @@ import { useDailyPosts } from "@/hooks/useDailyPosts";
 import { useWeekly, useWeeklyPosts } from "@/hooks/useWeekly";
 import { useSectionPosts } from "@/hooks/useSectionPosts";
 import { useVideos } from "@/hooks/useVideos";
-import { useModels } from "@/hooks/useModels";
+import { useSectorSentiment } from "@/hooks/useSectorSentiment";
 import { useWeekAhead } from "@/hooks/useWeekAhead";
 import { isWeekly } from "@/api/endpoints";
 import { clock } from "@/pages/VideosPage";
@@ -19,7 +19,6 @@ const SUBSTACK = "https://archresearch.substack.com/";
 const isPost = (url: string) => url.startsWith(`${SUBSTACK}p/`); // every rendered feed link must be a post
 const short = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 const weekNo = (w: string) => `Week ${Number(w.split("W")[1])}`;
-const pct = (p: number | undefined) => (p == null ? "–" : `${Math.round(p * 100)}%`);
 
 // ── small drawing helpers ────────────────────────────────────────────────
 function Big({ value, label }: { value: string; label: string }) {
@@ -35,16 +34,6 @@ const Cover = ({ src }: { src: string | null | undefined }) =>
   src ? <img src={src} alt="" loading="lazy" className="h-full w-full object-cover" /> : <div className="h-full w-full bg-gradient-to-br from-accent-soft-2 via-accent to-accent-hover" />;
 
 // ── section visuals ───────────────────────────────────────────────────────
-function ModelsVis() {
-  const pulse = useModels().data?.find((m) => m.id === "growth");
-  return (
-    <>
-      <img src="/thumbs/models-cover.jpg" alt="" loading="lazy" className="h-full w-full object-cover object-top" />
-      <Big value={pct(pulse?.prob)} label={`Pulse · ${pulse?.prob_label ?? "P(expansion)"}`} />
-    </>
-  );
-}
-
 function MemoVis() {
   const p = useDailyPosts().data?.[0];
   return (
@@ -162,12 +151,11 @@ function Hero() {
   const daily = useDailyPosts().data?.[0];
   const weekly = useWeeklyPosts().data?.[0];
   const video = useVideos().data?.find((v) => isPost(v.url));
-  const models = useModels().data;
-  const prob = (id: string) => pct(models?.find((m) => m.id === id)?.prob);
+  const fg = useSectorSentiment().data?.fear_greed;
   const entries: [string, string, string, ReactNode][] = [
     ["/updates", "Daily Memo", "The day's macro in five items, with charts.", <Cover src={daily?.image} />],
     ["/deep-research", "Weekly Deep Dive", "Every Sunday: 10–12 trends, checked against the data.", <Cover src={weekly?.image} />],
-    ["/models", "Live models", `Pulse ${prob("growth")} · Pressure ${prob("inflation")} · Sector Sentiment · Cross-Asset`, <Cover src="/thumbs/live-models.jpg" />],
+    ["/macro", "Radar", `The week ahead · Fear & Greed ${fg ? `${fg.score} · ${fg.zone}` : "and sector sentiment"}`, <Cover src="/thumbs/radar-cover.jpg" />],
     ["/videos", "Videos", "AI updates and special topics, explained on camera.", <Cover src={video?.thumbnail} />],
   ];
   return (
@@ -178,7 +166,7 @@ function Hero() {
           Independent research<br /><RotatingTagline />
         </h1>
         <p className="mt-5 max-w-xl text-base leading-relaxed text-muted md:text-lg">
-          A daily memo, a Sunday deep dive and live models on the economy, markets and the AI stack.
+          A daily memo, a Sunday deep dive and a weekly radar on the economy, markets and the AI stack.
         </p>
         <div className="mt-7 flex flex-wrap gap-3">
           {daily && isPost(daily.url) ? (
@@ -261,11 +249,8 @@ function Sections() {
   const n = useVideos().data?.length;
   const panes: Pane[] = [
     { to: "/macro", title: "Radar", sub: "The week ahead", vis: <MacroVis />,
-      blurb: "What's coming: data releases, earnings and AI launches on one timeline, with the consensus for each print.",
-      points: [["Data releases", "US, China, Germany, Japan, India"], ["Earnings", "S&P 500 + AI names"], ["AI launches", "New models and reported releases"], ["AI spend", "Ramp AI Index, token share"]] },
-    { to: "/models", title: "Models", sub: "Live nowcasts", vis: <ModelsVis />,
-      blurb: "Pulse and Pressure read where growth and inflation are heading next month, next to Sector Sentiment, the AI Adoption Index and Cross-Asset Drivers.",
-      points: [["Pulse", "P(expansion next month)"], ["Pressure", "P(CPI accelerates)"], ["Sector Sentiment", "11 GICS sectors + Semis"], ["Cross-Asset", "What moved stocks and bonds"]] },
+      blurb: "What's coming: data releases, earnings and AI launches on one timeline, with the consensus for each print, plus how fearful or greedy the market is.",
+      points: [["Data releases", "US, China, Germany, Japan, India"], ["Earnings", "S&P 500 + AI names"], ["Fear & Greed", "Market mood, 0–100, and 12 sectors"], ["AI spend", "Ramp AI Index, token share"]] },
     { to: "/updates", title: "Memo", sub: "Every weekday", vis: <MemoVis />,
       blurb: "The daily note: the day's macro in five ranked items, each with a chart, and every number checked against its source.",
       points: [["Five items", "Ranked by what moved"], ["Exhibits", "One chart per item"], ["Checked", "Every figure traced to data"]] },
@@ -443,7 +428,7 @@ function CtaBand() {
     <section className="flex flex-col gap-5 rounded-[10px] bg-text px-6 py-9 text-surface md:flex-row md:items-center md:justify-between md:px-11">
       <div>
         <div className="text-[11px] font-semibold uppercase tracking-[0.06em] opacity-60">Go deeper</div>
-        <h2 className="mt-2 text-2xl font-semibold tracking-[-0.025em] md:text-[28px]">The models are open.<br />The research goes deeper.</h2>
+        <h2 className="mt-2 text-2xl font-semibold tracking-[-0.025em] md:text-[28px]">The week ahead is on Radar.<br />The research goes deeper.</h2>
         <p className="mt-2 text-sm opacity-70">Every memo and Sunday deep dive, in your inbox.</p>
       </div>
       <a href={SUBSTACK} target="_blank" rel="noopener noreferrer" className="inline-flex shrink-0 items-center gap-1 self-start rounded-full bg-surface px-5 py-2.5 text-[13px] font-semibold text-text md:self-auto">

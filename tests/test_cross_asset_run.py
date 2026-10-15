@@ -108,6 +108,6 @@ def test_export_and_refresh_wiring():
     )
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    assert "/cross_asset" in mod.PATHS
+    assert "/admin/cross_asset" in mod.PATHS and "/cross_asset" not in mod.PATHS
     assert "cross_asset" in refresh._RUNNERS
     assert refresh.LABELS["cross_asset"] == "Cross-Asset Drivers"

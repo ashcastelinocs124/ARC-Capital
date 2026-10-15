@@ -397,7 +397,7 @@ agents:
 systems:
   - group: Briefings
     trigger: "Top-bar Refresh button (once a day)"
-    output: "The /updates Morning Note, the refitted Pulse/Pressure models and the Sector Sentiment card on /models"
+    output: "The /updates Morning Note and the Fear & Greed · Sector Sentiment card on Radar"
     blurb: >-
       An Orchestrator briefs four research agents and reviews what they find; an Editor writes
       the Morning Note. Code supplies every number, and a guard checks each figure before saving.
@@ -411,10 +411,8 @@ systems:
         loops: [{from: 2, to: 1, label: "retry with errors"}]
       - title: "Admin · Daily desk"
         flow: [["Your question on /admin"], ["agent:desk_chat|one day · one agent"], ["end:Answer with fact ids"]]
-      - title: "Model refit"
-        flow: [["Refresh"], ["code:Refit Pulse / Pressure|XGBoost"], ["code:Promotion gate|Brier +0.02"], ["end:/models · /macro"]]
       - title: "Sector Sentiment"
-        flow: [["Refresh"], ["code:Divergence scores|top-10 per sector"], ["agent:sector_narrative|1 call", "agent:sector_prose|11 calls"], ["end:Card on /models"]]
+        flow: [["Refresh"], ["code:Divergence scores|top-10 per sector", "code:Fear & Greed|5 market signals"], ["agent:sector_narrative|1 call", "agent:sector_prose|11 calls"], ["end:Card on Radar"]]
 
   - group: Theme Charts
     trigger: "Cron on the Fly server at 08:00 and 20:00 ET"

@@ -114,6 +114,9 @@ app.include_router(videos.router)
 app.include_router(daily_posts.router)
 app.include_router(weekly_posts.router)
 app.include_router(section_posts.router)
+# the private models: the public site gets them only via /api/admin/ (password-gated by middleware.ts)
+for _private in (models.router, adoption.router, cross_asset.router):
+    app.include_router(_private, prefix="/admin")
 app.include_router(
     admin_desk.router
 )  # local: no login; on Fly it runs alone behind a password (desk_app.py)

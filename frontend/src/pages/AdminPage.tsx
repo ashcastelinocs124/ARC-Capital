@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import { Link } from "react-router-dom";
 import { Lock } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -12,7 +12,25 @@ import { PageIntro } from "@/components/layout/PageIntro";
 // PRIVATE area. The data (/api/admin/*) and the detailed docs module (/admin/chunks/*) are password-gated
 // by frontend/middleware.ts on the public site; locally the backend serves them without a login.
 // This page's own code holds no private data, so it can safely ship in the public bundle.
-const TABS = ["Agents", "Docs", "Daily desk", "X posts"] as const;
+const TABS = ["Agents", "Models", "Docs", "Daily desk", "X posts"] as const;
+
+const LoadFailed = ({ what }: { what: string }) => (
+  <div className="rounded-xl border border-danger bg-danger-soft px-5 py-3 text-sm">
+    Couldn't load the private {what}. If you are on the public site, reload and sign in with the admin password.
+  </div>
+);
+
+// The models are admin-only (since 2026-10-15): the page is a private chunk (/admin/chunks/*) and its
+// data comes from /api/admin/*, so neither ships to visitors.
+function AdminModels() {
+  const [Page, setPage] = useState<ComponentType | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    import("@/admin/private/ModelsPage").then((m) => setPage(() => m.default), () => setFailed(true));
+  }, []);
+  if (failed) return <div className="mx-4 md:mx-8"><LoadFailed what="models" /></div>;
+  return Page ? <Page /> : <p className="mx-4 text-sm text-muted md:mx-8">Loading…</p>;
+}
 
 function AdminDocs() {
   const [detail, setDetail] = useState<Record<string, DocDetail> | null>(null);
@@ -27,11 +45,7 @@ function AdminDocs() {
         when={{ label: `${DOCS_LIST.length} models`, value: "documented" }}>
         The public guide plus the detailed write-ups that stay private.
       </PageIntro>
-      {failed && (
-        <div className="rounded-xl border border-danger bg-danger-soft px-5 py-3 text-sm">
-          Couldn't load the private write-ups. If you are on the public site, reload and sign in with the admin password.
-        </div>
-      )}
+      {failed && <LoadFailed what="write-ups" />}
       <div className="space-y-5">
         {DOCS_LIST.map((d) => <Article key={d.id} d={d} detail={detail?.[d.id]} />)}
       </div>
@@ -73,7 +87,7 @@ export default function AdminPage() {
         </span>
         <span className="inline-flex flex-wrap items-center gap-3">
           <Session />
-          <Link to="/models" className="font-semibold underline">Back to the site</Link>
+          <Link to="/" className="font-semibold underline">Back to the site</Link>
         </span>
       </div>
       <div className="mx-4 flex gap-2 md:mx-8">
@@ -85,7 +99,7 @@ export default function AdminPage() {
           </button>
         ))}
       </div>
-      {tab === "Agents" ? <AgentsPage admin /> : tab === "Docs" ? <AdminDocs /> : tab === "Daily desk" ? <DailyDesk /> : <XPosts />}
+      {tab === "Agents" ? <AgentsPage admin /> : tab === "Models" ? <AdminModels /> : tab === "Docs" ? <AdminDocs /> : tab === "Daily desk" ? <DailyDesk /> : <XPosts />}
     </div>
   );
 }

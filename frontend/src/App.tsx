@@ -1,7 +1,6 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
 import HomePage from "./pages/HomePage";
-import ModelsPage from "./pages/ModelsPage";
 import MacroPage from "./pages/MacroPage";
 import AgentsPage from "./pages/AgentsPage";
 import DeepResearchPage from "./pages/DeepResearchPage";
@@ -18,7 +17,6 @@ const HOME = "/";
 
 const PAGES: [string, React.ReactNode][] = [
   ["/", <HomePage />],
-  ["/models", <ModelsPage />],
   ["/macro", <MacroPage />],
   ["/deep-research", <DeepResearchPage />],
   ["/updates", <UpdatesPage />],
@@ -41,7 +39,9 @@ export default function App() {
         {PAGES.map(([path, el]) => (
           <Route key={path} path={path} element={el} />
         ))}
-        <Route path="/sector-sentiment" element={<Navigate to="/models" replace />} />
+        {/* the models went admin-only on 2026-10-15; the one public card, Fear & Greed, is on Radar */}
+        <Route path="/models" element={<Navigate to="/macro#sector-sentiment" replace />} />
+        <Route path="/sector-sentiment" element={<Navigate to="/macro#sector-sentiment" replace />} />
         <Route path="*" element={<Navigate to={HOME} replace />} />
       </Routes>
     </AppShell>

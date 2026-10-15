@@ -47,12 +47,12 @@ export interface AdoptionCompany {
   claims: { depth: number; quote: string }[];
 }
 
-export const fetchAdoptionSummary = () => api.get<AdoptionSummary>("/adoption/summary");
+export const fetchAdoptionSummary = () => api.get<AdoptionSummary>("/admin/adoption/summary");
 // No filters = every company in the latest period.
 export const fetchAdoptionCompanies = (sector?: string, bucket?: Bucket) => {
   const q = new URLSearchParams();
   if (sector) q.set("sector", sector);
   if (bucket) q.set("bucket", bucket);
   const qs = q.toString();
-  return api.get<AdoptionCompany[]>(`/adoption/companies${qs ? `?${qs}` : ""}`);
+  return api.get<AdoptionCompany[]>(`/admin/adoption/companies${qs ? `?${qs}` : ""}`);
 };

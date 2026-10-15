@@ -10,7 +10,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     main.current?.scrollTo(0, 0); // braces: scrollTo can return a Promise, and an effect may only return a cleanup
   }, [pathname]);
-  // A #hash (nav links such as /models#model-adoption) scrolls to that card once it has rendered;
+  // A #hash (links such as /macro#sector-sentiment) scrolls to that card once it has rendered;
   // cards wait on data, so look for it for up to 3 s.
   useEffect(() => {
     if (!hash) return;

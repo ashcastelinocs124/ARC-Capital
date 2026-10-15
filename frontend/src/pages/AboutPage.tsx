@@ -14,13 +14,13 @@ const HOW: [string, string][] = [
   ["Data first.", "Releases, prices and prediction markets come from FRED, BLS, Yahoo Finance and Polymarket; news comes from cited web search."],
   ["Agents do the legwork.", "Analyst agents gather the day's facts; an editor agent writes the note."],
   ["Code checks the numbers.", "Every figure in a note must match a fact behind it, or the note doesn't ship."],
-  ["Open methods.", "The models and agents are explained under How it works."],
+  ["Open methods.", "The agents and the Fear & Greed gauge are explained under How it works."],
 ];
 
 const PUBS: [string, string, string, string][] = [
   ["/updates", "Every weekday", "Memo", "The daily note: what moved, and why it matters."],
   ["/deep-research", "Sundays", "Deep Research", "The week's 10 to 12 trends, researched in depth."],
-  ["/models", "Always on", "Models", "Growth and inflation nowcasts, sector sentiment, AI adoption, cross-asset drivers."],
+  ["/macro", "Every evening", "Radar", "The week ahead, plus how fearful or greedy the market is and which sectors are stretched."],
 ];
 
 export default function AboutPage() {
@@ -51,7 +51,7 @@ export default function AboutPage() {
             </p>
             <p>
               I also build the systems behind it: the AI agents that gather the day's data and write the Morning Note and
-              the Sunday deep dive, and the machine-learning models on this site: growth and inflation nowcasters,
+              the Sunday deep dive, and the machine-learning models behind them: growth and inflation nowcasters,
               sector sentiment, an AI adoption index and cross-asset drivers.
             </p>
           </div>

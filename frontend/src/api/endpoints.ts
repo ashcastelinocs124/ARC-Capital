@@ -25,11 +25,9 @@ export interface ModelCard {
   sources?: { id: string; name: string; role: "target" | "indicator"; provider: string; ref: string; used: boolean }[];
   history?: { month: string; value: number }[]; // YYYY-MM; what the label is built from, for the tile chart
 }
-export const fetchModels = () => api.get<ModelCard[]>("/models");
+export const fetchModels = () => api.get<ModelCard[]>("/admin/models");
 
 // ── Macro ──────────────────────────────────────────────────────────────
-export interface RegimeForecastRow { running: boolean; asof: string | null; growth_up: boolean | null; inflation_up: boolean | null; growth_prob: number | null; inflation_prob: number | null; }
-export const fetchRegimeForecast = () => api.get<RegimeForecastRow>("/regime_forecast");
 export const fetchMacroIndicators = () => api.get<MacroIndicatorRow[]>("/macro_indicators");
 export const fetchYieldCurveChart = () => api.get<PlotlyChart>("/yield_curve_chart");
 export const fetchTriggers = () => api.get<unknown[]>("/triggers_table");
@@ -121,7 +119,7 @@ export const fetchSectorSentiment = async (): Promise<SectorSentimentSnapshot | 
 
 // ── Cross-Asset Drivers ─────────────────────────────────────────────────
 export const fetchCrossAsset = async (): Promise<CrossAssetSnapshot | null> => {
-  const data = await api.get<CrossAssetSnapshot | Record<string, never> | []>("/cross_asset");
+  const data = await api.get<CrossAssetSnapshot | Record<string, never> | []>("/admin/cross_asset");
   // the client maps a 404 (static build without the file) to []
   return data && !Array.isArray(data) && "assets" in data ? (data as CrossAssetSnapshot) : null;
 };
