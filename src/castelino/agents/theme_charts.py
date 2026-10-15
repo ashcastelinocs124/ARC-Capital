@@ -6,6 +6,8 @@ move together · range: where each series sits between its 1-year low and high, 
 it was a month ago. Every number is computed here from the fetched daily series, never the LLM's;
 moves use the same bar counts as the Morning Note's market facts (1d=1, 1w=5, 1m=21, 3m=63), so a
 cell matches the M fact the picker quotes. Plugged into `make_weekly_exhibits(forms=FORMS)`.
+`chart_data` hands the same numbers (plus a year of daily points for the range buttons) to the
+browser, which draws /themes interactively; the PNGs remain for older runs and the download link.
 """
 
 from __future__ import annotations
@@ -59,19 +61,26 @@ def _move(v: float, rate: bool) -> str:
     return f"{v:+.0f}bp" if rate else f"{v:+.1f}%"
 
 
-def heatmap(pick, cited: list[Fact], series):
-    names, cells, lasts = [], [], []  # cells[row][col] = (move, sigma)
+def heat_rows(cited: list[Fact], series) -> list[dict]:
+    """Per series: its 1d/1w/1m/3m move and that move in σ of the same-length moves over 2 years."""
+    rows, lasts = [], []
     for f in cited:
         s, rate = _daily(f, series, 1100), _rate(f)  # ~3 years: 2 for σ plus the 3m lookback
-        row = []
+        cells = []
         for h in HORIZONS:
             chg = (s.diff(BARS[h]) * 100 if rate else s.pct_change(BARS[h]) * 100).dropna()
             sd = chg.iloc[-505:-1].std()
-            row.append((float(chg.iloc[-1]), float(chg.iloc[-1] / sd) if sd > 0 else 0.0))
-        names.append(f.series.label or f.series.id)
-        cells.append((row, rate))
+            cells.append((float(chg.iloc[-1]), float(chg.iloc[-1] / sd) if sd > 0 else 0.0))
+        rows.append({"name": f.series.label or f.series.id, "rate": rate, "cells": cells})
         lasts.append(s.index[-1])
-    names = _stamp(names, lasts)
+    for r, name in zip(rows, _stamp([r["name"] for r in rows], lasts), strict=True):
+        r["name"] = name
+    return rows
+
+
+def heatmap(pick, cited: list[Fact], series):
+    rows = heat_rows(cited, series)
+    names, cells = [r["name"] for r in rows], [(r["cells"], r["rate"]) for r in rows]
 
     def draw(ax):
         z = np.array([[c[1] for c in row] for row, _ in cells])
@@ -102,16 +111,19 @@ def heatmap(pick, cited: list[Fact], series):
     return draw, sub, {"left": 0.24, "bottom": 0.17}
 
 
-def scatter(pick, cited: list[Fact], series):
+def weekly(cited: list[Fact], series, days: int) -> pd.DataFrame:
+    """Two series' closes, one row per week (its last close, on its own date)."""
     fx, fy = cited
-    df = pd.concat(
-        [_daily(fx, series, pick.window_days), _daily(fy, series, pick.window_days)],
-        axis=1,
-        join="inner",
-    )
-    w = df.groupby(df.index.to_period("W-FRI")).tail(1)  # each week's last close, on its own date
+    df = pd.concat([_daily(fx, series, days), _daily(fy, series, days)], axis=1, join="inner")
+    w = df.groupby(df.index.to_period("W-FRI")).tail(1)
     if len(w) < 4:
         raise ValueError("scatter: fewer than 4 weeks overlap")
+    return w
+
+
+def scatter(pick, cited: list[Fact], series):
+    fx, fy = cited
+    w = weekly(cited, series, pick.window_days)
     xs, ys = w.iloc[:, 0].to_numpy(), w.iloc[:, 1].to_numpy()
     r = w.diff().dropna().corr().iloc[0, 1]
     names = [f.series.label or f.series.id for f in (fx, fy)]
@@ -137,15 +149,31 @@ def scatter(pick, cited: list[Fact], series):
     return draw, sub, {"left": 0.13, "bottom": 0.24}
 
 
-def range_(pick, cited: list[Fact], series):
-    rows, lasts = [], []  # (name, lo, hi, last, month ago, rate)
+def range_rows(cited: list[Fact], series) -> list[dict]:
+    """Per series: its 1-year low and high, latest value and the value a month ago."""
+    rows, lasts = [], []
     for f in cited:
         s = _daily(f, series, 365)
-        ago = float(s.iloc[-1 - BARS["1m"]])
-        lo, hi, last = float(s.min()), float(s.max()), float(s.iloc[-1])
-        rows.append((f.series.label or f.series.id, lo, hi, last, ago, _rate(f)))
+        rows.append(
+            {
+                "name": f.series.label or f.series.id,
+                "lo": float(s.min()),
+                "hi": float(s.max()),
+                "last": float(s.iloc[-1]),
+                "ago": float(s.iloc[-1 - BARS["1m"]]),
+                "rate": _rate(f),
+            }
+        )
         lasts.append(s.index[-1])
-    labels = _stamp([r[0] for r in rows], lasts)
+    for r, name in zip(rows, _stamp([r["name"] for r in rows], lasts), strict=True):
+        r["name"] = name
+    return rows
+
+
+def range_(pick, cited: list[Fact], series):
+    rr = range_rows(cited, series)
+    rows = [(r["name"], r["lo"], r["hi"], r["last"], r["ago"], r["rate"]) for r in rr]
+    labels = [r[0] for r in rows]
 
     def pos(v, lo, hi):
         return (v - lo) / (hi - lo) * 100 if hi > lo else 50.0
@@ -181,3 +209,52 @@ def range_(pick, cited: list[Fact], series):
 
 
 FORMS = {"heatmap": heatmap, "scatter": scatter, "range": range_}
+
+YEAR = 370  # days of daily points sent for the 1M-1Y range buttons
+
+
+def _pts(s: pd.Series) -> list[list]:
+    return [[d.strftime("%Y-%m-%d"), round(float(v), 4)] for d, v in s.items()]
+
+
+def chart_data(ch, cited: list[Fact], series, fetch) -> dict:
+    """What the browser draws for one chart: the same numbers as the PNG, computed by the same code.
+    Line and compare carry a year of daily points (or the fact's own points for a Polymarket market
+    or a release) and the picker's window as the default range."""
+    if ch.kind == "movers":
+        pts = sorted(ch.points, key=lambda p: p.value, reverse=True)
+        return {"bars": [{"label": p.label, "value": p.value} for p in pts], "unit": ch.unit}
+    if ch.kind == "heatmap":
+        return {"rows": heat_rows(cited, series)}
+    if ch.kind == "range":
+        return {"rows": range_rows(cited, series)}
+    if ch.kind == "scatter":
+        w = weekly(cited, series, max(ch.window_days, YEAR))
+        return {
+            "names": [f.series.label or f.series.id for f in cited],
+            "rates": [_rate(f) for f in cited],
+            "window": ch.window_days,
+            "points": [
+                [d.strftime("%Y-%m-%d"), round(float(x), 4), round(float(y), 4)]
+                for d, (x, y) in w.iterrows()
+            ],  # fmt: skip
+        }
+    out, dated = [], True
+    for f in cited[:1] if ch.kind == "line" else cited:
+        ref = f.series
+        if ref.provider == "polymarket" or ref.kind == "release":
+            dated = False  # a short run of labelled points ("Oct 14", "Sep 2026"): no range buttons
+            pts = (
+                [(p.label, p.value) for p in ref.points]
+                if ref.kind == "release"
+                else fetch(ref, ch.window_days)
+            )
+            points = [[label, round(float(v), 4)] for label, v in pts]
+        else:
+            points = _pts(series(ref, max(ch.window_days, YEAR)).dropna())
+        if len(points) < 2:
+            raise ValueError(f"{ref.id}: only {len(points)} point(s)")
+        unit = "%" if ref.provider == "polymarket" or _rate(f) else ""
+        out.append({"name": ref.label or ref.id, "unit": unit, "points": points})
+    rebase = ch.kind == "compare" and not all(s["unit"] == "%" for s in out)
+    return {"series": out, "dated": dated, "window": ch.window_days, "rebase": rebase}

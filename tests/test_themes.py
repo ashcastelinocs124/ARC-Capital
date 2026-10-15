@@ -149,3 +149,26 @@ def test_heatmap_scatter_and_range_draw_from_series_and_take_reader_names(tmp_pa
     assert "correlate" in rec.exhibits[1].subtitle
     assert "% of its 1-year range" in rec.exhibits[2].subtitle
     assert all((tmp_path / "charts" / rec.run_id / e.file).is_file() for e in rec.exhibits)
+    # the browser draws the same numbers: heatmap cells, weekly scatter points, 1-year ranges
+    heat, sc, rng = (e.data for e in rec.exhibits)
+    assert [r["name"].split(" · ")[0] for r in heat["rows"]] == ["Brent", "S&P 500", "10y yield"]
+    assert all(len(r["cells"]) == 4 for r in heat["rows"]) and heat["rows"][2]["rate"]
+    assert sc["names"] == ["Brent", "S&P 500"] and sc["window"] == 180 and len(sc["points"]) > 26
+    assert all(r["lo"] <= r["last"] <= r["hi"] for r in rng["rows"])
+
+
+def test_fewer_than_five_charts_retries_then_publishes_what_passed():
+    calls = []
+
+    def picker(**kw):
+        calls.append(kw)
+        return pick()  # 3 charts, 2 drawable (the compare loses yahoo:NOPE)
+
+    rec = themes.run(NOW, gather_fn=lambda now: FACTS, fetch=fetch, picker=picker)
+    assert len(calls) == 2
+    assert "only 2 of your charts can be drawn; give at least 5" in calls[1]["fix"]
+    assert any("compare" in e or "Breakevens" in e for e in calls[1]["fix"])  # told why it dropped
+    line, movers = (e.data for e in rec.exhibits)
+    assert line["dated"] and line["window"] == 90 and len(line["series"][0]["points"]) > 250
+    assert line["series"][0]["name"] == "Brent"
+    assert [b["value"] for b in movers["bars"]] == [4.1, -1.1] and movers["unit"] == "%"

@@ -173,13 +173,17 @@ export const fetchWeeklyStatus = () =>
   api.get<{ stage: string; week?: string; error?: string | null; due?: string | null }>("/weekly/status");
 
 // ── Theme Charts (/themes/*) ───────────────────────────────────────────────
+export interface ThemeExhibit {
+  n: number; kind: string; title: string; subtitle: string; file: string;
+  data?: (Record<string, unknown> & { sources?: string[] }) | null; // agents/theme_charts.chart_data
+}
 export type ThemeSignalKind = "coverage" | "move" | "odds";
 export interface ThemeRun {
   run_id: string; date: string; slot: "am" | "pm"; generated_at: string;
   theme: string; why: string; lead: ThemeSignalKind; streak: number;
   signals: { kind: ThemeSignalKind; headline: string; note: string }[];
   fact_ids: string[];
-  exhibits: { n: number; kind: string; title: string; subtitle: string; file: string }[];
+  exhibits: ThemeExhibit[]; // `data` = numbers for the interactive chart; absent in runs before 2026-10-15
   facts: { id: string; text: string; source_title: string; source_url: string }[];
 }
 export interface ThemeHistory { items: { run_id: string; date: string; slot: "am" | "pm"; theme: string }[] }

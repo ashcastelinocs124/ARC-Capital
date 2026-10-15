@@ -1,10 +1,11 @@
 """Theme Charts agent: the single most popular macro theme right now, charted, twice a day.
 
 Code gathers three signal sets as facts (N: the macro themes news and financial X discuss most,
-M: 1d/1w/1m market moves, P: Polymarket odds swings); one LLM call picks the theme and 2-4 charts;
+M: 1d/1w/1m market moves, P: Polymarket odds swings); one LLM call picks the theme and 6 charts (at
+least 5 must pass the checks, or the retry is told why);
 code fetches every series and draws it with the Weekly Deep Dive's renderer plus this page's own
-forms (`theme_charts`: heatmap, scatter, range), so the LLM never supplies a plotted number. Each run is data/themes/<YYYY-MM-DD>-<am|pm>.json + its PNGs, served
-on /themes. Run by deploy/crontab at 08:00 and 20:00 ET: python -m castelino.agents.themes
+forms (`theme_charts`: heatmap, scatter, range), so the LLM never supplies a plotted number. Each run is data/themes/<YYYY-MM-DD>-<am|pm>.json + its PNGs; each exhibit
+also carries its plotted numbers (`data`), which /themes draws interactively. Run by deploy/crontab at 08:00 and 20:00 ET: python -m castelino.agents.themes
 """
 
 from __future__ import annotations
@@ -23,11 +24,12 @@ from pydantic import BaseModel
 
 from castelino.agents import theme_charts
 from castelino.agents.base import StructuredAgent
+from castelino.agents.update.charts import default_fetch
 from castelino.agents.update.facts import facts_from_search
 from castelino.agents.update.fsio import atomic_write_text
 from castelino.agents.update.guard import unsupported
 from castelino.agents.update.models import Fact
-from castelino.agents.weekly.charts import make_weekly_exhibits
+from castelino.agents.weekly.charts import default_series, make_weekly_exhibits
 from castelino.agents.weekly.guard import _pick_errors
 from castelino.agents.weekly.models import ExhibitPick
 from castelino.agents.weekly.tools import series_fact
@@ -67,6 +69,7 @@ class ThemeExhibit(BaseModel):
     title: str
     subtitle: str
     file: str
+    data: dict | None = None  # theme_charts.chart_data; None in runs before 2026-10-15 (PNG only)
 
 
 class ThemeRun(BaseModel):
@@ -112,9 +115,10 @@ Rules:
   about the theme, say so. Write for readers: never mention fact ids or the N, M and P sets.
 - same_as_last: true if this is the same theme as the newest one under Recent themes, however it
   is worded.
-- charts: 2-4 exhibits that show the theme, each in a different form. At most one may be a line
-  or compare; the rest are heatmap, scatter, range or movers, and never both heatmap and movers
-  (both show moves). Forms:
+- charts: 6 exhibits that show the theme (at least 5 must be drawable). Use at least 4 different
+  forms. At most two may be line or compare, and never both heatmap and movers (both show moves).
+  Two charts of the same form must show different series (one compare of stock prices, another
+  of yields). Forms:
   - line: one series; the right form for a Polymarket market's odds.
   - compare: 2-4 series on one chart; prices rebased to 100, rates shown as levels.
   - movers: 2-8 bars, each point's value one of the numbers of the fact its fact_id names.
@@ -239,6 +243,42 @@ def resolve(
     return keep, fetched, dropped
 
 
+def _cached_series():
+    """default_series, but each FRED/Yahoo series is downloaded once per run."""
+    import pandas as pd
+
+    full: dict[tuple[str, str], pd.Series] = {}
+
+    def series(ref, window_days: int) -> pd.Series:
+        key = (ref.provider, ref.id)
+        if key not in full:
+            full[key] = default_series(ref, 100_000)
+        s = full[key]
+        return s[s.index >= s.index[-1] - pd.Timedelta(days=window_days)]
+
+    return series
+
+
+def _exhibit_data(exhibits, charts, drawn: dict[str, Fact], series) -> list[dict | None]:
+    """Each drawn exhibit's browser data. The renderer skips a chart it can't draw and numbers the
+    rest in order, so walk the charts and match each exhibit by its form and first fact. A chart
+    whose data fails keeps its PNG (data None)."""
+    out, rest = [], iter(charts)
+    for ex in exhibits:
+        for ch in rest:
+            ids = list(dict.fromkeys(ch.fact_ids + [p.fact_id for p in ch.points]))
+            if ch.kind == ex.kind and ids[0] == ex.fact_id:
+                break
+        try:
+            cited = [drawn[i] for i in ids]
+            d = theme_charts.chart_data(ch, cited, series, default_fetch)
+            out.append({**d, "sources": list(dict.fromkeys(f.source_title for f in cited))})
+        except Exception as e:  # noqa: BLE001 — the page falls back to the PNG
+            log.warning("themes: no browser data for '%s': %s", ch.title, e)
+            out.append(None)
+    return out
+
+
 def _dir() -> Path:
     cfg = get_settings()
     return cfg.root / cfg.themes.data_dir
@@ -281,8 +321,13 @@ def run(
         texts = [pick.theme, pick.why, *(t for s in pick.signals for t in (s.headline, s.note))]
         fix = [f"{x} is not a number of the facts in fact_ids" for x in unsupported(texts, nums)]
         fix += [f"fact_ids names an unknown id {i}" for i in fact_ids if i not in by]
-        if not charts:
-            fix += dropped or ["give 2-4 charts"]
+        # ponytail: the retry's charts are kept even if it drew fewer than the first try
+        need = cfg.min_charts if attempt == 0 else 1  # the retry publishes whatever passed
+        if len(charts) < need:
+            fix += [
+                f"only {len(charts)} of your charts can be drawn; give at least {cfg.min_charts}"
+            ]
+            fix += dropped
         if not fix:
             break
         log.warning("themes: attempt %d rejected: %s", attempt + 1, fix)
@@ -300,15 +345,18 @@ def run(
                 drawn[fid] = f.model_copy(
                     update={"series": f.series.model_copy(update={"label": name})}
                 )
+    series = _cached_series()  # the PNGs and the browser data share one download per series
     exhibits = make_weekly_exhibits(
         SimpleNamespace(sections=[SimpleNamespace(exhibits=charts)]),
         list(drawn.values()),
         d / "charts" / run_id,
+        series=series,
         kicker="THEME CHARTS",
         forms=theme_charts.FORMS,
     )
     if not exhibits:
         raise RuntimeError("no chart could be drawn")
+    data = _exhibit_data(exhibits, charts, drawn, series)
     streak = past[0].get("streak", 1) + 1 if pick.same_as_last and past else 1
     cited = set(fact_ids) | {
         i for ch in charts for i in [*ch.fact_ids, *(p.fact_id for p in ch.points)]
@@ -325,8 +373,10 @@ def run(
         streak=streak,
         fact_ids=fact_ids,
         exhibits=[
-            ThemeExhibit(n=e.n, kind=e.kind, title=e.title, subtitle=e.subtitle, file=e.file)
-            for e in exhibits
+            ThemeExhibit(
+                n=e.n, kind=e.kind, title=e.title, subtitle=e.subtitle, file=e.file, data=dt
+            )
+            for e, dt in zip(exhibits, data, strict=True)
         ],
         facts=[f for f in [*facts, *fetched] if f.id in cited],
     )

@@ -102,7 +102,8 @@ class ThemesCfg(BaseModel):
 
     picker_model: str = "gpt-6-sol"
     search_model: str = "gpt-6-luna"
-    max_charts: int = 4
+    max_charts: int = 6
+    min_charts: int = 5  # fewer on try 1 → one retry told why; the retry publishes what passed
     memory_runs: int = 6  # recent themes the picker sees, so it can say "still #1"
     max_output_tokens: int = 16000  # reasoning tokens share this budget
     data_dir: str = "data/themes"

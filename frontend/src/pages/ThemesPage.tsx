@@ -5,6 +5,7 @@ import { useThemeHistory, useThemeRun } from "@/hooks/useThemes";
 import { ExhibitViewer } from "@/components/MorningNote";
 import { PageIntro } from "@/components/layout/PageIntro";
 import { cn } from "@/lib/cn";
+import { ThemeChartCard } from "@/components/themes/ThemeChart";
 
 // Same path in dev (vite proxies /api) and on the static site (export_snapshot copies the PNGs).
 const chartUrl = (rec: ThemeRun, file: string) =>
@@ -60,7 +61,9 @@ function Run({ rec, latest }: { rec: ThemeRun; latest: boolean }) {
         ))}
       </div>
       <div className="grid gap-3.5 md:grid-cols-2">
-        {rec.exhibits.map((ex) => (
+        {rec.exhibits.map((ex) => ex.data ? (
+          <ThemeChartCard key={ex.file} ex={ex} png={chartUrl(rec, ex.file)} />
+        ) : ( // runs before 2026-10-15 (and a chart whose data failed) have only the PNG
           <button key={ex.file} type="button" onClick={() => setOpen(ex)} title="Open full size"
             className="block overflow-hidden rounded-[10px] border border-border cursor-zoom-in hover:shadow-card-hover">
             <img src={chartUrl(rec, ex.file)} alt={`${ex.title}. ${ex.subtitle}`} className="w-full" loading="lazy" />

@@ -118,7 +118,8 @@ themes:
   # Theme Charts: the #1 macro theme at 08:00 and 20:00 ET, charted, on /themes (deploy/crontab).
   picker_model: gpt-6-sol
   search_model: gpt-6-luna
-  max_charts: 4
+  max_charts: 6
+  min_charts: 5   # fewer on the first try → one retry told why; the retry publishes what passed
   memory_runs: 6
   data_dir: data/themes
 
