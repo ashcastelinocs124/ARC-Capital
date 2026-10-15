@@ -15,6 +15,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
+from castelino import cover  # noqa: E402
 from castelino.config import get_settings  # noqa: E402
 from castelino.substack import (  # noqa: E402
     SITE,
@@ -193,6 +194,7 @@ def push_weekly_draft(week: str | None = None) -> str:
         pngs=pngs,
         body=lambda up: build_weekly_doc(rec, up),
         label=week,
+        cover=lambda: cover.for_week(week),
     )
 
 

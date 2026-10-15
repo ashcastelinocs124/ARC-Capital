@@ -123,6 +123,12 @@ themes:
   memory_runs: 6
   data_dir: data/themes
 
+cover:
+  # Cover art on the Morning Note and Weekly Deep Dive Substack drafts (src/castelino/cover.py).
+  model: gpt-image-2
+  size: 1536x864   # 16:9; width and height must be divisible by 16
+  quality: high
+
 model_refit:
   gate_tolerance: 0.02
 

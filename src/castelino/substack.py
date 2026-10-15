@@ -19,6 +19,7 @@ from pathlib import Path
 
 import httpx
 
+from castelino import cover
 from castelino.agents.update.fsio import atomic_write_text
 from castelino.config import get_settings
 
@@ -131,6 +132,11 @@ def _check(r: httpx.Response) -> httpx.Response:
     return r
 
 
+def _upload(http: httpx.Client, api: str, png: Path) -> dict:
+    data_uri = "data:image/png;base64," + base64.b64encode(png.read_bytes()).decode()
+    return _check(http.post(f"{api}/image", json={"image": data_uri})).json()
+
+
 def push(
     *,
     marker: Path,
@@ -139,8 +145,11 @@ def push(
     pngs: dict[str, Path],
     body: Callable[[dict[str, dict]], dict],
     label: str,
+    cover: Callable[[], Path | None] | None = None,
 ) -> str:
-    """Create or update one Substack draft. `marker` remembers the draft id; never publishes."""
+    """Create or update one Substack draft. `marker` remembers the draft id; never publishes.
+    `cover` makes the cover image; it is called only when the draft has no cover yet, so a
+    cover set by hand in Substack is kept."""
     pub = os.getenv("SUBSTACK_PUBLICATION_URL", "").rstrip("/")
     sid, connect = os.getenv("SUBSTACK_SID"), os.getenv("SUBSTACK_CONNECT_SID")
     if not (pub and sid):
@@ -151,24 +160,23 @@ def push(
     )  # connect.sid is optional
     with httpx.Client(cookies=cookies, timeout=60) as http:
         draft_id = json.loads(marker.read_text())["draft_id"] if marker.exists() else None
+        draft: dict = {}
         if draft_id:
             r = http.get(f"{api}/drafts/{draft_id}")
             if r.status_code == 404:
                 draft_id = None  # deleted in Substack: make a fresh one
-            elif _check(r).json().get("is_published"):
+            elif (draft := _check(r).json()).get("is_published"):
                 return f"skipped: {label} is already published on Substack (draft {draft_id})"
 
-        uploaded = {}
-        for name, png in pngs.items():
-            if png.exists():
-                data_uri = "data:image/png;base64," + base64.b64encode(png.read_bytes()).decode()
-                uploaded[name] = _check(http.post(f"{api}/image", json={"image": data_uri})).json()
+        uploaded = {name: _upload(http, api, png) for name, png in pngs.items() if png.exists()}
 
         fields = {
             "draft_title": title,
             "draft_subtitle": subtitle,
             "draft_body": json.dumps(body(uploaded), ensure_ascii=False),
         }
+        if cover and not draft.get("cover_image") and (png := cover()):
+            fields["cover_image"] = _upload(http, api, png)["url"]
         if draft_id:
             _check(http.put(f"{api}/drafts/{draft_id}", json=fields))
             return f"updated draft {draft_id} for {label} ({len(uploaded)} images)"
@@ -212,6 +220,23 @@ def publish(marker: Path, *, section_id: int | None = None, send: bool = False) 
     return url
 
 
+def set_cover(marker: Path, png: Path) -> str:
+    """Replace the cover of the unpublished draft `marker` names (cover.py's redo command)."""
+    if not marker.exists():
+        return f"skipped: no draft yet ({marker.name}); the next draft push adds the cover"
+    pub = os.environ["SUBSTACK_PUBLICATION_URL"].rstrip("/")
+    api, draft = f"{pub}/api/v1", json.loads(marker.read_text())["draft_id"]
+    with httpx.Client(cookies={"substack.sid": os.environ["SUBSTACK_SID"]}, timeout=60) as http:
+        if _check(http.get(f"{api}/drafts/{draft}")).json().get("is_published"):
+            return (
+                f"skipped: already published; upload {png} as the cover in Substack's post settings"
+            )
+        _check(
+            http.put(f"{api}/drafts/{draft}", json={"cover_image": _upload(http, api, png)["url"]})
+        )
+    return f"cover set on draft {draft}: {pub}/publish/post/{draft}"
+
+
 def push_draft(day: str) -> str:
     cfg = get_settings()
     updates = cfg.root / cfg.update_agent.updates_dir
@@ -229,6 +254,7 @@ def push_draft(day: str) -> str:
         pngs={ex["file"]: charts / ex["file"] for ex in record.get("exhibits", [])},
         body=lambda up: build_doc(record, up),
         label=day,
+        cover=lambda: cover.for_note(day),
     )
 
 

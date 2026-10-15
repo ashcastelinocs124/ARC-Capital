@@ -109,6 +109,14 @@ class ThemesCfg(BaseModel):
     data_dir: str = "data/themes"
 
 
+class CoverCfg(BaseModel):
+    """Cover art for the Morning Note and Weekly Deep Dive drafts (cover.py)."""
+
+    model: str = "gpt-image-2"  # takes any size divisible by 16, so 16:9 is drawn, not cropped
+    size: str = "1536x864"
+    quality: str = "high"
+
+
 class ModelRefitCfg(BaseModel):
     gate_tolerance: float = 0.02  # max Brier worsening a refit may show and still be promoted
 
@@ -208,6 +216,7 @@ class Settings(BaseModel):
     deep_dive: DeepDiveCfg = DeepDiveCfg()
     update_agent: UpdateAgentCfg = UpdateAgentCfg()
     themes: ThemesCfg = ThemesCfg()
+    cover: CoverCfg = CoverCfg()
     model_refit: ModelRefitCfg = ModelRefitCfg()
     sector_sentiment: SectorSentimentCfg = SectorSentimentCfg()
     adoption: AdoptionCfg = AdoptionCfg()

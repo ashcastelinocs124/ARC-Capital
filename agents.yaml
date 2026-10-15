@@ -190,6 +190,28 @@ agents:
     tools: []
     memory: {reads: ["The day's findings and facts for that agent (the Editor also sees the note)", "The conversation so far, sent by the browser"], writes: [], persists: "Nothing."}
 
+  - id: cover_artist
+    name: Cover Artist
+    group: Briefings
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "LLM call (fast tier) + image model (cover.model, gpt-image-2)"}
+      - {key: SUBSTACK_SID, required: false, why: "Sets the image as the draft's cover; unset = no draft, no cover"}
+    class: castelino.cover.CoverArtist
+    summary: >-
+      Gives each Morning Note and Weekly Deep Dive Substack draft a cover image. One fast call turns
+      the headline and stories into a 2-3 word title, the public figures the post names (Fed
+      officials, CEOs) and a few things to draw, with the companies' logos; code keeps only people
+      the post names, wraps it in a fixed style and the image model draws a 16:9 cover (redrawn
+      once with generic people if it refuses a real person). Only a draft with no cover gets one, so a
+      cover set by hand is kept; a failure leaves the draft without one.
+    tools:
+      - {name: "draw() (code)", does: "One image call (config cover: gpt-image-2, 1536x864, high) with the fixed STYLE prompt + title + scene"}
+      - {name: "substack.push(cover=)", does: "Uploads the PNG and sets it as the draft's cover_image"}
+    memory:
+      reads: ["The finished note: headline + story titles (weekly: report title + trend titles)"]
+      writes: ["data/updates/covers/<day>.png", "data/deep/covers/<week>.png"]
+      persists: "The PNG, so a rerun never pays twice; `python -m castelino.cover <day|week>` redraws it."
+
   - id: sector_narrative
     name: Sector Sentiment Narrative
     group: Briefings
@@ -412,7 +434,7 @@ systems:
         regions: [{from: 1, to: 3, label: "Loop · max 2 follow-up rounds"}]
         loops: [{from: 3, to: 2, label: "follow-ups"}]
       - title: "Daily Update 2 · Write"
-        flow: [["code:Background|stock · data · past notes"], ["agent:update_editor|Morning Note"], ["code:Number guard|1 retry"], ["code:Chart agent|8 chart forms"], ["end:/updates|+ 2-tier memory"]]
+        flow: [["code:Background|stock · data · past notes"], ["agent:update_editor|Morning Note"], ["code:Number guard|1 retry"], ["code:Chart agent|8 chart forms", "agent:cover_artist|Substack cover"], ["end:/updates|+ 2-tier memory"]]
         loops: [{from: 2, to: 1, label: "retry with errors"}]
       - title: "Admin · Daily desk"
         flow: [["Your question on /admin"], ["agent:desk_chat|one day · one agent"], ["end:Answer with fact ids"]]
@@ -480,7 +502,7 @@ systems:
       - title: "Weekly Deep Dive 1 · Research"
         flow: [["Week's Morning Notes"], ["agent:weekly_lead|trends + desks"], ["agent:deep_trend_agent|desk 1", "agent:deep_trend_agent|desk 2", "agent:deep_trend_agent|5 desks, shared board"], ["end:↓ to stage 2"]]
       - title: "Weekly Deep Dive 2 · Grill & write"
-        flow: [["agent:deep_editor|grill"], ["agent:deep_trend_agent|answers"], ["agent:deep_editor|write"], ["code:Number guard + charts"], ["end:/deep-research|+ Substack draft"]]
+        flow: [["agent:deep_editor|grill"], ["agent:deep_trend_agent|answers"], ["agent:deep_editor|write"], ["code:Number guard + charts", "agent:cover_artist|Substack cover"], ["end:/deep-research|+ Substack draft"]]
         regions: [{from: 0, to: 1, label: "Loop · max 2 grill rounds"}]
         loops: [{from: 1, to: 0, label: "next round"}]
 
@@ -521,6 +543,7 @@ pipelines:
       - {id: editor, kind: llm, agent: update_editor, layer: agents, x: 884, w: 140, name: Editor, sub: writes 5 stories, does: "Writes the note's five stories (what happened, why, what to watch) and cites a fact for every claim."}
       - {id: guard, kind: guard, layer: guardrails, x: 884, w: 140, name: Number guard, sub: figures vs facts, does: "Plain code compares every number in the draft with the facts. A number that isn't in the data sends the draft back to the Editor."}
       - {id: charts, kind: code, layer: guardrails, x: 660, w: 160, name: Chart renderer, sub: from source data, does: "Draws each chart straight from the source data. The Editor picks the chart type, never the numbers."}
+      - {id: cover, kind: llm, agent: cover_artist, layer: guardrails, x: 440, w: 160, name: Cover Artist, sub: cover image, does: "Turns the note's headline and stories into a short title and a scene, and an image model draws the post's cover."}
       - {id: substack, kind: out, layer: delivery, x: 660, w: 160, name: Substack, sub: Morning Note, does: "The finished Morning Note is published on Substack."}
       - {id: memo, kind: out, layer: delivery, x: 440, w: 160, name: Memo page, sub: lists every note, does: "The Memo page on this site lists every published note and links to it."}
     edges:
@@ -534,7 +557,8 @@ pipelines:
       - editor > guard
       - guard > editor | right | retry
       - guard > charts
-      - charts > substack
+      - charts > cover
+      - cover > substack
       - substack > memo
     steps:
       - {title: Trigger, nodes: [schedule], edges: [schedule > orch], io: ["in: clock", "out: start run"], text: "A scheduled job starts the run at 5 pm New York time every day. Nobody has to press a button."}
@@ -543,7 +567,7 @@ pipelines:
       - {title: Report back, nodes: [analysts, orch], edges: [analysts > orch], io: ["in: findings", "out: follow-ups or done"], text: "The analysts' findings go back to the Orchestrator, which can send any of them a follow-up question, for at most two rounds."}
       - {title: Write, nodes: [background, editor], edges: [analysts > editor, background > editor], io: ["in: findings + background", "out: draft note"], text: "Code adds background (price history, earlier notes). The Editor agent writes five stories (what happened, why, what to watch) and cites a fact for every claim."}
       - {title: Check every number, nodes: [guard, editor], edges: [editor > guard, guard > editor], io: ["in: draft", "out: pass or errors"], text: "Plain code checks every number in the draft against the facts. If a figure isn't in the data, the draft goes back to the Editor with the errors, once."}
-      - {title: Chart and publish, nodes: [charts, substack, memo], edges: [guard > charts, charts > substack, substack > memo], io: ["in: checked note", "out: Substack post"], text: "Code draws each chart from the source data, and the note is published on Substack and listed on the Memo page."}
+      - {title: Chart and publish, nodes: [charts, cover, substack, memo], edges: [guard > charts, charts > cover, cover > substack, substack > memo], io: ["in: checked note", "out: Substack post"], text: "Code draws each chart from the source data, the Cover Artist draws the post's cover image, and the note is published on Substack and listed on the Memo page."}
 
   - id: weekly-deep-dive
     name: Weekly Deep Dive
@@ -567,6 +591,7 @@ pipelines:
       - {id: editor, kind: llm, agent: deep_editor, layer: agents, x: 790, w: 160, name: Deep Editor, sub: Claude Opus, does: "Claude Opus questions every desk's research, then writes each trend: what happened, why, what's under the surface, what it means for markets."}
       - {id: guard, kind: guard, layer: guardrails, x: 790, w: 160, name: Number guard, sub: figures + charts, does: "Plain code checks every figure, including chart values, against the facts the desks pulled."}
       - {id: charts, kind: code, layer: guardrails, x: 560, w: 160, name: Chart renderer, sub: from source data, does: "Draws each exhibit from the source data in the form the Editor picked."}
+      - {id: cover, kind: llm, agent: cover_artist, layer: guardrails, x: 340, w: 160, name: Cover Artist, sub: cover image, does: "Turns the report's title and trends into a short title and a scene, and an image model draws the post's cover."}
       - {id: substack, kind: out, layer: delivery, x: 560, w: 160, name: Substack, sub: Weekly Deep Dive, does: "The report is drafted on Substack and published there."}
       - {id: page, kind: out, layer: delivery, x: 340, w: 170, name: Deep Research page, sub: lists every week, does: "The Deep Research page on this site lists every weekly report and links to it."}
     edges:
@@ -579,7 +604,8 @@ pipelines:
       - editor > guard
       - guard > editor | right | retry
       - guard > charts
-      - charts > substack
+      - charts > cover
+      - cover > substack
       - substack > page
     steps:
       - {title: Trigger, nodes: [schedule], edges: [schedule > lead], io: ["in: a finished week", "out: start run"], text: "Once Monday to Friday's Morning Notes are in, the first scheduled run from Sunday builds the report."}
@@ -587,7 +613,7 @@ pipelines:
       - {title: Research in parallel, nodes: [tools, desks], edges: [tools > desks], io: ["in: trends + tools", "out: findings + facts"], text: "Five desk agents research their trends at the same time, each with its own tools (official data, prices, prediction markets, a cited web search), and share facts on a common board. Code turns every result into a numbered fact."}
       - {title: Grill, nodes: [editor, desks], edges: [desks > editor, editor > desks], io: ["in: desk findings", "out: questions + answers"], text: "Claude, as the Deep Editor, questions every desk's research for up to two rounds, and the desks answer with fresh data."}
       - {title: Write and check, nodes: [editor, guard], edges: [editor > guard, guard > editor], io: ["in: report draft", "out: pass or errors"], text: "The Editor writes the report. Plain code checks every figure, chart values included, against the facts, and sends the draft back once if one doesn't match."}
-      - {title: Chart and publish, nodes: [charts, substack, page], edges: [guard > charts, charts > substack, substack > page], io: ["in: checked report", "out: Substack post"], text: "Code draws each exhibit from the source data, and the report goes out on Substack and onto the Deep Research page."}
+      - {title: Chart and publish, nodes: [charts, cover, substack, page], edges: [guard > charts, charts > cover, cover > substack, substack > page], io: ["in: checked report", "out: Substack post"], text: "Code draws each exhibit from the source data, the Cover Artist draws the cover image, and the report goes out on Substack and onto the Deep Research page."}
 
   - id: theme-charts
     name: Theme Charts
