@@ -591,9 +591,9 @@ pipelines:
 
   - id: theme-charts
     name: Theme Charts
-    trigger: "cron · 08:00 ET"
+    trigger: "cron · 08:00 ET · weekdays"
     guardrails: "number check · charts drawn by code"
-    delivery: "Substack post + X thread (weekdays)"
+    delivery: "Substack post + X thread"
     groups:
       - {id: signals, label: SIGNALS, nodes: [web, x, yahoo, polymarket]}
     nodes:
@@ -603,12 +603,12 @@ pipelines:
       - {id: polymarket, kind: source, layer: sources, x: 566, w: 104, name: Polymarket, does: "The biggest swings in prediction-market odds."}
       - {id: memory, kind: source, layer: sources, x: 720, w: 140, name: ARC memory, sub: last 6 runs, does: "The picker's last six runs, so it doesn't pick the same theme again."}
       - {id: series, kind: source, layer: sources, x: 900, w: 150, name: FRED · Yahoo, sub: series to plot, does: "Every series that ends up on a chart is downloaded straight from FRED or Yahoo Finance."}
-      - {id: schedule, kind: trigger, layer: agents, x: 150, w: 120, name: Schedule, sub: 08:00 ET, does: "A scheduled job starts the run at 8 am New York time. A second run at 8 pm only feeds the next run's memory."}
+      - {id: schedule, kind: trigger, layer: agents, x: 150, w: 120, name: Schedule, sub: 08:00 ET, does: "A scheduled job starts the run at 8 am New York time, Monday to Friday."}
       - {id: gather, kind: code, layer: agents, x: 316, w: 170, name: Signal gatherer, sub: 3 signals → facts, does: "Plain code gathers the three signals and turns them into numbered facts."}
       - {id: picker, kind: llm, agent: theme_picker, layer: agents, x: 560, w: 170, name: Theme picker, sub: theme + 5-6 charts, does: "One LLM call names today's #1 macro theme, the three signals behind it and the 5-6 charts that tell it."}
       - {id: guard, kind: guard, layer: guardrails, x: 560, w: 170, name: Number guard, sub: figures vs facts, does: "Every figure in the write-up must be among the facts' numbers, or the picker tries again once."}
       - {id: charts, kind: code, layer: guardrails, x: 800, w: 160, name: Chart renderer, sub: fetch + draw, does: "Downloads every series and draws the charts (lines, heatmaps, scatters, ranges). The AI never supplies a plotted number."}
-      - {id: substack, kind: out, layer: delivery, x: 800, w: 160, name: Substack, sub: post · /themes card, does: "On weekdays the 8 am run is published on Substack and shown as a card on the Theme Charts page."}
+      - {id: substack, kind: out, layer: delivery, x: 800, w: 160, name: Substack, sub: post · /themes card, does: "Each run is published on Substack and shown as a card on the Theme Charts page."}
       - {id: xthread, kind: out, layer: delivery, x: 990, w: 140, name: X thread, sub: links the post, does: "Posted to X as a thread that links the Substack post."}
     edges:
       - schedule > gather
@@ -622,12 +622,12 @@ pipelines:
       - charts > substack
       - substack > xthread
     steps:
-      - {title: Trigger, nodes: [schedule], edges: [schedule > gather], io: ["in: clock", "out: start run"], text: "A scheduled job starts the run at 8 am New York time."}
+      - {title: Trigger, nodes: [schedule], edges: [schedule > gather], io: ["in: clock", "out: start run"], text: "A scheduled job starts the run at 8 am New York time, Monday to Friday."}
       - {title: Gather signals, nodes: [signals, gather], edges: [signals > gather], io: ["in: web · prices · odds", "out: facts"], text: "Plain code gathers three signals: what news and financial X discuss most, the biggest market moves, and the biggest swings in prediction-market odds."}
       - {title: Pick the theme, nodes: [picker, memory], edges: [gather > picker, memory > picker], io: ["in: facts + memory", "out: theme + chart plan"], text: "One LLM call names the day's #1 macro theme and the 5-6 charts that tell it. It sees its last six runs so it doesn't repeat itself."}
       - {title: Check every number, nodes: [guard, picker], edges: [picker > guard, guard > picker], io: ["in: write-up", "out: pass or errors"], text: "Code checks every figure in the write-up against the facts; a miss sends it back to the picker once."}
       - {title: Chart, nodes: [charts, series], edges: [guard > charts, series > charts], io: ["in: chart plan", "out: charts"], text: "Code downloads every series from FRED and Yahoo Finance and draws the charts, so every plotted number comes from the source."}
-      - {title: Publish, nodes: [substack, xthread], edges: [charts > substack, substack > xthread], io: ["in: charts + text", "out: post + thread"], text: "On weekdays the run is published on Substack and posted to X as a thread."}
+      - {title: Publish, nodes: [substack, xthread], edges: [charts > substack, substack > xthread], io: ["in: charts + text", "out: post + thread"], text: "The run is published on Substack and posted to X as a thread."}
 
   - id: market-alerts
     name: Market alerts
