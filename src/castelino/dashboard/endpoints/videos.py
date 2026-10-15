@@ -33,6 +33,7 @@ THUMB_OVERRIDES = {
     "hike-risk-oil-shocks-and-an-ai-reality": "/thumbs/hike-risk-oil-shocks.jpg",
     "overview-of-nvidias-open-agent-safety": "/thumbs/nvidia-openagent.jpg",
     "fed-officials-kept-another-hike-in": "/thumbs/fed-officials-another-hike.jpg",
+    "september-inflation-accelerated-as": "/thumbs/inflation-heats-up.jpg",
 }
 
 
