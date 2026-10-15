@@ -212,6 +212,207 @@ agents:
       writes: ["data/updates/covers/<day>.png", "data/deep/covers/<week>.png"]
       persists: "The PNG, so a rerun never pays twice; `python -m castelino.cover <day|week>` redraws it."
 
+  # ── Trade Lab (/admin only) ─────────────────────────────────────────────
+  - id: trade_framer
+    name: Trade Lab · Framer
+    group: Trade Lab
+    family: Trade Lab
+    dependencies:
+      - {key: OPENROUTER_API_KEY, required: false, why: "DeepSeek V4 Pro via OpenRouter; unset = gpt-6-sol"}
+      - {key: OPENAI_API_KEY, required: true, why: "Fallback model and the why-now web search"}
+    prompt: "castelino.agents.trade.framer:SYSTEM"
+    schema: "castelino.agents.trade.models:Frame"
+    summary: >-
+      Turns a trade idea into a testable thesis: Yahoo tickers for the subject and its benchmarks, a
+      horizon, and 1 to 3 tests that would prove it wrong. Code checks every ticker has prices and
+      adds one cited search on why the idea matters now.
+    tools:
+      - {name: "Ticker check (code)", does: "Each ticker must return Yahoo prices; one retry naming the bad ones"}
+      - {name: "Why-now search", does: "One cited web search; up to 8 cited lines become facts"}
+    memory:
+      reads: ["The user's sentence"]
+      writes: ["Frame + F facts in data/trades/<id>/idea.json"]
+      persists: "The idea record."
+
+  - id: trade_bull
+    name: Trade Lab · Bull
+    group: Trade Lab
+    family: Trade Lab
+    dependencies:
+      - {key: OPENROUTER_API_KEY, required: false, why: "DeepSeek V4 Pro via OpenRouter; unset = gpt-6-sol"}
+      - {key: OPENAI_API_KEY, required: true, why: "Web search (gpt-6-luna) and the fallback model"}
+    prompt: "castelino.agents.trade.debate:BULL"
+    schema: "castelino.agents.trade.models:TurnDraft"
+    summary: >-
+      Argues for the idea: researches its own case (up to 8 tool calls), then answers the bear twice.
+      Every number must be in a fact it cites.
+    tools:
+      - {name: "yahoo_prices / fred_series / technicals / polymarket_odds / web_search", does: "Facts computed by code or cited lines"}
+    memory:
+      reads: ["Frame, framer facts, the bear's last turn"]
+      writes: ["Turns + B facts"]
+      persists: "The idea record."
+
+  - id: trade_bear
+    name: Trade Lab · Bear
+    group: Trade Lab
+    family: Trade Lab
+    dependencies:
+      - {key: OPENROUTER_API_KEY, required: false, why: "DeepSeek V4 Pro via OpenRouter; unset = gpt-6-sol"}
+      - {key: OPENAI_API_KEY, required: true, why: "Web search (gpt-6-luna) and the fallback model"}
+    prompt: "castelino.agents.trade.debate:BEAR"
+    schema: "castelino.agents.trade.models:TurnDraft"
+    summary: >-
+      Argues against the idea the same way: its own research, then two rebuttals. No winner is named.
+    tools:
+      - {name: "yahoo_prices / fred_series / technicals / polymarket_odds / web_search", does: "Facts computed by code or cited lines"}
+    memory:
+      reads: ["Frame, framer facts, the bull's last turn"]
+      writes: ["Turns + R facts"]
+      persists: "The idea record."
+
+  - id: trade_moderator
+    name: Trade Lab · Moderator
+    group: Trade Lab
+    family: Trade Lab
+    dependencies:
+      - {key: OPENROUTER_API_KEY, required: false, why: "DeepSeek V4 Pro via OpenRouter; unset = gpt-6-sol"}
+    prompt: "castelino.agents.trade.debate:MODERATOR"
+    schema: "castelino.agents.trade.models:Moderation"
+    summary: >-
+      Lists what the debate settled (with fact ids) and 2 to 4 open questions, which start the research
+      list. Never picks a winner.
+    tools: []
+    memory:
+      reads: ["The six turns and their facts"]
+      writes: ["Settled points and open questions"]
+      persists: "The idea record."
+
+  - id: trade_talk
+    name: Trade Lab · Talk
+    group: Trade Lab
+    family: Trade Lab
+    dependencies:
+      - {key: OPENROUTER_API_KEY, required: false, why: "DeepSeek V4 Pro via OpenRouter; unset = gpt-6-luna"}
+    prompt: "castelino.agents.trade.talk:SYSTEM"
+    schema: "castelino.agents.trade.talk:Reply"
+    summary: >-
+      Answers the user in Talk 1 (after the debate) and Talk 2 (about the draft) from what the idea
+      already holds, never searching; cites fact ids or says it can't answer. Talk 2 edits revise one part.
+    tools:
+      - {name: "Number check (code)", does: "Figures must be in cited facts; else a plain refusal"}
+    memory:
+      reads: ["Debate, findings, draft, facts, the last 6 messages"]
+      writes: ["Talk messages; research items; edited report parts"]
+      persists: "The idea record."
+
+  - id: trade_decide
+    name: Trade Lab · Decisions
+    group: Trade Lab
+    family: Trade Lab
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "OpenAI Decisions API (/v1/decisions, gpt-6-luna)"}
+    prompt: "castelino.agents.trade.decide:PROMPT"
+    schema: "castelino.agents.trade.decide:YesNo"
+    summary: >-
+      Says yes or no after each talk message: worth researching (added to the list) and, in Talk 2,
+      an edit to the draft. Falls back to a gpt-6-luna yes/no if the beta API fails.
+    tools: []
+    memory:
+      reads: ["The talk context and the latest message"]
+      writes: ["A probability per question"]
+      persists: "Logged with each message."
+
+  - id: trade_orchestrator
+    name: Trade Lab · Orchestrator
+    group: Trade Lab
+    family: Trade Lab
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-sol"}
+    prompt: "castelino.agents.trade.orchestrator:SYSTEM"
+    schema: "castelino.agents.trade.models:Briefs"
+    summary: >-
+      Turns the debate, the user's talk and the research list into three briefs: two news desks and the
+      technical desk. Every research item must land in a brief.
+    tools: []
+    memory:
+      reads: ["Debate, talk, research list, earlier rounds' briefs"]
+      writes: ["Briefs for this round"]
+      persists: "The idea record."
+
+  - id: trade_news_desk
+    name: Trade Lab · News desk
+    group: Trade Lab
+    family: Trade Lab
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-luna tool loop + cited web search"}
+    prompt: "castelino.agents.trade.desks:NEWS"
+    schema: "castelino.agents.trade.models:DeskReport"
+    summary: >-
+      Two run in parallel. Each searches widely (up to 12 calls: wires, press, regional press, filings,
+      central banks); fewer than 6 outlets earns 3 more searches aimed at new ones.
+    tools:
+      - {name: "web_search / fred_series / yahoo_prices", does: "One fact per cited line or computed series"}
+    memory:
+      reads: ["Its brief and the facts so far"]
+      writes: ["Findings + NA/NB facts"]
+      persists: "The idea record."
+
+  - id: trade_technical_desk
+    name: Trade Lab · Technical desk
+    group: Trade Lab
+    family: Trade Lab
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-luna tool loop"}
+    prompt: "castelino.agents.trade.desks:TECH"
+    schema: "castelino.agents.trade.models:DeskReport"
+    summary: >-
+      Explains the price action with RSI, MACD, moving averages, 52-week range, volatility, drawdown,
+      relative strength and COT positioning, all computed by code (up to 16 calls).
+    tools:
+      - {name: "technicals / cot / yahoo_prices / fred_series", does: "Numbers computed by code"}
+    memory:
+      reads: ["Its brief and the facts so far"]
+      writes: ["Findings + T facts"]
+      persists: "The idea record."
+
+  - id: trade_chartist
+    name: Trade Lab · Chart agent
+    group: Trade Lab
+    family: Trade Lab
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-luna; \"+ Another idea\" on DeepSeek V4 Pro"}
+    prompt: "castelino.agents.trade.chartist:SYSTEM"
+    schema: "castelino.agents.trade.models:SpecList"
+    summary: >-
+      Brainstorms 1 to 3 charts for each of the report's 7 sections from a catalog of 12 forms, marking
+      its pick. Code fetches and draws every option; picks need 6+ forms and at most 2 plain ones.
+    tools:
+      - {name: "Chart forms (code)", does: "treemap, quadrant, underwater, slope, waterfall, threshold band, dial, calendar, scatter, line, compare, bars"}
+    memory:
+      reads: ["Thesis, debate, findings, the user's questions"]
+      writes: ["Chart options + C facts; PNGs in data/trades/<id>/charts/"]
+      persists: "The idea record."
+
+  - id: trade_editor
+    name: Trade Lab · Editor
+    group: Trade Lab
+    family: Trade Lab
+    dependencies:
+      - {key: ANTHROPIC_API_KEY, required: true, why: "Claude Opus 5.5 (effort high)"}
+      - {key: SUBSTACK_SID, required: true, why: "Draft in Special Topics"}
+    prompt: "castelino.agents.trade.editor:SYSTEM"
+    schema: "castelino.agents.trade.models:Report"
+    summary: >-
+      Writes the report: introduction, takeaways, bull case, bear case, the user's questions tested,
+      technical picture, our read, What to watch. Number check, one retry; a Substack draft, never published.
+    tools:
+      - {name: "Number guard (code)", does: "Every %, bp or pp must be in the cited facts"}
+    memory:
+      reads: ["Everything in the idea; in round 2+, the current Substack draft"]
+      writes: ["The report; the draft id in data/trades/<id>/substack.json"]
+      persists: "The idea record and the draft."
+
   - id: sector_narrative
     name: Sector Sentiment Narrative
     group: Briefings
@@ -440,6 +641,22 @@ systems:
         flow: [["Your question on /admin"], ["agent:desk_chat|one day · one agent"], ["end:Answer with fact ids"]]
       - title: "Sector Sentiment"
         flow: [["Refresh"], ["code:Divergence scores|top-10 per sector", "code:Fear & Greed|5 market signals"], ["agent:sector_narrative|1 call", "agent:sector_prose|11 calls"], ["end:Card on Radar"]]
+
+  - group: Trade Lab
+    trigger: "You, in /admin → Trade Lab"
+    output: "A Special Topics draft on Substack (you publish)"
+    blurb: >-
+      A bull and a bear debate your trade idea with real data, you talk it through, three desks dig into
+      what's open, you pick a chart per section, and Claude writes a checked draft. Up to 3 rounds.
+    lanes:
+      - title: "Trade Lab 1 · Debate"
+        flow: [["Your idea"], ["agent:trade_framer|thesis + tickers"], ["agent:trade_bull|own research", "agent:trade_bear|own research"], ["agent:trade_moderator|settled · open"], ["end:↓ Talk 1"]]
+        loops: [{from: 2, to: 2, label: "2 rebuttals"}]
+      - title: "Trade Lab 2 · Talk and research"
+        flow: [["agent:trade_talk|Talk 1"], ["agent:trade_decide|research? yes/no"], ["agent:trade_orchestrator|3 briefs"], ["agent:trade_news_desk|2 news desks", "agent:trade_technical_desk|technical"], ["end:↓ charts"]]
+      - title: "Trade Lab 3 · Charts and draft"
+        flow: [["agent:trade_chartist|1-3 per section"], ["gate:You pick|one per section"], ["agent:trade_editor|Claude"], ["code:Number guard|1 retry"], ["end:Substack draft|Talk 2 · next round"]]
+        loops: [{from: 4, to: 0, label: "round 2 and 3"}]
 
   - group: Theme Charts
     trigger: "Cron on the Fly server at 08:00 ET, weekdays"

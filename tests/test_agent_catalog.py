@@ -177,9 +177,38 @@ def test_pipelines_reference_real_agents_nodes_and_edges():
             assert s["edges"], f"{where}: its number sits on its first edge"
             assert set(s["nodes"]) <= boxes, where
             assert {e.replace(" ", "") for e in s["edges"]} <= edges, where
-    assert ids - drawn == {"desk_chat"}, (
-        f"draw these agents in a pipeline: {ids - drawn - {'desk_chat'}}"
-    )
+    # admin-only agents (the Daily desk chat and Trade Lab) stay off the public pipeline graphs
+    admin_only = {"desk_chat"} | {e["id"] for e in body["agents"] if e["group"] == "Trade Lab"}
+    assert ids - drawn == admin_only, f"draw these agents in a pipeline: {ids - drawn - admin_only}"
+
+
+TRADE_LAB = {
+    "trade_framer",
+    "trade_bull",
+    "trade_bear",
+    "trade_moderator",
+    "trade_talk",
+    "trade_decide",
+    "trade_orchestrator",
+    "trade_news_desk",
+    "trade_technical_desk",
+    "trade_chartist",
+    "trade_editor",
+}
+
+
+def test_trade_lab_agents_are_registered_with_live_prompts():
+    body = cat.build_catalog()
+    assert {e["id"] for e in body["agents"] if e["group"] == "Trade Lab"} == TRADE_LAB
+    assert any(s["group"] == "Trade Lab" for s in body["systems"])
+    full = {e["id"]: e for e in body["agents"]}  # build_catalog is the full (admin) catalog
+    assert all(full[i].get("prompt") for i in TRADE_LAB), "every Trade Lab prompt must resolve"
+
+
+def test_trade_lab_stays_off_the_public_catalog():
+    public = cat.public_catalog(cat.build_catalog())
+    assert not TRADE_LAB & {a["id"] for a in public["agents"]}
+    assert "Trade Lab" not in public["groups"]
 
 
 def test_update_agent_family_groups_its_seven_agents():

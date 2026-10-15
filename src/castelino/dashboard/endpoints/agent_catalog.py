@@ -146,6 +146,8 @@ _PUBLIC_FIELDS = ("id", "name", "group", "family", "summary")
 
 # Pipelines left off the public /agents page (user's call, 2026-10-15), with the agents only they use; /admin keeps them.
 _PRIVATE_PIPELINES = {"sector-sentiment", "ai-adoption"}
+# Admin-only tools: every agent in these groups stays off the public catalog.
+_PRIVATE_GROUPS = {"Trade Lab"}
 
 
 def public_catalog(catalog: dict) -> dict:
@@ -159,6 +161,7 @@ def public_catalog(catalog: dict) -> dict:
         for n in p.get("nodes", [])
         if n.get("agent") and n["agent"] not in shown
     }
+    hidden |= {a["id"] for a in catalog["agents"] if a["group"] in _PRIVATE_GROUPS}
     agents = [{k: a[k] for k in _PUBLIC_FIELDS} for a in catalog["agents"] if a["id"] not in hidden]
     return {
         "agents": agents,
