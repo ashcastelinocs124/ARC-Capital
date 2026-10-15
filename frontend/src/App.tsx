@@ -2,7 +2,7 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
 import HomePage from "./pages/HomePage";
 import MacroPage from "./pages/MacroPage";
-import AgentsPage from "./pages/AgentsPage";
+import PipelinesPage from "./pages/PipelinesPage";
 import DeepResearchPage from "./pages/DeepResearchPage";
 import UpdatesPage from "./pages/UpdatesPage";
 import DocsPage from "./pages/DocsPage";
@@ -24,7 +24,7 @@ const PAGES: [string, React.ReactNode][] = [
   ["/videos", <VideosPage />],
   ["/ai", <SectionPage slug="artificial-intelligence-update" kicker="AI · AI Update" title="Models, chips and the AI stack" blurb="Every AI Update post, newest first." />],
   ["/special-topics", <SectionPage slug="special-topics" kicker="Special Topics" title="Deeper dives and presentations" blurb="Every Special Topics post, newest first." />],
-  ["/agents", <AgentsPage />],
+  ["/agents", <PipelinesPage />],
   ["/docs", <DocsPage />],
   ["/about", <AboutPage />],
   ["/admin", <AdminPage />], // not in the tabs; password-gated on the public site (middleware.ts)

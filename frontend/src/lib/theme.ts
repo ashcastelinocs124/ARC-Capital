@@ -12,6 +12,7 @@ export const C = {
   borderStrong: v("border-strong"),
   success: v("success"),
   danger: v("danger"),
+  warning: v("warning"),
   soft: v("surface-2"),
   soft2: v("accent-soft-2"),
   surface: v("surface"),

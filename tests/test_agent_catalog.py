@@ -58,10 +58,10 @@ def test_public_catalog_is_high_level_only():
     r = TestClient(app).get("/agents/catalog")
     assert r.status_code == 200
     data = r.json()
-    assert len(data["agents"]) >= 13 and data["groups"] and data["systems"]
+    assert len(data["agents"]) >= 13 and data["groups"] and data["pipelines"]
     allowed = {"id", "name", "group", "family", "summary"}
     assert all(set(a) == allowed for a in data["agents"])
-    assert "unregistered" not in data
+    assert "unregistered" not in data and "systems" not in data
     text = r.text
     for private in ("class_path", "prompt", "OPENAI_API_KEY", "castelino.agents", "gpt-6"):
         assert private not in text
@@ -127,6 +127,53 @@ def test_every_agent_appears_in_its_groups_diagram():
     }
     missing = [e["id"] for e in body["agents"] if e["id"] not in drawn.get(e["group"], set())]
     assert not missing, f"add these agents to their group's diagram in agents.yaml: {missing}"
+
+
+def test_pipelines_reference_real_agents_nodes_and_edges():
+    """The public /agents graphs: every reference resolves, and every agent but the admin desk is drawn."""
+    body = cat.build_catalog()
+    ids = {e["id"] for e in body["agents"]}
+    drawn = set()
+    for p in body["pipelines"]:
+        nodes = {n["id"]: n for n in p["nodes"]}
+        groups = {g["id"]: g for g in p.get("groups", [])}
+        boxes = nodes.keys() | groups.keys()
+        assert len(boxes) == len(p["nodes"]) + len(groups), f"{p['id']}: duplicate node or group id"
+        for n in nodes.values():
+            where = f"{p['id']} / {n['id']}"
+            assert n["kind"] in {
+                "source",
+                "llm",
+                "code",
+                "guard",
+                "trigger",
+                "human",
+                "out",
+                "stop",
+            }, where
+            assert n["layer"] in {"sources", "agents", "guardrails", "delivery"}, where
+            assert (n["kind"] == "llm") == ("agent" in n), (
+                f"{where}: llm nodes, and only they, name an agent"
+            )
+            if "agent" in n:
+                assert n["agent"] in ids, f"{where}: unknown agent {n['agent']!r}"
+                drawn.add(n["agent"])
+        for g in groups.values():
+            assert set(g["nodes"]) <= nodes.keys(), f"{p['id']} / group {g['id']}"
+        edges = set()
+        for e in p["edges"]:
+            a, _, b = e.split("|")[0].partition(">")
+            a, b = a.strip(), b.strip()
+            assert a in boxes and b in boxes, f"{p['id']}: edge {e!r}"
+            edges.add(f"{a}>{b}")
+        for s in p["steps"]:
+            where = f"{p['id']} / step {s['title']}"
+            assert s["edges"], f"{where}: its number sits on its first edge"
+            assert set(s["nodes"]) <= boxes, where
+            assert {e.replace(" ", "") for e in s["edges"]} <= edges, where
+    assert ids - drawn == {"desk_chat"}, (
+        f"draw these agents in a pipeline: {ids - drawn - {'desk_chat'}}"
+    )
 
 
 def test_update_agent_family_groups_its_seven_agents():

@@ -104,8 +104,23 @@ export interface SystemLane {
   regions?: { from: number; to: number; label: string }[];
 }
 export interface AgentSystem { group: string; trigger: string; output: string; blurb: string; lanes: SystemLane[] }
+// The public /agents graphs (agents.yaml `pipelines:`, whose header comment documents the fields)
+export type PipelineKind = "source" | "llm" | "code" | "guard" | "trigger" | "human" | "out" | "stop";
+export type PipelineLayer = "sources" | "agents" | "guardrails" | "delivery";
+export interface PipelineNode {
+  id: string; kind: PipelineKind; layer: PipelineLayer; x: number; dy?: number; w?: number; h?: number;
+  name: string; sub?: string; does: string; agent?: string;
+}
+export interface PipelineStep { title: string; text: string; nodes: string[]; edges: string[]; io?: string[] }
+export interface Pipeline {
+  id: string; name: string; trigger: string; guardrails: string; delivery: string;
+  nodes: PipelineNode[]; groups?: { id: string; label: string; note?: string; nodes: string[] }[];
+  edges: string[]; // "from > to", or "from > to | below|above|right|left | label" for a loop
+  steps: PipelineStep[];
+}
 export interface AgentCatalog {
-  agents: AgentCatalogEntry[]; groups: string[]; systems?: AgentSystem[];
+  agents: AgentCatalogEntry[]; groups: string[]; systems?: AgentSystem[]; // systems: admin only
+  pipelines?: Pipeline[];
   unregistered?: { class_name: string; class_path: string; file: string }[]; // admin only
 }
 export const fetchAgentCatalog = (admin = false) =>

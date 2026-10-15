@@ -224,7 +224,7 @@ agents:
       persists: "None of its own."
 
   # ── Weekly deep dive ────────────────────────────────────────────────────
-  - id: deep_lead
+  - id: weekly_lead
     name: Deep Lead
     group: Weekly deep dive
     family: Weekly Deep Dive
@@ -478,8 +478,292 @@ systems:
       board. Claude Opus 5.5 grills every desk, then writes the report; code checks each figure.
     lanes:
       - title: "Weekly Deep Dive 1 · Research"
-        flow: [["Week's Morning Notes"], ["agent:deep_lead|trends + desks"], ["agent:deep_trend_agent|desk 1", "agent:deep_trend_agent|desk 2", "agent:deep_trend_agent|5 desks, shared board"], ["end:↓ to stage 2"]]
+        flow: [["Week's Morning Notes"], ["agent:weekly_lead|trends + desks"], ["agent:deep_trend_agent|desk 1", "agent:deep_trend_agent|desk 2", "agent:deep_trend_agent|5 desks, shared board"], ["end:↓ to stage 2"]]
       - title: "Weekly Deep Dive 2 · Grill & write"
         flow: [["agent:deep_editor|grill"], ["agent:deep_trend_agent|answers"], ["agent:deep_editor|write"], ["code:Number guard + charts"], ["end:/deep-research|+ Substack draft"]]
         regions: [{from: 0, to: 1, label: "Loop · max 2 grill rounds"}]
         loops: [{from: 1, to: 0, label: "next round"}]
+
+# Pipelines on the public /agents page: one layered graph per product, with a ▶ Play run walk-through.
+# Layers, top to bottom: sources (where facts come from), agents, guardrails (code that checks their
+# work), delivery (where you read it). A node sits in its layer at x (px on the canvas, left edge;
+# the layer labels take the first 140px), centred vertically and nudged by dy. Default size 150×58;
+# a source with no `sub` is a small chip. kind: source | llm | code | guard | trigger | human | out | stop.
+# `agent` links an llm node to an agent id above. Groups draw a dashed box round their nodes and can
+# be an edge's end. Edges are "from > to", routed from the boxes' positions, or
+# "from > to | below|above|right|left | label" for a loop drawn round that side. A step lights its
+# nodes (a group lights its members) and edges; its number sits on its first edge.
+# tests/test_agent_catalog.py checks every reference and that each agent is drawn (desk_chat is admin-only).
+pipelines:
+  - id: morning-note
+    name: Morning Note
+    trigger: "cron · 17:00 ET · every day"
+    guardrails: "number check · charts drawn by code"
+    delivery: "Morning Note on Substack"
+    groups:
+      - {id: tools, label: ANALYST TOOLS, nodes: [fred, bls, yahoo, web, polymarket, x]}
+      - {id: analysts, label: 4 ANALYSTS, note: RUN IN PARALLEL, nodes: [macro, news, alt, ai]}
+    nodes:
+      - {id: memory, kind: source, layer: sources, x: 316, w: 140, name: ARC memory, sub: recent notes, does: "The themes and trends from ARC's recent notes, so each run builds on what came before."}
+      - {id: fred, kind: source, layer: sources, x: 514, dy: -18, w: 100, name: FRED, does: "Federal Reserve economic data: inflation, rates, jobs and hundreds of other official series."}
+      - {id: bls, kind: source, layer: sources, x: 624, dy: -18, w: 100, name: BLS, does: "Bureau of Labor Statistics: the parts of CPI, wages and payroll detail."}
+      - {id: yahoo, kind: source, layer: sources, x: 734, dy: -18, w: 100, name: Yahoo Finance, does: "Market prices: stocks, indexes, bonds, currencies and commodities."}
+      - {id: web, kind: source, layer: sources, x: 514, dy: 18, w: 100, name: web search, does: "A web search that returns cited sources; only lines with a citation are kept."}
+      - {id: polymarket, kind: source, layer: sources, x: 624, dy: 18, w: 100, name: Polymarket, does: "Prediction-market odds and how they moved."}
+      - {id: x, kind: source, layer: sources, x: 734, dy: 18, w: 100, name: X, does: "Posts from financial X, found through a cited search."}
+      - {id: background, kind: code, layer: sources, x: 872, w: 164, name: Background facts, sub: prices · past notes, does: "Plain code adds context to the findings: a stock's moves this year, a data series' recent history, ARC's earlier notes."}
+      - {id: schedule, kind: trigger, layer: agents, x: 150, w: 120, name: Schedule, sub: 17:00 ET, does: "A scheduled job on ARC's server starts the run at 5 pm New York time every day."}
+      - {id: orch, kind: llm, agent: update_orchestrator, layer: agents, x: 316, w: 140, name: Orchestrator, sub: plan · review, does: "The lead agent. It writes each analyst a brief, then reviews what they found and can send follow-up questions."}
+      - {id: macro, kind: llm, agent: macro_agent, layer: agents, x: 518, dy: -40, w: 145, name: Macro analyst, sub: fred · bls · yahoo, does: "Reads today's official data releases (inflation, jobs, rates) and market moves, and picks the ones that matter."}
+      - {id: news, kind: llm, agent: news_agent, layer: agents, x: 675, dy: -40, w: 145, name: News analyst, sub: web search, does: "Searches the day's market-moving news. Every line it keeps has a cited source."}
+      - {id: alt, kind: llm, agent: alt_agent, layer: agents, x: 518, dy: 40, w: 145, name: Alt-data analyst, sub: polymarket · x, does: "Checks prediction-market odds and what financial X is saying."}
+      - {id: ai, kind: llm, agent: ai_agent, layer: agents, x: 675, dy: 40, w: 145, name: AI analyst, sub: web search, does: "Tracks AI model launches, chips and AI-industry news, with sources."}
+      - {id: editor, kind: llm, agent: update_editor, layer: agents, x: 884, w: 140, name: Editor, sub: writes 5 stories, does: "Writes the note's five stories (what happened, why, what to watch) and cites a fact for every claim."}
+      - {id: guard, kind: guard, layer: guardrails, x: 884, w: 140, name: Number guard, sub: figures vs facts, does: "Plain code compares every number in the draft with the facts. A number that isn't in the data sends the draft back to the Editor."}
+      - {id: charts, kind: code, layer: guardrails, x: 660, w: 160, name: Chart renderer, sub: from source data, does: "Draws each chart straight from the source data. The Editor picks the chart type, never the numbers."}
+      - {id: substack, kind: out, layer: delivery, x: 660, w: 160, name: Substack, sub: Morning Note, does: "The finished Morning Note is published on Substack."}
+      - {id: memo, kind: out, layer: delivery, x: 440, w: 160, name: Memo page, sub: lists every note, does: "The Memo page on this site lists every published note and links to it."}
+    edges:
+      - schedule > orch
+      - memory > orch
+      - orch > analysts
+      - tools > analysts
+      - analysts > orch | below | follow-ups · max 2 rounds
+      - analysts > editor
+      - background > editor
+      - editor > guard
+      - guard > editor | right | retry
+      - guard > charts
+      - charts > substack
+      - substack > memo
+    steps:
+      - {title: Trigger, nodes: [schedule], edges: [schedule > orch], io: ["in: clock", "out: start run"], text: "A scheduled job starts the run at 5 pm New York time every day. Nobody has to press a button."}
+      - {title: Plan, nodes: [orch, memory], edges: [orch > analysts, memory > orch], io: ["in: recent notes", "out: 4 briefs"], text: "The Orchestrator, an LLM agent, reads ARC's memory of recent notes and writes each analyst a brief: what to look into today."}
+      - {title: Pull data with tools, nodes: [tools, analysts], edges: [tools > analysts], io: ["in: brief + data", "out: findings + fact ids"], text: "Four analyst agents run at the same time, each limited to its own tools: official data (FRED, BLS, Yahoo Finance), a cited web search, prediction markets and X. Code turns every result into numbered facts that the agents must cite."}
+      - {title: Report back, nodes: [analysts, orch], edges: [analysts > orch], io: ["in: findings", "out: follow-ups or done"], text: "The analysts' findings go back to the Orchestrator, which can send any of them a follow-up question, for at most two rounds."}
+      - {title: Write, nodes: [background, editor], edges: [analysts > editor, background > editor], io: ["in: findings + background", "out: draft note"], text: "Code adds background (price history, earlier notes). The Editor agent writes five stories (what happened, why, what to watch) and cites a fact for every claim."}
+      - {title: Check every number, nodes: [guard, editor], edges: [editor > guard, guard > editor], io: ["in: draft", "out: pass or errors"], text: "Plain code checks every number in the draft against the facts. If a figure isn't in the data, the draft goes back to the Editor with the errors, once."}
+      - {title: Chart and publish, nodes: [charts, substack, memo], edges: [guard > charts, charts > substack, substack > memo], io: ["in: checked note", "out: Substack post"], text: "Code draws each chart from the source data, and the note is published on Substack and listed on the Memo page."}
+
+  - id: weekly-deep-dive
+    name: Weekly Deep Dive
+    trigger: "first 17:00 ET run from Sunday"
+    guardrails: "number check incl. chart values"
+    delivery: "Weekly Deep Dive on Substack"
+    groups:
+      - {id: tools, label: DESK TOOLS, nodes: [fred, bls, yahoo, polymarket, web]}
+      - {id: desks, label: 5 DESKS, note: SHARED BOARD, nodes: [desk1, desk2]}
+    nodes:
+      - {id: notes, kind: source, layer: sources, x: 316, w: 150, name: Morning Notes, sub: Monday to Friday, does: "The week's five Morning Notes: the starting point for picking the week's trends."}
+      - {id: fred, kind: source, layer: sources, x: 516, dy: -18, w: 64, name: FRED, does: "Federal Reserve economic data."}
+      - {id: bls, kind: source, layer: sources, x: 588, dy: -18, w: 64, name: BLS, does: "Bureau of Labor Statistics data."}
+      - {id: yahoo, kind: source, layer: sources, x: 660, dy: -18, w: 64, name: Yahoo, does: "Market prices from Yahoo Finance."}
+      - {id: polymarket, kind: source, layer: sources, x: 516, dy: 18, w: 100, name: Polymarket, does: "Prediction-market odds."}
+      - {id: web, kind: source, layer: sources, x: 624, dy: 18, w: 100, name: web search, does: "A web search that returns cited sources."}
+      - {id: schedule, kind: trigger, layer: agents, x: 150, w: 120, name: Schedule, sub: Sunday, does: "The report is due once the week is over: the first 5 pm New York run from Sunday builds it, and later runs skip it."}
+      - {id: lead, kind: llm, agent: weekly_lead, layer: agents, x: 316, w: 150, name: Deep Lead, sub: trends · desks, does: "Reads the week's Morning Notes, picks the 10-12 trends that mattered and splits them across five research desks."}
+      - {id: desk1, kind: llm, agent: deep_trend_agent, layer: agents, x: 520, dy: -40, w: 204, name: Desk 1, sub: 2-3 trends · own tools, does: "One of five desk agents: researches its trends with its own tools and shares facts with related desks on a board."}
+      - {id: desk2, kind: llm, agent: deep_trend_agent, layer: agents, x: 520, dy: 40, w: 204, name: Desks 2-5, sub: "same, in parallel", does: "The other four desks, running at the same time."}
+      - {id: editor, kind: llm, agent: deep_editor, layer: agents, x: 790, w: 160, name: Deep Editor, sub: Claude Opus, does: "Claude Opus questions every desk's research, then writes each trend: what happened, why, what's under the surface, what it means for markets."}
+      - {id: guard, kind: guard, layer: guardrails, x: 790, w: 160, name: Number guard, sub: figures + charts, does: "Plain code checks every figure, including chart values, against the facts the desks pulled."}
+      - {id: charts, kind: code, layer: guardrails, x: 560, w: 160, name: Chart renderer, sub: from source data, does: "Draws each exhibit from the source data in the form the Editor picked."}
+      - {id: substack, kind: out, layer: delivery, x: 560, w: 160, name: Substack, sub: Weekly Deep Dive, does: "The report is drafted on Substack and published there."}
+      - {id: page, kind: out, layer: delivery, x: 340, w: 170, name: Deep Research page, sub: lists every week, does: "The Deep Research page on this site lists every weekly report and links to it."}
+    edges:
+      - schedule > lead
+      - notes > lead
+      - lead > desks
+      - tools > desks
+      - desks > editor
+      - editor > desks | below | grill · max 2 rounds
+      - editor > guard
+      - guard > editor | right | retry
+      - guard > charts
+      - charts > substack
+      - substack > page
+    steps:
+      - {title: Trigger, nodes: [schedule], edges: [schedule > lead], io: ["in: a finished week", "out: start run"], text: "Once Monday to Friday's Morning Notes are in, the first scheduled run from Sunday builds the report."}
+      - {title: Plan, nodes: [lead, notes], edges: [lead > desks, notes > lead], io: ["in: 5 Morning Notes", "out: 10-12 trends · 5 desks"], text: "The Deep Lead reads the week's Morning Notes, picks the 10-12 trends that mattered and splits them across five research desks."}
+      - {title: Research in parallel, nodes: [tools, desks], edges: [tools > desks], io: ["in: trends + tools", "out: findings + facts"], text: "Five desk agents research their trends at the same time, each with its own tools (official data, prices, prediction markets, a cited web search), and share facts on a common board. Code turns every result into a numbered fact."}
+      - {title: Grill, nodes: [editor, desks], edges: [desks > editor, editor > desks], io: ["in: desk findings", "out: questions + answers"], text: "Claude, as the Deep Editor, questions every desk's research for up to two rounds, and the desks answer with fresh data."}
+      - {title: Write and check, nodes: [editor, guard], edges: [editor > guard, guard > editor], io: ["in: report draft", "out: pass or errors"], text: "The Editor writes the report. Plain code checks every figure, chart values included, against the facts, and sends the draft back once if one doesn't match."}
+      - {title: Chart and publish, nodes: [charts, substack, page], edges: [guard > charts, charts > substack, substack > page], io: ["in: checked report", "out: Substack post"], text: "Code draws each exhibit from the source data, and the report goes out on Substack and onto the Deep Research page."}
+
+  - id: theme-charts
+    name: Theme Charts
+    trigger: "cron · 08:00 ET"
+    guardrails: "number check · charts drawn by code"
+    delivery: "Substack post + X thread (weekdays)"
+    groups:
+      - {id: signals, label: SIGNALS, nodes: [web, x, yahoo, polymarket]}
+    nodes:
+      - {id: web, kind: source, layer: sources, x: 316, dy: -18, w: 110, name: web search, does: "A cited web search for the macro themes news and financial X discuss most."}
+      - {id: x, kind: source, layer: sources, x: 316, dy: 18, w: 110, name: X, does: "Financial X, found through a cited search."}
+      - {id: yahoo, kind: source, layer: sources, x: 438, w: 116, name: Yahoo Finance, does: "Market prices: the biggest 1-day, 1-week and 1-month moves."}
+      - {id: polymarket, kind: source, layer: sources, x: 566, w: 104, name: Polymarket, does: "The biggest swings in prediction-market odds."}
+      - {id: memory, kind: source, layer: sources, x: 720, w: 140, name: ARC memory, sub: last 6 runs, does: "The picker's last six runs, so it doesn't pick the same theme again."}
+      - {id: series, kind: source, layer: sources, x: 900, w: 150, name: FRED · Yahoo, sub: series to plot, does: "Every series that ends up on a chart is downloaded straight from FRED or Yahoo Finance."}
+      - {id: schedule, kind: trigger, layer: agents, x: 150, w: 120, name: Schedule, sub: 08:00 ET, does: "A scheduled job starts the run at 8 am New York time. A second run at 8 pm only feeds the next run's memory."}
+      - {id: gather, kind: code, layer: agents, x: 316, w: 170, name: Signal gatherer, sub: 3 signals → facts, does: "Plain code gathers the three signals and turns them into numbered facts."}
+      - {id: picker, kind: llm, agent: theme_picker, layer: agents, x: 560, w: 170, name: Theme picker, sub: theme + 5-6 charts, does: "One LLM call names today's #1 macro theme, the three signals behind it and the 5-6 charts that tell it."}
+      - {id: guard, kind: guard, layer: guardrails, x: 560, w: 170, name: Number guard, sub: figures vs facts, does: "Every figure in the write-up must be among the facts' numbers, or the picker tries again once."}
+      - {id: charts, kind: code, layer: guardrails, x: 800, w: 160, name: Chart renderer, sub: fetch + draw, does: "Downloads every series and draws the charts (lines, heatmaps, scatters, ranges). The AI never supplies a plotted number."}
+      - {id: substack, kind: out, layer: delivery, x: 800, w: 160, name: Substack, sub: post · /themes card, does: "On weekdays the 8 am run is published on Substack and shown as a card on the Theme Charts page."}
+      - {id: xthread, kind: out, layer: delivery, x: 990, w: 140, name: X thread, sub: links the post, does: "Posted to X as a thread that links the Substack post."}
+    edges:
+      - schedule > gather
+      - signals > gather
+      - gather > picker
+      - memory > picker
+      - picker > guard
+      - guard > picker | right | retry
+      - guard > charts
+      - series > charts
+      - charts > substack
+      - substack > xthread
+    steps:
+      - {title: Trigger, nodes: [schedule], edges: [schedule > gather], io: ["in: clock", "out: start run"], text: "A scheduled job starts the run at 8 am New York time."}
+      - {title: Gather signals, nodes: [signals, gather], edges: [signals > gather], io: ["in: web · prices · odds", "out: facts"], text: "Plain code gathers three signals: what news and financial X discuss most, the biggest market moves, and the biggest swings in prediction-market odds."}
+      - {title: Pick the theme, nodes: [picker, memory], edges: [gather > picker, memory > picker], io: ["in: facts + memory", "out: theme + chart plan"], text: "One LLM call names the day's #1 macro theme and the 5-6 charts that tell it. It sees its last six runs so it doesn't repeat itself."}
+      - {title: Check every number, nodes: [guard, picker], edges: [picker > guard, guard > picker], io: ["in: write-up", "out: pass or errors"], text: "Code checks every figure in the write-up against the facts; a miss sends it back to the picker once."}
+      - {title: Chart, nodes: [charts, series], edges: [guard > charts, series > charts], io: ["in: chart plan", "out: charts"], text: "Code downloads every series from FRED and Yahoo Finance and draws the charts, so every plotted number comes from the source."}
+      - {title: Publish, nodes: [substack, xthread], edges: [charts > substack, substack > xthread], io: ["in: charts + text", "out: post + thread"], text: "On weekdays the run is published on Substack and posted to X as a thread."}
+
+  - id: market-alerts
+    name: Market alerts
+    trigger: "cron · every 30 min · market hours"
+    guardrails: "unusual-move test · numbers by code"
+    delivery: "post on X · max 3 a day"
+    nodes:
+      - {id: yahoo, kind: source, layer: sources, x: 326, name: Yahoo Finance, sub: 10 markets · 5y bars, does: "Prices for 10 markets: stocks, Treasuries, oil, gold, the dollar and more."}
+      - {id: web, kind: source, layer: sources, x: 560, name: web search, sub: cited sources, does: "A web search that returns cited sources."}
+      - {id: series, kind: source, layer: sources, x: 794, name: FRED · Yahoo, sub: context series, does: "A longer data series for a context chart, downloaded straight from the source."}
+      - {id: schedule, kind: trigger, layer: agents, x: 150, w: 120, name: Schedule, sub: every 30 min, does: "Runs every 30 minutes while US markets are open on weekdays."}
+      - {id: explainer, kind: llm, agent: move_explainer, layer: agents, x: 560, name: Move explainer, sub: cited why, does: "Searches for why the market moved and keeps the reason only if it can cite a source."}
+      - {id: picker, kind: llm, agent: x_chart_picker, layer: agents, x: 794, name: Chart picker, sub: intraday | context, does: "Chooses the chart: today's intraday moves, or a longer backdrop series."}
+      - {id: test, kind: guard, layer: guardrails, x: 326, name: Unusual-move test, sub: z ≥ 2.5 vs 1 year, does: "Plain code compares today's move in each market with the past year of daily moves. Only a move 2.5 standard deviations from normal goes on."}
+      - {id: writer, kind: guard, layer: guardrails, x: 794, name: Post writer, sub: numbers by code, does: "Code writes every number in the post and enforces the limits: each market once a day, at most three posts a day."}
+      - {id: stop, kind: stop, layer: delivery, x: 326, name: No big move, sub: until next check, does: "Most checks find nothing unusual, and the run simply stops."}
+      - {id: post, kind: out, layer: delivery, x: 794, name: X post, sub: + chart, does: "The alert is posted to X with its chart. While the feature is in test mode, posts are only logged."}
+    edges:
+      - schedule > test
+      - yahoo > test
+      - test > stop
+      - test > explainer
+      - web > explainer
+      - explainer > picker
+      - series > picker
+      - picker > writer
+      - writer > post
+    steps:
+      - {title: Trigger, nodes: [schedule], edges: [schedule > test], io: ["in: clock", "out: start check"], text: "Every 30 minutes during US market hours, a scheduled job starts a check."}
+      - {title: Unusual-move test, nodes: [test, yahoo, stop], edges: [yahoo > test, test > stop], io: ["in: prices", "out: big moves or stop"], text: "Plain code compares today's move in 10 markets with a normal day over the past year. Only a move 2.5 standard deviations or more goes on; otherwise the run stops here."}
+      - {title: Explain, nodes: [explainer, web], edges: [test > explainer, web > explainer], io: ["in: the move", "out: cited reason"], text: "The Move explainer agent searches the web for the reason and keeps it only if it can cite a source."}
+      - {title: Pick a chart, nodes: [picker, series], edges: [explainer > picker, series > picker], io: ["in: post text", "out: chart choice"], text: "The Chart picker agent chooses today's intraday moves or a longer backdrop series."}
+      - {title: Write and post, nodes: [writer, post], edges: [picker > writer, writer > post], io: ["in: text + chart", "out: X post"], text: "Code writes every number in the post, enforces the daily limits and draws the chart, and the alert goes out on X."}
+
+  - id: sector-sentiment
+    name: Sector Sentiment
+    trigger: "cron · 09:30 + 17:00 ET"
+    guardrails: "every sector scored, or keep the last one"
+    delivery: "Fear & Greed card on Radar"
+    groups:
+      - {id: data, label: MARKET DATA, nodes: [yahoo, fred]}
+      - {id: calc, label: SCORES, nodes: [scores, feargreed]}
+      - {id: writers, label: EXPLAINERS, nodes: [narrative, prose]}
+    nodes:
+      - {id: yahoo, kind: source, layer: sources, x: 340, w: 112, name: Yahoo Finance, does: "Prices, valuations and analysts' earnings estimates for the 10 biggest companies in each sector, plus the S&P 500, VIX and Treasuries."}
+      - {id: fred, kind: source, layer: sources, x: 462, w: 48, name: FRED, does: "The high-yield credit spread, one of the five Fear & Greed signals."}
+      - {id: schedule, kind: trigger, layer: agents, x: 150, w: 140, name: Schedule, sub: 09:30 + 17:00 ET, does: "Runs twice a day: after the 8:30 data releases and with the 5 pm run."}
+      - {id: scores, kind: code, layer: agents, x: 340, dy: -40, w: 170, name: Divergence scores, sub: top 10 per sector, does: "Plain code scores each sector's mood: how far price momentum has run ahead of (or behind) the fundamentals."}
+      - {id: feargreed, kind: code, layer: agents, x: 340, dy: 40, w: 170, name: Fear & Greed, sub: 5 market signals, does: "Plain code ranks five market signals against the past two years and averages them into one 0-100 reading."}
+      - {id: narrative, kind: llm, agent: sector_narrative, layer: agents, x: 600, dy: -40, w: 180, name: Narrative, sub: 1 call · the summary, does: "Writes the card's short summary of what the numbers say."}
+      - {id: prose, kind: llm, agent: sector_prose, layer: agents, x: 600, dy: 40, w: 180, name: Sector explainer, sub: one call per sector, does: "Writes a short explanation for each sector from its scores and its 10 companies."}
+      - {id: check, kind: guard, layer: guardrails, x: 600, w: 180, name: Snapshot check, sub: all sectors or keep last, does: "If any sector can't be scored, code keeps the previous snapshot instead of publishing a partial one. If the writing fails, the card ships with numbers only."}
+      - {id: card, kind: out, layer: delivery, x: 600, w: 180, name: Radar card, sub: Fear & Greed · sectors, does: "The Fear & Greed · Sector Sentiment card on the Radar page."}
+    edges:
+      - schedule > calc
+      - data > calc
+      - calc > writers
+      - writers > check
+      - check > card
+    steps:
+      - {title: Trigger, nodes: [schedule], edges: [schedule > calc], io: ["in: clock", "out: start run"], text: "A scheduled job runs at 9:30 am, after the morning data releases, and again at 5 pm New York time."}
+      - {title: Score, nodes: [data, calc], edges: [data > calc], io: ["in: prices · estimates · spreads", "out: scores"], text: "Plain code scores each sector's mood (price momentum against fundamentals) from its 10 biggest companies, and the market's Fear & Greed reading from five signals."}
+      - {title: Explain, nodes: [writers], edges: [calc > writers], io: ["in: scores", "out: summary + sector notes"], text: "Two LLM agents turn the numbers into words: one writes the summary, the other a short note for each sector. They never change a number."}
+      - {title: Check, nodes: [check], edges: [writers > check], io: ["in: snapshot", "out: publish or keep last"], text: "If any sector couldn't be scored, code keeps the previous snapshot rather than publish a partial one."}
+      - {title: Publish, nodes: [card], edges: [check > card], io: ["in: checked snapshot", "out: Radar card"], text: "The scores and notes appear on the Fear & Greed · Sector Sentiment card on Radar."}
+
+  - id: deep-research
+    name: Deep Research
+    trigger: "on request · a research question"
+    guardrails: "15-search cap · charts from real data"
+    delivery: "a cited report"
+    groups:
+      - {id: subs, label: SUB-AGENTS, note: UP TO 6 IN PARALLEL, nodes: [sub1, subs2]}
+    nodes:
+      - {id: web, kind: source, layer: sources, x: 680, w: 120, name: web search, does: "A web search that returns cited sources."}
+      - {id: openbb, kind: source, layer: sources, x: 1046, w: 110, name: OpenBB · FRED, does: "Market and economic data for the report's charts."}
+      - {id: question, kind: trigger, layer: agents, x: 150, w: 120, name: Question, sub: on request, does: "Someone asks a research question."}
+      - {id: clarifier, kind: llm, agent: deep_clarifier, layer: agents, x: 316, w: 130, name: Clarifier, sub: rewords · asks, does: "Rewords the question and asks up to three clarifying questions."}
+      - {id: lead, kind: llm, agent: deep_lead, layer: agents, x: 490, w: 130, name: Lead, sub: ≤ 6 questions, does: "Splits the question into at most six sub-questions, and re-plans if the Synthesizer finds gaps."}
+      - {id: sub1, kind: llm, agent: deep_sub_agent, layer: agents, x: 666, dy: -40, w: 150, name: Sub-agent 1, sub: web search, does: "One sub-agent per sub-question: searches the web and keeps cited findings."}
+      - {id: subs2, kind: llm, agent: deep_sub_agent, layer: agents, x: 666, dy: 40, w: 150, name: Sub-agents 2-6, sub: "same, in parallel", does: "The other sub-agents, running at the same time."}
+      - {id: synth, kind: llm, agent: deep_synthesizer, layer: agents, x: 870, w: 140, name: Synthesizer, sub: cited report, does: "Writes the cited report from every finding, looks for gaps, and proposes supporting charts."}
+      - {id: you, kind: human, layer: guardrails, x: 316, w: 130, name: You answer, sub: or skip, does: "The person who asked answers the clarifying questions, or skips them."}
+      - {id: charts, kind: code, layer: guardrails, x: 870, w: 140, name: Chart resolver, sub: real data only, does: "Plain code fetches the data for each proposed chart and drops any chart it can't draw."}
+      - {id: report, kind: out, layer: delivery, x: 870, w: 140, name: Cited report, sub: with charts, does: "The finished report, with a citation for every claim."}
+    edges:
+      - question > clarifier
+      - clarifier > you
+      - you > lead
+      - lead > subs
+      - web > subs
+      - subs > synth
+      - synth > lead | below | gaps → re-plan · max 2 rounds
+      - synth > charts
+      - openbb > charts
+      - charts > report
+    steps:
+      - {title: Ask, nodes: [question], edges: [question > clarifier], io: ["in: a question", "out: start"], text: "Someone asks a research question."}
+      - {title: Clarify, nodes: [clarifier, you], edges: [clarifier > you, you > lead], io: ["in: raw question", "out: clarified question"], text: "The Clarifier rewords the question and asks up to three clarifying questions; the person answers them or skips."}
+      - {title: Plan, nodes: [lead], edges: [lead > subs], io: ["in: clarified question", "out: ≤ 6 sub-questions"], text: "The Lead splits the question into at most six sub-questions."}
+      - {title: Research in parallel, nodes: [subs, web], edges: [web > subs], io: ["in: sub-question", "out: cited findings"], text: "One sub-agent per sub-question searches the web at the same time and keeps cited findings, with at most 15 searches per report."}
+      - {title: Synthesize, nodes: [synth, lead], edges: [subs > synth, synth > lead], io: ["in: all findings", "out: report or gaps"], text: "The Synthesizer writes the cited report and can send gaps back to the Lead for up to two more rounds."}
+      - {title: Chart and save, nodes: [charts, openbb, report], edges: [synth > charts, openbb > charts, charts > report], io: ["in: report + chart ideas", "out: cited report"], text: "Code fetches the data for each proposed chart, drops any it can't draw, and saves the cited report."}
+
+  - id: ai-adoption
+    name: AI Adoption
+    trigger: "cron · 17:00 ET · recipes by hand"
+    guardrails: "quote check · recipe replay test"
+    delivery: "Talk and Hire scores"
+    nodes:
+      - {id: filings, kind: source, layer: sources, x: 316, w: 160, name: SEC filings, sub: latest 10-K / 10-Q, does: "Each company's latest annual or quarterly report from the SEC."}
+      - {id: careers, kind: source, layer: sources, x: 880, w: 160, name: Careers sites, sub: custom job boards, does: "Company careers sites that no standard job-board reader covers."}
+      - {id: run, kind: trigger, layer: agents, x: 150, w: 120, name: Index run, sub: 17:00 ET, does: "The AI Adoption Index runs with the 5 pm New York job."}
+      - {id: filter, kind: code, layer: agents, x: 316, w: 160, name: AI-passage filter, sub: keyword prefilter, does: "Plain code keeps only the passages of a filing that mention AI, so the model reads less."}
+      - {id: extractor, kind: llm, agent: adoption_extractor, layer: agents, x: 530, w: 160, name: Claim extractor, sub: verbatim quotes, does: "Returns word-for-word quotes about AI, each rated pilot, deployed or revenue-linked."}
+      - {id: hand, kind: human, layer: agents, x: 720, w: 120, name: By hand, sub: one company, does: "Someone runs the Recipe writer by hand for a company whose careers site has no known data address."}
+      - {id: recipe, kind: llm, agent: recipe_writer, layer: agents, x: 880, w: 160, name: Recipe writer, sub: ≤ 15 steps · $3, does: "Explores the careers site once in a headless browser and proposes a recipe saying where the job titles live."}
+      - {id: quote, kind: guard, layer: guardrails, x: 530, w: 160, name: Quote check, sub: found in the filing, does: "Code keeps a quote only if it really appears in the filing."}
+      - {id: replay, kind: guard, layer: guardrails, x: 880, w: 160, name: Replay test, sub: ≥ 90% coverage, does: "Our own code replays the recipe; it's saved only if it returns real job titles covering at least 90% of what the site shows."}
+      - {id: talk, kind: out, layer: delivery, x: 530, w: 160, name: Talk score, sub: cached per filing, does: "How deeply each company talks about AI in its filings, scored from the kept quotes."}
+      - {id: hire, kind: out, layer: delivery, x: 880, w: 160, name: Hire score, sub: "replayed, no model", does: "The share of each company's open jobs that are AI or ML roles, counted in code from the replayed recipe."}
+    edges:
+      - run > filter
+      - filings > filter
+      - filter > extractor
+      - extractor > quote
+      - quote > talk
+      - hand > recipe
+      - careers > recipe
+      - recipe > replay
+      - replay > recipe | right | rejected → try again
+      - replay > hire
+    steps:
+      - {title: Read the filings, nodes: [run, filings, filter], edges: [filings > filter, run > filter], io: ["in: SEC filing", "out: AI passages"], text: "On each index run, code downloads each company's latest 10-K or 10-Q from the SEC and keeps only the passages that mention AI."}
+      - {title: Extract claims, nodes: [extractor], edges: [filter > extractor], io: ["in: AI passages", "out: rated quotes"], text: "The Claim extractor returns word-for-word quotes, each rated pilot, deployed or revenue-linked."}
+      - {title: Check the quotes, nodes: [quote, talk], edges: [extractor > quote, quote > talk], io: ["in: quotes", "out: Talk score"], text: "Code keeps a quote only if it really appears in the filing, and the kept quotes become the Talk score."}
+      - {title: Write a recipe, nodes: [hand, careers, recipe], edges: [careers > recipe, hand > recipe], io: ["in: careers site", "out: proposed recipe"], text: "For a careers site no standard reader covers, someone runs the Recipe writer by hand: it explores the site once and proposes where the job titles live."}
+      - {title: Replay test, nodes: [replay, recipe], edges: [recipe > replay, replay > recipe], io: ["in: recipe", "out: saved or rejected"], text: "Our own code replays the recipe and saves it only if it returns real job titles covering at least 90% of what the site shows."}
+      - {title: Hire score, nodes: [hire], edges: [replay > hire], io: ["in: saved recipe", "out: Hire score"], text: "Every index run replays the saved recipes with no model and counts AI and ML job titles in code."}

@@ -7,7 +7,6 @@ import { AgentArch, FamilyArch, SystemDiagram } from "@/components/SystemDiagram
 import { PageIntro } from "@/components/layout/PageIntro";
 
 const TABS = ["Arch", "Prompt", "Tools", "Memory", "Output", "Dependencies"] as const;
-const PUBLIC_TABS = ["Arch"] as const; // the public catalog has no prompts, tools, memory, schemas or keys
 type Tab = (typeof TABS)[number];
 type Pick = { agent?: string; group?: string; family?: string };
 
@@ -36,12 +35,11 @@ function Lane({ title, items, core }: { title: string; items: string[]; core?: b
   );
 }
 
-function Detail({ a, system, names, open, noArch, admin }: {
+function Detail({ a, system, names, open, noArch }: {
   a: AgentCatalogEntry; system?: AgentSystem; names: Record<string, string>;
   open: (p: Pick) => void; noArch?: boolean; // inside a main agent's page the arch is shown once on top
-  admin?: boolean;
 }) {
-  const tabs: readonly Tab[] = !admin ? (noArch ? [] : PUBLIC_TABS) : noArch ? TABS.filter((t) => t !== "Arch") : TABS;
+  const tabs: readonly Tab[] = noArch ? TABS.filter((t) => t !== "Arch") : TABS;
   const [tab, setTab] = useState<Tab>(system && !noArch ? "Arch" : "Prompt");
   const memory = a.memory ?? { reads: [], writes: [], persists: "" };
   const tools = a.tools ?? [];
@@ -166,9 +164,9 @@ function Detail({ a, system, names, open, noArch, admin }: {
 }
 
 /** A main agent (e.g. Update Agent): its architecture once, then every sub-agent's full card. */
-function FamilyView({ name, members, system, names, open, admin }: {
+function FamilyView({ name, members, system, names, open }: {
   name: string; members: AgentCatalogEntry[]; system?: AgentSystem; names: Record<string, string>;
-  open: (p: Pick) => void; admin?: boolean;
+  open: (p: Pick) => void;
 }) {
   return (
     <div className="space-y-5">
@@ -185,13 +183,14 @@ function FamilyView({ name, members, system, names, open, admin }: {
             : <div className="text-sm text-muted">No architecture diagram for this group yet.</div>}
         </div>
       </Card>
-      {members.map((m) => <Detail key={m.id} a={m} names={names} open={open} noArch admin={admin} />)}
+      {members.map((m) => <Detail key={m.id} a={m} names={names} open={open} noArch />)}
     </div>
   );
 }
 
-export default function AgentsPage({ admin = false }: { admin?: boolean }) {
-  const { data, isLoading } = useAgentCatalog(admin);
+/** The private /admin → Agents catalog; the public /agents page is PipelinesPage. */
+export default function AgentsPage() {
+  const { data, isLoading } = useAgentCatalog(true);
   const [q, setQ] = useState("");
   // an agent id, or a group name for its architecture diagram; null = the first system
   const [picked, setPicked] = useState<Pick | null>(null);
@@ -238,28 +237,19 @@ export default function AgentsPage({ admin = false }: { admin?: boolean }) {
 
   return (
     <div className="p-4 md:p-8 space-y-5">
-      {admin ? (
-        <PageIntro kicker="Admin · Agents" title="Every agent in full: prompts, models, tools, memory, keys"
-          steps={["Prompt", "Model", "Tools + data", "Output schema", "Architecture"]}
-          when={{ label: `${agents.length} agents`, value: `${systems.length} systems` }}>
-          The full private catalog: what each agent is asked to do, which model it runs on, the tools and data it can
-          use, its output schema and which API keys it needs.
-        </PageIntro>
-      ) : (
-        <PageIntro kicker="Agents" title="How the agents behind ARC Research work together"
-          steps={["Who they are", "How they connect"]}
-          when={{ label: `${agents.length} agents`, value: `${systems.length} systems` }}>
-          A high-level view of the AI agents that help write ARC's research and how they connect, drawn as one diagram
-          per system.
-        </PageIntro>
-      )}
+      <PageIntro kicker="Admin · Agents" title="Every agent in full: prompts, models, tools, memory, keys"
+        steps={["Prompt", "Model", "Tools + data", "Output schema", "Architecture"]}
+        when={{ label: `${agents.length} agents`, value: `${systems.length} systems` }}>
+        The full private catalog: what each agent is asked to do, which model it runs on, the tools and data it can
+        use, its output schema and which API keys it needs.
+      </PageIntro>
     <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
       <Card className="flex flex-col">
         <div className="p-3.5 border-b border-border">
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={admin ? "Search agents, tools, memory…" : "Search agents…"}
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search agents, tools, memory…"
             className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-surface-2 outline-none focus:border-accent" />
           <div className="text-xs text-muted mt-2">
-            {shown.length} of {agents.length} agents{admin && <> · registry: <span className="font-mono">agents.yaml</span></>}
+            {shown.length} of {agents.length} agents · registry: <span className="font-mono">agents.yaml</span>
           </div>
         </div>
         <div className="p-1.5">
@@ -299,7 +289,7 @@ export default function AgentsPage({ admin = false }: { admin?: boolean }) {
             );
           })}
         </div>
-        {admin && !!data?.unregistered?.length && (
+        {!!data?.unregistered?.length && (
           <div className="m-2 p-2.5 border border-dashed border-warning bg-warning-soft rounded-lg text-xs text-warning">
             <b>{data?.unregistered?.length} agent{(data?.unregistered?.length ?? 0) > 1 ? "s" : ""} not in agents.yaml</b>
             {data?.unregistered?.map((u) => (
@@ -315,11 +305,11 @@ export default function AgentsPage({ admin = false }: { admin?: boolean }) {
           <Card className="flex flex-col min-w-0">
             <SystemDiagram system={system} names={names} onAgent={(id) => open({ agent: id })} onSystem={(group) => open({ group })} />
           </Card>
-          {agents.filter((a) => a.group === system.group).map((m) => <Detail key={m.id} a={m} names={names} open={open} noArch admin={admin} />)}
+          {agents.filter((a) => a.group === system.group).map((m) => <Detail key={m.id} a={m} names={names} open={open} noArch />)}
         </div>
-      ) : family ? <FamilyView name={family} members={agents.filter((a) => a.family === family)} names={names} open={open} admin={admin}
+      ) : family ? <FamilyView name={family} members={agents.filter((a) => a.family === family)} names={names} open={open}
         system={systems.find((s) => s.group === agents.find((a) => a.family === family)?.group)} />
-      : current ? <Detail key={current.id} a={current} names={names} open={open} admin={admin}
+      : current ? <Detail key={current.id} a={current} names={names} open={open}
         system={systems.find((s) => s.group === current.group)} /> : <Card className="p-4 md:p-8 text-sm text-muted">No agents registered.</Card>}
       </div>
     </div>

@@ -134,11 +134,12 @@ def build_catalog(registry: Path | None = None) -> dict:
         "agents": entries,
         "groups": groups,
         "systems": raw.get("systems") or [],
+        "pipelines": raw.get("pipelines") or [],
         "unregistered": [c for c in _agent_classes() if c["class_path"] not in registered],
     }
 
 
-# What the public site may show of an agent: who it is and where it sits in the diagrams. Everything else
+# What the public site may show of an agent: who it is and where it sits in the pipelines. Everything else
 # (prompts, class paths, model ids, schemas, tools, memory, API-key status, errors) is admin-only.
 _PUBLIC_FIELDS = ("id", "name", "group", "family", "summary")
 
@@ -148,7 +149,7 @@ def public_catalog(catalog: dict) -> dict:
     return {
         "agents": [{k: a[k] for k in _PUBLIC_FIELDS} for a in catalog["agents"]],
         "groups": catalog["groups"],
-        "systems": catalog["systems"],
+        "pipelines": catalog["pipelines"],  # the lane diagrams (systems) are only drawn on /admin
     }
 
 

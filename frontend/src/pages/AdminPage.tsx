@@ -99,7 +99,7 @@ export default function AdminPage() {
           </button>
         ))}
       </div>
-      {tab === "Agents" ? <AgentsPage admin /> : tab === "Models" ? <AdminModels /> : tab === "Docs" ? <AdminDocs /> : tab === "Daily desk" ? <DailyDesk /> : <XPosts />}
+      {tab === "Agents" ? <AgentsPage /> : tab === "Models" ? <AdminModels /> : tab === "Docs" ? <AdminDocs /> : tab === "Daily desk" ? <DailyDesk /> : <XPosts />}
     </div>
   );
 }
