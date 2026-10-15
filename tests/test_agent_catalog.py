@@ -62,6 +62,12 @@ def test_public_catalog_is_high_level_only():
     allowed = {"id", "name", "group", "family", "summary"}
     assert all(set(a) == allowed for a in data["agents"])
     assert "unregistered" not in data and "systems" not in data
+    # Sector Sentiment and AI Adoption stay on /admin only
+    assert not {"sector-sentiment", "ai-adoption"} & {p["id"] for p in data["pipelines"]}
+    assert not {"sector_narrative", "sector_prose", "adoption_extractor", "recipe_writer"} & {
+        a["id"] for a in data["agents"]
+    }
+    assert "Research metrics" not in data["groups"]
     text = r.text
     for private in ("class_path", "prompt", "OPENAI_API_KEY", "castelino.agents", "gpt-6"):
         assert private not in text

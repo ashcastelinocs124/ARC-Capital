@@ -144,12 +144,26 @@ def build_catalog(registry: Path | None = None) -> dict:
 _PUBLIC_FIELDS = ("id", "name", "group", "family", "summary")
 
 
+# Pipelines left off the public /agents page (user's call, 2026-10-15), with the agents only they use; /admin keeps them.
+_PRIVATE_PIPELINES = {"sector-sentiment", "ai-adoption"}
+
+
 def public_catalog(catalog: dict) -> dict:
     """A whitelist, so a field added to the full catalog later stays private until someone lists it here."""
+    pipelines = [p for p in catalog["pipelines"] if p["id"] not in _PRIVATE_PIPELINES]
+    shown = {n["agent"] for p in pipelines for n in p.get("nodes", []) if n.get("agent")}
+    hidden = {
+        n["agent"]
+        for p in catalog["pipelines"]
+        if p["id"] in _PRIVATE_PIPELINES
+        for n in p.get("nodes", [])
+        if n.get("agent") and n["agent"] not in shown
+    }
+    agents = [{k: a[k] for k in _PUBLIC_FIELDS} for a in catalog["agents"] if a["id"] not in hidden]
     return {
-        "agents": [{k: a[k] for k in _PUBLIC_FIELDS} for a in catalog["agents"]],
-        "groups": catalog["groups"],
-        "pipelines": catalog["pipelines"],  # the lane diagrams (systems) are only drawn on /admin
+        "agents": agents,
+        "groups": [g for g in catalog["groups"] if any(a["group"] == g for a in agents)],
+        "pipelines": pipelines,  # the lane diagrams (systems) are only drawn on /admin
     }
 
 
