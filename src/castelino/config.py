@@ -183,6 +183,41 @@ class DeepDiveCfg(BaseModel):
     data_dir: str = "data/deep"
 
 
+class TradeLabCfg(BaseModel):
+    """Trade Lab (agents/trade/): idea → bull/bear debate → talks → desks → charts → editor → Substack draft."""
+
+    data_dir: str = "data/trades"
+    framer_model: str = "deepseek/deepseek-v4-pro"  # OpenRouter ids contain a "/"
+    debate_model: str = "deepseek/deepseek-v4-pro"  # bull, bear, moderator
+    talk_model: str = "deepseek/deepseek-v4-pro"  # talk answers, talk-2 edits, "another idea"
+    orchestrator_model: str = "gpt-6-sol"
+    desk_model: str = "gpt-6-luna"
+    chart_model: str = "gpt-6-luna"
+    search_model: str = "gpt-6-luna"
+    decide_model: str = "gpt-6-luna"  # OpenAI Decisions API
+    editor_model: str = "claude-opus-5-5"
+    editor_effort: str = "high"
+    editor_max_tokens: int = 32000
+    fallback_debate_model: str = "gpt-6-sol"  # used when OpenRouter is unset or failing
+    fallback_talk_model: str = "gpt-6-luna"
+    opening_calls: int = 8
+    rebuttal_calls: int = 2
+    news_calls: int = 12
+    technical_calls: int = 16
+    breadth_min_domains: int = 6
+    breadth_extra_calls: int = 3
+    max_rounds: int = 3
+    cost_cap_usd: float = 5.0
+    concurrency: int = 2
+    decide_threshold: float = 0.5
+    max_output_tokens: int = 16000
+    openrouter_provider: dict = {
+        "data_collection": "deny",
+        "require_parameters": True,
+        "sort": "price",
+    }
+
+
 # ────────────────────────── figure_deviation (Wave 1) ────────────────────────
 # Generalises `speech.speakers` into a multi-source, multi-lexicon engine.
 # Existing Fed speakers are ported here in Wave 1. Trump (X API) lands in
@@ -214,6 +249,7 @@ class Settings(BaseModel):
     web_search: WebSearchCfg = WebSearchCfg()
     deep_research: DeepResearchCfg = DeepResearchCfg()
     deep_dive: DeepDiveCfg = DeepDiveCfg()
+    trade_lab: TradeLabCfg = TradeLabCfg()
     update_agent: UpdateAgentCfg = UpdateAgentCfg()
     themes: ThemesCfg = ThemesCfg()
     cover: CoverCfg = CoverCfg()
