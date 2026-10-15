@@ -108,6 +108,10 @@ def _call(agent: str, kind: str, models: list[str], kw: dict, meter: Meter, note
         args = {**kw, "model": m, "max_completion_tokens": cap}
         if x := _extra(m):
             args["extra_body"] = x
+        elif "tools" in args:
+            # ponytail: gpt-6 models 400 on tools in Chat Completions unless reasoning is off; the
+            # Responses API would keep it (as the Weekly desks do) if tool-loop quality needs it
+            args["reasoning_effort"] = "none"
         sent = {k: v for k, v in args.items() if k in ("messages", "tools")}
         started = time.monotonic()
         try:

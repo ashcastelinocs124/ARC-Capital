@@ -68,6 +68,23 @@ def test_chat_passes_tools_and_returns_the_message(fake):
     assert msg.content == "hi" and fake.calls[0][1]["tools"] == [{"type": "function"}]
 
 
+def test_openai_tool_calls_turn_reasoning_off(fake, monkeypatch):
+    """gpt-6 models answer 400 to function tools in Chat Completions unless reasoning_effort is
+    "none" (the first live India run failed on it, 2026-10-15). DeepSeek and tool-free calls keep it."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "k")
+    fake.script = [RuntimeError("502"), RuntimeError("502"), said("hi"), parsed(Out(x=5))]
+    tools = [{"type": "function"}]
+    llm.chat("a", "deepseek/deepseek-v4-pro", [], llm.Meter(), tools=tools, fallback="gpt-6-sol")
+    llm.structured("a", "gpt-6-sol", [], Out, llm.Meter())
+    efforts = [(c[1]["model"], c[1].get("reasoning_effort")) for c in fake.calls]
+    assert efforts == [
+        ("deepseek/deepseek-v4-pro", None),
+        ("deepseek/deepseek-v4-pro", None),
+        ("gpt-6-sol", "none"),
+        ("gpt-6-sol", None),
+    ]
+
+
 def test_all_attempts_failing_raises_the_last_error(fake):
     fake.script = [RuntimeError("boom")]
     with pytest.raises(RuntimeError, match="boom"):
