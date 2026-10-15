@@ -137,6 +137,9 @@ function Splash() {
       <span className="rise relative text-xl font-semibold tracking-[-0.02em] text-text md:text-2xl" style={{ animationDelay: "0.7s" }}>
         ARC <span className="text-accent">Research</span>
       </span>
+      <span className="rise relative -mt-1 text-xl font-semibold tracking-[-0.02em] text-text md:text-2xl" style={{ animationDelay: "0.8s" }}>
+        Global Macro &amp; AI <span className="text-accent">Research</span>
+      </span>
       <a href={SUBSTACK} target="_blank" rel="noopener noreferrer" className="rise relative mt-5 inline-flex items-center gap-1.5 rounded-full bg-text px-7 py-3 text-base font-semibold text-surface hover:bg-text-2" style={{ animationDelay: "0.9s" }}>
         Newsletter <ArrowUpRight className="h-4 w-4" />
       </a>
