@@ -35,3 +35,22 @@ def test_parse_videos_keeps_only_video_posts_on_the_substack():
         )
         and vids[1]["duration"] is None
     )
+
+
+def test_feed_fetch_asks_for_a_fresh_build(monkeypatch):
+    """Substack's servers keep old feed builds for a while: on 2026-10-15 Fly got one from 40 minutes
+    before the day's post, so the publish missed it. A query string gets a fresh build."""
+    from castelino.dashboard.endpoints import videos
+
+    seen = []
+
+    class Reply:
+        text = "<rss/>"
+
+        def raise_for_status(self):
+            pass
+
+    monkeypatch.setattr(videos, "_feed", (0.0, ""))
+    monkeypatch.setattr(videos.httpx, "get", lambda url, **kw: seen.append(kw) or Reply())
+    videos.feed_xml()
+    assert "t" in (seen[0].get("params") or {})

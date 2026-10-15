@@ -41,7 +41,8 @@ def feed_xml() -> str:
     """The Substack RSS text, cached for an hour (also read by /daily_posts). Raises on a network error."""
     global _feed
     if time.time() - _feed[0] >= _TTL_S:
-        r = httpx.get(FEED, timeout=20, follow_redirects=True)
+        # a query string gets a fresh build: plain /feed can be a stale copy from before the latest post
+        r = httpx.get(FEED, params={"t": int(time.time())}, timeout=20, follow_redirects=True)
         r.raise_for_status()
         _feed = (time.time(), r.text)
     return _feed[1]
