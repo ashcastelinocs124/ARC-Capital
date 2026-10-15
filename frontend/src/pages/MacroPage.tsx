@@ -1,5 +1,4 @@
-import { useAiSentiment, useWeekAhead } from "@/hooks/useWeekAhead";
-import { AiSentimentCard } from "@/components/weekAhead/AiSentimentCard";
+import { useWeekAhead } from "@/hooks/useWeekAhead";
 import { PageIntro } from "@/components/layout/PageIntro";
 import { WeekMap } from "@/components/weekAhead/WeekMap";
 import { InflationExpectations } from "@/components/weekAhead/InflationExpectations";
@@ -48,7 +47,6 @@ function Legend() {
 
 export default function MacroPage() {
   const { data, isLoading } = useWeekAhead();
-  const { data: sentiment } = useAiSentiment();
   const reported = data?.events.filter((e) => e.kind === "ai" && e.status === "reported" && !(e.date && e.date <= data.week_end)) ?? [];
   const or = data?.spend.openrouter;
   return (
@@ -124,20 +122,7 @@ export default function MacroPage() {
                 <GapNote gaps={data.gaps} lanes={["openrouter"]} />
               </Card>
             </div>
-            <Card id="ai-sentiment" title="AI model sentiment on X"
-              sub={sentiment ? `${sentiment.accounts} tracked accounts · word-list scoring · 7-day average · Δ7d = change vs a week ago` : "X API"}>
-              {sentiment ? (
-                <>
-                  <AiSentimentCard data={sentiment} />
-                  <p className="text-[11.5px] text-muted mt-2">
-                    Net = % positive − % negative posts (−100 to +100), averaged over 7 days; Δ7d = today's average minus the average a
-                    week ago. Posts come only from a hand-kept list of credible accounts via the X API, and a fixed word list scores them (hatched = fewer than 10 posts in the week). Lab staff don't count toward their own lab.
-                  </p>
-                </>
-              ) : (
-                <p className="text-sm text-muted">Not configured yet: this indicator needs an X API token.</p>
-              )}
-            </Card>
+            {/* AI model sentiment on X: hidden 2026-10-15; the ai_sentiment job and export still run (AiSentimentCard) */}
           </div>
         </>
       )}
