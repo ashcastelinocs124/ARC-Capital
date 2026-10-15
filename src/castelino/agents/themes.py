@@ -5,8 +5,8 @@ M: 1d/1w/1m market moves, P: Polymarket odds swings); one LLM call picks the the
 least 5 must pass the checks, or the retry is told why);
 code fetches every series and draws it with the Weekly Deep Dive's renderer plus this page's own
 forms (`theme_charts`: heatmap, scatter, range), so the LLM never supplies a plotted number. Each run is data/themes/<YYYY-MM-DD>-<am|pm>.json + its PNGs; each exhibit
-also carries its plotted numbers (`data`), which /themes draws interactively. Run by deploy/crontab at 08:00 ET: python -m castelino.agents.themes
-On weekdays the 08:00 line then publishes the run on Substack (--substack) and, once the site is
+also carries its plotted numbers (`data`), which /themes draws interactively. Run by deploy/crontab at 08:00 ET on weekdays: python -m castelino.agents.themes
+The cron line then publishes the run on Substack (--substack) and, once the site is
 redeployed, posts it to X as a thread linking that post (--post); no approval step for either.
 """
 

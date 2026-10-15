@@ -119,10 +119,10 @@ agents:
       - {key: X_API_KEY, required: false, why: "With X_API_SECRET, X_ACCESS_TOKEN and X_ACCESS_SECRET, the 08:00 weekday run posts its X thread; else it only logs it"}
     class: castelino.agents.themes.ThemePicker
     summary: >-
-      At 08:00 ET, picks the single most popular US macro theme from what news and
+      At 08:00 ET on weekdays, picks the single most popular US macro theme from what news and
       financial X discuss, the biggest market moves and Polymarket odds swings, then picks 6
-      charts that show it (at least 5 must draw). Code fetches and draws every plotted number. On
-      weekdays the 08:00 run is published on Substack (a card on /themes) and posted to X as a thread
+      charts that show it (at least 5 must draw). Code fetches and draws every plotted number. Each
+      run is published on Substack (a card on /themes) and posted to X as a thread
       linking that post, with no approval step for either.
     tools:
       - {name: "gather() (code)", does: "One cited web search for the most-discussed macro themes, 1d/1w/1m market moves, Polymarket economy + Fed odds swings"}
@@ -420,15 +420,15 @@ systems:
         flow: [["Refresh"], ["code:Divergence scores|top-10 per sector", "code:Fear & Greed|5 market signals"], ["agent:sector_narrative|1 call", "agent:sector_prose|11 calls"], ["end:Card on Radar"]]
 
   - group: Theme Charts
-    trigger: "Cron on the Fly server at 08:00 ET"
-    output: "The top macro theme, three signals and 5-6 charts; the 08:00 weekday run is published on Substack (a card on /themes) and posted to X as a thread"
+    trigger: "Cron on the Fly server at 08:00 ET, weekdays"
+    output: "The top macro theme, three signals and 5-6 charts, published on Substack (a card on /themes) and posted to X as a thread"
     blurb: >-
       Code gathers three signals: what news and financial X discuss most, the biggest market moves
       and Polymarket odds swings. One Theme Picker call names the theme and picks the charts; code
       fetches and draws every plotted number, and a guard checks each figure.
     lanes:
       - title: "Theme Charts 1 · Pick"
-        flow: [["08:00 ET"], ["code:News & X|cited web search", "code:Market moves|1d · 1w · 1m", "code:Polymarket|odds swings"], ["agent:theme_picker|#1 theme + 5-6 charts"], ["code:Number guard|1 retry"], ["end:↓ to stage 2"]]
+        flow: [["08:00 ET · Mon-Fri"], ["code:News & X|cited web search", "code:Market moves|1d · 1w · 1m", "code:Polymarket|odds swings"], ["agent:theme_picker|#1 theme + 5-6 charts"], ["code:Number guard|1 retry"], ["end:↓ to stage 2"]]
         loops: [{from: 3, to: 2, label: "retry with errors"}]
       - title: "Theme Charts 2 · Chart & publish"
         flow: [["code:Fetch series|FRED · Yahoo"], ["code:Chart forms|heatmap · scatter · range"], ["code:Save run|last 6 runs = memory"], ["end:Substack post|08:00 weekdays · /themes card", "end:X thread|08:00 weekdays"]]
