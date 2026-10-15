@@ -78,14 +78,18 @@ class EditorClient(Protocol):
 
 
 class AnthropicEditorClient:
-    def __init__(self, model: str, effort: str, max_tokens: int):
+    def __init__(self, model: str, effort: str, max_tokens: int, agent: str = "deep_editor"):
         import anthropic
 
         from castelino.config import get_settings
 
         # explicit long timeout: a high-effort Opus turn on a full week can run several minutes
         self.client = anthropic.Anthropic(api_key=get_settings().anthropic_api_key, timeout=1200)
-        self.model, self.effort, self.max_tokens = model, effort, max_tokens
+        self.model, self.effort, self.max_tokens, self.agent = model, effort, max_tokens, agent
+        self.last_usage: tuple[int | None, int | None] = (
+            None,
+            None,
+        )  # for callers that price calls
 
     def check(self) -> None:
         """A tiny call (a fraction of a cent): a missing credit balance only shows on a real
@@ -104,12 +108,11 @@ class AnthropicEditorClient:
         try:
             out, content, usage = self._parse(system=system, messages=messages, schema=schema)
         except Exception as e:
-            benchmark.record_call(
-                "deep_editor", self.model, sent, started=started, error=str(e)[:500]
-            )
+            benchmark.record_call(self.agent, self.model, sent, started=started, error=str(e)[:500])
             raise
         tokens = (getattr(usage, "input_tokens", None), getattr(usage, "output_tokens", None))
-        benchmark.record_call("deep_editor", self.model, sent, out, started=started, tokens=tokens)
+        self.last_usage = tokens
+        benchmark.record_call(self.agent, self.model, sent, out, started=started, tokens=tokens)
         return out, content
 
     def _parse(self, *, system: str, messages: list[dict], schema: type[T]):
