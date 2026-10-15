@@ -2,12 +2,11 @@
 # timeout: a stalled job (AI Adoption has no per-company cap) can't block the next day's run.
 # flock: every publish takes the same lock, so two Vercel builds never run at once.
 0 17 * * * cd /app && flock /tmp/arc-publish.lock timeout 3h scripts/publish_server.sh >> data/publish.log 2>&1
-# Theme Charts (agents/themes.py): the #1 macro theme at 08:00 and 20:00, then a code-only publish
+# Theme Charts (agents/themes.py): the #1 macro theme at 08:00 on weekdays only, then a code-only publish
 # (no data refresh, no Substack). A failed run exits non-zero, so the site keeps the previous one.
-# 08:00 only, weekdays, no approval step: publish the run on Substack (a failure never stops the
+# No approval step: publish the run on Substack (a failure never stops the
 # line), redeploy so /themes shows its card, then post it to X as a thread linking the Substack post.
-0 8 * * * cd /app && flock /tmp/arc-publish.lock timeout 1h sh -c 'python -m castelino.agents.themes && python -m castelino.agents.themes --substack && SKIP_SUBSTACK=1 scripts/publish_server.sh --no-refresh && python -m castelino.agents.themes --post' >> data/themes.log 2>&1
-0 20 * * * cd /app && flock /tmp/arc-publish.lock timeout 1h sh -c 'python -m castelino.agents.themes && SKIP_SUBSTACK=1 scripts/publish_server.sh --no-refresh' >> data/themes.log 2>&1
+0 8 * * 1-5 cd /app && flock /tmp/arc-publish.lock timeout 1h sh -c 'python -m castelino.agents.themes && python -m castelino.agents.themes --substack && SKIP_SUBSTACK=1 scripts/publish_server.sh --no-refresh && python -m castelino.agents.themes --post' >> data/themes.log 2>&1
 # The /models cards at 09:30, after the 08:30 releases (CPI, Empire State, Philly Fed) reach FRED:
 # Pulse/Pressure refit, Sector Sentiment, Cross-Asset, then a publish (no Substack). AI Adoption stays
 # on the 17:00 run: it can take hours.
