@@ -88,6 +88,7 @@ from castelino.dashboard.endpoints import (  # noqa: E402
     models,
     refresh,
     section_posts,
+    trade,
     videos,
     week_ahead,
     weekly_posts,
@@ -117,9 +118,10 @@ app.include_router(section_posts.router)
 # the private models: the public site gets them only via /api/admin/ (password-gated by middleware.ts)
 for _private in (models.router, adoption.router, cross_asset.router):
     app.include_router(_private, prefix="/admin")
-app.include_router(
-    admin_desk.router
-)  # local: no login; on Fly it runs alone behind a password (desk_app.py)
+# local: no login; on Fly these two run alone behind a password (desk_app.py). Trade Lab first: the
+# Daily desk's /admin/desk/{day} would otherwise catch /admin/desk/trade
+app.include_router(trade.router)
+app.include_router(admin_desk.router)
 
 
 # ── Frontend static files ──────────────────────────────────────────────────
