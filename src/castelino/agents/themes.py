@@ -6,6 +6,7 @@ least 5 must pass the checks, or the retry is told why);
 code fetches every series and draws it with the Weekly Deep Dive's renderer plus this page's own
 forms (`theme_charts`: heatmap, scatter, range), so the LLM never supplies a plotted number. Each run is data/themes/<YYYY-MM-DD>-<am|pm>.json + its PNGs; each exhibit
 also carries its plotted numbers (`data`), which /themes draws interactively. Run by deploy/crontab at 08:00 and 20:00 ET: python -m castelino.agents.themes
+On weekdays the 08:00 line then posts the run to X as a thread, no approval step: --post.
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel
 
+from castelino import x_post
 from castelino.agents import theme_charts
 from castelino.agents.base import StructuredAgent
 from castelino.agents.update.charts import default_fetch
@@ -384,10 +386,74 @@ def run(
     return rec
 
 
+SITE = "https://arcresearch.markets/themes"
+EXHIBIT = re.compile(r"^Exhibit \d+: ")  # the chart title's prefix; the thread numbers posts itself
+
+
+def thread(rec: ThemeRun) -> list[str]:
+    """The run as an X thread: the theme and as much of the why as fits (chart 1 rides on it), one
+    post per further chart with its code-written subtitle, then the link. Every word is the guarded
+    pick's or code's, so posting needs no model and no approval."""
+    text, sep = f"Before the open: {rec.theme} 🧵", "\n\n"
+    for s in re.split(r"(?<=[.!?])\s+", rec.why):
+        if x_post.xlen(nxt := f"{text}{sep}{s}") > x_post.LIMIT:
+            break
+        text, sep = nxt, " "
+    n = len(rec.exhibits)
+    charts = f"All {n} charts" if n > 1 else "The chart"
+    return [
+        text,
+        *(f"{e.n}/ {EXHIBIT.sub('', e.title)}\n{e.subtitle}" for e in rec.exhibits[1:]),
+        f"{charts}, interactive, with their sources → {SITE}?run={rec.run_id}",
+    ]
+
+
+def post_thread(rec: ThemeRun, root: Path | None = None, *, post=None, upload=None) -> list[str]:
+    """Post a run's thread. Ids are saved after every post to data/x_posts/themes/<run_id>.json, so
+    a run is never posted twice and a broken chain resumes where it stopped."""
+    post, upload = post or x_post.post, upload or x_post.upload_image
+    texts = thread(rec)
+    if long := [t for t in texts if x_post.xlen(t) > x_post.LIMIT]:
+        raise ValueError(f"over {x_post.LIMIT}: {long}")  # before anything is sent
+    path = (root or get_settings().root) / "data" / "x_posts" / "themes" / f"{rec.run_id}.json"
+    ids = json.loads(path.read_text())["ids"] if path.exists() else []
+    for i, text in enumerate(texts[len(ids) :], len(ids)):
+        media = None
+        if i < len(rec.exhibits):
+            png = _dir() / "charts" / rec.run_id / rec.exhibits[i].file
+            try:
+                media = upload(png.read_bytes())
+            except Exception as e:  # noqa: BLE001 — the post without its chart beats a broken chain
+                log.warning("themes: chart %d upload failed, posting text only: %s", i + 1, e)
+        ids.append(post(text, reply_to=ids[-1] if ids else None, media_id=media))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        atomic_write_text(
+            path, json.dumps({"ids": ids, "texts": texts}, indent=2, ensure_ascii=False)
+        )
+    return ids
+
+
+def post_today(now: datetime | None = None, root: Path | None = None, **fakes) -> list[str] | None:
+    """The 08:00 cron's last step, after /themes is live: today's am run to X, weekdays only."""
+    now = now or datetime.now(ET)
+    if now.weekday() >= 5:
+        log.info("themes: weekend, no X thread")
+        return None
+    rec = ThemeRun.model_validate_json((_dir() / f"{now:%Y-%m-%d}-am.json").read_text())
+    if not (fakes or x_post.can_post()):
+        log.warning("themes: X keys not set, would post:\n%s", "\n---\n".join(thread(rec)))
+        return None
+    return post_thread(rec, root, **fakes)
+
+
 if __name__ == "__main__":
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
     )
+    if "--post" in sys.argv[1:]:  # non-zero exit on a failed post; the site is already published
+        ids = post_today()
+        print(f"X thread: {len(ids)} posts, first {ids[0]}" if ids else "X thread: nothing posted")
+        sys.exit(0)
     try:
         r = run()
     except Exception as e:  # noqa: BLE001 — non-zero exit makes the cron line skip the deploy

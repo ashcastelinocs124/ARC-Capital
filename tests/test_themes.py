@@ -172,3 +172,49 @@ def test_fewer_than_five_charts_retries_then_publishes_what_passed():
     assert line["dated"] and line["window"] == 90 and len(line["series"][0]["points"]) > 250
     assert line["series"][0]["name"] == "Brent"
     assert [b["value"] for b in movers["bars"]] == [4.1, -1.1] and movers["unit"] == "%"
+
+
+def test_morning_run_posts_a_thread_once_and_resumes_a_broken_chain(tmp_path):
+    rec = themes.run(NOW, gather_fn=lambda now: FACTS, fetch=fetch, picker=lambda **kw: pick())
+    assert len(rec.exhibits) == 2
+    sent, uploads, fail = [], [], {"at": 2}
+
+    def post(text, reply_to=None, media_id=None):
+        if len(sent) == fail["at"]:
+            raise RuntimeError("X said 503")
+        sent.append((text, reply_to, media_id))
+        return f"id{len(sent)}"
+
+    def upload(data):
+        uploads.append(data[:4])
+        return f"m{len(uploads)}"
+
+    with pytest.raises(RuntimeError):  # the link post fails: two posts out, saved
+        themes.post_today(NOW, tmp_path, post=post, upload=upload)
+    fail["at"] = None
+    ids = themes.post_today(NOW, tmp_path, post=post, upload=upload)  # resumes with the link
+    assert ids == ["id1", "id2", "id3"] and uploads == [b"\x89PNG"] * 2
+    (t1, r1, m1), (t2, r2, m2), (t3, r3, m3) = sent
+    assert (
+        t1
+        == "Before the open: Oil's run revives the inflation scare 🧵\n\nBrent rose 4.1% on the week."
+    )
+    assert t2.startswith("2/ ") and (r1, m1, r2, m2) == (None, "m1", "id1", "m2")
+    assert t3.startswith("All 2 charts") and t3.endswith("/themes?run=2026-10-14-am")
+    assert (r3, m3) == ("id2", None)
+    assert themes.post_today(NOW, tmp_path, post=post, upload=upload) == ids  # never twice
+    assert len(sent) == 3
+    assert themes.post_today(NOW.replace(day=17), tmp_path, post=post, upload=upload) is None  # Sat
+
+
+def test_thread_keeps_whole_sentences_under_280():
+    rec = themes.ThemeRun.model_validate(
+        {"run_id": "2026-10-14-am", "date": "2026-10-14", "slot": "am", "generated_at": "",
+         "theme": "Oil", "why": "A" * 200 + ". " + "B" * 100 + ".", "lead": "move",
+         "signals": [], "streak": 1, "fact_ids": [], "facts": [],
+         "exhibits": [{"n": 1, "kind": "line", "title": "Exhibit 1: Brent", "subtitle": "x",
+                       "file": "f"}]}
+    )  # fmt: skip
+    first, link = themes.thread(rec)
+    assert first.endswith("A.") and "BBB" not in first
+    assert link.startswith("The chart, interactive")

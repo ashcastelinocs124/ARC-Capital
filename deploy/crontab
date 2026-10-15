@@ -4,7 +4,9 @@
 0 17 * * * cd /app && flock /tmp/arc-publish.lock timeout 3h scripts/publish_server.sh >> data/publish.log 2>&1
 # Theme Charts (agents/themes.py): the #1 macro theme at 08:00 and 20:00, then a code-only publish
 # (no data refresh, no Substack). A failed run exits non-zero, so the site keeps the previous one.
-0 8,20 * * * cd /app && flock /tmp/arc-publish.lock timeout 1h sh -c 'python -m castelino.agents.themes && SKIP_SUBSTACK=1 scripts/publish_server.sh --no-refresh' >> data/themes.log 2>&1
+# 08:00 only: once /themes is live, post the run to X as a thread (weekdays; no approval step).
+0 8 * * * cd /app && flock /tmp/arc-publish.lock timeout 1h sh -c 'python -m castelino.agents.themes && SKIP_SUBSTACK=1 scripts/publish_server.sh --no-refresh && python -m castelino.agents.themes --post' >> data/themes.log 2>&1
+0 20 * * * cd /app && flock /tmp/arc-publish.lock timeout 1h sh -c 'python -m castelino.agents.themes && SKIP_SUBSTACK=1 scripts/publish_server.sh --no-refresh' >> data/themes.log 2>&1
 # The /models cards at 09:30, after the 08:30 releases (CPI, Empire State, Philly Fed) reach FRED:
 # Pulse/Pressure refit, Sector Sentiment, Cross-Asset, then a publish (no Substack). AI Adoption stays
 # on the 17:00 run: it can take hours.
