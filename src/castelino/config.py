@@ -98,7 +98,7 @@ class UpdateAgentCfg(BaseModel):
 
 
 class ThemesCfg(BaseModel):
-    """Theme Charts (agents/themes.py): the #1 macro theme, charted at 08:00 and 20:00 ET."""
+    """Theme Charts (agents/themes.py): the #1 macro theme, charted at 08:00 ET."""
 
     picker_model: str = "gpt-6-sol"
     search_model: str = "gpt-6-luna"

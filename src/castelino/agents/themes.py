@@ -1,11 +1,11 @@
-"""Theme Charts agent: the single most popular macro theme right now, charted, twice a day.
+"""Theme Charts agent: the single most popular macro theme right now, charted, once a day.
 
 Code gathers three signal sets as facts (N: the macro themes news and financial X discuss most,
 M: 1d/1w/1m market moves, P: Polymarket odds swings); one LLM call picks the theme and 6 charts (at
 least 5 must pass the checks, or the retry is told why);
 code fetches every series and draws it with the Weekly Deep Dive's renderer plus this page's own
 forms (`theme_charts`: heatmap, scatter, range), so the LLM never supplies a plotted number. Each run is data/themes/<YYYY-MM-DD>-<am|pm>.json + its PNGs; each exhibit
-also carries its plotted numbers (`data`), which /themes draws interactively. Run by deploy/crontab at 08:00 and 20:00 ET: python -m castelino.agents.themes
+also carries its plotted numbers (`data`), which /themes draws interactively. Run by deploy/crontab at 08:00 ET: python -m castelino.agents.themes
 On weekdays the 08:00 line then publishes the run on Substack (--substack) and, once the site is
 redeployed, posts it to X as a thread linking that post (--post); no approval step for either.
 """
