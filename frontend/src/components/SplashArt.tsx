@@ -1,7 +1,8 @@
 import { useMemo, type ReactNode } from "react";
+import { LAT0, LON0, STEP, WORLD_ROWS } from "@/components/worldMap";
 
 // The home splash art, shared by the home page and the admin sign-in page: circuit traces,
-// a line-drawn world skyline, floating chips and walking robots (animations in index.css).
+// a line-drawn world skyline under a dotted world map, floating chips and walking robots (animations in index.css).
 
 // Circuit-board trace bundles behind the hero (after semianalysis.com). Each bundle is one
 // route copied 7 times, shifted by (d, -d): perpendicular to every horizontal, vertical and
@@ -29,54 +30,119 @@ export function CircuitTraces() {
 }
 
 // A line-drawn world skyline along the bottom of the splash (global macro: one landmark per
-// financial centre): outlines draw in like the traces, then a few windows twinkle. Landmarks are
-// hand-placed; the filler blocks come from a seeded random so the skyline is the same on every load.
-// Circles use ry = rx / 1.4 so they come out round after the 1.4× vertical stretch below.
+// financial centre), in map order west → east with each city named under it, below a dotted
+// world map; a dashed line ties each landmark to its city, and planes fly between the cities. Outlines draw in like the traces,
+// then the map fades in and a few windows twinkle. Landmarks are hand-drawn in a 1200×300 box
+// (ground at y=300) and placed at `x`; the filler blocks come from a seeded random so the skyline
+// is the same on every load. Circles use ry = rx / 1.4 so they come out round after the 1.4×
+// vertical stretch.
 const ring = (cx: number, cy: number, r: number) => `M${cx + r},${cy} a${r},${r / 1.4} 0 1 0 ${-2 * r},0 a${r},${r / 1.4} 0 1 0 ${2 * r},0`;
 const TAIPEI = Array.from({ length: 8 }, (_, k) => `M906,${200 - 12 * k} L902,${188 - 12 * k} H948 L944,${200 - 12 * k}`).join(" ");
-const LANDMARKS: [number, number, string][] = [
-  // [left, right, path] in a 1200×300 box, ground at y=300
-  [44, 76, `M48,300 V150 H72 V300 M46,150 H74 M48,150 V128 H72 V150 M52,128 L60,98 L68,128 M60,98 V90 ${ring(60, 139, 6)}`], // Big Ben, London
-  [130, 210, "M132,300 Q160,230 166,170 L168,120 L170,70 M208,300 Q180,230 174,170 L172,120 L170,70 V48 M150,255 H190 M161,210 H179 M165,170 H175 M150,300 Q170,268 190,300"], // Eiffel Tower, Paris
-  [270, 330, "M272,300 V230 H280 V170 H288 V120 H294 V80 H298 V40 L300,12 L302,40 V80 H306 V120 H312 V170 H320 V230 H328 V300"], // Burj Khalifa, Dubai
-  [370, 440, "M374,300 V130 L378,118 L385,105 L392,118 L396,130 V300 M385,105 V75 M414,300 V130 L418,118 L425,105 L432,118 L436,130 V300 M425,105 V75 M396,200 H414 M396,206 H414"], // Petronas Towers, Kuala Lumpur
-  [512, 608, "M515,300 V185 H530 V135 H543 V105 H553 V88 H557 V58 L560,44 L563,58 V88 H567 V105 H577 V135 H590 V185 H605 V300"], // Empire State, New York
-  [668, 712, `M672,300 L682,226 M708,300 L698,226 M690,300 V50 ${ring(690, 218, 12)} ${ring(690, 130, 7)} ${ring(690, 82, 3)}`], // Oriental Pearl, Shanghai
-  [766, 834, "M770,300 V245 L784,92 H816 L830,245 V300 M800,92 V30"], // One World Trade Center, New York
-  [900, 950, `M904,300 V200 H946 V300 ${TAIPEI} M914,104 V92 H936 V104 M925,92 V58`], // Taipei 101
-  [1000, 1050, "M1002,300 L1024,72 M1048,300 L1028,72 M1024,72 L1030,60 M1012,200 H1038"], // The Shard, London
-  [1090, 1160, "M1092,300 L1118,140 L1122,60 M1158,300 L1132,140 L1128,60 M1122,60 H1128 V30 M1105,220 H1145 M1112,180 H1138 M1116,140 H1134 M1092,300 L1145,220 M1158,300 L1105,220"], // Tokyo Tower
+type Landmark = { l: number; r: number; top: number; d: string; x: number; city: string; lon: number; lat: number };
+const LANDMARKS: Landmark[] = [
+  // l, r, top = the drawing's span and highest y; x = where its centre stands on the ground
+  { l: 512, r: 608, top: 44, x: 70, city: "NEW YORK", lon: -73.99, lat: 40.75, d: "M515,300 V185 H530 V135 H543 V105 H553 V88 H557 V58 L560,44 L563,58 V88 H567 V105 H577 V135 H590 V185 H605 V300" }, // Empire State
+  { l: 766, r: 834, top: 30, x: 175, city: "NEW YORK", lon: -74.01, lat: 40.71, d: "M770,300 V245 L784,92 H816 L830,245 V300 M800,92 V30" }, // One World Trade Center
+  { l: 44, r: 76, top: 90, x: 300, city: "LONDON", lon: -0.12, lat: 51.5, d: `M48,300 V150 H72 V300 M46,150 H74 M48,150 V128 H72 V150 M52,128 L60,98 L68,128 M60,98 V90 ${ring(60, 139, 6)}` }, // Big Ben
+  { l: 1000, r: 1050, top: 60, x: 370, city: "LONDON", lon: -0.09, lat: 51.5, d: "M1002,300 L1024,72 M1048,300 L1028,72 M1024,72 L1030,60 M1012,200 H1038" }, // The Shard
+  { l: 130, r: 210, top: 48, x: 465, city: "PARIS", lon: 2.35, lat: 48.86, d: "M132,300 Q160,230 166,170 L168,120 L170,70 M208,300 Q180,230 174,170 L172,120 L170,70 V48 M150,255 H190 M161,210 H179 M165,170 H175 M150,300 Q170,268 190,300" }, // Eiffel Tower
+  { l: 270, r: 330, top: 12, x: 590, city: "DUBAI", lon: 55.27, lat: 25.2, d: "M272,300 V230 H280 V170 H288 V120 H294 V80 H298 V40 L300,12 L302,40 V80 H306 V120 H312 V170 H320 V230 H328 V300" }, // Burj Khalifa
+  { l: 370, r: 440, top: 75, x: 705, city: "KUALA LUMPUR", lon: 101.71, lat: 3.16, d: "M374,300 V130 L378,118 L385,105 L392,118 L396,130 V300 M385,105 V75 M414,300 V130 L418,118 L425,105 L432,118 L436,130 V300 M425,105 V75 M396,200 H414 M396,206 H414" }, // Petronas Towers
+  { l: 668, r: 712, top: 50, x: 830, city: "SHANGHAI", lon: 121.5, lat: 31.24, d: `M672,300 L682,226 M708,300 L698,226 M690,300 V50 ${ring(690, 218, 12)} ${ring(690, 130, 7)} ${ring(690, 82, 3)}` }, // Oriental Pearl
+  { l: 900, r: 950, top: 58, x: 935, city: "TAIPEI", lon: 121.56, lat: 25.03, d: `M904,300 V200 H946 V300 ${TAIPEI} M914,104 V92 H936 V104 M925,92 V58` }, // Taipei 101
+  { l: 1090, r: 1160, top: 30, x: 1080, city: "TOKYO", lon: 139.75, lat: 35.66, d: "M1092,300 L1118,140 L1122,60 M1158,300 L1132,140 L1128,60 M1122,60 H1128 V30 M1105,220 H1145 M1112,180 H1138 M1116,140 H1134 M1092,300 L1145,220 M1158,300 L1105,220" }, // Tokyo Tower
 ];
+const S = 1.3; // landmark size, on top of the 1.4× vertical stretch
+const place = (m: Landmark) => `translate(${m.x} 300) scale(${S} ${S * 1.4}) translate(${-(m.l + m.r) / 2} -300)`;
+// the map: 100°W–150°E (the Americas to Japan) across the width, 75°N–45°S in the band y = -300…-40
+const mx = (lon: number) => ((lon - LON0) / 250) * 1200;
+const my = (lat: number) => -300 + ((75 - lat) / 120) * 260;
+const DOTS = WORLD_ROWS.flatMap((row, i) =>
+  [...row].flatMap((h, j) => [0, 1, 2, 3].filter((b) => (parseInt(h, 16) >> (3 - b)) & 1).map((b) => {
+    const k = j * 4 + b;
+    return `M${mx(LON0 + STEP * k).toFixed(1)} ${my(LAT0 - STEP * i).toFixed(1)}h0`;
+  })),
+).join("");
+
+// Planes fly the routes between the financial centres, arcing over the map (SVG motion, so it runs in
+// every browser; left out for prefers-reduced-motion, which keeps only the dashed routes).
+const AIR: [string, string, number, number][] = [
+  // from, to, seconds per flight, start (after BG)
+  ["NEW YORK", "LONDON", 11, 3], ["LONDON", "DUBAI", 10, 5], ["DUBAI", "KUALA LUMPUR", 9, 7.5],
+  ["SHANGHAI", "TOKYO", 6, 4], ["PARIS", "NEW YORK", 12, 9], ["KUALA LUMPUR", "SHANGHAI", 8, 11],
+];
+const at = (city: string) => LANDMARKS.find((m) => m.city === city)!;
+const FLIGHTS = AIR.map(([a, b, dur, start]) => {
+  const x1 = mx(at(a).lon), y1 = my(at(a).lat), x2 = mx(at(b).lon), y2 = my(at(b).lat);
+  const cy = Math.min(y1, y2) - Math.abs(x2 - x1) * 0.22 - 10; // arc up, higher for longer hops
+  return { d: `M${x1.toFixed(1)},${y1.toFixed(1)} Q${((x1 + x2) / 2).toFixed(1)},${cy.toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)}`, dur, start };
+});
+// top view, nose along +x, about 15 units long (drawn at 1.5×)
+const PLANE = "M7.5,0 L2,-1.1 L-1,-6.5 L-3,-6.5 L-1.2,-1.1 L-5,-1.1 L-6.6,-3.4 L-7.8,-3.4 L-6.8,0 L-7.8,3.4 L-6.6,3.4 L-5,1.1 L-1.2,1.1 L-3,6.5 L-1,6.5 L2,1.1 Z";
+
+function Flights() {
+  const still = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  return (
+    <g>
+      <g className="rise" style={{ animationDelay: `${BG + 1}s` }}>
+        {FLIGHTS.map((f, i) => <path key={i} d={f.d} strokeOpacity={0.22} strokeDasharray="1 5" strokeLinecap="round" />)}
+      </g>
+      {!still && FLIGHTS.map((f, i) => (
+        // opacity 0 until the motion starts, so a plane never sits at the origin
+        <g key={i} opacity={0}>
+          <animateMotion path={f.d} dur={`${f.dur}s`} begin={`${BG + f.start}s`} repeatCount="indefinite" rotate="auto" />
+          <animate attributeName="opacity" values="0;0.95;0.95;0" keyTimes="0;0.12;0.88;1" dur={`${f.dur}s`} begin={`${BG + f.start}s`} repeatCount="indefinite" />
+          <path d={PLANE} transform="scale(1.5)" fill="currentColor" stroke="none" />
+        </g>
+      ))}
+    </g>
+  );
+}
 
 export function Skyline() {
   const { blocks, windows } = useMemo(() => {
     let s = 7;
     const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+    const spans = LANDMARKS.map((m) => [m.x - ((m.r - m.l) / 2) * S - 6, m.x + ((m.r - m.l) / 2) * S + 6]);
     const blocks: string[] = [], windows: [number, number, number][] = [];
     for (let x = 0; x < 1200; ) {
-      const hit = LANDMARKS.find(([l, r]) => x + 20 > l && x < r);
-      if (hit) { x = hit[1] + 4; continue; }
-      const w = 30 + rnd() * 50, h = 100 + rnd() * 180, top = 300 - h;
-      blocks.push(rnd() < 0.3 ? `M${x},300 V${top + 10} H${x + w * 0.3} V${top} H${x + w * 0.7} V${top + 10} H${x + w} V300` : `M${x},300 V${top} H${x + w} V300`);
-      for (let k = 0; k < 5; k++) if (rnd() < 0.6) windows.push([x + 5 + rnd() * (w - 12), top + 16 + rnd() * (h - 30), rnd()]);
+      const hit = spans.find(([l, r]) => x + 16 > l && x < r);
+      if (hit) { x = hit[1]; continue; }
+      const w = 22 + rnd() * 34, h = 50 + rnd() * 110, top = 300 - h; // low, so the landmarks lead
+      blocks.push(`M${x},300 V${top} H${x + w} V300`);
+      for (let k = 0; k < 3; k++) if (rnd() < 0.6) windows.push([x + 4 + rnd() * (w - 10), top + 12 + rnd() * (h - 24), rnd()]);
       x += w + 2 + rnd() * 6;
     }
     return { blocks, windows };
   }, []);
   const draw = (i: number) => ({ animationDelay: `${BG + 0.2 + (i % 12) * 0.06}s`, animationDuration: "2.2s" });
   return (
-    <svg aria-hidden viewBox="0 0 1200 300" preserveAspectRatio="xMidYMax slice" overflow="visible" className="pointer-events-none absolute inset-x-0 bottom-0 h-[68%] w-full text-accent" fill="none" stroke="currentColor" strokeWidth={1.2}>
-      {blocks.map((d, i) => <path key={i} d={d} pathLength={1} className="trace" strokeOpacity={0.28} style={draw(i)} />)}
-      {/* landmarks stretched 1.4× up from the ground line (y' = 1.4y − 120 keeps y=300 fixed) */}
-      <g transform="translate(0 -120) scale(1 1.4)">
-        {LANDMARKS.map(([, , d], i) => <path key={i} d={d} pathLength={1} vectorEffect="non-scaling-stroke" className="trace" strokeOpacity={0.55} style={draw(i)} />)}
+    // As wide as the splash (its height follows the 1200×330 box); on phones the 45% floor makes `slice`
+    // show the middle of the skyline, as before. The map and the landmarks' tops overflow upward.
+    <svg aria-hidden viewBox="0 0 1200 330" preserveAspectRatio="xMidYMax slice" overflow="visible" className="pointer-events-none absolute inset-x-0 bottom-0 aspect-[1200/330] min-h-[45%] w-full text-accent" fill="none" stroke="currentColor" strokeWidth={1.2}>
+      <path d={DOTS} className="rise" strokeWidth={3} strokeLinecap="round" strokeOpacity={0.3} style={{ animationDelay: `${BG + 0.6}s` }} />
+      <Flights />
+      <g className="rise" style={{ animationDelay: `${BG + 1.8}s` }}>
+        {LANDMARKS.map((m, i) => (
+          <g key={i}>
+            <path d={`M${m.x},${300 - (300 - m.top) * S * 1.4 - 6} L${mx(m.lon)},${my(m.lat)}`} strokeOpacity={0.28} strokeDasharray="2 4" />
+            <circle cx={mx(m.lon)} cy={my(m.lat)} r={3.6} fill="currentColor" stroke="none" opacity={0.9} />
+          </g>
+        ))}
       </g>
+      {blocks.map((d, i) => <path key={i} d={d} pathLength={1} className="trace" strokeOpacity={0.2} style={draw(i)} />)}
+      {LANDMARKS.map((m, i) => (
+        <g key={i} transform={place(m)}><path d={m.d} pathLength={1} vectorEffect="non-scaling-stroke" className="trace" strokeOpacity={0.7} style={draw(i)} /></g>
+      ))}
       {windows.map(([x, y, r], i) => (
         <rect key={i} x={x} y={y} width={4} height={5} fill="currentColor" stroke="none" className="twinkle" style={{ animationDelay: `${BG + 2 + r * 6}s`, animationDuration: `${3 + r * 4}s` }} />
       ))}
       {CHIPS.map(([x, y, s], i) => <Chip key={i} x={x} y={y} s={s} delay={BG + 1.4 + i * 0.15} kind={(["cpu", "gpu", "agent"] as const)[i % 3]} />)}
       <g className="rise" style={{ animationDelay: `${BG + 1.6}s` }}>{ROBOTS.map(([dur, delay, scale], i) => <Robot key={i} dur={dur} delay={delay} scale={scale} />)}</g>
-      <line x1={0} y1={299.5} x2={1200} y2={299.5} strokeOpacity={0.4} />
+      <line x1={0} y1={299.5} x2={1200} y2={299.5} strokeOpacity={0.45} />
+      <g className="rise" fill="currentColor" stroke="none" fontSize={9} fontWeight={600} letterSpacing="0.14em" textAnchor="middle" opacity={0.6} style={{ animationDelay: `${BG + 1.2}s` }}>
+        {LANDMARKS.map((m, i) => <text key={i} x={m.x} y={318}>{m.city}</text>)}
+      </g>
     </svg>
   );
 }

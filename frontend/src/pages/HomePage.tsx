@@ -140,7 +140,7 @@ function Splash() {
       <a href={SUBSTACK} target="_blank" rel="noopener noreferrer" className="rise relative mt-5 inline-flex items-center gap-1.5 rounded-full bg-text px-7 py-3 text-base font-semibold text-surface hover:bg-text-2" style={{ animationDelay: "0.9s" }}>
         Newsletter <ArrowUpRight className="h-4 w-4" />
       </a>
-      <a href="#hero" className="rise absolute bottom-6 text-[12px] font-semibold uppercase tracking-[0.08em] text-muted hover:text-text" style={{ animationDelay: "2.6s" }}>
+      <a href="#hero" className="rise absolute bottom-12 text-[12px] font-semibold uppercase tracking-[0.08em] text-muted hover:text-text" style={{ animationDelay: "2.6s" }}>
         Scroll <span className="inline-block animate-bounce">↓</span>
       </a>
     </section>
