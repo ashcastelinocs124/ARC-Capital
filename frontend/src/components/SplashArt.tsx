@@ -73,8 +73,15 @@ const AIR: [string, string, number, number][] = [
   ["PARIS", "DUBAI", 4.2, 6.3], ["DUBAI", "KUALA LUMPUR", 4, 3.6], ["KUALA LUMPUR", "DUBAI", 4, 6.8],
   ["KUALA LUMPUR", "SHANGHAI", 3.6, 2.9], ["SHANGHAI", "TOKYO", 3, 3.9], ["TOKYO", "SHANGHAI", 3, 5.7],
   ["TAIPEI", "TOKYO", 2.8, 4.4], ["LONDON", "SHANGHAI", 6.5, 5],
+  // the Americas, west of New York, through hubs that have no landmark
+  ["CHICAGO", "NEW YORK", 2.6, 2.3], ["NEW YORK", "CHICAGO", 2.6, 5.1], ["HOUSTON", "NEW YORK", 3.4, 3.3],
+  ["NEW YORK", "SÃO PAULO", 4.5, 2.5], ["SÃO PAULO", "NEW YORK", 4.5, 5.8], ["HOUSTON", "SÃO PAULO", 4.8, 4.2],
+  ["SÃO PAULO", "LONDON", 5.5, 3.6], ["CHICAGO", "LONDON", 5.5, 6.1],
 ];
-const at = (city: string) => LANDMARKS.find((m) => m.city === city)!;
+const HUBS: Record<string, { lon: number; lat: number }> = {
+  CHICAGO: { lon: -87.63, lat: 41.88 }, HOUSTON: { lon: -95.37, lat: 29.76 }, "SÃO PAULO": { lon: -46.63, lat: -23.55 },
+};
+const at = (city: string) => HUBS[city] ?? LANDMARKS.find((m) => m.city === city)!;
 const FLIGHTS = AIR.map(([a, b, dur, start]) => {
   const x1 = mx(at(a).lon), y1 = my(at(a).lat), x2 = mx(at(b).lon), y2 = my(at(b).lat);
   const cy = Math.min(y1, y2) - Math.abs(x2 - x1) * 0.22 - 10; // arc up, higher for longer hops
@@ -132,6 +139,7 @@ export function Skyline() {
             <circle cx={mx(m.lon)} cy={my(m.lat)} r={3.6} fill="currentColor" stroke="none" opacity={0.9} />
           </g>
         ))}
+        {Object.values(HUBS).map((h, i) => <circle key={i} cx={mx(h.lon)} cy={my(h.lat)} r={2.6} fill="currentColor" stroke="none" opacity={0.7} />)}
       </g>
       {blocks.map((d, i) => <path key={i} d={d} pathLength={1} className="trace" strokeOpacity={0.2} style={draw(i)} />)}
       {LANDMARKS.map((m, i) => (
