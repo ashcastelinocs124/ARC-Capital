@@ -121,14 +121,16 @@ agents:
     summary: >-
       At 08:00 and 20:00 ET, picks the single most popular US macro theme from what news and
       financial X discuss, the biggest market moves and Polymarket odds swings, then picks 6
-      charts that show it for the /themes page (at least 5 must draw). Code fetches and draws every
-      plotted number. On weekdays the 08:00 run is also posted to X as a thread, with no approval step.
+      charts that show it (at least 5 must draw). Code fetches and draws every plotted number. On
+      weekdays the 08:00 run is published on Substack (a card on /themes) and posted to X as a thread
+      linking that post, with no approval step for either.
     tools:
       - {name: "gather() (code)", does: "One cited web search for the most-discussed macro themes, 1d/1w/1m market moves, Polymarket economy + Fed odds swings"}
       - {name: "resolve() (code)", does: "Fetches each fred:/yahoo: series a chart names; the weekly guard drops a chart that can't be drawn"}
       - {name: "Chart renderer (code)", does: "The Weekly Deep Dive's line / compare / movers exhibits plus heatmap, scatter and range (theme_charts.py), kicker THEME CHARTS"}
       - {name: "Number guard", does: "Every %, bp or pp in the theme, why and signals must be in the cited facts; one retry"}
-      - {name: "X thread (code)", does: "Weekdays after the 08:00 publish: theme + why with chart 1, one post per further chart (title + code-written subtitle), then the /themes link; ids in data/x_posts/themes/, never posted twice"}
+      - {name: "Substack post (code)", does: "Weekdays at 08:00: theme as title, why, the three signals, every chart, sources; published in Financial Markets, web only (no email); URL in data/themes/substack/, never posted twice"}
+      - {name: "X thread (code)", does: "Weekdays after the 08:00 publish: theme + why with chart 1, one post per further chart (title + code-written subtitle), then the Substack post's link; ids in data/x_posts/themes/, never posted twice"}
     memory:
       reads: ["The last 6 runs' themes (data/themes/*.json)"]
       writes: ["data/themes/<date>-<am|pm>.json + charts/<run>/exhibit_N.png"]
@@ -419,7 +421,7 @@ systems:
 
   - group: Theme Charts
     trigger: "Cron on the Fly server at 08:00 and 20:00 ET"
-    output: "The /themes page: the top macro theme, three signals and 5-6 charts, redeployed each run; the 08:00 weekday run is also an X thread"
+    output: "The top macro theme, three signals and 5-6 charts; the 08:00 weekday run is published on Substack (a card on /themes) and posted to X as a thread"
     blurb: >-
       Code gathers three signals: what news and financial X discuss most, the biggest market moves
       and Polymarket odds swings. One Theme Picker call names the theme and picks the charts; code
@@ -429,7 +431,7 @@ systems:
         flow: [["08:00 · 20:00 ET"], ["code:News & X|cited web search", "code:Market moves|1d · 1w · 1m", "code:Polymarket|odds swings"], ["agent:theme_picker|#1 theme + 5-6 charts"], ["code:Number guard|1 retry"], ["end:↓ to stage 2"]]
         loops: [{from: 3, to: 2, label: "retry with errors"}]
       - title: "Theme Charts 2 · Chart & publish"
-        flow: [["code:Fetch series|FRED · Yahoo"], ["code:Chart forms|heatmap · scatter · range"], ["code:Save run|last 6 runs = memory"], ["end:/themes|deployed each run", "end:X thread|08:00 weekdays"]]
+        flow: [["code:Fetch series|FRED · Yahoo"], ["code:Chart forms|heatmap · scatter · range"], ["code:Save run|last 6 runs = memory"], ["end:Substack post|08:00 weekdays · /themes card", "end:X thread|08:00 weekdays"]]
 
   - group: Market alerts
     trigger: "Cron on the Fly server every 30 minutes, 9:35-16:05 ET on weekdays"

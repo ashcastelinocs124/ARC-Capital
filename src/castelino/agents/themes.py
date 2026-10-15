@@ -6,7 +6,8 @@ least 5 must pass the checks, or the retry is told why);
 code fetches every series and draws it with the Weekly Deep Dive's renderer plus this page's own
 forms (`theme_charts`: heatmap, scatter, range), so the LLM never supplies a plotted number. Each run is data/themes/<YYYY-MM-DD>-<am|pm>.json + its PNGs; each exhibit
 also carries its plotted numbers (`data`), which /themes draws interactively. Run by deploy/crontab at 08:00 and 20:00 ET: python -m castelino.agents.themes
-On weekdays the 08:00 line then posts the run to X as a thread, no approval step: --post.
+On weekdays the 08:00 line then publishes the run on Substack (--substack) and, once the site is
+redeployed, posts it to X as a thread linking that post (--post); no approval step for either.
 """
 
 from __future__ import annotations
@@ -388,12 +389,72 @@ def run(
 
 SITE = "https://arcresearch.markets/themes"
 EXHIBIT = re.compile(r"^Exhibit \d+: ")  # the chart title's prefix; the thread numbers posts itself
+SECTION = 453292  # Substack section "financial-markets"
+SIGNAL = {"coverage": "News & X", "move": "Biggest move", "odds": "Polymarket"}
 
 
-def thread(rec: ThemeRun) -> list[str]:
+def _marker(run_id: str) -> Path:
+    return _dir() / "substack" / f"{run_id}.json"
+
+
+def post_url(run_id: str) -> str | None:
+    """The run's Substack post, once published."""
+    p = _marker(run_id)
+    return json.loads(p.read_text()).get("url") if p.exists() else None
+
+
+def substack_doc(rec: ThemeRun, uploaded: dict[str, dict]) -> dict:
+    from castelino import substack as sb
+
+    cited = set(rec.fact_ids)
+    sources = {f.source_title: f.source_url for f in rec.facts if f.id in cited}
+    signals = [
+        sb._p(sb._bold(f"{SIGNAL[s.kind]}: "), sb._text(f"{s.headline}. {s.note}"))
+        for s in rec.signals
+    ]
+    c = [sb._p(*sb._rich(rec.why)), _bullets(signals)]
+    c += [
+        sb._image(uploaded[e.file], f"{e.title}. {e.subtitle}")
+        for e in rec.exhibits
+        if e.file in uploaded
+    ]
+    if sources:
+        c.append(sb._heading("Sources"))
+        c.append(_bullets([sb._p(sb._text(t, u or None)) for t, u in sources.items()]))
+    c.append(
+        sb._p(sb._text("Every plotted number is market data drawn by code. Not investment advice."))
+    )
+    return {"type": "doc", "content": c}
+
+
+def _bullets(paras: list[dict]) -> dict:
+    return {
+        "type": "bullet_list",
+        "content": [{"type": "list_item", "content": [p]} for p in paras],
+    }
+
+
+def publish_substack(rec: ThemeRun) -> str:
+    """Draft and publish the run on Substack, web only (no email). Returns the post's URL; the
+    marker in data/themes/substack/ makes a rerun return it instead of posting again."""
+    from castelino import substack as sb
+
+    charts = _dir() / "charts" / rec.run_id
+    sb.push(
+        marker=_marker(rec.run_id),
+        title=rec.theme,
+        subtitle=f"ARC Theme Charts · {datetime.fromisoformat(rec.date):%A, %B %-d, %Y}",
+        pngs={e.file: charts / e.file for e in rec.exhibits},
+        body=lambda up: substack_doc(rec, up),
+        label=rec.run_id,
+    )
+    return sb.publish(_marker(rec.run_id), section_id=SECTION)
+
+
+def thread(rec: ThemeRun, url: str | None = None) -> list[str]:
     """The run as an X thread: the theme and as much of the why as fits (chart 1 rides on it), one
-    post per further chart with its code-written subtitle, then the link. Every word is the guarded
-    pick's or code's, so posting needs no model and no approval."""
+    post per further chart with its code-written subtitle, then the link to the Substack post.
+    Every word is the guarded pick's or code's, so posting needs no model and no approval."""
     text, sep = f"Before the open: {rec.theme} 🧵", "\n\n"
     for s in re.split(r"(?<=[.!?])\s+", rec.why):
         if x_post.xlen(nxt := f"{text}{sep}{s}") > x_post.LIMIT:
@@ -404,7 +465,7 @@ def thread(rec: ThemeRun) -> list[str]:
     return [
         text,
         *(f"{e.n}/ {EXHIBIT.sub('', e.title)}\n{e.subtitle}" for e in rec.exhibits[1:]),
-        f"{charts}, interactive, with their sources → {SITE}?run={rec.run_id}",
+        f"{charts} with sources → {url or SITE}",
     ]
 
 
@@ -412,7 +473,7 @@ def post_thread(rec: ThemeRun, root: Path | None = None, *, post=None, upload=No
     """Post a run's thread. Ids are saved after every post to data/x_posts/themes/<run_id>.json, so
     a run is never posted twice and a broken chain resumes where it stopped."""
     post, upload = post or x_post.post, upload or x_post.upload_image
-    texts = thread(rec)
+    texts = thread(rec, post_url(rec.run_id))
     if long := [t for t in texts if x_post.xlen(t) > x_post.LIMIT]:
         raise ValueError(f"over {x_post.LIMIT}: {long}")  # before anything is sent
     path = (root or get_settings().root) / "data" / "x_posts" / "themes" / f"{rec.run_id}.json"
@@ -433,13 +494,18 @@ def post_thread(rec: ThemeRun, root: Path | None = None, *, post=None, upload=No
     return ids
 
 
+def _today_am(now: datetime) -> ThemeRun | None:
+    """Today's 08:00 run on a weekday, the one run that is published; None at weekends."""
+    if now.weekday() >= 5:
+        log.info("themes: weekend, nothing published")
+        return None
+    return ThemeRun.model_validate_json((_dir() / f"{now:%Y-%m-%d}-am.json").read_text())
+
+
 def post_today(now: datetime | None = None, root: Path | None = None, **fakes) -> list[str] | None:
     """The 08:00 cron's last step, after /themes is live: today's am run to X, weekdays only."""
-    now = now or datetime.now(ET)
-    if now.weekday() >= 5:
-        log.info("themes: weekend, no X thread")
+    if not (rec := _today_am(now or datetime.now(ET))):
         return None
-    rec = ThemeRun.model_validate_json((_dir() / f"{now:%Y-%m-%d}-am.json").read_text())
     if not (fakes or x_post.can_post()):
         log.warning("themes: X keys not set, would post:\n%s", "\n---\n".join(thread(rec)))
         return None
@@ -450,6 +516,13 @@ if __name__ == "__main__":
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
     )
+    if "--substack" in sys.argv[1:]:  # never fails the cron line: the site and X go out regardless
+        try:
+            rec = _today_am(datetime.now(ET))
+            print(f"substack: {publish_substack(rec)}" if rec else "substack: weekend, skipped")
+        except Exception as e:  # noqa: BLE001
+            print(f"substack: FAILED: {e}", file=sys.stderr)
+        sys.exit(0)
     if "--post" in sys.argv[1:]:  # non-zero exit on a failed post; the site is already published
         ids = post_today()
         print(f"X thread: {len(ids)} posts, first {ids[0]}" if ids else "X thread: nothing posted")

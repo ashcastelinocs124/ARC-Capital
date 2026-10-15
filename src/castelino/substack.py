@@ -191,6 +191,27 @@ def push(
     )
 
 
+def publish(marker: Path, *, section_id: int | None = None, send: bool = False) -> str:
+    """Publish the draft `marker` names (made by push()), optionally into a section; returns the
+    post's URL and saves it in the marker. `send` also emails it to subscribers. Already published:
+    returns the saved URL, so a rerun never posts twice."""
+    rec = json.loads(marker.read_text())
+    if rec.get("url"):
+        return rec["url"]
+    pub = os.environ["SUBSTACK_PUBLICATION_URL"].rstrip("/")
+    api, draft = f"{pub}/api/v1", rec["draft_id"]
+    with httpx.Client(cookies={"substack.sid": os.environ["SUBSTACK_SID"]}, timeout=60) as http:
+        if section_id:
+            fields = {"draft_section_id": section_id, "section_chosen": True}
+            _check(http.put(f"{api}/drafts/{draft}", json=fields))
+        _check(http.get(f"{api}/drafts/{draft}/prepublish"))
+        body = {"send": send, "share_automatically": False}
+        post = _check(http.post(f"{api}/drafts/{draft}/publish", json=body)).json()
+    url = f"{pub}/p/{post['slug']}"
+    atomic_write_text(marker, json.dumps(rec | {"url": url}))
+    return url
+
+
 def push_draft(day: str) -> str:
     cfg = get_settings()
     updates = cfg.root / cfg.update_agent.updates_dir

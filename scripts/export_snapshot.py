@@ -31,8 +31,7 @@ PATHS = [
     "/weekly/status",
     "/weekly/latest",
     "/weekly/history",
-    "/themes/latest",
-    "/themes/history",
+    "/themes/posts",
     "/agents/catalog",
     "/sector_sentiment",
     "/week_ahead",
@@ -153,8 +152,11 @@ def export() -> int:
             queue += [f"/update/{d}" for d in data.get("dates", [])]
         elif path == "/weekly/history":
             queue += [f"/weekly/{i['week']}" for i in data.get("items", [])]
-        elif path == "/themes/history":
-            queue += [f"/themes/{i['run_id']}" for i in data.get("items", [])]
+        elif path == "/themes/posts":  # each card's cover: the post's first chart
+            for it in data:
+                copy_theme_charts(
+                    it["run_id"], {"exhibits": [{"file": it["image"].rsplit("/", 1)[1]}]}
+                )
         elif path == "/research" and isinstance(data, list):
             queue += [f"/research/{row['id']}" for row in data if "id" in row]
         elif path == "/admin/adoption/summary":

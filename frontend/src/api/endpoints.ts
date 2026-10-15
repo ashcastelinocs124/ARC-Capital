@@ -172,25 +172,12 @@ export const fetchWeeklyPosts = async (): Promise<WeeklyPost[]> => {
 export const fetchWeeklyStatus = () =>
   api.get<{ stage: string; week?: string; error?: string | null; due?: string | null }>("/weekly/status");
 
-// ── Theme Charts (/themes/*) ───────────────────────────────────────────────
-export interface ThemeExhibit {
-  n: number; kind: string; title: string; subtitle: string; file: string;
-  data?: (Record<string, unknown> & { sources?: string[] }) | null; // agents/theme_charts.chart_data
-}
-export type ThemeSignalKind = "coverage" | "move" | "odds";
-export interface ThemeRun {
-  run_id: string; date: string; slot: "am" | "pm"; generated_at: string;
-  theme: string; why: string; lead: ThemeSignalKind; streak: number;
-  signals: { kind: ThemeSignalKind; headline: string; note: string }[];
-  fact_ids: string[];
-  exhibits: ThemeExhibit[]; // `data` = numbers for the interactive chart; absent in runs before 2026-10-15
-  facts: { id: string; text: string; source_title: string; source_url: string }[];
-}
-export interface ThemeHistory { items: { run_id: string; date: string; slot: "am" | "pm"; theme: string }[] }
-export const isThemeRun = (x: unknown): x is ThemeRun =>
-  !!x && !Array.isArray(x) && typeof (x as ThemeRun).run_id === "string";
-export const fetchThemeHistory = () => api.get<ThemeHistory>("/themes/history");
-export const fetchThemeRun = (run: string | null) => api.get<ThemeRun>(run ? `/themes/${run}` : "/themes/latest");
+// ── Theme Charts (/themes/posts: the 08:00 runs published on Substack) ─────
+export interface ThemePost { run_id: string; date: string; title: string; takeaways: string[]; image: string | null; url: string }
+export const fetchThemePosts = async (): Promise<ThemePost[]> => {
+  const data = await api.get<ThemePost[]>("/themes/posts"); // the client maps a 404 to []
+  return Array.isArray(data) ? data : [];
+};
 
 // ── Videos (Substack) ───────────────────────────────────────────────────
 export interface Video {

@@ -200,7 +200,7 @@ def test_morning_run_posts_a_thread_once_and_resumes_a_broken_chain(tmp_path):
         == "Before the open: Oil's run revives the inflation scare 🧵\n\nBrent rose 4.1% on the week."
     )
     assert t2.startswith("2/ ") and (r1, m1, r2, m2) == (None, "m1", "id1", "m2")
-    assert t3.startswith("All 2 charts") and t3.endswith("/themes?run=2026-10-14-am")
+    assert t3 == "All 2 charts with sources → https://arcresearch.markets/themes"  # no post yet
     assert (r3, m3) == ("id2", None)
     assert themes.post_today(NOW, tmp_path, post=post, upload=upload) == ids  # never twice
     assert len(sent) == 3
@@ -217,4 +217,40 @@ def test_thread_keeps_whole_sentences_under_280():
     )  # fmt: skip
     first, link = themes.thread(rec)
     assert first.endswith("A.") and "BBB" not in first
-    assert link.startswith("The chart, interactive")
+    assert link.startswith("The chart with sources")
+
+
+def test_published_run_is_a_substack_card_and_the_thread_links_its_post(tmp_path, monkeypatch):
+    from castelino import substack
+    from castelino.dashboard.endpoints import themes as ep
+    from castelino.dashboard.endpoints.themes import themes_posts
+
+    monkeypatch.setattr(ep, "_dir", lambda: tmp_path)
+    rec = themes.run(NOW, gather_fn=lambda now: FACTS, fetch=fetch, picker=lambda **kw: pick())
+    assert themes_posts() == []  # drawn but not on Substack: no card
+    got = {}
+
+    def push(*, marker, title, subtitle, pngs, body, label):
+        got["doc"] = body({f: {"url": f"https://cdn/{f}"} for f in pngs})
+        got["title"], got["subtitle"] = title, subtitle
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text(json.dumps({"draft_id": 7}))
+
+    def publish(marker, *, section_id=None, send=False):
+        got["section"], got["send"] = section_id, send
+        url = "https://archresearch.substack.com/p/oils-run"
+        marker.write_text(json.dumps({"draft_id": 7, "url": url}))
+        return url
+
+    monkeypatch.setattr(substack, "push", push)
+    monkeypatch.setattr(substack, "publish", publish)
+    url = themes.publish_substack(rec)
+    assert url == "https://archresearch.substack.com/p/oils-run"
+    assert got["title"] == rec.theme and got["subtitle"].startswith("ARC Theme Charts · Wednesday")
+    assert (got["section"], got["send"]) == (themes.SECTION, False)
+    images = [c for c in got["doc"]["content"] if c["type"] == "captionedImage"]
+    assert len(images) == len(rec.exhibits)
+    assert themes.thread(rec, themes.post_url(rec.run_id))[-1].endswith(url)
+    [card] = themes_posts()
+    assert card["url"] == url and card["title"] == rec.theme
+    assert card["image"] == f"/api/themes/{rec.run_id}/charts/{rec.exhibits[0].file}"

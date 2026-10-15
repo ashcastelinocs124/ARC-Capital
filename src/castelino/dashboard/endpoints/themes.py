@@ -8,19 +8,40 @@ import re
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
-from castelino.agents.themes import _dir, recent_runs
+from castelino.agents.themes import _dir, post_url, recent_runs
 
 router = APIRouter()
 _RUN = re.compile(r"^\d{4}-\d{2}-\d{2}-(am|pm)$")
 _EXHIBIT = re.compile(r"^exhibit_\d{1,2}\.png$")
 # ponytail: a week of runs on the page and in the static export; page through older ones if wanted
 HISTORY = 14
+POSTS = 120  # runs scanned for /themes/posts: two a day, so about two months of posts
 
 
 @router.get("/themes/history")
 def themes_history():
     keys = ("run_id", "date", "slot", "theme")
     return {"items": [{k: r.get(k, "") for k in keys} for r in recent_runs(_dir(), HISTORY)]}
+
+
+@router.get("/themes/posts")
+def themes_posts():
+    """The runs published on Substack, newest first, as /themes cards (each opens its post)."""
+    out = []
+    for r in recent_runs(_dir(), POSTS):
+        if (url := post_url(r["run_id"])) and r.get("exhibits"):
+            ex = r["exhibits"][0]["file"]
+            out.append(
+                {
+                    "run_id": r["run_id"],
+                    "date": r["date"],
+                    "title": r["theme"],
+                    "takeaways": re.split(r"(?<=[.!?])\s+", r["why"].strip()),
+                    "image": f"/api/themes/{r['run_id']}/charts/{ex}",
+                    "url": url,
+                }
+            )
+    return out
 
 
 @router.get("/themes/latest")
