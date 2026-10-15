@@ -91,14 +91,17 @@ def _rerun_debate(idea_id: str, meter: llm.Meter) -> None:
 
 
 def _research(idea_id: str, meter: llm.Meter) -> None:
-    briefs = orchestrator.plan(store.load(idea_id), meter)
-    with store.edit(idea_id) as i:
-        i.current().briefs = briefs
-    runs, facts = desks.run(store.load(idea_id), briefs, meter)
-    with store.edit(idea_id) as i:
-        i.current().desks = runs
-        have = {f.id for f in i.facts}
-        i.facts += [f for f in facts if f.id not in have]
+    # a Retry keeps this round's saved briefs and desks: rerunning the desks would reuse their fact ids
+    if not (briefs := store.load(idea_id).current().briefs):
+        briefs = orchestrator.plan(store.load(idea_id), meter)
+        with store.edit(idea_id) as i:
+            i.current().briefs = briefs
+    if not store.load(idea_id).current().desks:
+        runs, facts = desks.run(store.load(idea_id), briefs, meter)
+        with store.edit(idea_id) as i:
+            i.current().desks = runs
+            have = {f.id for f in i.facts}
+            i.facts += [f for f in facts if f.id not in have]
     options, cfacts = chartist.propose(store.load(idea_id), meter)
     with store.edit(idea_id) as i:
         i.current().options = options
@@ -108,10 +111,11 @@ def _research(idea_id: str, meter: llm.Meter) -> None:
 
 def _write(idea_id: str, meter: llm.Meter) -> None:
     idea = store.load(idea_id)
-    base = publish.current_text(idea) if idea.round > 1 and idea.substack else None
-    rep = editor.write(idea, meter, base_draft=base)
-    with store.edit(idea_id) as i:
-        i.report = rep
+    if idea.report_round != idea.round:  # else a Retry after a failed push: the report is written
+        base = publish.current_text(idea) if idea.round > 1 else None
+        rep = editor.write(idea, meter, base_draft=base)
+        with store.edit(idea_id) as i:
+            i.report, i.report_round = rep, i.round
     draft = publish.push(store.load(idea_id))
     with store.edit(idea_id) as i:
         i.substack, i.status = draft, "draft_ready"
@@ -142,19 +146,22 @@ def _run(idea_id: str, step: str) -> None:
             i.job = Job(step=step, state=state, message=msg, at=store.now())
 
 
+def _over_cap(idea: TradeIdea, step: str) -> str:
+    cap = get_settings().trade_lab.cost_cap_usd
+    if idea.cost_usd + EST[step] <= cap:
+        return ""
+    return (
+        f"Cost cap: ${idea.cost_usd:.2f} spent; this step needs about "
+        f"${EST[step]:.2f} and the cap is ${cap:.2f} per idea."
+    )
+
+
 def submit(idea_id: str, step: str, *, sync: bool = False) -> None:
-    cfg = get_settings().trade_lab
     with store.edit(idea_id) as i:
         if busy(i):
             raise Busy(f"{i.job.step} is still running")
-        if i.cost_usd + EST[step] > cfg.cost_cap_usd:
-            i.job = Job(
-                step=step,
-                state="failed",
-                at=store.now(),
-                message=f"Cost cap: ${i.cost_usd:.2f} spent; this step needs about "
-                f"${EST[step]:.2f} and the cap is ${cfg.cost_cap_usd:.2f} per idea.",
-            )
+        if msg := _over_cap(i, step):
+            i.job = Job(step=step, state="failed", at=store.now(), message=msg)
             return
         i.job = Job(step=step, state="queued", at=store.now())
     if sync:
@@ -231,6 +238,8 @@ def start_round(idea_id: str) -> None:
             raise ValueError(f"this idea has used all {cfg.max_rounds} rounds")
         if not [r for r in i.research if r.round == i.round + 1 and not r.removed]:
             raise ValueError("add something to research in Talk 2 first")
+        if msg := _over_cap(i, "research"):
+            raise ValueError(msg)
         i.round += 1
     submit(idea_id, "research")
 
@@ -243,6 +252,12 @@ def say(idea_id: str, talk_n: int, to: str, message: str) -> list[TalkMessage]:
     rep = None
     if edit:
         try:
+            if publish.hand_edited(idea):
+                raise StepError(
+                    "you've edited the Substack draft since we last updated it, so this would "
+                    "overwrite your edits. Make it in Substack, or send it to research: the next "
+                    "round keeps your edits"
+                )
             rep = editor.revise(idea, edit[0], edit[1], meter)
         except (StepError, ValueError) as e:
             msgs[-1].text += f" (The edit couldn't be applied: {e})"
@@ -256,7 +271,9 @@ def say(idea_id: str, talk_n: int, to: str, message: str) -> list[TalkMessage]:
             i.report = rep
     if rep:
         try:
-            publish.push(store.load(idea_id))
+            draft = publish.push(store.load(idea_id))  # a deleted draft comes back with a new id
+            with store.edit(idea_id) as i:
+                i.substack = draft
         except Exception as e:  # noqa: BLE001 - the edit is saved; the draft can be pushed again
             with store.edit(idea_id) as i:
                 i.talk[-1].text += f" The Substack draft didn't update: {str(e)[:120]}"

@@ -202,6 +202,9 @@ class TradeIdea(BaseModel):
     research: list[ResearchItem] = Field(default_factory=list)
     rounds: list[Round] = Field(default_factory=list)
     report: Report | None = None
+    report_round: int = (
+        0  # the round `report` was written for, so a Retry after a failed push skips the editor
+    )
     facts: list[Fact] = Field(default_factory=list)
     cost_usd: float = 0.0
     job: Job | None = None

@@ -97,9 +97,10 @@ def write(
     )
     msgs = [{"role": "user", "content": brief(idea, base_draft)}]
     by = idea.fact_map()
+    yours = frozenset(guard.figures(base_draft or ""))  # figures the user typed in Substack pass
     out, _ = client.parse(system=SYSTEM, messages=msgs, schema=Report)
     _charge(meter, client)
-    if errs := guard.report_errors(out, by):
+    if errs := guard.report_errors(out, by, yours):
         msgs += [
             {"role": "assistant", "content": out.model_dump_json()},
             {
@@ -109,8 +110,16 @@ def write(
         ]
         out, _ = client.parse(system=SYSTEM, messages=msgs, schema=Report)
         _charge(meter, client)
-        if errs := guard.report_errors(out, by):
+        if errs := guard.report_errors(out, by, yours):
             raise StepError("The editor's report failed the number check: " + "; ".join(errs[:8]))
+    kept = (
+        guard.report_errors(out, by) if yours else []
+    )  # what passed only thanks to the user's figures
+    if kept:
+        figs = ", ".join(e.split(": ", 1)[-1] for e in kept)
+        out.changes.append(
+            f"Kept figures that are yours, from the Substack draft, not our data: {figs}"
+        )
     return out
 
 

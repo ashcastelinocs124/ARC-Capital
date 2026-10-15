@@ -1,10 +1,11 @@
 """Trade Lab → a Substack draft in Special Topics (never published; the user publishes). The draft id lives
 in data/trades/<id>/substack.json, so later rounds update the same draft; a deleted draft is recreated and a
 published one stops the step. Before a round 2+ rewrite, current_text() reads the draft back so the editor
-keeps the user's hand edits."""
+keeps the user's hand edits; push() keeps a hash of what it pushed, so a Talk 2 edit never overwrites them."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from datetime import date
@@ -88,22 +89,52 @@ def push(idea: TradeIdea) -> dict:
     draft_id = json.loads(marker.read_text())["draft_id"]
     _set_section(draft_id)
     pub = os.environ.get("SUBSTACK_PUBLICATION_URL", "").rstrip("/")
-    return {"draft_id": draft_id, "url": f"{pub}/publish/post/{draft_id}"}
+    url = f"{pub}/publish/post/{draft_id}"
+    return {"draft_id": draft_id, "url": url, "sha": sha(_text(_get(draft_id) or {}))}
 
 
-def _get(draft_id: int) -> dict:
+def _get(draft_id: int) -> dict | None:
+    """The draft, or None when it was deleted in Substack."""
     pub = os.environ["SUBSTACK_PUBLICATION_URL"].rstrip("/")
     with httpx.Client(cookies={"substack.sid": os.environ["SUBSTACK_SID"]}, timeout=60) as http:
-        return sb._check(http.get(f"{pub}/api/v1/drafts/{draft_id}")).json()
+        r = http.get(f"{pub}/api/v1/drafts/{draft_id}")
+        return None if r.status_code == 404 else sb._check(r).json()
 
 
-def current_text(idea: TradeIdea, *, get=None) -> str | None:
-    if not idea.substack:
-        return None
-    body = json.loads((get or _get)(idea.substack["draft_id"]).get("draft_body") or "{}")
+def _text(draft: dict) -> str | None:
+    body = json.loads(draft.get("draft_body") or "{}")
 
     def text(n: dict) -> str:
         return n.get("text", "") + "".join(text(k) for k in n.get("content", []))
 
     blocks = [text(n).strip() for n in body.get("content", [])]
     return "\n\n".join(b for b in blocks if b) or None
+
+
+def sha(text: str | None) -> str:
+    return hashlib.sha256((text or "").encode()).hexdigest()[:16]
+
+
+def current_text(idea: TradeIdea, *, get=None) -> str | None:
+    """The draft's text for a round 2+ rewrite; None when there is none (a deleted one is recreated)."""
+    if not idea.substack:
+        return None
+    draft = (get or _get)(idea.substack["draft_id"])
+    if draft is None:
+        return None
+    if draft.get("is_published"):
+        raise StepError(
+            "The Substack post is already published; start a new idea to write it again."
+        )
+    return _text(draft)
+
+
+def hand_edited(idea: TradeIdea) -> bool:
+    """True when the draft changed in Substack since our last push (a Talk 2 edit would overwrite it)."""
+    if not idea.substack or "sha" not in idea.substack:
+        return False
+    try:
+        draft = _get(idea.substack["draft_id"])
+    except (httpx.HTTPError, sb.CookieExpiredError) as e:
+        raise StepError(f"couldn't read the Substack draft: {str(e)[:120]}") from e
+    return draft is not None and sha(_text(draft)) != idea.substack["sha"]

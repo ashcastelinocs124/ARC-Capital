@@ -62,6 +62,14 @@ def _warm_openbb_adapter() -> None:
         log.warning("OpenBB adapter warm-up failed: %s", exc)
 
 
+@app.on_event("startup")
+def _recover_trade_lab() -> None:
+    """Trade Lab steps that were running when the server stopped can't finish: mark them for Retry."""
+    from castelino.agents.trade import runner
+
+    runner.recover_interrupted()
+
+
 # Update Agent and Sector Sentiment refreshes run from the dashboard Refresh button
 # (POST /refresh, endpoints/refresh.py), not at server start.
 

@@ -135,3 +135,11 @@ def test_revise_changes_only_the_part(monkeypatch):
     out = editor.revise(i, "bear", "Lead with the rupee", llm.Meter())
     assert out.sections[1].paragraphs == ["The rupee took 5.3 points off."]
     assert out.sections[0] == i.report.sections[0]
+
+
+def test_round_two_keeps_figures_the_user_typed_in_substack():
+    hand = report(watch="Watch the rupee near 7.5%.")
+    base = "I think the rupee breaks 7.5% soon."
+    out = editor.write(idea(), llm.Meter(), client=FakeEditor(hand), base_draft=base)
+    assert out.what_to_watch == "Watch the rupee near 7.5%."
+    assert any("7.5%" in c and "yours" in c for c in out.changes)

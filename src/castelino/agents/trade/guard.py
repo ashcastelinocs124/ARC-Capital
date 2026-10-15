@@ -4,15 +4,22 @@ cited fact). Shape: the report's fixed structure. Style: no dashes as punctuatio
 from __future__ import annotations
 
 from castelino.agents.trade.models import BODY, Report
-from castelino.agents.update.guard import unsupported
+from castelino.agents.update.guard import _FIG, unsupported
 from castelino.agents.update.models import Fact
 
 DASHES = ("—", "–")
 
 
-def cited_errors(texts: list[str], fact_ids: list[str], by: dict[str, Fact]) -> list[str]:
+def figures(text: str) -> set[float]:
+    """The %/bp/pp figures in a text (the user's Substack edits count as their own source)."""
+    return {float(m.group(1) + m.group(2)) for m in _FIG.finditer(text)}
+
+
+def cited_errors(
+    texts: list[str], fact_ids: list[str], by: dict[str, Fact], extra: frozenset = frozenset()
+) -> list[str]:
     errs = [f"unknown fact {i}" for i in fact_ids if i not in by]
-    nums = {n for i in fact_ids if i in by for n in by[i].numbers}
+    nums = {n for i in fact_ids if i in by for n in by[i].numbers} | extra
     return errs + unsupported(texts, nums)
 
 
@@ -20,7 +27,7 @@ def dash_errors(texts: list[str]) -> list[str]:
     return [f"dash in: {t[:80]}" for t in texts if any(d in t for d in DASHES)]
 
 
-def report_errors(report: Report, by: dict[str, Fact]) -> list[str]:
+def report_errors(report: Report, by: dict[str, Fact], extra: frozenset = frozenset()) -> list[str]:
     errs: list[str] = []
     if len(report.introduction) != 2:
         errs.append(f"need 2 introduction paragraphs, got {len(report.introduction)}")
@@ -29,7 +36,7 @@ def report_errors(report: Report, by: dict[str, Fact]) -> list[str]:
     keys = [s.key for s in report.sections]
     if keys != list(BODY):
         errs.append(f"sections must be {list(BODY)}, got {keys}")
-    every = {n for f in by.values() for n in f.numbers}
+    every = {n for f in by.values() for n in f.numbers} | extra
     loose = [
         report.title,
         report.subtitle,
@@ -39,6 +46,6 @@ def report_errors(report: Report, by: dict[str, Fact]) -> list[str]:
     ]
     errs += [f"intro/takeaways/watch: {t}" for t in unsupported(loose, every)]
     for s in report.sections:
-        errs += [f"{s.key}: {e}" for e in cited_errors(s.paragraphs, s.fact_ids, by)]
+        errs += [f"{s.key}: {e}" for e in cited_errors(s.paragraphs, s.fact_ids, by, extra)]
     errs += dash_errors(loose + [p for s in report.sections for p in [s.heading, *s.paragraphs]])
     return errs

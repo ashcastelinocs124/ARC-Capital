@@ -87,3 +87,10 @@ def test_another_uses_the_talk_model(setup, monkeypatch):
     opt, _ = chartist.another(idea, "bear", llm.Meter(), src=SRC)
     assert opt.spec.form == "calendar" and opt.file
     assert fake.calls[0][1]["model"] == "deepseek/deepseek-v4-pro"
+
+
+def test_a_title_with_a_number_no_fact_has_is_dropped(setup):
+    _, idea = setup
+    bad = spec("intro", "quadrant").model_copy(update={"title": "India is up 99.9% on AI"})
+    options, facts = chartist._draw(idea, [bad], SRC, 1, 0)
+    assert options[0].file is None and "99.9%" in options[0].error and facts == []

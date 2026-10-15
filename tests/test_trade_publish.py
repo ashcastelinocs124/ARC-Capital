@@ -14,6 +14,7 @@ def an_idea(monkeypatch, tmp_path):
     monkeypatch.setenv("ARC_TRADE_DIR", str(tmp_path / "trades"))
     monkeypatch.setenv("SUBSTACK_PUBLICATION_URL", "https://pub.example")
     monkeypatch.setattr(publish, "_set_section", lambda draft_id: None)
+    monkeypatch.setattr(publish, "_get", lambda draft_id: {"draft_body": "{}"})
     i = base_idea().model_copy(update={"report": report()})
     spec = ChartSpec(
         section="intro",
@@ -53,7 +54,11 @@ def test_push_returns_the_draft_link(an_idea, monkeypatch):
         return "created draft 42"
 
     monkeypatch.setattr(substack, "push", fake_push)
-    assert publish.push(an_idea) == {"draft_id": 42, "url": "https://pub.example/publish/post/42"}
+    assert publish.push(an_idea) == {
+        "draft_id": 42,
+        "url": "https://pub.example/publish/post/42",
+        "sha": publish.sha(None),  # of the text read back, so a later hand edit shows
+    }
 
 
 def test_publish_published_draft_fails_clearly(an_idea, monkeypatch):

@@ -13,6 +13,7 @@ from castelino.agents.trade.models import (
     StepError,
     TradeIdea,
 )
+from castelino.agents.update.guard import unsupported
 from castelino.agents.update.models import Fact
 from castelino.config import get_settings
 
@@ -73,6 +74,11 @@ def _draw(
             nums = forms.render(spec, src, store.charts_dir(idea.id) / f"{oid}.png", k)
         except Exception as e:  # noqa: BLE001 - an undrawable idea is dropped, never a crash
             options.append(ChartOption(id=oid, spec=spec, error=str(e)[:200]))
+            continue
+        known = {v for _, v in nums} | {n for f in idea.facts for n in f.numbers}
+        if bad := unsupported([spec.title], known):  # the title is the published caption
+            err = f"title figure {', '.join(bad)} is in no fact"
+            options.append(ChartOption(id=oid, spec=spec, error=err))
             continue
         fid = f"C{idea.round}.{made + len(facts) + 1}"
         text = f"{spec.title}: " + "; ".join(f"{label} {v:g}" for label, v in nums)
