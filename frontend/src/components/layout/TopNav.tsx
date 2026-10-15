@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useSectionPosts } from "@/hooks/useSectionPosts";
 
 // The logo is the way home, so Overview has no tab. Groups open as dropdowns: on desktop a pill
 // group centred in the top bar (hover or click), on phones a sideways row whose group, when
 // tapped, lists its pages underneath. A `to` with a #hash jumps to a card on that page
-// (AppShell scrolls to it), and doesn't mark its group active.
+// (AppShell scrolls to it), and doesn't mark its group active. An https:// `to` is a Substack
+// post and opens there: Special Topics lists that Substack section's posts, newest first.
 type Item = { to: string; label: string; desc: string };
 type Entry = { label: string; to: string } | { label: string; items: Item[] };
 
@@ -20,9 +22,8 @@ const NAV: Entry[] = [
   { label: "AI", items: [
     { to: "/ai", label: "AI Update", desc: "Models, chips and the AI stack" },
   ] },
-  { label: "Special Topics", items: [
+  { label: "Special Topics", items: [ // replaced by the section's posts once they load
     { to: "/special-topics", label: "Special Topics", desc: "Deeper dives and presentations" },
-    { to: "/videos", label: "Videos", desc: "AI updates and special topics, on camera" },
   ] },
   { label: "How it works", items: [
     { to: "/agents", label: "Agents", desc: "How ARC's own agents are built" },
@@ -32,6 +33,13 @@ const NAV: Entry[] = [
 ];
 
 const holds = (items: Item[], path: string) => items.some((i) => !i.to.includes("#") && i.to === path);
+const DAY = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+
+function Go({ to, className, children }: { to: string; className: string; children: React.ReactNode }) {
+  return to.startsWith("https://")
+    ? <a href={to} target="_blank" rel="noopener noreferrer" className={className}>{children}</a>
+    : <Link to={to} className={className}>{children}</Link>;
+}
 
 export function TopNav({ pill = false }: { pill?: boolean }) {
   const { pathname, hash } = useLocation();
@@ -48,11 +56,16 @@ export function TopNav({ pill = false }: { pill?: boolean }) {
     return () => document.removeEventListener("mousedown", away);
   }, []);
   const isCur = (to: string) => to === pathname + hash || (!to.includes("#") && to === pathname && !hash);
+  const topics: Item[] = (useSectionPosts().data ?? [])
+    .filter((p) => p.section === "special-topics")
+    .slice(0, 6)
+    .map((p) => ({ to: p.url, label: p.title, desc: `${DAY.format(new Date(`${p.date}T00:00:00Z`))} · on Substack ↗` }));
+  const NAVS = NAV.map((e) => (e.label === "Special Topics" && topics.length ? { ...e, items: topics } : e));
 
   if (pill) {
     return (
       <nav ref={nav} className="hidden items-center gap-1 rounded-full border border-border bg-surface-2 p-1 lg:flex" onMouseLeave={() => setOpen(null)}>
-        {NAV.map((e) => {
+        {NAVS.map((e) => {
           const tab = (active: boolean) =>
             cn("flex items-center whitespace-nowrap rounded-full px-4 py-2 text-[15px] font-medium transition-colors",
               active ? "bg-surface text-text shadow-card ring-1 ring-border" : "text-text-2 hover:text-text");
@@ -69,10 +82,10 @@ export function TopNav({ pill = false }: { pill?: boolean }) {
                 <div className="absolute left-1/2 top-full z-30 -translate-x-1/2 pt-2">
                   <div className="w-72 rounded-2xl border border-border bg-surface p-2 shadow-card-hover">
                     {e.items.map((i) => (
-                      <Link key={i.to} to={i.to} className="block rounded-xl px-3 py-2.5 hover:bg-surface-3">
+                      <Go key={i.to} to={i.to} className="block rounded-xl px-3 py-2.5 hover:bg-surface-3">
                         <div className={cn("text-sm font-semibold", isCur(i.to) ? "text-accent" : "text-text")}>{i.label}</div>
                         <div className="mt-0.5 text-[12.5px] text-muted">{i.desc}</div>
-                      </Link>
+                      </Go>
                     ))}
                   </div>
                 </div>
@@ -84,11 +97,11 @@ export function TopNav({ pill = false }: { pill?: boolean }) {
     );
   }
 
-  const group = NAV.find((e) => e.label === open && "items" in e) as { items: Item[] } | undefined;
+  const group = NAVS.find((e) => e.label === open && "items" in e) as { items: Item[] } | undefined;
   return (
     <nav ref={nav} className="shrink-0 border-b border-border bg-surface lg:hidden">
       <div className="no-scrollbar flex gap-7 overflow-x-auto px-4">
-        {NAV.map((e) => {
+        {NAVS.map((e) => {
           const line = (active: boolean) =>
             cn("flex items-center whitespace-nowrap border-b-2 py-3 text-[15px] transition-colors",
               active ? "border-text font-semibold text-text" : "border-transparent font-medium text-text-2 hover:text-text");
@@ -105,9 +118,9 @@ export function TopNav({ pill = false }: { pill?: boolean }) {
       {group && (
         <div className="border-t border-border px-2 py-1.5">
           {group.items.map((i) => (
-            <Link key={i.to} to={i.to} className={cn("block rounded-xl px-3 py-2.5 text-[15px] font-semibold hover:bg-surface-3", isCur(i.to) ? "text-accent" : "text-text")}>
+            <Go key={i.to} to={i.to} className={cn("block rounded-xl px-3 py-2.5 text-[15px] font-semibold hover:bg-surface-3", isCur(i.to) ? "text-accent" : "text-text")}>
               {i.label}
-            </Link>
+            </Go>
           ))}
         </div>
       )}
