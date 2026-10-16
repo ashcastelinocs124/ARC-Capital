@@ -17,7 +17,7 @@ const DAY = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", t
 const day = (d: string) => DAY.format(new Date(`${d}T00:00:00Z`));
 
 const LINKS: [string, string][] = [
-  ["Newsletter", "https://archresearch.substack.com/"],
+  ["castelino.ai", "https://castelino.ai"],
   ["X · @AshleynCas46131", "https://x.com/AshleynCas46131"],
   ["LinkedIn", "https://www.linkedin.com/in/ashleyn-castelino/"],
   ["YouTube", "https://www.youtube.com/@ashleyn4869"],
@@ -135,8 +135,8 @@ export default function AboutPage() {
         <div className="p-5 md:px-[30px] md:py-7">
           <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-accent">About</div>
           <div className="mt-3.5 flex items-center gap-3.5 md:gap-[22px]">
-            <img src="/team/ashleyn.png" alt="Ashleyn Castelino" width={132} height={132}
-              className="h-[88px] w-[88px] shrink-0 rounded-2xl border-2 border-accent/55 object-cover object-[40%_30%] md:h-[132px] md:w-[132px] md:rounded-[22px]" />
+            <img src="/team/ashleyn.png" alt="Ashleyn Castelino" width={200} height={200}
+              className="h-[120px] w-[120px] shrink-0 rounded-2xl border-2 border-accent/55 object-cover object-[40%_30%] md:h-[200px] md:w-[200px] md:rounded-[28px]" />
             <div className="min-w-0">
               <h1 className="font-serif text-[26px] font-bold leading-tight text-text md:text-[34px]">Ashleyn Castelino</h1>
               <p className="mb-3 mt-1.5 text-[13.5px] text-muted">Analyst · macro &amp; AI research · agents &amp; ML systems</p>
