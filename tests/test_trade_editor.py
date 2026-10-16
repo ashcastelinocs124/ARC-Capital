@@ -139,6 +139,25 @@ def test_revise_changes_only_the_part(monkeypatch):
     assert model == get_settings().trade_lab.talk_model
 
 
+def test_the_editor_writes_for_readers_not_with_internal_labels():
+    """Headings were fixed labels (The bull case, Your question, tested) and the intro said "in the user's
+    words"; the draft is for Substack readers (user feedback, 2026-10-16)."""
+    assert "Substack readers" in editor.SYSTEM
+    assert "The bull case" not in editor.SYSTEM and "the user's words" not in editor.SYSTEM
+
+
+def test_revise_can_retitle_a_section(monkeypatch):
+    rev = editor.Revision(
+        paragraphs=["The rupee took 5.3 points off."], fact_ids=["C1.1"], heading="The rupee did it"
+    )
+    c = FakeClient([parsed(rev)])
+    monkeypatch.setattr(llm, "_client", lambda m: c)
+    i = idea().model_copy(update={"report": report()})
+    out, _ = editor.revise(i, "bear", "Give it a heading readers get", llm.Meter())
+    assert out.sections[1].heading == "The rupee did it"
+    assert out.sections[0].heading == i.report.sections[0].heading
+
+
 def test_revise_takes_fact_ids_out_of_the_published_text(monkeypatch):
     """GLM-5.3 wrote "[C1.16]" into its edit in testing; ids in the text would be published."""
     rev = editor.Revision(paragraphs=["The rupee took 5.3 points off [C1.1]."], fact_ids=["C1.1"])

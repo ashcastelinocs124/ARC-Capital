@@ -43,8 +43,27 @@ def test_doc_order_intro_takeaways_cover_sections_watch_sources(an_idea):
     assert kinds[:2] == ["paragraph", "paragraph"]  # the introduction comes first
     assert kinds[2:5] == ["heading", "bullet_list", "captionedImage"]  # takeaways, then the cover
     text = json.dumps(d)
-    assert "The bear case" in text and "What to watch:" in text and "Not investment advice." in text
+    assert "What to watch:" in text and "Not investment advice." in text
     assert text.index("https://img/cover") < text.index("https://img/bear")
+
+
+def test_the_draft_uses_the_editors_headings_not_internal_labels(an_idea):
+    """Substack readers saw "1. The bull case" / "2. The bear case": labels for us, not for them
+    (user feedback, 2026-10-16). The editor writes a heading that says what the section finds."""
+    secs = [
+        s.model_copy(update={"heading": "India keeps lagging emerging markets"})
+        if s.key == "bear"
+        else s
+        for s in an_idea.report.sections
+    ]
+    an_idea.report = an_idea.report.model_copy(update={"sections": secs})
+    heads = [
+        n["content"][0]["text"]
+        for n in publish.doc(an_idea, {})["content"]
+        if n["type"] == "heading"
+    ]
+    assert "India keeps lagging emerging markets" in heads
+    assert not any("bull case" in h or "bear case" in h for h in heads)
 
 
 def test_push_returns_the_draft_link(an_idea, monkeypatch):

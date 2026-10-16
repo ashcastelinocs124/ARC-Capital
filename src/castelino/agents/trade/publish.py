@@ -14,7 +14,6 @@ import httpx
 
 from castelino import substack as sb
 from castelino.agents.trade import store
-from castelino.agents.trade.editor import SECTION_NAMES
 from castelino.agents.trade.models import StepError, TradeIdea
 
 SECTION = 466775  # Substack section "special-topics"
@@ -50,10 +49,8 @@ def doc(idea: TradeIdea, uploaded: dict[str, dict]) -> dict:
     c.append(sb._heading("Key takeaways"))
     c.append(bullets([sb._p(*sb._rich(t)) for t in rep.takeaways]))
     c += image("intro")
-    for n, s in enumerate(rep.sections, 1):
-        c.append(
-            sb._heading(f"{n}. {SECTION_NAMES[s.key]}")
-        )  # fixed names; the editor's heading is ignored
+    for s in rep.sections:
+        c.append(sb._heading(s.heading))  # the editor's, written for readers
         c += [sb._p(*sb._rich(p)) for p in s.paragraphs]
         c += image(s.key)
     c.append(sb._p(*sb._rich(f"**What to watch:** {rep.what_to_watch}")))

@@ -23,16 +23,21 @@ SECTION_NAMES = {
 }
 SYSTEM = f"""You are ARC Research's editor. Write a Special Topics report that tests a trade idea. ARC never makes
 a buy or sell call. Use only the facts given: every number must be one of their numbers, and each section
-lists the fact ids it uses.
+lists the fact ids it uses. You write for Substack readers, not for the person who asked: never mention
+"the user", the talk, our agents or desks by name, or any internal label.
 Structure:
 - title: a short claim; subtitle: one line.
-- introduction: exactly 2 paragraphs. First: the idea in the user's words and why it matters now. Second: how
-  we tested it (a bull and a bear argued it over three turns, then our desks dug into what was left open;
-  name what they dug into) and what the report covers.
+- introduction: exactly 2 paragraphs. First: the idea, stated plainly, and why it matters now. Second: how
+  we tested it (we argued the case for and against it with data, then dug into what that left open; name
+  what we dug into) and what the report covers.
 - takeaways: exactly 3 one-sentence takeaways.
-- sections, in this order with these keys: bull, bear, question, technical, read. Headings: {SECTION_NAMES}.
-  Each is 2 or 3 paragraphs written around that section's chart (described below). In question, say which
-  of the user's claims the research confirmed and which it could not.
+- sections, in this order with these keys: bull (the case for), bear (the case against), question (the
+  claims behind the idea, tested), technical (what prices and positioning show), read (our view). Each
+  heading tells a reader what the section finds, as a short claim of at most 10 words, e.g. "Why India
+  could hedge the chip trade" or "India keeps lagging emerging markets"; never "bull case", "bear case",
+  "our read" or a question addressed to anyone. Each section is 2 or 3 paragraphs written around its chart
+  (described below). In question, say which of the claims behind the idea the research confirmed and
+  which it could not.
 - what_to_watch: one paragraph that starts from the framer's prove-it-wrong test.
 - changes: [] unless a current draft is given; then list each place you changed the user's wording, and why.
 House style:
@@ -127,10 +132,14 @@ def write(
 class Revision(BaseModel):
     paragraphs: list[str]
     fact_ids: list[str]
+    heading: str | None = None  # a body section's new heading; null keeps it
 
 
 REVISE = f"""You revise one part of an ARC Research report exactly as the user asks. Keep every number tied to
-the facts and cite their ids; change nothing the user didn't ask about. House style:
+the facts and cite their ids; change nothing the user didn't ask about. The report is for Substack readers.
+For a body section, heading is null unless the user asks to change it or the edit changes what the section
+finds; a new heading says what the section finds, at most 10 words, never "bull case", "bear case" or
+another internal label. House style:
 {STYLE}
 {NAMES}"""
 
@@ -140,8 +149,10 @@ def revise(idea: TradeIdea, part: str, instruction: str, meter: llm.Meter) -> tu
     check, then the fallback model gets two."""
     cfg = get_settings().trade_lab
     rep = idea.report
+    head = ""
     if part in BODY:
-        current = next(s for s in rep.sections if s.key == part).paragraphs
+        sec = next(s for s in rep.sections if s.key == part)
+        current, head = sec.paragraphs, f"Heading: {sec.heading}\n"
     elif part == "intro":
         current = rep.introduction
     elif part == "watch":
@@ -149,7 +160,7 @@ def revise(idea: TradeIdea, part: str, instruction: str, meter: llm.Meter) -> tu
     else:
         raise ValueError(f"unknown part {part}")
     user = (
-        f"Part: {part}\nCurrent text:\n"
+        f"Part: {part}\n{head}Current text:\n"
         + "\n\n".join(current)
         + f"\n\nThe user asks: {instruction}\n\nFacts:\n{_facts(idea)}"
     )
@@ -163,7 +174,8 @@ def revise(idea: TradeIdea, part: str, instruction: str, meter: llm.Meter) -> tu
                 "trade_revise", model, msgs, Revision, meter, fallback=cfg.fallback_talk_model
             )
             ids = out.fact_ids if part in BODY else list(by)
-            errs = guard.cited_errors(out.paragraphs, ids, by) + guard.dash_errors(out.paragraphs)
+            texts = out.paragraphs + ([out.heading] if out.heading else [])
+            errs = guard.cited_errors(texts, ids, by) + guard.dash_errors(texts)
             if part == "intro" and len(out.paragraphs) != 2:
                 errs.append("the introduction must stay 2 paragraphs")
             if not errs:
@@ -178,12 +190,10 @@ def revise(idea: TradeIdea, part: str, instruction: str, meter: llm.Meter) -> tu
         raise StepError("The edit failed the number check: " + "; ".join(errs))
     out = out.model_copy(update={"paragraphs": [guard.strip_ids(p) for p in out.paragraphs]})
     if part in BODY:
-        secs = [
-            s.model_copy(update={"paragraphs": out.paragraphs, "fact_ids": out.fact_ids})
-            if s.key == part
-            else s
-            for s in rep.sections
-        ]
+        new = {"paragraphs": out.paragraphs, "fact_ids": out.fact_ids}
+        if out.heading and out.heading.strip():
+            new["heading"] = out.heading.strip()
+        secs = [s.model_copy(update=new) if s.key == part else s for s in rep.sections]
         return rep.model_copy(update={"sections": secs}), model
     if part == "intro":
         return rep.model_copy(update={"introduction": out.paragraphs}), model
