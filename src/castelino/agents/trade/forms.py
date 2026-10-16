@@ -78,8 +78,9 @@ def _ticker(sid: str) -> str:
 def _name(sid: str) -> str:
     """ "iShares MSCI India ETF (INDA)" when the spec named the series, else the bare ticker. A label, never
     a data key: fetch with _ticker."""
-    full = (_NAMES.get() or {}).get(sid)
-    return f"{full} ({_ticker(sid)})" if full else _ticker(sid)
+    t = _ticker(sid)
+    full = (_NAMES.get() or {}).get(sid, "").removesuffix(f"({t})").strip()  # agent may add it too
+    return f"{full} ({t})" if full else t
 
 
 def _wrap(label: str, width: int = 20) -> str:

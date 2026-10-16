@@ -74,6 +74,10 @@ def test_charts_name_each_series_in_full_with_its_ticker(tmp_path):
     ]
     bare = forms.render(spec("bars"), SRC, tmp_path / "c.png", 1)  # older specs carry no names
     assert bare[0][0] == "INDA change"
+    # the agent sometimes writes the ticker into the name too (first live run, 2026-10-15)
+    named = ["iShares MSCI India ETF (INDA)", "VanEck Semiconductor ETF"]
+    twice = forms.render(spec("bars", names=named), SRC, tmp_path / "d.png", 1)
+    assert twice[0][0] == "iShares MSCI India ETF (INDA) change"
 
 
 @pytest.mark.parametrize("form", ["quadrant", "treemap"])
