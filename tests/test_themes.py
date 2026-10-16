@@ -189,10 +189,21 @@ def test_morning_run_posts_a_thread_once_and_resumes_a_broken_chain(tmp_path):
         uploads.append(data[:4])
         return f"m{len(uploads)}"
 
+    calls = []
+
+    def explainer(**kw):
+        calls.append(kw)
+        return themes.ChartLines(
+            lines=[themes.ChartLine(n=2, heading="Oil leads", sentence="Brent is doing the work.")]
+        )
+
     with pytest.raises(RuntimeError):  # the link post fails: two posts out, saved
-        themes.post_today(NOW, tmp_path, post=post, upload=upload)
+        themes.post_today(NOW, tmp_path, post=post, upload=upload, explainer=explainer)
     fail["at"] = None
-    ids = themes.post_today(NOW, tmp_path, post=post, upload=upload)  # resumes with the link
+    ids = themes.post_today(  # resumes with the link, the saved texts and no second model call
+        NOW, tmp_path, post=post, upload=upload, explainer=explainer
+    )
+    assert len(calls) == 1
     assert ids == ["id1", "id2", "id3"] and uploads == [b"\x89PNG"] * 2
     (t1, r1, m1), (t2, r2, m2), (t3, r3, m3) = sent
     assert (
@@ -200,11 +211,27 @@ def test_morning_run_posts_a_thread_once_and_resumes_a_broken_chain(tmp_path):
         == "Before the open: Oil's run revives the inflation scare 🧵\n\nBrent rose 4.1% on the week."
     )
     assert t2.startswith("2/ ") and (r1, m1, r2, m2) == (None, "m1", "id1", "m2")
+    assert t2.endswith("\n→ Oil leads. Brent is doing the work.")
     assert t3 == "All 2 charts with sources → https://arcresearch.markets/themes"  # no post yet
     assert (r3, m3) == ("id2", None)
-    assert themes.post_today(NOW, tmp_path, post=post, upload=upload) == ids  # never twice
+    assert themes.post_today(NOW, tmp_path, post=post, upload=upload, explainer=explainer) == ids
     assert len(sent) == 3
     assert themes.post_today(NOW.replace(day=17), tmp_path, post=post, upload=upload) is None  # Sat
+
+
+def test_explainer_lines_never_carry_a_figure_and_never_block_the_thread():
+    rec = themes.run(NOW, gather_fn=lambda now: FACTS, fetch=fetch, picker=lambda **kw: pick())
+    say = lambda *lines: lambda **kw: themes.ChartLines(lines=list(lines))  # noqa: E731
+    line = themes.ChartLine
+    assert themes.explain(rec, say(line(n=2, heading="Up", sentence="Up 4.1% on the week."))) == {}
+
+    def boom(**kw):
+        raise RuntimeError("OpenAI 500")
+
+    assert themes.explain(rec, boom) == {}  # the thread posts as before
+    assert themes.thread(rec, lines={}) == themes.thread(rec)
+    long = {2: "→ Long. " + "word " * 60}
+    assert themes.thread(rec, lines=long) == themes.thread(rec)  # past 280: dropped, not cut
 
 
 def test_thread_keeps_whole_sentences_under_280():

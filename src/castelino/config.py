@@ -102,6 +102,7 @@ class ThemesCfg(BaseModel):
 
     picker_model: str = "gpt-6-sol"
     search_model: str = "gpt-6-luna"
+    explainer_model: str = "gpt-6-luna"  # the X thread's one-line read under each chart
     max_charts: int = 6
     min_charts: int = 5  # fewer on try 1 → one retry told why; the retry publishes what passed
     memory_runs: int = 6  # recent themes the picker sees, so it can say "still #1"

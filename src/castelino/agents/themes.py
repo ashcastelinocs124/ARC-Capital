@@ -168,6 +168,64 @@ class ThemePicker(StructuredAgent[ThemePick]):
         return out
 
 
+EXPLAIN = """You write the one-line read under each chart in ARC Research's Theme Charts thread on X.
+For each chart, give a heading of 2 to 5 words and one plain sentence on what the chart says about
+today's theme, for someone scrolling X. Use no figures or digits at all (the line above it already
+carries the numbers), no dashes and no hype. Heading and sentence together stay under 140 characters.
+Return one entry per chart, with its n."""
+
+
+class ChartLine(BaseModel):
+    n: int
+    heading: str
+    sentence: str
+
+
+class ChartLines(BaseModel):  # LLM output (closed schema: no defaults)
+    lines: list[ChartLine]
+
+
+class ChartExplainer(StructuredAgent[ChartLines]):
+    """The X thread's plain-English line under each chart after the first (gpt-6-luna)."""
+
+    name = "chart_explainer"
+    output_schema = ChartLines
+    tier = "fast"
+
+    def __init__(self) -> None:
+        self.model = get_settings().themes.explainer_model
+
+    def system_prompt(self) -> str:
+        return EXPLAIN
+
+    def user_prompt(self, *, rec: ThemeRun) -> str:
+        charts = "\n".join(
+            f"n={e.n} ({e.kind}) {EXHIBIT.sub('', e.title)} | {e.subtitle}"
+            for e in rec.exhibits[1:]
+        )
+        return f"Theme: {rec.theme}\nWhy: {rec.why}\n\nCharts:\n{charts}"
+
+
+def explain(rec: ThemeRun, explainer=None) -> dict[int, str]:
+    """n -> "→ Heading. Sentence" for charts 2..n. A line with any digit is dropped (every figure on X
+    stays the code's), and a failed call returns {} so the thread posts as before."""
+    if len(rec.exhibits) < 2:
+        return {}
+    try:
+        out = (explainer or ChartExplainer())(rec=rec)
+    except Exception as e:  # noqa: BLE001 - the thread never waits on the explainer
+        log.warning("themes: chart explainer failed, posting without it: %s", e)
+        return {}
+    lines = {}
+    for ln in out.lines:
+        text = f"→ {ln.heading.strip().rstrip('.')}. {ln.sentence.strip()}"
+        if re.search(r"\d", text):
+            log.info("themes: dropped explainer line with a figure for chart %d: %s", ln.n, text)
+            continue
+        lines[ln.n] = text
+    return lines
+
+
 def gather(now: datetime) -> list[Fact]:
     """The three signal sets as facts. One dead source must not sink the run."""
     from castelino.agents.update.collector import collect
@@ -451,10 +509,11 @@ def publish_substack(rec: ThemeRun) -> str:
     return sb.publish(_marker(rec.run_id), section_id=SECTION)
 
 
-def thread(rec: ThemeRun, url: str | None = None) -> list[str]:
+def thread(rec: ThemeRun, url: str | None = None, lines: dict[int, str] | None = None) -> list[str]:
     """The run as an X thread: the theme and as much of the why as fits (chart 1 rides on it), one
-    post per further chart with its code-written subtitle, then the link to the Substack post.
-    Every word is the guarded pick's or code's, so posting needs no model and no approval."""
+    post per further chart with its code-written subtitle and, when `lines` has one that fits, the
+    explainer's plain line (explain()), then the link to the Substack post. Every figure is the
+    guarded pick's or code's."""
     text, sep = f"Before the open: {rec.theme} 🧵", "\n\n"
     for s in re.split(r"(?<=[.!?])\s+", rec.why):
         if x_post.xlen(nxt := f"{text}{sep}{s}") > x_post.LIMIT:
@@ -462,22 +521,28 @@ def thread(rec: ThemeRun, url: str | None = None) -> list[str]:
         text, sep = nxt, " "
     n = len(rec.exhibits)
     charts = f"All {n} charts" if n > 1 else "The chart"
-    return [
-        text,
-        *(f"{e.n}/ {EXHIBIT.sub('', e.title)}\n{e.subtitle}" for e in rec.exhibits[1:]),
-        f"{charts} with sources → {url or SITE}",
-    ]
+    posts = []
+    for e in rec.exhibits[1:]:
+        post = f"{e.n}/ {EXHIBIT.sub('', e.title)}\n{e.subtitle}"
+        if (ln := (lines or {}).get(e.n)) and x_post.xlen(f"{post}\n{ln}") <= x_post.LIMIT:
+            post = f"{post}\n{ln}"
+        posts.append(post)
+    return [text, *posts, f"{charts} with sources → {url or SITE}"]
 
 
-def post_thread(rec: ThemeRun, root: Path | None = None, *, post=None, upload=None) -> list[str]:
-    """Post a run's thread. Ids are saved after every post to data/x_posts/themes/<run_id>.json, so
-    a run is never posted twice and a broken chain resumes where it stopped."""
+def post_thread(
+    rec: ThemeRun, root: Path | None = None, *, post=None, upload=None, explainer=None
+) -> list[str]:
+    """Post a run's thread. Ids and texts are saved after every post to
+    data/x_posts/themes/<run_id>.json, so a run is never posted twice and a broken chain resumes
+    where it stopped, with the same words (no second explainer call)."""
     post, upload = post or x_post.post, upload or x_post.upload_image
-    texts = thread(rec, post_url(rec.run_id))
+    path = (root or get_settings().root) / "data" / "x_posts" / "themes" / f"{rec.run_id}.json"
+    saved = json.loads(path.read_text()) if path.exists() else {}
+    ids = saved.get("ids", [])
+    texts = saved.get("texts") or thread(rec, post_url(rec.run_id), explain(rec, explainer))
     if long := [t for t in texts if x_post.xlen(t) > x_post.LIMIT]:
         raise ValueError(f"over {x_post.LIMIT}: {long}")  # before anything is sent
-    path = (root or get_settings().root) / "data" / "x_posts" / "themes" / f"{rec.run_id}.json"
-    ids = json.loads(path.read_text())["ids"] if path.exists() else []
     for i, text in enumerate(texts[len(ids) :], len(ids)):
         media = None
         if i < len(rec.exhibits):
@@ -507,7 +572,8 @@ def post_today(now: datetime | None = None, root: Path | None = None, **fakes) -
     if not (rec := _today_am(now or datetime.now(ET))):
         return None
     if not (fakes or x_post.can_post()):
-        log.warning("themes: X keys not set, would post:\n%s", "\n---\n".join(thread(rec)))
+        texts = thread(rec, post_url(rec.run_id), explain(rec))
+        log.warning("themes: X keys not set, would post:\n%s", "\n---\n".join(texts))
         return None
     return post_thread(rec, root, **fakes)
 
