@@ -40,7 +40,7 @@ you cite. Plain English, no buy or sell calls. Tools take bare tickers; your fin
 """
     + NAMES
 )
-CODES = {"news_1": "NA", "news_2": "NB", "technical": "T"}
+CODES = {"news_1": "NA", "news_2": "NB", "technical": "T", "talk": "Q"}
 NEWS_TOOLS = ["web_search", "fred_series", "yahoo_prices"]
 TECH_TOOLS = ["technicals", "cot", "yahoo_prices", "fred_series"]
 
@@ -62,8 +62,16 @@ def _yahoo(t):
 
 
 def run(
-    idea: TradeIdea, briefs: list[Brief], meter: llm.Meter, *, yahoo=None, search=None, cftc=None
+    idea: TradeIdea,
+    briefs: list[Brief],
+    meter: llm.Meter,
+    *,
+    yahoo=None,
+    search=None,
+    cftc=None,
+    n: int | None = None,
 ) -> tuple[list[DeskRun], list[Fact]]:
+    """`n` numbers the facts (NA<n>.1…); it defaults to the idea's round."""
     cfg = get_settings().trade_lab
     board = Board()
     known = "\n".join(f"[{f.id}] {f.text}" for f in idea.facts)
@@ -72,14 +80,16 @@ def run(
         thesis += f"\nInstruments: {instruments(idea.frame.stand_ins)}"
 
     def one(b: Brief) -> tuple[DeskRun, list[Fact]]:
-        news = b.desk != "technical"
+        news, talk = b.desk != "technical", b.desk == "talk"
+        calls = cfg.talk_research_calls if talk else cfg.news_calls if news else cfg.technical_calls
+        agent = "trade_talk_desk" if talk else f"trade_{b.desk}"  # trade_talk is the talk agent
         box = TradeToolBox(
-            agent=f"trade_{b.desk}",
-            prefix=prefix(CODES[b.desk], idea.round),
+            agent=agent,
+            prefix=prefix(CODES[b.desk], n or idea.round),
             allowed=NEWS_TOOLS if news else TECH_TOOLS,
             board=board,
             end=date.today(),
-            max_calls=cfg.news_calls if news else cfg.technical_calls,
+            max_calls=calls,
             yahoo=yahoo or _yahoo,
             search=search,
             cftc=cftc,
@@ -94,7 +104,7 @@ def run(
         )
         ask = "Give your findings (each citing fact ids), a short summary, and what you could not answer."
         kw = dict(
-            agent=f"trade_{b.desk}",
+            agent=agent,
             model=cfg.desk_model,
             fallback=None,
             system=NEWS if news else TECH,
@@ -105,7 +115,8 @@ def run(
         )
         try:
             out, _ = loop.run(user=user, **kw)
-            if news and len(domains(box.facts)) < cfg.breadth_min_domains:
+            # a Talk 2 question wants a quick answer, not breadth
+            if news and not talk and len(domains(box.facts)) < cfg.breadth_min_domains:
                 box.max_calls = box.calls + cfg.breadth_extra_calls
                 used = ", ".join(domains(box.facts)) or "none"
                 more_user = (
@@ -138,3 +149,25 @@ def run(
     if all(r.error for r in runs):
         raise StepError("All desks failed: " + "; ".join(f"{r.desk}: {r.error}" for r in runs))
     return runs, [f for _, fs in results for f in fs]
+
+
+def ask(idea: TradeIdea, question: str, meter: llm.Meter, **kw) -> tuple[DeskRun, list[Fact]]:
+    """A Talk 2 question that needs new facts: one news desk, talk_research_calls searches. Its facts are
+    numbered Q<n>. with n one past the earlier questions', so ids never repeat."""
+    cfg = get_settings().trade_lab
+    n = 1 + len({f.id.split(".")[0] for f in idea.facts if f.id.startswith("Q")})
+    brief = Brief(
+        desk="talk",
+        title="The editor's question about the draft",
+        # one search per turn ran 4 searches end to end, 156s on Fly (2026-10-16): ask for them together
+        brief=(
+            f"Find sourced facts that answer the editor's question: {question}\n"
+            f"Make all your searches at once in your first turn ({cfg.talk_research_calls} at most, "
+            "from different angles and outlets), then answer from what they return."
+        ),
+        must_answer=[question],
+        item_ids=[],
+        tickers=[],
+    )
+    runs, facts = run(idea, [brief], meter, n=n, **kw)
+    return runs[0], facts

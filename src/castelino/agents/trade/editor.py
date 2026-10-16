@@ -135,7 +135,9 @@ the facts and cite their ids; change nothing the user didn't ask about. House st
 {NAMES}"""
 
 
-def revise(idea: TradeIdea, part: str, instruction: str, meter: llm.Meter) -> Report:
+def revise(idea: TradeIdea, part: str, instruction: str, meter: llm.Meter) -> tuple[Report, str]:
+    """One part rewritten as asked, and the model that wrote it: the talk model gets two tries at the number
+    check, then the fallback model gets two."""
     cfg = get_settings().trade_lab
     rep = idea.report
     if part in BODY:
@@ -151,25 +153,30 @@ def revise(idea: TradeIdea, part: str, instruction: str, meter: llm.Meter) -> Re
         + "\n\n".join(current)
         + f"\n\nThe user asks: {instruction}\n\nFacts:\n{_facts(idea)}"
     )
-    msgs = [{"role": "system", "content": REVISE}, {"role": "user", "content": user}]
     by = idea.fact_map()
     errs: list[str] = []
-    for _ in range(2):
-        out = llm.structured(
-            "trade_revise", cfg.talk_model, msgs, Revision, meter, fallback=cfg.fallback_talk_model
-        )
-        ids = out.fact_ids if part in BODY else list(by)
-        errs = guard.cited_errors(out.paragraphs, ids, by) + guard.dash_errors(out.paragraphs)
-        if part == "intro" and len(out.paragraphs) != 2:
-            errs.append("the introduction must stay 2 paragraphs")
+    out = None
+    for model in dict.fromkeys([cfg.talk_model, cfg.fallback_talk_model]):
+        msgs = [{"role": "system", "content": REVISE}, {"role": "user", "content": user}]
+        for _ in range(2):
+            out = llm.structured(
+                "trade_revise", model, msgs, Revision, meter, fallback=cfg.fallback_talk_model
+            )
+            ids = out.fact_ids if part in BODY else list(by)
+            errs = guard.cited_errors(out.paragraphs, ids, by) + guard.dash_errors(out.paragraphs)
+            if part == "intro" and len(out.paragraphs) != 2:
+                errs.append("the introduction must stay 2 paragraphs")
+            if not errs:
+                break
+            msgs += [
+                {"role": "assistant", "content": out.model_dump_json()},
+                {"role": "user", "content": "Fix: " + "; ".join(errs)},
+            ]
         if not errs:
             break
-        msgs += [
-            {"role": "assistant", "content": out.model_dump_json()},
-            {"role": "user", "content": "Fix: " + "; ".join(errs)},
-        ]
     else:
         raise StepError("The edit failed the number check: " + "; ".join(errs))
+    out = out.model_copy(update={"paragraphs": [guard.strip_ids(p) for p in out.paragraphs]})
     if part in BODY:
         secs = [
             s.model_copy(update={"paragraphs": out.paragraphs, "fact_ids": out.fact_ids})
@@ -177,7 +184,7 @@ def revise(idea: TradeIdea, part: str, instruction: str, meter: llm.Meter) -> Re
             else s
             for s in rep.sections
         ]
-        return rep.model_copy(update={"sections": secs})
+        return rep.model_copy(update={"sections": secs}), model
     if part == "intro":
-        return rep.model_copy(update={"introduction": out.paragraphs})
-    return rep.model_copy(update={"what_to_watch": " ".join(out.paragraphs)})
+        return rep.model_copy(update={"introduction": out.paragraphs}), model
+    return rep.model_copy(update={"what_to_watch": " ".join(out.paragraphs)}), model

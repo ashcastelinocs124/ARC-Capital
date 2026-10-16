@@ -19,6 +19,7 @@ from castelino.agents.trade.models import (
     Turn,
 )
 from castelino.agents.weekly.editor import AnthropicEditorClient
+from castelino.config import get_settings
 from tests.trade_fakes import FakeClient, fact, parsed
 
 FACTS = [
@@ -132,9 +133,37 @@ def test_revise_changes_only_the_part(monkeypatch):
     c = FakeClient([parsed(rev)])
     monkeypatch.setattr(llm, "_client", lambda m: c)
     i = idea().model_copy(update={"report": report()})
-    out = editor.revise(i, "bear", "Lead with the rupee", llm.Meter())
+    out, model = editor.revise(i, "bear", "Lead with the rupee", llm.Meter())
     assert out.sections[1].paragraphs == ["The rupee took 5.3 points off."]
     assert out.sections[0] == i.report.sections[0]
+    assert model == get_settings().trade_lab.talk_model
+
+
+def test_revise_takes_fact_ids_out_of_the_published_text(monkeypatch):
+    """GLM-5.3 wrote "[C1.16]" into its edit in testing; ids in the text would be published."""
+    rev = editor.Revision(paragraphs=["The rupee took 5.3 points off [C1.1]."], fact_ids=["C1.1"])
+    c = FakeClient([parsed(rev)])
+    monkeypatch.setattr(llm, "_client", lambda m: c)
+    i = idea().model_copy(update={"report": report()})
+    out, _ = editor.revise(i, "bear", "Lead with the rupee", llm.Meter())
+    assert out.sections[1].paragraphs == ["The rupee took 5.3 points off."]
+
+
+def test_revise_hands_the_edit_to_the_fallback_after_two_failed_checks(monkeypatch):
+    """Claude Haiku 5.5 makes slight edits; Claude Sonnet 5.5 takes the ones it fails twice (2026-10-16)."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "k")
+    bad = editor.Revision(paragraphs=["The rupee fell 77.7%."], fact_ids=["C1.1"])  # in no fact
+    good = editor.Revision(paragraphs=["The rupee took 5.3 points off."], fact_ids=["C1.1"])
+    c = FakeClient([parsed(bad), parsed(bad), parsed(good)])
+    monkeypatch.setattr(llm, "_client", lambda m: c)
+    i = idea().model_copy(update={"report": report()})
+    out, model = editor.revise(i, "bear", "Lead with the rupee", llm.Meter())
+    cfg = get_settings().trade_lab
+    assert [call[1]["model"] for call in c.calls] == [cfg.talk_model] * 2 + [
+        cfg.fallback_talk_model
+    ]
+    assert model == cfg.fallback_talk_model
+    assert out.sections[1].paragraphs == ["The rupee took 5.3 points off."]
 
 
 def test_round_two_keeps_figures_the_user_typed_in_substack():

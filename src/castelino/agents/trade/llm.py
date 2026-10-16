@@ -25,7 +25,22 @@ PRICES: dict[str, tuple[float, float]] = {
     "gpt-6-luna": (0.10, 0.50),
     "deepseek/deepseek-v4-pro": (1.30, 2.60),
     "claude-opus-5-5": (4.0, 20.0),
+    "anthropic/claude-haiku-5.5": (0.10, 0.50),  # OpenRouter list, 2026-10-16
+    "anthropic/claude-sonnet-5.5": (2.0, 10.0),
 }
+NAMES = {  # how the Talk 2 trail names a model
+    "anthropic/claude-haiku-5.5": "Claude Haiku 5.5",
+    "anthropic/claude-sonnet-5.5": "Claude Sonnet 5.5",
+    "deepseek/deepseek-v4-pro": "DeepSeek V4 Pro",
+    "gpt-6-luna": "GPT-6 Luna",
+    "gpt-6-sol": "GPT-6 Sol",
+}
+
+
+def label(model: str) -> str:
+    return NAMES.get(model, model)
+
+
 SEARCH_FEE = 0.01  # assumed $ per OpenAI web search call (2025 rate); confirm on the invoice
 # one cited gpt-6-luna search ≈ 65k tokens in, 3.7k out (benchmark medians, 2026-10-15) + the call fee
 SEARCH_USD = SEARCH_FEE + (65_000 * 0.10 + 3_700 * 0.50) / 1e6

@@ -3,11 +3,19 @@ cited fact). Shape: the report's fixed structure. Style: no dashes as punctuatio
 
 from __future__ import annotations
 
+import re
+
 from castelino.agents.trade.models import BODY, Report
 from castelino.agents.update.guard import _FIG, unsupported
 from castelino.agents.update.models import Fact
 
 DASHES = ("—", "–")
+# fact ids a model writes into prose, "[NA1.14, NB1.43]" or "(F1.3)": they belong in fact_ids (the chips)
+_IDS = re.compile(r"\s*[\[(](?:[A-Z]{1,3}\d+\.\d+(?:,\s*)?)+[\])]")
+
+
+def strip_ids(text: str) -> str:
+    return _IDS.sub("", text)
 
 
 def figures(text: str) -> set[float]:

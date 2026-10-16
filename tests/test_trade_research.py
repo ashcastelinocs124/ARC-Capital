@@ -14,7 +14,7 @@ from castelino.agents.trade.models import (
     StepError,
     TradeIdea,
 )
-from tests.trade_fakes import FakeClient, parsed, said, tool_call
+from tests.trade_fakes import FakeClient, fact, parsed, said, tool_call
 
 PX = pd.Series(np.linspace(100, 120, 400), index=pd.bdate_range("2025-06-01", periods=400))
 
@@ -104,6 +104,29 @@ def test_news_desk_with_few_outlets_searches_again_and_keeps_only_checked_findin
     assert runs[0].domains == ["livemint.com", "reuters.com"]
     assert [f.claim for f in runs[0].report.findings] == ["Selling slowed in October."]
     assert runs[0].report.summary == "s2" and [f.id for f in facts] == ["NA1.1", "NA1.2"]
+
+
+def test_a_talk_question_runs_one_desk_of_four_searches_with_q_facts(fake):
+    """Talk 2 researches inline: one news desk, at most 4 searches, facts numbered Q<n>. so a second
+    question can't reuse the first one's ids, and no top-up searches for few outlets (2026-10-16)."""
+    ran: list[str] = []
+
+    def search(system, user, model=None):
+        ran.append(user)
+        return fake_search(system, user, model)
+
+    i = idea()
+    i.facts.append(fact("Q1.1", "From an earlier question.", []))
+    queries = [f"RBI rates {k}" for k in range(6)]
+    fake.script = [
+        said(calls=[tool_call("web_search", {"query": q}, f"c{k}") for k, q in enumerate(queries)]),
+        said("done"),
+        parsed(DeskReport(findings=[], summary="s", unanswered=[])),
+    ]
+    run, facts = desks.ask(i, "What did the RBI say this week?", llm.Meter(), search=search)
+    assert run.desk == "talk" and len(ran) == 4
+    assert facts and all(f.id.startswith("Q2.") for f in facts)
+    assert len(fake.calls) == 3  # one tool loop: no outlet top-up
 
 
 def test_all_desks_failing_is_a_step_error(fake):

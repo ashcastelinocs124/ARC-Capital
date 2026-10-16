@@ -170,7 +170,7 @@ trade_lab:
   data_dir: data/trades
   framer_model: deepseek/deepseek-v4-pro
   debate_model: deepseek/deepseek-v4-pro
-  talk_model: deepseek/deepseek-v4-pro
+  talk_model: anthropic/claude-haiku-5.5  # answers and slight edits; 4 of 4 test edits passed (2026-10-16)
   orchestrator_model: gpt-6-sol
   desk_model: gpt-6-luna
   chart_model: gpt-6-luna
@@ -179,7 +179,7 @@ trade_lab:
   editor_model: claude-opus-5-5
   editor_effort: high
   fallback_debate_model: gpt-6-sol
-  fallback_talk_model: gpt-6-luna
-  max_rounds: 3
+  fallback_talk_model: anthropic/claude-sonnet-5.5  # edits Haiku fails the number check on twice
+  talk_research_calls: 4
   cost_cap_usd: 5.0
   concurrency: 2

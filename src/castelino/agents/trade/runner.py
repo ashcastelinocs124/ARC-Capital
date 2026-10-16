@@ -1,6 +1,7 @@
 """Runs Trade Lab's steps in background threads (at most trade_lab.concurrency ideas at once). Each step
 saves through store.edit(); a failed or interrupted step reruns from its start, finished steps never rerun.
-The $5 cap stops a step whose estimate would cross it. Talks and "another idea" run in the request."""
+The $5 cap stops a step whose estimate would cross it. Talk 1 and "another idea" run in the request; a
+Talk 2 message is a "talk" job (search if needed, answer, edit, push) whose live step is job.message."""
 
 from __future__ import annotations
 
@@ -10,6 +11,7 @@ import threading
 from castelino.agents.trade import (
     chartist,
     debate,
+    decide,
     desks,
     editor,
     framer,
@@ -33,7 +35,7 @@ from castelino.config import get_settings
 
 log = logging.getLogger(__name__)
 # $ per step (round 1 estimates from the cost model in the spec's cost.py)
-EST = {"frame_debate": 0.40, "rerun_debate": 0.30, "research": 0.80, "write": 1.00}
+EST = {"frame_debate": 0.40, "rerun_debate": 0.30, "research": 0.80, "write": 1.00, "talk": 0.15}
 RUNNING = {
     "frame_debate": "framing",
     "rerun_debate": "debating",
@@ -121,11 +123,113 @@ def _write(idea_id: str, meter: llm.Meter) -> None:
         i.substack, i.status = draft, "draft_ready"
 
 
+PART_NAMES = {**editor.SECTION_NAMES, "intro": "The introduction", "watch": "What to watch"}
+
+
+def _step(idea_id: str, text: str) -> None:
+    """The live line the Talk 2 panel shows while the talk job runs."""
+    with store.edit(idea_id) as i:
+        i.job = i.job.model_copy(update={"message": text})
+
+
+def _talk(idea_id: str, meter: llm.Meter) -> None:
+    """One Talk 2 message: search first if it needs new facts, answer, edit each part asked (the talk model,
+    then the fallback after two failed number checks), push the draft. The trail says what happened."""
+    cfg = get_settings().trade_lab
+    idea = store.load(idea_id)
+    ask = idea.talk[-1] if idea.talk else None
+    if ask is None or ask.talk != 2 or ask.role != "user":
+        raise StepError("There is no message waiting for an answer.")
+    trail: list[str] = []
+    spent = meter.total
+
+    def cost() -> str:
+        nonlocal spent
+        step, spent = meter.total - spent, meter.total
+        return f"${step:.3f}"
+
+    _step(idea_id, "Reading your message")
+    dec = decide.decide(talk.context(idea, 2), ask.text, ["research", "edit"], meter)
+    searched = dec.get("research", 0.0) >= cfg.decide_threshold
+    if searched:
+        _step(idea_id, f"Searching the news: up to {cfg.talk_research_calls} searches")
+        try:
+            run, facts = desks.ask(idea, ask.text, meter)
+        except StepError as e:
+            trail.append(f"Searched, found nothing usable ({str(e)[:80]}) · {cost()}")
+        else:
+            with store.edit(idea_id) as i:
+                i.facts += facts
+            idea = store.load(idea_id)
+            n = len(run.domains)
+            got = (
+                f"added {facts[0].id}" + (f" to {facts[-1].id}" if len(facts) > 1 else "")
+                if facts
+                else "nothing citable"
+            )
+            where = ", ".join(run.domains[:4]) or "none"
+            trail.append(f"Searched {n} source{'' if n == 1 else 's'}: {where} · {got} · {cost()}")
+    _step(idea_id, "Writing the answer")
+    msgs, _, edits = talk.reply(idea, 2, ask.to, ask.text, meter, decide_fn=lambda *a: dec)
+    reply = msgs[1]
+    known = "with the new facts" if searched else "from the facts we have"
+    trail.append(f"Answered {known} · {llm.label(cfg.talk_model)} · {cost()}")
+    if edits:
+        try:
+            mine = publish.hand_edited(idea)
+        except StepError:
+            mine = True  # can't tell, so don't risk overwriting the user's words
+        if mine:
+            reply.text += (
+                " (Not edited: you've edited the Substack draft since we last updated it, so this "
+                "would overwrite your edits. Make this change in Substack.)"
+            )
+            reply.action = ""
+        else:
+            rep = idea.report
+            for part, instruction in edits:
+                name = PART_NAMES[part]
+                _step(idea_id, f"Editing {name}")
+                try:
+                    rep, model = editor.revise(
+                        idea.model_copy(update={"report": rep}), part, instruction, meter
+                    )
+                except (StepError, ValueError) as e:
+                    trail.append(f"Not edited {name}: {str(e)[:120]} · {cost()}")
+                    continue
+                fell = model != cfg.talk_model
+                why = (
+                    f" after {llm.label(cfg.talk_model)} failed the number check twice"
+                    if fell
+                    else ""
+                )
+                trail.append(f"Edited {name} · {llm.label(model)}{why} · {cost()}")
+            if rep is idea.report:
+                reply.text += " (The edit couldn't be applied; see below.)"
+                reply.action = ""
+            else:
+                with store.edit(idea_id) as i:
+                    i.report = rep
+                _step(idea_id, "Updating the Substack draft")
+                try:
+                    draft = publish.push(store.load(idea_id))  # a deleted draft comes back
+                except Exception as e:  # noqa: BLE001 - the edit is saved; the next edit pushes it
+                    trail.append(f"The Substack draft didn't update: {str(e)[:120]}")
+                else:
+                    with store.edit(idea_id) as i:
+                        i.substack = draft
+                    trail.append("Draft updated in Substack")
+    reply.trail = trail
+    with store.edit(idea_id) as i:
+        i.talk.append(reply)
+
+
 STEPS = {
     "frame_debate": _frame_debate,
     "rerun_debate": _rerun_debate,
     "research": _research,
     "write": _write,
+    "talk": _talk,
 }
 
 
@@ -133,7 +237,11 @@ STEPS = {
 def _run(idea_id: str, step: str) -> None:
     with _semaphore():
         with store.edit(idea_id) as i:
-            i.job, i.status = Job(step=step, state="running", at=store.now()), RUNNING[step]
+            # a talk job leaves the idea as it was (draft ready)
+            i.job, i.status = (
+                Job(step=step, state="running", at=store.now()),
+                RUNNING.get(step, i.status),
+            )
         meter, state, msg = llm.Meter(), "done", ""
         try:
             STEPS[step](idea_id, meter)
@@ -230,53 +338,24 @@ def choose(idea_id: str, picks: dict[str, str]) -> None:
     submit(idea_id, "write")
 
 
-def start_round(idea_id: str) -> None:
-    cfg = get_settings().trade_lab
-    with store.edit(idea_id) as i:
-        _need(i, "draft_ready")
-        if i.round >= cfg.max_rounds:
-            raise ValueError(f"this idea has used all {cfg.max_rounds} rounds")
-        if not [r for r in i.research if r.round == i.round + 1 and not r.removed]:
-            raise ValueError("add something to research in Talk 2 first")
-        if msg := _over_cap(i, "research"):
-            raise ValueError(msg)
-        i.round += 1
-    submit(idea_id, "research")
-
-
 def say(idea_id: str, talk_n: int, to: str, message: str) -> list[TalkMessage]:
+    """Talk 1 answers in the request. A Talk 2 message is saved, then answered by a talk job."""
     idea = store.load(idea_id)
-    _need(idea, "awaiting_view" if talk_n == 1 else "draft_ready")
+    if talk_n == 2:
+        _need(idea, "draft_ready")
+        ask = TalkMessage(talk=2, role="user", to=to, text=message, at=store.now())
+        with store.edit(idea_id) as i:
+            i.talk.append(ask)
+        submit(idea_id, "talk")
+        return [ask]
+    _need(idea, "awaiting_view")
     meter = llm.Meter()
-    msgs, item, edit = talk.reply(idea, talk_n, to, message, meter)
-    rep = None
-    if edit:
-        try:
-            if publish.hand_edited(idea):
-                raise StepError(
-                    "you've edited the Substack draft since we last updated it, so this would "
-                    "overwrite your edits. Make it in Substack, or send it to research: the next "
-                    "round keeps your edits"
-                )
-            rep = editor.revise(idea, edit[0], edit[1], meter)
-        except (StepError, ValueError) as e:
-            msgs[-1].text += f" (The edit couldn't be applied: {e})"
-            msgs[-1].action = ""
+    msgs, item, _ = talk.reply(idea, 1, to, message, meter)
     with store.edit(idea_id) as i:
         i.talk += msgs
         i.research += [item] if item else []
         i.cost_usd = round(i.cost_usd + meter.total, 4)
         i.fallbacks += meter.fallbacks
-        if rep:
-            i.report = rep
-    if rep:
-        try:
-            draft = publish.push(store.load(idea_id))  # a deleted draft comes back with a new id
-            with store.edit(idea_id) as i:
-                i.substack = draft
-        except Exception as e:  # noqa: BLE001 - the edit is saved; the draft can be pushed again
-            with store.edit(idea_id) as i:
-                i.talk[-1].text += f" The Substack draft didn't update: {str(e)[:120]}"
     return msgs
 
 

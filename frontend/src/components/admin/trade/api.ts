@@ -13,6 +13,7 @@ export type Item = { id: string; kind: "claim" | "question" | "moderator"; text:
 export type Msg = {
   talk: 1 | 2; role: "user" | "agent"; to: string; text: string; fact_ids: string[];
   decision: Record<string, number> | null; action: string; at: string;
+  trail: string[]; // Talk 2: what the assistant did, one line per step
 };
 export type Spec = {
   section: string; form: string; series: string[]; window_days: number; threshold: number | null;
@@ -69,7 +70,6 @@ export const trade = {
   research: (id: string) => req<Idea>("POST", `/${id}/research`),
   rerun: (id: string) => req<Idea>("POST", `/${id}/rerun-debate`),
   setFrame: (id: string, frame: Frame) => req<Idea>("PATCH", `/${id}/frame`, frame),
-  round: (id: string) => req<Idea>("POST", `/${id}/round`),
   another: (id: string, section: string) => req<Option>("POST", `/${id}/charts/${section}/another`),
   choose: (id: string, picks: Record<string, string>) => req<Idea>("POST", `/${id}/charts`, { picks }),
   retry: (id: string) => req<Idea>("POST", `/${id}/retry`),

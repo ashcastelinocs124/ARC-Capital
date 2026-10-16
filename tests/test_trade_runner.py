@@ -4,6 +4,7 @@ import pytest
 
 from castelino.agents.trade import (
     chartist,
+    decide,
     desks,
     editor,
     llm,
@@ -17,7 +18,6 @@ from castelino.agents.trade.models import (
     Brief,
     DeskReport,
     DeskRun,
-    ResearchItem,
     StepError,
     TalkMessage,
 )
@@ -104,46 +104,92 @@ def test_round_two_with_a_deleted_draft_writes_without_a_base(iid, monkeypatch):
     assert seen == [None] and store.load(iid).substack["draft_id"] == 8
 
 
-def _edit_reply(idea, t, to, message, meter):
-    msgs = [
-        TalkMessage(talk=t, role="user", text=message, at="x"),
-        TalkMessage(talk=t, role="agent", text="Done.", at="x", action="edit"),
+HAIKU = "anthropic/claude-haiku-5.5"
+SEEN: list = []  # the ideas talk.reply was given
+
+
+def _reply(*edits):
+    def reply(idea, t, to, message, meter, decide_fn=None):
+        SEEN.append(idea)
+        msgs = [
+            TalkMessage(talk=t, role="user", to=to, text=message, at="x"),
+            TalkMessage(talk=t, role="agent", to=to, text="Done.", at="x", action="edit"),
+        ]
+        return msgs, None, list(edits)
+
+    return reply
+
+
+def _revise(idea, part, ask, meter):
+    if part == "bear":
+        raise StepError("The edit failed the number check: 9.9%")
+    secs = [
+        s.model_copy(update={"paragraphs": [f"{part} edited."]}) if s.key == part else s
+        for s in idea.report.sections
     ]
-    return msgs, None, ("bear", "lead with the rupee")
+    return idea.report.model_copy(update={"sections": secs}), HAIKU
 
 
 @pytest.fixture
 def ready(iid, monkeypatch):
+    """A drafted idea whose Talk 2 job runs inline instead of on a thread."""
     with store.edit(iid) as i:
         i.status, i.report = "draft_ready", report()
         i.substack = {"draft_id": 7, "url": "u", "sha": publish.sha("pushed text")}
-    monkeypatch.setattr(talk, "reply", _edit_reply)
-    monkeypatch.setattr(editor, "revise", lambda idea, part, ask, m: report(watch="Revised."))
+    SEEN.clear()
+    monkeypatch.setattr(
+        runner, "submit", lambda idea_id, step, sync=False: runner._run(idea_id, step)
+    )
+    monkeypatch.setattr(decide, "decide", lambda ctx, msg, names, meter: {"edit": 1.0})
+    monkeypatch.setattr(talk, "reply", _reply(("bull", "open with valuation")))
+    monkeypatch.setattr(editor, "revise", _revise)
+    monkeypatch.setattr(publish, "_get", lambda draft_id: None)  # deleted, so nothing to overwrite
+    monkeypatch.setattr(publish, "push", lambda idea: {"draft_id": 9, "url": "u9", "sha": "h9"})
     return iid
 
 
-def test_talk_two_edit_saves_a_recreated_draft(ready, monkeypatch):
-    monkeypatch.setattr(publish, "_get", lambda draft_id: None)  # deleted, so nothing to overwrite
-    monkeypatch.setattr(publish, "push", lambda idea: {"draft_id": 9, "url": "u9", "sha": "h9"})
-    runner.say(ready, 2, "Editor", "lead with the rupee")
+def test_talk_two_runs_as_a_job_and_saves_the_edit_with_its_trail(ready):
+    """Talk 2 is an assistant, not rounds: the message runs as a job that edits, pushes and says how."""
+    runner.say(ready, 2, "ARC", "open the bull case with valuation")
     got = store.load(ready)
+    assert got.job.step == "talk" and got.job.state == "done" and got.status == "draft_ready"
+    assert got.report.sections[0].paragraphs == ["bull edited."]
     assert got.substack == {"draft_id": 9, "url": "u9", "sha": "h9"}
-    assert got.report.what_to_watch == "Revised."
+    ask, ans = got.talk[-2:]
+    assert (ask.role, ask.text, ans.role) == ("user", "open the bull case with valuation", "agent")
+    assert any(s.startswith("Edited The bull case · Claude Haiku 5.5") for s in ans.trail)
+    assert ans.trail[-1] == "Draft updated in Substack"
+
+
+def test_talk_two_edits_every_section_asked_and_says_which_failed(ready, monkeypatch):
+    monkeypatch.setattr(talk, "reply", _reply(("bull", "x"), ("bear", "x"), ("read", "x")))
+    pushes = []
+    monkeypatch.setattr(publish, "push", lambda idea: pushes.append(idea) or {"draft_id": 9})
+    runner.say(ready, 2, "ARC", "open bull, bear and our read with valuation")
+    got = store.load(ready)
+    paras = {s.key: s.paragraphs for s in got.report.sections}
+    assert paras["bull"] == ["bull edited."] and paras["read"] == ["read edited."]
+    assert paras["bear"] == ["INDA fell 13.0%."] and len(pushes) == 1
+    assert any("The bear case" in s and "9.9%" in s for s in got.talk[-1].trail)
+
+
+def test_talk_two_searches_first_when_the_message_needs_new_facts(ready, monkeypatch):
+    found = [fact("Q1.1", "The RBI held rates at 5.5%.", [5.5], "https://rbi.org.in/a")]
+    run = DeskRun(desk="talk", brief=BRIEF, calls=2, domains=["rbi.org.in"])
+    monkeypatch.setattr(decide, "decide", lambda ctx, msg, names, meter: {"research": 1.0})
+    monkeypatch.setattr(desks, "ask", lambda idea, q, meter: (run, found))
+    monkeypatch.setattr(talk, "reply", _reply())
+    runner.say(ready, 2, "ARC", "What did the RBI say this week?")
+    got = store.load(ready)
+    assert "Q1.1" in {f.id for f in got.facts} and "Q1.1" in SEEN[-1].fact_map()
+    assert got.talk[-1].trail[0].startswith("Searched 1 source: rbi.org.in · added Q1.1")
 
 
 def test_talk_two_edit_refuses_to_overwrite_hand_edits(ready, monkeypatch):
     body = '{"content": [{"type": "paragraph", "content": [{"type": "text", "text": "My own words."}]}]}'
     monkeypatch.setattr(publish, "_get", lambda draft_id: {"draft_body": body})
     monkeypatch.setattr(publish, "push", lambda idea: pytest.fail("pushed over the hand edits"))
-    msgs = runner.say(ready, 2, "Editor", "lead with the rupee")
-    assert "edited the Substack draft" in msgs[-1].text and msgs[-1].action == ""
-    assert store.load(ready).report.what_to_watch == "Watch the rupee."
-
-
-def test_start_round_over_the_cap_keeps_the_round(iid, monkeypatch):
-    with store.edit(iid) as i:
-        i.status, i.cost_usd = "draft_ready", 4.9
-        i.research = [ResearchItem(id="u1", kind="claim", text="x", round=2)]
-    with pytest.raises(ValueError, match="Cost cap"):
-        runner.start_round(iid)
-    assert store.load(iid).round == 1
+    runner.say(ready, 2, "ARC", "open the bull case with valuation")
+    got = store.load(ready)
+    assert "edited the Substack draft" in got.talk[-1].text and got.talk[-1].action == ""
+    assert got.report.sections[0].paragraphs == ["INDA fell 13.0%."]

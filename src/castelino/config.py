@@ -189,7 +189,9 @@ class TradeLabCfg(BaseModel):
     data_dir: str = "data/trades"
     framer_model: str = "deepseek/deepseek-v4-pro"  # OpenRouter ids contain a "/"
     debate_model: str = "deepseek/deepseek-v4-pro"  # bull, bear, moderator
-    talk_model: str = "deepseek/deepseek-v4-pro"  # talk answers, talk-2 edits, "another idea"
+    # talk answers, Talk 2 edits, "another idea": Haiku passed 4 of 4 test edits on the India report, DeepSeek
+    # V4 Pro 2 of 4 (2026-10-16); its edits that fail the number check twice go to fallback_talk_model
+    talk_model: str = "anthropic/claude-haiku-5.5"
     orchestrator_model: str = "gpt-6-sol"
     desk_model: str = "gpt-6-luna"
     chart_model: str = "gpt-6-luna"
@@ -199,14 +201,14 @@ class TradeLabCfg(BaseModel):
     editor_effort: str = "high"
     editor_max_tokens: int = 32000
     fallback_debate_model: str = "gpt-6-sol"  # used when OpenRouter is unset or failing
-    fallback_talk_model: str = "gpt-6-luna"
+    fallback_talk_model: str = "anthropic/claude-sonnet-5.5"
     opening_calls: int = 8
     rebuttal_calls: int = 2
     news_calls: int = 12
     technical_calls: int = 16
+    talk_research_calls: int = 4  # a Talk 2 question that needs new facts
     breadth_min_domains: int = 6
     breadth_extra_calls: int = 3
-    max_rounds: int = 3
     cost_cap_usd: float = 5.0
     concurrency: int = 2
     decide_threshold: float = 0.5

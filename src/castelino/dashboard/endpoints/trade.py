@@ -107,12 +107,6 @@ def research(idea_id: str):
     return _idea(idea_id)
 
 
-@router.post("/{idea_id}/round")
-def next_round(idea_id: str):
-    _do(runner.start_round, idea_id)
-    return _idea(idea_id)
-
-
 @router.post("/{idea_id}/charts/{section}/another")
 def another(idea_id: str, section: str):
     return _do(runner.another, idea_id, section).model_dump()

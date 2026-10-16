@@ -64,7 +64,7 @@ export default function TradeLab() {
                 className={cn("grid w-full grid-cols-[10px_1fr] gap-2.5 rounded-xl px-2 py-2 text-left hover:bg-surface-3", sel === r.id && "bg-accent-soft ring-1 ring-accent/30")}>
                 <span className={cn("mt-1.5 h-2 w-2 rounded-full", DOT[g])} />
                 <span><b className="block text-[13px] font-semibold leading-tight">{r.title}</b>
-                  <span className="text-[11.5px] text-muted">{r.job?.state === "failed" ? "Failed · retry" : LABEL[r.status]} · round {r.round}</span></span>
+                  <span className="text-[11.5px] text-muted">{r.job?.state === "failed" ? "Failed · retry" : LABEL[r.status]}</span></span>
               </button>
             ))}
           </div>
@@ -87,7 +87,7 @@ export default function TradeLab() {
               ))}
             </div>
             <div className="mt-4 flex items-center justify-between gap-3">
-              <span className="text-xs text-muted">Steps 1 and 2 take about 4 minutes. Up to 3 rounds and $5 per idea.</span>
+              <span className="text-xs text-muted">Steps 1 and 2 take about 4 minutes. Up to $5 per idea.</span>
               <button onClick={create} className="rounded-full bg-accent px-4 py-2 text-[13px] font-semibold text-on-accent">Run the debate →</button>
             </div>
           </div>
@@ -102,7 +102,7 @@ export default function TradeLab() {
                 <button onClick={() => act(trade.retry(idea.id))} className="rounded-full border border-danger px-3 py-1 text-xs font-semibold">Retry</button>
               </div>
             )}
-            {running && (
+            {running && job?.step !== "talk" && (
               <div className="rounded-xl bg-warning-soft px-4 py-2.5 text-sm text-warning">
                 {LABEL[idea.status]}… (started {job?.at.slice(11, 16)}). This page updates by itself.
               </div>
@@ -122,9 +122,7 @@ export default function TradeLab() {
                 <Draft idea={idea} />
                 <div className="space-y-3.5">
                   <Checks idea={idea} />
-                  {idea.round < 3
-                    ? <Talk idea={idea} n={2} onIdea={setIdea} busy={running} sendLabel="Send round 2" onSend={() => act(trade.round(idea.id))} />
-                    : <p className="text-sm text-muted">This idea has used all 3 rounds.</p>}
+                  <Talk idea={idea} n={2} onIdea={setIdea} busy={running} />
                 </div>
               </div>
             )}

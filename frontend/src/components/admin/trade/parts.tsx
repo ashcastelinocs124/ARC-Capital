@@ -166,22 +166,37 @@ function SendBar({ items, remove, onSend, label, busy }: {
   );
 }
 
-function decisionLabel(m: Msg, n: 1 | 2): string {
+function decisionLabel(m: Msg): string {
   const d = m.decision ?? {};
-  if (m.action.startsWith("edit")) return `↳ Decisions API: edit yes (${(d.edit ?? 0).toFixed(2)}) · applied to ${m.action.slice(5)}`;
-  if (m.action === "research") return `↳ Decisions API: yes (${(d.research ?? 0).toFixed(2)}) · added to ${n === 1 ? "research" : "round 2"}`;
+  if (m.action === "research") return `↳ Decisions API: yes (${(d.research ?? 0).toFixed(2)}) · added to research`;
   return `Decisions API: no (${(d.research ?? 0).toFixed(2)}) · not added`;
 }
 
+// One Talk 2 trail line ("Edited The bear case · Claude Haiku 5.5 · $0.003") as a chip and the rest.
+function Step({ line }: { line: string }) {
+  const bad = /^(Not edited|The Substack draft didn't)/.test(line);
+  const fell = line.includes("failed the number check twice");
+  const head = bad ? "Not done" : fell ? "Fallback" : line.split(" ")[0];
+  const rest = bad || fell ? line : line.slice(head.length + 1);
+  const tone = bad ? "bg-danger-soft text-danger" : fell ? "bg-text text-surface"
+    : head === "Searched" ? "bg-warning-soft text-warning" : head === "Answered" ? "bg-surface-3 text-muted" : "bg-accent-soft text-accent";
+  return (
+    <div className="flex items-baseline gap-1.5 text-[11.5px] text-muted">
+      <span className={cn("whitespace-nowrap rounded-full px-1.5 text-[10px] font-bold uppercase tracking-wide", tone)}>{head}</span>{rest}
+    </div>
+  );
+}
+
 export function Talk({ idea, n, onIdea, onSend, sendLabel, busy }: {
-  idea: Idea; n: 1 | 2; onIdea: (i: Idea) => void; onSend: () => void; sendLabel: string; busy: boolean;
+  idea: Idea; n: 1 | 2; onIdea: (i: Idea) => void; onSend?: () => void; sendLabel?: string; busy: boolean;
 }) {
   const [to, setTo] = useState("ARC");
   const [text, setText] = useState("");
   const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const msgs = idea.talk.filter((m) => m.talk === n);
-  const items = idea.research.filter((r) => r.round === (n === 1 ? idea.round : idea.round + 1) && !r.removed);
+  const items = idea.research.filter((r) => r.round === idea.round && !r.removed);
+  const working = n === 2 && busy && idea.job?.step === "talk";
   const send = () => {
     const m = text.trim();
     if (!m || waiting) return;
@@ -193,20 +208,30 @@ export function Talk({ idea, n, onIdea, onSend, sendLabel, busy }: {
   return (
     <div className={cn("grid rounded-2xl border border-warning/50 bg-surface", n === 1 && "md:grid-cols-[1.45fr_1fr]")}>
       <div className={cn("flex flex-col gap-2.5 p-4", n === 1 && "border-border md:border-r")}>
-        <div className="eyebrow text-warning">{n === 1 ? "Talk 1 · your thoughts on the bull and bear cases" : "Talk 2 · the draft"}</div>
+        <div className="eyebrow text-warning">{n === 1 ? "Talk 1 · your thoughts on the bull and bear cases" : "Talk 2 · your assistant"}</div>
+        {n === 2 && <p className="-mt-1.5 text-[11.5px] text-muted">Ask, or tell it what to change. It answers and edits with Claude Haiku 5.5, searches the news when it needs new facts, and calls Claude Sonnet 5.5 if an edit fails the number check twice.</p>}
         {msgs.map((m, i) => (
           <div key={i} className={cn("max-w-[94%] rounded-xl px-3 py-2 text-[13px] leading-relaxed text-text-2",
             m.role === "user" ? "self-end rounded-br-sm bg-surface-3" : "self-start rounded-bl-sm border border-border bg-surface-2")}>
             {m.role === "agent" && <div className="mb-0.5 text-[11px] font-bold text-muted">{m.to === "ARC" ? "ARC" : `@${m.to}`}</div>}
             {m.text}<Chips ids={m.fact_ids} facts={idea.facts} />
-            {m.role === "agent" && m.decision && (
+            {m.role === "agent" && (m.trail?.length ?? 0) > 0 && (
+              <div className="mt-1.5 flex flex-col gap-0.5">{m.trail.map((t, k) => <Step key={k} line={t} />)}</div>
+            )}
+            {m.role === "agent" && n === 1 && m.decision && (
               <div className={cn("mt-1.5 block w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                m.action.startsWith("edit") ? "bg-accent-soft text-accent" : m.action === "research" ? "bg-warning-soft text-warning" : "bg-surface-3 text-muted")}>
-                {decisionLabel(m, n)}
+                m.action === "research" ? "bg-warning-soft text-warning" : "bg-surface-3 text-muted")}>
+                {decisionLabel(m)}
               </div>
             )}
           </div>
         ))}
+        {working && (
+          <div className="self-start rounded-xl border border-dashed border-warning/60 bg-warning-soft/50 px-3 py-2 text-[12.5px] font-semibold text-warning">
+            <span className="mr-1.5 inline-block h-2.5 w-2.5 animate-spin rounded-full border-2 border-warning border-r-transparent align-[-1px]" />
+            {idea.job?.message || "Starting…"}
+          </div>
+        )}
         {n === 1 && (
           <div className="text-[11px] text-muted">Talking to {["ARC", "Bull", "Bear", "Moderator"].map((w) => (
             <button key={w} onClick={() => setTo(w)} className={cn("ml-1 rounded-full border px-2 py-0.5 font-semibold",
@@ -214,16 +239,16 @@ export function Talk({ idea, n, onIdea, onSend, sendLabel, busy }: {
         )}
         <textarea rows={2} value={text} onChange={(e) => setText(e.target.value)} disabled={busy}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-          placeholder={n === 1 ? "Your thoughts, or a question…" : "Edits, questions, or what to dig into next…"}
-          className="w-full rounded-xl border border-border-strong bg-surface-2 px-3 py-2 text-sm outline-none focus:border-accent" />
+          placeholder={n === 1 ? "Your thoughts, or a question…" : working ? "Working on your last message…" : "Ask, or tell me what to change…"}
+          className="w-full rounded-xl border border-border-strong bg-surface-2 px-3 py-2 text-sm outline-none focus:border-accent disabled:opacity-60" />
         {error && <div className="text-xs text-danger">{error}</div>}
-        {waiting && <div className="text-xs text-muted">Thinking…</div>}
-        {n === 2 && <SendBar items={items} remove={remove} onSend={onSend} label={sendLabel} busy={busy} />}
+        {waiting && <div className="text-xs text-muted">{n === 1 ? "Thinking…" : "Sending…"}</div>}
+        {n === 2 && <div className="flex justify-between text-[11.5px] text-muted"><span>One message at a time · no rounds</span><span>${idea.cost_usd.toFixed(2)} of $5 spent</span></div>}
       </div>
-      {n === 1 && (
+      {n === 1 && onSend && (
         <div className="p-4"><div className="eyebrow">Going to research</div>
           <p className="mt-0.5 text-xs text-muted">After each message OpenAI's Decisions API answers yes or no: yes adds it here. Remove anything you don't want.</p>
-          <SendBar items={items} remove={remove} onSend={onSend} label={sendLabel} busy={busy} />
+          <SendBar items={items} remove={remove} onSend={onSend} label={sendLabel ?? "Send to research"} busy={busy} />
           <p className="mt-2 text-[11.5px] text-muted">Your claims are never used as facts. A desk has to find a source first.</p></div>
       )}
     </div>

@@ -293,17 +293,21 @@ agents:
     group: Trade Lab
     family: Trade Lab
     dependencies:
-      - {key: OPENROUTER_API_KEY, required: false, why: "DeepSeek V4 Pro via OpenRouter; unset = gpt-6-luna"}
+      - {key: OPENROUTER_API_KEY, required: true, why: "Claude Haiku 5.5 via OpenRouter; edits it fails twice go to Claude Sonnet 5.5"}
     prompt: "castelino.agents.trade.talk:SYSTEM"
     schema: "castelino.agents.trade.talk:Reply"
     summary: >-
-      Answers the user in Talk 1 (after the debate) and Talk 2 (about the draft) from what the idea
-      already holds, never searching; cites fact ids or says it can't answer. Talk 2 edits revise one part.
+      Answers the user in Talk 1 (after the debate) from what the idea already holds. Talk 2 is an
+      assistant: each message runs as a job that searches first when it needs new facts (one news desk,
+      up to 4 searches), answers, edits every part asked and updates the draft, listing each step, model
+      and cost. No rounds.
     tools:
       - {name: "Number check (code)", does: "Figures must be in cited facts; else a plain refusal"}
+      - {name: "News desk (Talk 2)", does: "Up to 4 cited searches in parallel; facts numbered Q<n>."}
+      - {name: "Revise", does: "Claude Haiku 5.5 rewrites a part; two failed number checks hand it to Claude Sonnet 5.5"}
     memory:
       reads: ["Debate, findings, draft, facts, the last 6 messages"]
-      writes: ["Talk messages; research items; edited report parts"]
+      writes: ["Talk messages with their trail; research items (Talk 1); Q facts; edited report parts"]
       persists: "The idea record."
 
   - id: trade_decide
@@ -315,8 +319,9 @@ agents:
     prompt: "castelino.agents.trade.decide:PROMPT"
     schema: "castelino.agents.trade.decide:YesNo"
     summary: >-
-      Says yes or no after each talk message: worth researching (added to the list) and, in Talk 2,
-      an edit to the draft. Falls back to a gpt-6-luna yes/no if the beta API fails.
+      Says yes or no after each talk message: worth researching (Talk 1: added to the list; Talk 2:
+      searched right away) and, in Talk 2, an edit to the draft. Falls back to a gpt-6-luna yes/no if
+      the beta API fails.
     tools: []
     memory:
       reads: ["The talk context and the latest message"]
@@ -411,7 +416,7 @@ agents:
     tools:
       - {name: "Number guard (code)", does: "Every %, bp or pp must be in the cited facts"}
     memory:
-      reads: ["Everything in the idea; in round 2+, the current Substack draft"]
+      reads: ["Everything in the idea"]
       writes: ["The report; the draft id in data/trades/<id>/substack.json"]
       persists: "The idea record and the draft."
 
@@ -649,7 +654,8 @@ systems:
     output: "A Special Topics draft on Substack (you publish)"
     blurb: >-
       A bull and a bear debate your trade idea with real data, you talk it through, three desks dig into
-      what's open, you pick a chart per section, and Claude writes a checked draft. Up to 3 rounds.
+      what's open, you pick a chart per section, and Claude writes a checked draft. Then you edit it by
+      talking to an assistant.
     lanes:
       - title: "Trade Lab 1 · Debate"
         flow: [["Your idea"], ["agent:trade_framer|thesis + tickers"], ["agent:trade_bull|own research", "agent:trade_bear|own research"], ["agent:trade_moderator|settled · open"], ["end:↓ Talk 1"]]
@@ -657,8 +663,9 @@ systems:
       - title: "Trade Lab 2 · Talk and research"
         flow: [["agent:trade_talk|Talk 1"], ["agent:trade_decide|research? yes/no"], ["agent:trade_orchestrator|3 briefs"], ["agent:trade_news_desk|2 news desks", "agent:trade_technical_desk|technical"], ["end:↓ charts"]]
       - title: "Trade Lab 3 · Charts and draft"
-        flow: [["agent:trade_chartist|up to 3 per section"], ["gate:You pick|one per section"], ["agent:trade_editor|Claude"], ["code:Number guard|1 retry"], ["end:Substack draft|Talk 2 · next round"]]
-        loops: [{from: 4, to: 0, label: "round 2 and 3"}]
+        flow: [["agent:trade_chartist|up to 3 per section"], ["gate:You pick|one per section"], ["agent:trade_editor|Claude"], ["code:Number guard|1 retry"], ["end:Substack draft|↓ Talk 2"]]
+      - title: "Trade Lab 4 · Talk 2 assistant"
+        flow: [["Your message"], ["agent:trade_decide|research? edit?"], ["agent:trade_news_desk|≤4 searches, if needed"], ["agent:trade_talk|Haiku answers + edits"], ["end:Draft updated|Sonnet if checks fail"]]
 
   - group: Theme Charts
     trigger: "Cron on the Fly server at 08:00 ET, weekdays"

@@ -118,7 +118,7 @@ def test_another_uses_the_talk_model(setup, monkeypatch):
     fake.script = [parsed(SpecList(specs=[spec("bear", "calendar")]))]
     opt, _ = chartist.another(idea, "bear", llm.Meter(), src=SRC)
     assert opt.spec.form == "calendar" and opt.file
-    assert fake.calls[0][1]["model"] == "deepseek/deepseek-v4-pro"
+    assert fake.calls[0][1]["model"] == "anthropic/claude-haiku-5.5"
 
 
 def test_agents_see_each_instrument_by_full_name_and_ticker(setup):

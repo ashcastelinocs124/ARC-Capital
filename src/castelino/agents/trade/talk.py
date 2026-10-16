@@ -1,6 +1,7 @@
-"""The user's two talks. Talk 1 (after the debate) and Talk 2 (about the draft): DeepSeek V4 Pro answers from
-what this idea already holds, never searching; the OpenAI Decisions API says yes/no to "worth researching?"
-(and in Talk 2, "is this an edit?"). Yes → a research item (Talk 2: for the next round) or an edit."""
+"""The user's two talks, answered by the talk model (Claude Haiku 5.5) from what this idea already holds.
+Talk 1 (after the debate): the OpenAI Decisions API says yes/no to "worth researching?", and yes adds a
+research item for round 1. Talk 2 (the draft) is an assistant: the runner's talk job searches first when
+needed, and the reply names every section to edit; it never queues research for a later round."""
 
 from __future__ import annotations
 
@@ -28,12 +29,12 @@ research and the facts below: never look anything up and never guess. Every numb
 you cite by id; if the facts can't answer, say so plainly. Under 120 words, no dashes, no buy or sell calls.
 Also fill: research_question, one line a research desk could act on (for a claim the user made, phrase it as
 something to verify); research_kind, claim if the user asserted something, else question; and, only when
-the user asks to change the draft, edit_part (intro, bull, bear, question, technical, read or watch) and
-edit_instruction; otherwise edit_part is none and edit_instruction is empty.
+the user asks to change the draft, edit_parts (each part the change touches: intro, bull, bear, question,
+technical, read or watch) and edit_instruction; otherwise edit_parts is [] and edit_instruction is empty.
 """
     + NAMES
 )
-Part = Literal["none", "intro", "bull", "bear", "question", "technical", "read", "watch"]
+Part = Literal["intro", "bull", "bear", "question", "technical", "read", "watch"]
 
 
 class Reply(BaseModel):
@@ -41,7 +42,7 @@ class Reply(BaseModel):
     fact_ids: list[str]
     research_question: str
     research_kind: Literal["claim", "question"]
-    edit_part: Part
+    edit_parts: list[Part]
     edit_instruction: str
 
 
@@ -108,15 +109,18 @@ def reply(idea: TradeIdea, talk: int, to: str, message: str, meter: llm.Meter, *
             rep = rep.model_copy(update={"answer": NO_ANSWER, "fact_ids": []})
     names = ["research", "edit"] if talk == 2 else ["research"]
     dec = (decide_fn or decide.decide)(ctx, message, names, meter)
-    item, edit, action = None, None, ""
-    if talk == 2 and dec.get("edit", 0.0) >= cfg.decide_threshold and rep.edit_part != "none":
-        edit, action = (rep.edit_part, rep.edit_instruction or message), f"edit:{rep.edit_part}"
+    item, edits, action = None, [], ""
+    if talk == 2:
+        if dec.get("edit", 0.0) >= cfg.decide_threshold and rep.edit_parts:
+            parts = list(dict.fromkeys(rep.edit_parts))
+            edits = [(p, rep.edit_instruction or message) for p in parts]
+            action = "edit:" + ",".join(parts)
     elif dec.get("research", 0.0) >= cfg.decide_threshold:
         item = ResearchItem(
             id=uuid.uuid4().hex[:8],
             kind=rep.research_kind,
             text=rep.research_question or message,
-            round=idea.round + (1 if talk == 2 else 0),
+            round=idea.round,
         )
         action = "research"
     t = now()
@@ -126,11 +130,11 @@ def reply(idea: TradeIdea, talk: int, to: str, message: str, meter: llm.Meter, *
             talk=talk,
             role="agent",
             to=to,
-            text=rep.answer,
+            text=guard.strip_ids(rep.answer),
             fact_ids=rep.fact_ids,
             decision=dec,
             action=action,
             at=t,
         ),
     ]
-    return out, item, edit
+    return out, item, edits

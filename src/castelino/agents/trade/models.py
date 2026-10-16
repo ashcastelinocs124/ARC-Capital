@@ -85,7 +85,9 @@ class Moderation(BaseModel):
 
 
 class Brief(BaseModel):
-    desk: Literal["news_1", "news_2", "technical"]
+    desk: Literal[
+        "news_1", "news_2", "technical", "talk"
+    ]  # talk: a Talk 2 question, searched inline
     title: str
     brief: str
     must_answer: list[str]
@@ -166,8 +168,11 @@ class TalkMessage(BaseModel):
     text: str
     fact_ids: list[str] = Field(default_factory=list)
     decision: dict[str, float] | None = None  # e.g. {"research": 0.93}
-    action: str = ""  # "research", "edit:bear", or ""
+    action: str = ""  # "research", "edit:bull,bear", or ""
     at: str
+    trail: list[str] = Field(
+        default_factory=list
+    )  # Talk 2: what the assistant did, one line per step
 
 
 class DeskRun(BaseModel):
