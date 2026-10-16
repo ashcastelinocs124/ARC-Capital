@@ -146,6 +146,19 @@ export default function Costs() {
   const first = data.rows.reduce<string | null>((a, r) => (r.provider === "fly" || (a !== null && r.day >= a) ? a : r.day), null);
   const fly = (p: Provider) => p === "fly";
   const unpriced = group(data.rows, "model").filter((g) => g.usd === null);
+  // Chart segments: one per provider, except OpenRouter, which gets one per model (priciest first) in
+  // shades of its purple, so the models stay readable as one provider.
+  const orModels = group(data.rows.filter((r) => r.provider === "openrouter"), "model").map((g) => g.k);
+  const segs = PROVIDERS.flatMap(([p, name, color]) =>
+    p !== "openrouter"
+      ? [{ key: p, name, color, rows: (rs: Row[]) => rs.filter((r) => r.provider === p) }]
+      : orModels.map((m, i) => ({
+          key: m,
+          name: m.split("/").pop()!,
+          color: `color-mix(in srgb, ${color} ${100 - (i * 55) / Math.max(1, orModels.length - 1)}%, white)`,
+          rows: (rs: Row[]) => rs.filter((r) => r.model === m),
+        })),
+  );
   const every = range > 30 ? 14 : range > 7 ? 5 : 1;
   const filter = (
     <button onClick={() => setPicked(null)} disabled={!picked} className="text-xs font-semibold text-accent disabled:cursor-default">
@@ -176,9 +189,12 @@ export default function Costs() {
       <div className="card relative p-4 md:p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="text-[15px] font-semibold text-text">Spend per day</h2>
-          <div className="flex gap-3.5 text-xs text-text-2">
-            {PROVIDERS.map(([p, name, color]) => (
-              <span key={p} className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm" style={{ background: color }} />{name}</span>
+          <div className="flex flex-wrap gap-x-3.5 gap-y-1 text-xs text-text-2">
+            {segs.map((g) => (
+              <span key={g.key} className="inline-flex items-center gap-1.5">
+                <i className="h-2.5 w-2.5 rounded-sm" style={{ background: g.color }} />
+                {g.key.includes("/") ? <span className="font-mono">{g.name}</span> : g.name}
+              </span>
             ))}
           </div>
         </div>
@@ -200,9 +216,9 @@ export default function Costs() {
                   picked && picked !== d && "opacity-35")}>
                 <div className={cn("flex w-full flex-col-reverse overflow-hidden rounded-t-[3px]", dayUsd > 0 && (picked === d || hover === i) && "ring-2 ring-text")}
                   style={{ height: `${(dayUsd / top) * 100}%` }}>
-                  {PROVIDERS.map(([p, , color]) => {
-                    const v = usd(rows.filter((r) => r.provider === p));
-                    return v > 0 && <div key={p} style={{ height: `${(v / dayUsd) * 100}%`, background: color }} />;
+                  {segs.map((g) => {
+                    const v = usd(g.rows(rows));
+                    return v > 0 && <div key={g.key} style={{ height: `${(v / dayUsd) * 100}%`, background: g.color }} />;
                   })}
                 </div>
               </button>
@@ -220,11 +236,15 @@ export default function Costs() {
           return (
             <div className="pointer-events-none absolute top-12 z-10 whitespace-nowrap rounded-lg border border-border-strong bg-surface-3 px-2.5 py-2 text-xs text-text"
               style={{ left: `clamp(8px, calc(${((hover + 0.5) / days.length) * 100}% - 110px), calc(100% - 300px))` }}>
-              <b>{fmtDay(d)}</b> · {money(usd(rows))}
-              <br />
-              {PROVIDERS.map(([p, name]) => `${name} ${money(usd(rows.filter((r) => r.provider === p)))}`).join(" · ")}
-              <br />
-              <span className="text-muted">{rows.length ? `${sum(rows, "calls")} calls · click to filter` : "No calls logged"}</span>
+              <div><b>{fmtDay(d)}</b> · {money(usd(rows))}</div>
+              {segs.map((g) => [g, usd(g.rows(rows))] as const).filter(([, v]) => v > 0).map(([g, v]) => (
+                <div key={g.key} className="flex items-center gap-1.5">
+                  <i className="h-2 w-2 rounded-sm" style={{ background: g.color }} />
+                  <span className={g.key.includes("/") ? "font-mono" : ""}>{g.name}</span>
+                  <span className="ml-auto pl-3">{money(v)}</span>
+                </div>
+              ))}
+              <div className="mt-0.5 text-muted">{rows.length ? `${sum(rows, "calls")} calls · click to filter` : "No calls logged"}</div>
             </div>
           );
         })()}
