@@ -5,6 +5,24 @@ from castelino.agents.weekly.models import WeeklyReport
 from tests.weekly_fixtures import fact, line, pick, trend
 
 
+def test_a_long_title_shrinks_until_it_clears_the_logo():
+    """Fly has no Helvetica: DejaVu Sans drew a 62 character title under the logo (2026-10-15)."""
+    import matplotlib
+    import matplotlib.pyplot as plt
+
+    from castelino.agents.weekly import charts as wc
+
+    long = "Exhibit 4: iShares MSCI India ETF (INDA) holds a different mix"
+    with matplotlib.rc_context({"font.family": "sans-serif", "font.sans-serif": ["DejaVu Sans"]}):
+        fig = plt.figure(figsize=(6.4, 3.9))
+        size = wc._title_size(fig, long)
+        t = fig.text(0.06, 0.905, long, fontsize=size, fontweight="bold")
+        right = t.get_window_extent(fig.canvas.get_renderer()).x1 / fig.bbox.width
+        assert size < 13 and right <= wc.LOGO_LEFT
+        assert wc._title_size(fig, "Exhibit 1: Yields rose") == 13
+        plt.close(fig)
+
+
 def test_window_labels():
     assert [window_label(d) for d in (7, 30, 90, 180, 365, 1100)] == [
         "last week",

@@ -332,8 +332,17 @@ export function ChartPicker({ idea, onIdea, busy }: { idea: Idea; onIdea: (i: Id
 export function Draft({ idea }: { idea: Idea }) {
   const r = idea.report;
   if (!r) return null;
-  const cover = idea.rounds.find((x) => x.n === idea.round)?.options.find((o) => o.spec.section === "intro" && o.chosen);
-  const outline = ["Introduction", "Key takeaways", ...r.sections.map((s) => SECTION_LABEL[s.key]), "What to watch"];
+  const picked = idea.rounds.find((x) => x.n === idea.round)?.options.filter((o) => o.chosen) ?? [];
+  const chart = (section: string) => {
+    const o = picked.find((c) => c.spec.section === section);
+    return o?.file ? <img src={trade.chartUrl(idea.id, o.file)} alt={o.spec.title} className="my-3 w-full rounded-lg border border-black/10" /> : null;
+  };
+  const outline = [["intro", "Introduction"], ...r.sections.map((s) => [s.key, SECTION_LABEL[s.key]]), ["watch", "What to watch"]];
+  const jump = (k: string) => document.getElementById(`draft-${k}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const para = "my-2 font-serif text-base leading-relaxed";
+  const head = "scroll-mt-4 border-t border-black/10 pt-4 font-serif text-xl font-bold";
+  // the editor marks emphasis as **bold**, which Substack renders; show it the same way here
+  const rich = (t: string) => t.split(/\*\*(.+?)\*\*/g).map((x, i) => (i % 2 ? <b key={i}>{x}</b> : x));
   return (
     <div className="overflow-hidden rounded-2xl bg-white text-black/90">
       <div className="flex justify-between border-b border-black/10 px-4 py-2.5 text-xs text-black/50">
@@ -344,12 +353,26 @@ export function Draft({ idea }: { idea: Idea }) {
         <div className="text-[11px] font-bold uppercase tracking-wider text-accent">ARC Special Topics</div>
         <h3 className="mt-1 font-serif text-[26px] font-bold leading-tight">{r.title}</h3>
         <p className="mb-3 text-[13.5px] text-black/55">{r.subtitle}</p>
-        <div className="text-[11px] font-bold uppercase tracking-wider text-black/50">Introduction</div>
-        {r.introduction.map((p, i) => <p key={i} className="my-1.5 font-serif text-base leading-relaxed">{p}</p>)}
+        <div className="mb-4 flex flex-wrap gap-1.5">{outline.map(([k, x]) => (
+          <button key={k} onClick={() => jump(k)} className="rounded-full bg-black/5 px-2 py-0.5 text-[11.5px] text-black/70 hover:bg-accent/15 hover:text-accent">{x}</button>
+        ))}</div>
+        <div id="draft-intro" className="scroll-mt-4 text-[11px] font-bold uppercase tracking-wider text-black/50">Introduction</div>
+        {r.introduction.map((p, i) => <p key={i} className={para}>{rich(p)}</p>)}
         <div className="mt-3 text-[11px] font-bold uppercase tracking-wider text-black/50">Key takeaways</div>
-        <ul className="list-disc pl-5 text-sm">{r.takeaways.map((t, i) => <li key={i} className="my-1">{t}</li>)}</ul>
-        {cover?.file && <img src={trade.chartUrl(idea.id, cover.file)} alt={cover.spec.title} className="mt-3 w-full rounded-lg border border-black/10" />}
-        <div className="mt-3 flex flex-wrap gap-1.5">{outline.map((x) => <span key={x} className="rounded-full bg-black/5 px-2 py-0.5 text-[11.5px] text-black/70">{x}</span>)}</div>
+        <ul className="list-disc pl-5 text-sm">{r.takeaways.map((t, i) => <li key={i} className="my-1">{rich(t)}</li>)}</ul>
+        {chart("intro")}
+        {r.sections.map((s) => (
+          <section key={s.key} className="mt-5">
+            <h4 id={`draft-${s.key}`} className={head}>{s.heading}</h4>
+            {chart(s.key)}
+            {s.paragraphs.map((p, i) => <p key={i} className={para}>{rich(p)}</p>)}
+          </section>
+        ))}
+        <section className="mt-5">
+          <h4 id="draft-watch" className={head}>What to watch</h4>
+          {chart("watch")}
+          <p className={para}>{rich(r.what_to_watch)}</p>
+        </section>
         {r.changes.length > 0 && (
           <div className="mt-3 rounded-lg bg-black/5 p-3 text-xs"><b>What changed from your Substack edits:</b>
             <ul className="list-disc pl-4">{r.changes.map((c, i) => <li key={i}>{c}</li>)}</ul></div>

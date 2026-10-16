@@ -88,6 +88,19 @@ def _fmt(v: float, unit: str, signed: bool = True) -> str:
     return f"{sign}{_num(v)}{unit if unit != 'level' else ''}"
 
 
+LOGO_LEFT = 0.84  # the logo's left edge, as a share of the figure's width
+
+
+def _title_size(fig, head: str, size: float = 13) -> float:
+    """The largest size up to 13pt at which the bold title ends before the logo, measured in the font
+    actually installed: Fly has no Helvetica, and DejaVu Sans runs wider than a character count expects."""
+    t = fig.text(0.06, 0.905, head, fontsize=size, fontweight="bold")
+    width = t.get_window_extent(fig.canvas.get_renderer()).width / fig.bbox.width
+    t.remove()
+    room = LOGO_LEFT - 0.06 - 0.01
+    return size if width <= room else size * room / width
+
+
 def _frame(
     n: int,
     title: str,
@@ -125,8 +138,7 @@ def _frame(
         color="#475569",
     )
     head = f"Exhibit {n}: {title}"[:72]
-    # shrink a long title so it stops short of the logo (13pt fits ~52 characters)
-    fig.text(0.06, 0.905, head, fontsize=min(13, 13 * 52 / len(head)), fontweight="bold")
+    fig.text(0.06, 0.905, head, fontsize=_title_size(fig, head), fontweight="bold")
     if "\n" in sub:  # a wrapped subtitle hangs from under the title instead of growing up into it
         fig.text(0.06, 0.885, sub, fontsize=10, color=INK2, va="top")
     else:
@@ -135,7 +147,7 @@ def _frame(
     fig.text(0.06, 0.02, f"Data: {data}"[:110], fontsize=8, color=INK2)
     logo = _logo()
     if logo is not None:
-        logo_ax = fig.add_axes((0.84, 0.83, 0.12, 0.15))
+        logo_ax = fig.add_axes((LOGO_LEFT, 0.83, 0.12, 0.15))
         logo_ax.imshow(logo)
         logo_ax.axis("off")
     path.parent.mkdir(parents=True, exist_ok=True)
