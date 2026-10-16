@@ -4,6 +4,7 @@ plus `technicals` and `cot`. Every number is computed here, never by the model, 
 from __future__ import annotations
 
 import math
+from concurrent.futures import Future, ThreadPoolExecutor
 
 import pandas as pd
 
@@ -88,10 +89,25 @@ class TradeToolBox(ToolBox):
     def __init__(self, *args, cftc=None, meter=None, **kw):
         super().__init__(*args, **kw)
         self._cftc, self.meter = cftc, meter
+        self._early: dict[str, Future] = {}
 
     def specs(self) -> list[dict]:
         names = [*self.allowed, "post_to_board", "read_board"]
         return [{"type": "function", "name": n, "strict": True, **TRADE_SPECS[n]} for n in names]
+
+    def prefetch(self, calls: list[tuple[str, dict | None]]) -> None:
+        """Run a turn's web searches at once (each takes ~30s). call() still takes them in order, so fact ids
+        and the budget come out as before; a search past the budget never starts."""
+        room = max(0, self.max_calls - self.calls)
+        qs = {
+            a["query"]
+            for n, a in calls[:room]
+            if n == "web_search" and isinstance(a, dict) and isinstance(a.get("query"), str)
+        }
+        if "web_search" not in self.allowed or len(qs) < 2:
+            return
+        with ThreadPoolExecutor(len(qs)) as pool:  # ids are renumbered when call() takes each one
+            self._early = {q: pool.submit(ToolBox._web_search, self, q) for q in qs}
 
     def _web_search(self, query: str) -> list[Fact]:
         from castelino.agents.trade.llm import SEARCH_USD
@@ -100,6 +116,8 @@ class TradeToolBox(ToolBox):
             self.meter is not None
         ):  # searches run outside llm.py, so they're priced here for the cap
             self.meter.add(SEARCH_USD)
+        if early := self._early.pop(query, None):
+            return self._renumber(early.result())
         return super()._web_search(query)
 
     def _technicals(self, ticker: str, vs: str) -> list[Fact]:

@@ -8,7 +8,15 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 
 from castelino.agents.trade import guard, llm, loop
-from castelino.agents.trade.models import Frame, Moderation, StepError, Turn, TurnDraft
+from castelino.agents.trade.models import (
+    NAMES,
+    Frame,
+    Moderation,
+    StepError,
+    Turn,
+    TurnDraft,
+    instruments,
+)
 from castelino.agents.trade.tools import TradeToolBox, prefix
 from castelino.agents.update.models import Fact
 from castelino.agents.weekly.board import Board
@@ -17,13 +25,14 @@ from castelino.config import get_settings
 SIDE = """You are the {side} in a debate about a trade idea for ARC Research. Argue the {stance} case as
 strongly as the evidence allows. Use your tools to find data; every number you write must come from a fact
 and you must cite those fact ids. Plain English, under 120 words, no dashes as punctuation, never a buy or
-sell recommendation.
+sell recommendation. {names}
 Thesis: {thesis}
-Tickers: {tickers}. Horizon: {horizon} months. What would prove it wrong: {wrong}"""
-BULL = SIDE.replace("{side}", "bull").replace("{stance}", "supporting")
-BEAR = SIDE.replace("{side}", "bear").replace("{stance}", "opposing")
-MODERATOR = """You moderate a bull/bear debate for ARC Research. List what both sides' evidence settles
-(cite fact ids) and 2 to 4 questions the debate left open, each with why it matters. Do not pick a winner."""
+Instruments: {tickers}. Horizon: {horizon} months. What would prove it wrong: {wrong}"""
+BULL = SIDE.replace("{side}", "bull").replace("{stance}", "supporting").replace("{names}", NAMES)
+BEAR = SIDE.replace("{side}", "bear").replace("{stance}", "opposing").replace("{names}", NAMES)
+MODERATOR = f"""You moderate a bull/bear debate for ARC Research. List what both sides' evidence settles
+(cite fact ids) and 2 to 4 questions the debate left open, each with why it matters. Do not pick a winner.
+{NAMES}"""
 ROUNDS = ("opening", "first rebuttal", "second rebuttal")
 
 
@@ -64,7 +73,7 @@ def run(
         )
         for side in ("bull", "bear")
     }
-    tickers = ", ".join(f"{s.ticker} ({s.role})" for s in frame.stand_ins)
+    tickers = instruments(frame.stand_ins)
     system = {
         side: prompts[side].format(
             thesis=frame.thesis,

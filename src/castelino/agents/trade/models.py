@@ -37,7 +37,22 @@ class StepError(RuntimeError):
 class StandIn(BaseModel):
     ticker: str
     role: Literal["subject", "benchmark"]
-    label: str
+    label: str  # the instrument's full name, e.g. iShares MSCI India ETF
+
+    @property
+    def full(self) -> str:
+        return f"{self.label} ({self.ticker})"
+
+
+# every agent that writes words the user reads gets this rule (user directive, 2026-10-15)
+NAMES = (
+    "Name every fund, index or market by its full name with the ticker in brackets, every time, "
+    "e.g. iShares MSCI India ETF (INDA); never a bare ticker."
+)
+
+
+def instruments(stand_ins: list[StandIn]) -> str:
+    return "; ".join(f"{s.full}, the {s.role}" for s in stand_ins)
 
 
 class Frame(BaseModel):
@@ -97,6 +112,9 @@ class ChartSpec(BaseModel):
     section: Section
     form: str
     series: list[str]  # "yahoo:INDA" / "fred:DGS10"; the first is the subject
+    names: list[str] | None = (
+        None  # each series' full name, in order (None on specs saved before it)
+    )
     window_days: int
     threshold: float | None
     title: str

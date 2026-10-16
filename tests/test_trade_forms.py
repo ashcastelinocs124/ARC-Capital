@@ -65,6 +65,33 @@ def test_every_form_draws_a_png_and_reports_numbers(form, tmp_path):
     assert nums and all(isinstance(v, float) for _, v in nums)
 
 
+def test_charts_name_each_series_in_full_with_its_ticker(tmp_path):
+    names = ["iShares MSCI India ETF", "VanEck Semiconductor ETF"]
+    nums = forms.render(spec("bars", names=names), SRC, tmp_path / "b.png", 1)
+    assert [label for label, _ in nums] == [
+        "iShares MSCI India ETF (INDA) change",
+        "VanEck Semiconductor ETF (SMH) change",
+    ]
+    bare = forms.render(spec("bars"), SRC, tmp_path / "c.png", 1)  # older specs carry no names
+    assert bare[0][0] == "INDA change"
+
+
+@pytest.mark.parametrize("form", ["quadrant", "treemap"])
+def test_named_series_still_look_up_sector_weights_by_ticker(form, tmp_path):
+    names = [f"{sid.split(':')[1]} fund" for sid in SERIES[form]]
+    nums = dict(forms.render(spec(form, names=names), SRC, tmp_path / "n.png", 1))
+    tech = [v for label, v in nums.items() if label.startswith("INDA fund (INDA) tech")]
+    assert tech == [7.6]
+
+
+def test_a_title_the_frame_would_cut_off_is_an_error():
+    """The house frame cuts "Exhibit n: <title>" at 72 characters; full names make titles long."""
+    assert forms.spec_errors(spec("line", title="x" * 60)) == []
+    assert forms.spec_errors(spec("line", title="x" * 61)) == [
+        "title is over 60 characters and would be cut off; shorten the claim, keep the full names"
+    ]
+
+
 def test_catalog_has_twelve_forms_and_three_plain():
     assert len(forms.FORMS) == 12 and forms.PLAIN == {"line", "compare", "bars"}
     assert all(name in forms.catalog_text() for name in forms.FORMS)

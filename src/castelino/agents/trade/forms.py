@@ -6,7 +6,9 @@ numbers it shows, which become C facts the editor may cite. Twelve forms; line, 
 from __future__ import annotations
 
 import re
+import textwrap
 from collections.abc import Callable
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -66,8 +68,23 @@ class Form:
     draw: Callable
 
 
-def _name(sid: str) -> str:
+_NAMES: ContextVar[dict[str, str] | None] = ContextVar("names", default=None)  # set by render
+
+
+def _ticker(sid: str) -> str:
     return sid.split(":", 1)[1]
+
+
+def _name(sid: str) -> str:
+    """ "iShares MSCI India ETF (INDA)" when the spec named the series, else the bare ticker. A label, never
+    a data key: fetch with _ticker."""
+    full = (_NAMES.get() or {}).get(sid)
+    return f"{full} ({_ticker(sid)})" if full else _ticker(sid)
+
+
+def _wrap(label: str, width: int = 20) -> str:
+    """Full names run long: break them onto lines for tick labels."""
+    return textwrap.fill(label, width)
 
 
 def _sign(v: float, unit: str = "%") -> str:
@@ -142,13 +159,13 @@ def _bars(spec, data, src):
             ax.text(vals[n], yi, " " + _sign(vals[n]) + " ", va="center",
                     ha="left" if vals[n] >= 0 else "right", fontsize=8.5, fontweight="bold")  # fmt: skip
         ax.set_yticks(y)
-        ax.set_yticklabels(names, fontsize=8.5)
+        ax.set_yticklabels([_wrap(n) for n in names], fontsize=8.5)
         ax.axvline(0, color=INK2, lw=1)
         ax.set_xticks([])
         ax.margins(x=0.25)
 
     nums = [(f"{n} change", round(v, 1)) for n, v in vals.items()]
-    return draw, f"Change over the last {spec.window_days} days", nums, {"left": 0.2}
+    return draw, f"Change over the last {spec.window_days} days", nums, {"left": 0.25}
 
 
 # ── creative forms ───────────────────────────────────────────────────────────
@@ -204,7 +221,8 @@ def _squarify(vals, x, y, w, h):
 def _treemap(spec, data, src):
     funds = [_name(k) for k in spec.series]
     weights = {
-        f: {NICE.get(k, k): float(v) for k, v in src.sectors(f).items() if v > 0.004} for f in funds
+        f: {NICE.get(k, k): float(v) for k, v in src.sectors(_ticker(sid)).items() if v > 0.004}
+        for f, sid in zip(funds, spec.series, strict=True)
     }
 
     def draw(ax):
@@ -227,7 +245,7 @@ def _treemap(spec, data, src):
                     ax.text(x + 0.012, y + h - 0.02, f"{label}\n{v * 100:.1f}%", va="top",
                             fontsize=7.5 if w < 0.22 else 9, fontweight="bold",
                             color="white" if white else INK)  # fmt: skip
-            ax.text(i * 1.08, 0.93, f, fontsize=10, fontweight="bold", color=INK)
+            ax.text(i * 1.08, 0.93, _wrap(f, 34), fontsize=10, fontweight="bold", color=INK)
 
     nums = [
         (f"{f} technology weight", round(weights[f].get("Technology", 0.0) * 100, 1)) for f in funds
@@ -251,7 +269,7 @@ def _quadrant(spec, data, src):
     rows = []
     for k in markets:
         t = _name(k)
-        tech = float(src.sectors(t).get("technology", 0.0)) * 100
+        tech = float(src.sectors(_ticker(k)).get("technology", 0.0)) * 100
         s = data[k].dropna()
         rows.append((t, tech, _weekly_corr(s, data[bench]), _ytd(s)))
 
@@ -265,15 +283,21 @@ def _quadrant(spec, data, src):
         edges = [DARK if i == 0 else "white" for i in range(len(rows))]
         sc = ax.scatter(xs, ys, s=sizes, c=cs, cmap=DIV, norm=TwoSlopeNorm(0, -lim, lim),
                         edgecolor=edges, lw=1.5, zorder=3)  # fmt: skip
-        for i, (t, x, y, _) in enumerate(rows):
-            ax.annotate(t, (x, y), xytext=(11 if i == 0 else 7, -3), textcoords="offset points",
+        right = max(68.0, float(xs.max()) + 8) / 2
+        for i, (t, x, y, _) in enumerate(rows):  # names past the middle sit left of their dot
+            off, ha = (11 if i == 0 else 7), "left"
+            if x > right:
+                off, ha = -off, "right"
+            ax.annotate(_wrap(t, 26), (x, y), xytext=(off, -3), textcoords="offset points", ha=ha,
                         fontsize=8.5, fontweight="bold" if i == 0 else "normal", color=INK)  # fmt: skip
         ax.text(19.5, 0.46, "AI HEDGE ZONE", fontsize=7.5, color=GREEN, fontweight="bold",
                 ha="right", va="top")  # fmt: skip
         ax.set_xlim(-1, max(68.0, float(xs.max()) + 8))
         ax.set_ylim(min(0.0, float(ys.min()) - 0.05), 1)
         ax.set_xlabel("Technology weight in the fund (%)", fontsize=8.5, color=INK2)
-        ax.set_ylabel(f"Weekly correlation with {_name(bench)}", fontsize=8.5, color=INK2)
+        ax.set_ylabel(
+            _wrap(f"Weekly correlation with {_name(bench)}", 34), fontsize=8.5, color=INK2
+        )
         cb = ax.figure.colorbar(sc, ax=ax, fraction=0.03, pad=0.02, shrink=0.8)
         cb.set_label("Return this year (%)", fontsize=7.5)
         cb.ax.tick_params(labelsize=7)
@@ -340,7 +364,7 @@ def _slope(spec, data, src):
                     ha="right" if xpos == 0 else "left", va="center", fontsize=8.5, color=col,
                     fontweight="bold")  # fmt: skip
         ax.set_xticks([0, 1])
-        ax.set_xticklabels([bench, f"{subj}, same day"], fontsize=9)
+        ax.set_xticklabels([_wrap(bench, 30), _wrap(f"{subj}, same day", 30)], fontsize=9)
         ax.set_xlim(-0.45, 1.45)
         ax.axhline(0, color=INK2, lw=0.8)
         ax.set_ylabel("Daily move (%)", fontsize=8.5, color=INK2)
@@ -375,7 +399,7 @@ def _waterfall(spec, data, src):
                 fontsize=9.5, fontweight="bold")  # fmt: skip
         ax.set_xticks([0, 1, 2])
         labels = ["Local stocks", "Currency", f"{_name(spec.series[0])} in dollars"]
-        ax.set_xticklabels(labels, fontsize=8.5)
+        ax.set_xticklabels([_wrap(lab, 26) for lab in labels], fontsize=8.5)
         ax.axhline(0, color=INK2, lw=1)
         ax.set_ylabel("Change (%)", fontsize=8.5, color=INK2)
         ax.margins(y=0.2)
@@ -440,13 +464,13 @@ def _dial(spec, data, src):
                     lw=3 if i == 0 else 2, solid_capstyle="round")  # fmt: skip
         ax.text(-0.86, -0.12, "oversold < 30", fontsize=7.5, color=INK2, ha="center", va="top")
         ax.text(0.86, -0.12, "overbought > 70", fontsize=7.5, color=INK2, ha="center", va="top")
-        rsi = "   ".join(f"{n} {tech[n]['rsi14']:.0f}" for n in names)
+        rsi = "\n".join(f"{n}  {tech[n]['rsi14']:.0f}" for n in names)
         ax.text(
-            0, -0.3, f"14-day RSI:  {rsi}", ha="center", fontsize=9, fontweight="bold", va="top"
+            0, -0.3, f"14-day RSI\n{rsi}", ha="center", fontsize=8.5, fontweight="bold", va="top"
         )
         ax.set_xlim(-1.2, 1.2)
         ax.set_ylim(-0.5, 1.1)
-        ax2 = fig.add_axes([0.55, p.y0 + 0.08, 0.28, p.height - 0.16])
+        ax2 = fig.add_axes([0.66, p.y0 + 0.08, 0.2, p.height - 0.16])
         for i, n in enumerate(names):
             col = GREEN if i == 0 else DARK
             pos = tech[n]["range_pos"]
@@ -465,7 +489,7 @@ def _dial(spec, data, src):
                 ax2.text(104, i, f"{_sign(tech[n]['vs_sma200'])} vs\n200-day avg", va="center",
                          fontsize=7.5, color=INK2)  # fmt: skip
         ax2.set_yticks(range(len(names)))
-        ax2.set_yticklabels(names, fontsize=8.5)
+        ax2.set_yticklabels([_wrap(n) for n in names], fontsize=8.5)
         ax2.set_ylim(-0.6, len(names) - 0.3)
         ax2.set_xticks([0, 100])
         ax2.set_xticklabels(["52-week low", "high"], fontsize=8)
@@ -618,6 +642,10 @@ def spec_errors(spec: ChartSpec) -> list[str]:
         errs.append("threshold_band needs a threshold")
     if not 30 <= spec.window_days <= 3650:
         errs.append("window_days must be 30 to 3650")
+    if len(spec.title) > 60:  # the frame cuts "Exhibit n: <title>" at 72 characters
+        errs.append(
+            "title is over 60 characters and would be cut off; shorten the claim, keep the full names"
+        )
     return errs
 
 
@@ -628,10 +656,11 @@ def render(spec: ChartSpec, src: Sources, out: Path, n: int) -> list[tuple[str, 
     for sid in spec.series:
         provider, name = sid.split(":", 1)
         data[sid] = (src.fred if provider == "fred" else src.yahoo)(name)
+    _NAMES.set(dict(zip(spec.series, spec.names or [], strict=False)))
     draw, sub, nums, layout = FORMS[spec.form].draw(spec, data, src)
     feeds = ", ".join(
         sorted({"FRED" if s.startswith("fred:") else "Yahoo Finance" for s in spec.series})
     )
-    source = f"{feeds} ({', '.join(_name(s) for s in spec.series)}); computed by ARC."
-    _frame(n, spec.title, sub, source, out, draw, kicker=KICKER, **layout)
+    source = f"{feeds} ({', '.join(_ticker(s) for s in spec.series)}); computed by ARC."
+    _frame(n, spec.title, _wrap(sub, 72), source, out, draw, kicker=KICKER, **layout)
     return nums

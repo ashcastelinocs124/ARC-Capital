@@ -10,20 +10,36 @@ from datetime import date
 from urllib.parse import urlparse
 
 from castelino.agents.trade import guard, llm, loop
-from castelino.agents.trade.models import Brief, DeskReport, DeskRun, StepError, TradeIdea
+from castelino.agents.trade.models import (
+    NAMES,
+    Brief,
+    DeskReport,
+    DeskRun,
+    StepError,
+    TradeIdea,
+    instruments,
+)
 from castelino.agents.trade.tools import TradeToolBox, prefix
 from castelino.agents.update.models import Fact
 from castelino.agents.weekly.board import Board
 from castelino.config import get_settings
 
-NEWS = """You are a news research desk for ARC Research. Answer your brief by searching widely: wires,
+NEWS = (
+    """You are a news research desk for ARC Research. Answer your brief by searching widely: wires,
 financial press, regional press for the country involved, company filings, central banks and official
 statistics. Run several searches from different angles and outlets. Every claim must cite the fact ids your
-searches returned; anything you can't confirm goes in unanswered. Plain English, no buy or sell calls."""
-TECH = """You are ARC Research's technical desk. Explain the price action with technical indicators and
+searches returned; anything you can't confirm goes in unanswered. Plain English, no buy or sell calls.
+"""
+    + NAMES
+)
+TECH = (
+    """You are ARC Research's technical desk. Explain the price action with technical indicators and
 positioning: use technicals (RSI, MACD, moving averages, 52-week range, volatility, drawdown, relative
 strength against a benchmark) and cot where a futures market applies. Every number must come from a fact
-you cite. Plain English, no buy or sell calls."""
+you cite. Plain English, no buy or sell calls. Tools take bare tickers; your findings use names.
+"""
+    + NAMES
+)
 CODES = {"news_1": "NA", "news_2": "NB", "technical": "T"}
 NEWS_TOOLS = ["web_search", "fred_series", "yahoo_prices"]
 TECH_TOOLS = ["technicals", "cot", "yahoo_prices", "fred_series"]
@@ -52,6 +68,8 @@ def run(
     board = Board()
     known = "\n".join(f"[{f.id}] {f.text}" for f in idea.facts)
     thesis = idea.frame.thesis if idea.frame else idea.idea
+    if idea.frame:
+        thesis += f"\nInstruments: {instruments(idea.frame.stand_ins)}"
 
     def one(b: Brief) -> tuple[DeskRun, list[Fact]]:
         news = b.desk != "technical"

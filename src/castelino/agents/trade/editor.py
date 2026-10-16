@@ -9,7 +9,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from castelino.agents.trade import guard, llm
-from castelino.agents.trade.models import BODY, Report, StepError, TradeIdea
+from castelino.agents.trade.models import BODY, NAMES, Report, StepError, TradeIdea, instruments
 from castelino.agents.weekly.editor import AnthropicEditorClient
 from castelino.config import get_settings
 
@@ -36,7 +36,8 @@ Structure:
 - what_to_watch: one paragraph that starts from the framer's prove-it-wrong test.
 - changes: [] unless a current draft is given; then list each place you changed the user's wording, and why.
 House style:
-{STYLE}"""
+{STYLE}
+{NAMES}"""
 
 
 def _facts(idea: TradeIdea) -> str:
@@ -63,10 +64,10 @@ def brief(idea: TradeIdea, base_draft: str | None) -> str:
             desks.append(line)
     talk = "\n".join(f"Talk {m.talk} {m.role}: {m.text}" for m in idea.talk)
     items = "\n".join(f"({r.kind}) {r.text}" for r in idea.research if not r.removed)
-    tickers = ", ".join(f"{s.ticker} ({s.role})" for s in fr.stand_ins)
+    names = instruments(fr.stand_ins)
     parts = [
         f"The user's idea: {idea.idea}",
-        f"Thesis: {fr.thesis}\nTickers: {tickers}\nProves it wrong: {'; '.join(fr.prove_wrong)}",
+        f"Thesis: {fr.thesis}\nInstruments: {names}\nProves it wrong: {'; '.join(fr.prove_wrong)}",
         "Debate:\n" + "\n".join(f"{t.side} turn {t.round}: {t.text}" for t in idea.turns),
         f"The user's talk:\n{talk}",
         "Research list (the user's claims are only true if a finding confirms them):\n" + items,
@@ -130,7 +131,8 @@ class Revision(BaseModel):
 
 REVISE = f"""You revise one part of an ARC Research report exactly as the user asks. Keep every number tied to
 the facts and cite their ids; change nothing the user didn't ask about. House style:
-{STYLE}"""
+{STYLE}
+{NAMES}"""
 
 
 def revise(idea: TradeIdea, part: str, instruction: str, meter: llm.Meter) -> Report:

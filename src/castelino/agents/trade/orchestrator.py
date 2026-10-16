@@ -4,15 +4,27 @@ briefs: two news desks and the technical desk. Every research-list item must lan
 from __future__ import annotations
 
 from castelino.agents.trade import llm
-from castelino.agents.trade.models import Brief, Briefs, ResearchItem, StepError, TradeIdea
+from castelino.agents.trade.models import (
+    NAMES,
+    Brief,
+    Briefs,
+    ResearchItem,
+    StepError,
+    TradeIdea,
+    instruments,
+)
 from castelino.config import get_settings
 
-SYSTEM = """You run ARC Research's research desks for one trade idea. Write exactly three briefs:
+SYSTEM = (
+    """You run ARC Research's research desks for one trade idea. Write exactly three briefs:
 news_1 and news_2 (news desks that search widely across outlets; split the work so they don't overlap) and
 technical (a desk that explains the price action with technical indicators and positioning).
 Every research item listed must be covered: put its id in item_ids of the desk that answers it and turn it
 into a must_answer question. The user's claims are to be verified with sources, never assumed true.
-The technical brief names 1 to 4 Yahoo tickers, the subject first; the news briefs have no tickers."""
+The technical brief names 1 to 4 Yahoo tickers, the subject first; the news briefs have no tickers.
+In the brief text: """
+    + NAMES
+)
 ORDER = ("news_1", "news_2", "technical")
 
 
@@ -30,7 +42,7 @@ def _context(idea: TradeIdea, items: list[ResearchItem]) -> str:
     fr = idea.frame
     parts = [f"Thesis: {fr.thesis}" if fr else f"Idea: {idea.idea}"]
     if fr:
-        parts.append("Tickers: " + ", ".join(f"{s.ticker} ({s.role})" for s in fr.stand_ins))
+        parts.append("Instruments: " + instruments(fr.stand_ins))
     parts.append("Debate:\n" + "\n".join(f"{t.side} {t.round}: {t.text}" for t in idea.turns))
     if idea.moderation:
         parts.append("Open questions: " + "; ".join(q.question for q in idea.moderation.open))

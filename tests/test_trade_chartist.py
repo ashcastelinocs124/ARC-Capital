@@ -57,9 +57,26 @@ def test_variety_rule():
     assert any("at least 6 different forms" in e for e in errs)
 
 
+ALT = {  # two more forms per section, so every section can offer 3
+    "intro": ("scatter", "slope"),
+    "bull": ("line", "treemap"),
+    "bear": ("underwater", "line"),
+    "question": ("compare", "scatter"),
+    "technical": ("calendar", "line"),
+    "read": ("scatter", "underwater"),
+    "watch": ("line", "bars"),
+}
+
+
+def three_each():
+    return [spec(s, f) for s, f in PICKS.items()] + [
+        spec(s, f, pick=False) for s, fs in ALT.items() for f in fs
+    ]
+
+
 def test_propose_draws_every_option_and_makes_c_facts(setup):
     fake, idea = setup
-    specs = [spec(s, f) for s, f in PICKS.items()] + [spec("bull", "line", pick=False)]
+    specs = three_each()
     fake.script = [parsed(SpecList(specs=specs))]
     options, facts = chartist.propose(idea, llm.Meter(), src=SRC)
     assert {o.spec.section for o in options} == set(SECTIONS)
@@ -69,10 +86,25 @@ def test_propose_draws_every_option_and_makes_c_facts(setup):
     assert sum(o.spec.agent_pick for o in options if o.spec.section == "bull") == 1
 
 
+def test_one_chart_a_section_asks_for_more_and_keeps_at_most_three(setup):
+    """The first live run offered one chart per section, so there was nothing to pick (2026-10-15)."""
+    fake, idea = setup
+    first = [spec(s, f) for s, f in PICKS.items()]
+    again = [spec(s, f, pick=False) for s, fs in ALT.items() for f in fs]
+    again += [spec("intro", "calendar", pick=False)]  # a fourth for intro
+    fake.script = [parsed(SpecList(specs=first)), parsed(SpecList(specs=again))]
+    options, _ = chartist.propose(idea, llm.Meter(), src=SRC)
+    ask = fake.calls[1][1]["messages"][-1]["content"]
+    assert "section bear has only one chart" in ask
+    drawn = {s: [o.spec.form for o in options if o.file and o.spec.section == s] for s in SECTIONS}
+    assert all(len(f) == 3 for f in drawn.values()), drawn
+    assert "calendar" not in drawn["intro"]
+
+
 def test_propose_retries_when_a_section_has_nothing_drawable(setup):
     fake, idea = setup
     bad_watch = spec("watch", "line").model_copy(update={"series": ["INDA"]})
-    first = [spec(s, f) for s, f in PICKS.items() if s != "watch"] + [bad_watch]
+    first = [s for s in three_each() if s.section != "watch"] + [bad_watch]
     again = [spec(s, f) for s, f in PICKS.items()]
     fake.script = [parsed(SpecList(specs=first)), parsed(SpecList(specs=again))]
     options, _ = chartist.propose(idea, llm.Meter(), src=SRC)
@@ -87,6 +119,13 @@ def test_another_uses_the_talk_model(setup, monkeypatch):
     opt, _ = chartist.another(idea, "bear", llm.Meter(), src=SRC)
     assert opt.spec.form == "calendar" and opt.file
     assert fake.calls[0][1]["model"] == "deepseek/deepseek-v4-pro"
+
+
+def test_agents_see_each_instrument_by_full_name_and_ticker(setup):
+    _, idea = setup
+    idea.frame.stand_ins = [StandIn(ticker="INDA", role="subject", label="iShares MSCI India ETF")]
+    assert "iShares MSCI India ETF (INDA), the subject" in chartist._context(idea)
+    assert "full name with the ticker in brackets" in chartist.SYSTEM
 
 
 def test_a_title_with_a_number_no_fact_has_is_dropped(setup):

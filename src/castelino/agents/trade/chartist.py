@@ -1,17 +1,19 @@
-"""Chart agent: 1 to 3 chart ideas for each of the report's 7 sections, each drawn by code from real data,
-one marked as its pick. The user picks one per section; "+ Another idea" asks the talk model for one more.
+"""Chart agent: 1 to 3 chart ideas for each of the report's 7 sections (it asks for 3, and once more for a
+section that drew only one), each drawn by code from real data, one marked as its pick. The user picks one per section; "+ Another idea" asks the talk model for one more.
 Picks must use at least 6 different forms and at most 2 plain ones (line, compare, bars)."""
 
 from __future__ import annotations
 
 from castelino.agents.trade import forms, llm, store
 from castelino.agents.trade.models import (
+    NAMES,
     SECTIONS,
     ChartOption,
     ChartSpec,
     SpecList,
     StepError,
     TradeIdea,
+    instruments,
 )
 from castelino.agents.update.guard import unsupported
 from castelino.agents.update.models import Fact
@@ -26,13 +28,23 @@ PURPOSE = {
     "read": "our read: what holding the trade does to a portfolio",
     "watch": "what to watch: the framer's 'proves it wrong' test, live",
 }
-SYSTEM = """You are ARC Research's chart editor. For each report section, propose 1 to 3 charts that make its
-point fastest, and mark exactly one per section as your pick (agent_pick). Be inventive: prefer the
-non-plain forms; across your 7 picks use at least 6 different forms and at most 2 plain ones.
-You never supply numbers: name a form, its series (fred:ID or yahoo:TICKER, subject first), a window and,
-for threshold_band, the threshold from the framer's test. Titles are short claims, no dashes.
+MAX_PER = 3
+SYSTEM = (
+    """You are ARC Research's chart editor. For each report section, propose 3 charts in 3 different
+forms that make its point fastest, so the user has a real choice, and mark exactly one per section as your
+pick (agent_pick). Be inventive: prefer the non-plain forms; across your 7 picks use at least 6 different
+forms and at most 2 plain ones.
+You never supply numbers: name a form, its series (fred:ID or yahoo:TICKER, subject first), names (each
+series' full name in the same order, e.g. iShares MSCI India ETF, 10-year Treasury yield), a window and,
+for threshold_band, the threshold from the framer's test. Titles are short claims of at most 60
+characters, no dashes; name one instrument in a title and describe any other (e.g. "iShares MSCI India
+ETF (INDA) trails emerging markets").
+"""
+    + NAMES
+    + """
 Forms:
 {catalog}"""
+)
 
 
 def variety_errors(specs: list[ChartSpec]) -> list[str]:
@@ -52,7 +64,7 @@ def _context(idea: TradeIdea) -> str:
     asked = [r.text for r in idea.research if r.round == idea.round and not r.removed]
     return "\n\n".join(
         [
-            f"Thesis: {fr.thesis}\nTickers: {', '.join(s.ticker for s in fr.stand_ins)}\n"
+            f"Thesis: {fr.thesis}\nInstruments: {instruments(fr.stand_ins)}\n"
             f"Proves it wrong: {'; '.join(fr.prove_wrong)}",
             "Debate:\n" + "\n".join(f"{t.side}: {t.text}" for t in idea.turns),
             "User's questions: " + "; ".join(asked),
@@ -110,6 +122,21 @@ def _picks(options: list[ChartOption]) -> dict[str, ChartSpec]:
     return out
 
 
+def _drawn(options: list[ChartOption], section: str) -> int:
+    return sum(1 for o in options if o.file and o.spec.section == section)
+
+
+def _room(options: list[ChartOption], specs: list[ChartSpec]) -> list[ChartSpec]:
+    """Drop specs past MAX_PER drawn options in their section (a retry often re-proposes every section)."""
+    left = {s: MAX_PER - _drawn(options, s) for s in SECTIONS}
+    keep = []
+    for s in specs:
+        if left[s.section] > 0:
+            left[s.section] -= 1
+            keep.append(s)
+    return keep
+
+
 def propose(idea: TradeIdea, meter: llm.Meter, *, src=None) -> tuple[list[ChartOption], list[Fact]]:
     cfg = get_settings().trade_lab
     src = src or forms.Sources.live()
@@ -122,13 +149,18 @@ def propose(idea: TradeIdea, meter: llm.Meter, *, src=None) -> tuple[list[ChartO
     for attempt in range(2):
         out = llm.structured("trade_chartist", cfg.chart_model, msgs, SpecList, meter)
         bad = [f"{s.section} {s.form}: {e}" for s in out.specs for e in forms.spec_errors(s)]
-        good = [s for s in out.specs if not forms.spec_errors(s)]
+        good = _room(options, [s for s in out.specs if not forms.spec_errors(s)])
         new, new_facts = _draw(idea, good, src, len(options) + 1, _made(idea) + len(facts))
         options += new
         facts += new_facts
         picks = _picks(options)
         missing = [s for s in SECTIONS if s not in picks]
         errs = bad + [f"section {s} has no chart that could be drawn" for s in missing]
+        errs += [
+            f"section {s} has only one chart, so the user has no choice: add 2 more in other forms"
+            for s in SECTIONS
+            if _drawn(options, s) == 1
+        ]
         if not missing:
             errs += variety_errors(list(picks.values()))
         if not errs:

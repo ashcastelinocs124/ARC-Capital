@@ -10,19 +10,29 @@ from typing import Literal
 from pydantic import BaseModel
 
 from castelino.agents.trade import decide, guard, llm
-from castelino.agents.trade.models import ResearchItem, TalkMessage, TradeIdea
+from castelino.agents.trade.models import (
+    NAMES,
+    ResearchItem,
+    TalkMessage,
+    TradeIdea,
+    instruments,
+)
 from castelino.agents.trade.store import now
 from castelino.config import get_settings
 
 NO_ANSWER = "I can't answer that from this idea's facts."
-SYSTEM = """You are ARC, talking with ARC Research's editor about one trade idea. When the user writes to @Bull,
+SYSTEM = (
+    """You are ARC, talking with ARC Research's editor about one trade idea. When the user writes to @Bull,
 @Bear or @Moderator, answer as that participant from their own turns. Answer only from the debate, the
 research and the facts below: never look anything up and never guess. Every number must come from a fact
 you cite by id; if the facts can't answer, say so plainly. Under 120 words, no dashes, no buy or sell calls.
 Also fill: research_question, one line a research desk could act on (for a claim the user made, phrase it as
 something to verify); research_kind, claim if the user asserted something, else question; and, only when
 the user asks to change the draft, edit_part (intro, bull, bear, question, technical, read or watch) and
-edit_instruction; otherwise edit_part is none and edit_instruction is empty."""
+edit_instruction; otherwise edit_part is none and edit_instruction is empty.
+"""
+    + NAMES
+)
 Part = Literal["none", "intro", "bull", "bear", "question", "technical", "read", "watch"]
 
 
@@ -39,7 +49,8 @@ def context(idea: TradeIdea, talk: int) -> str:
     parts = [f"Idea: {idea.idea}"]
     if idea.frame:
         parts.append(
-            f"Thesis: {idea.frame.thesis}\nProves it wrong: {'; '.join(idea.frame.prove_wrong)}"
+            f"Thesis: {idea.frame.thesis}\nInstruments: {instruments(idea.frame.stand_ins)}\n"
+            f"Proves it wrong: {'; '.join(idea.frame.prove_wrong)}"
         )
     parts.append(
         "Debate:\n"

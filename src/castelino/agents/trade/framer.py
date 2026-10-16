@@ -7,19 +7,23 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from castelino.agents.trade import llm
-from castelino.agents.trade.models import Frame, StepError
+from castelino.agents.trade.models import NAMES, Frame, StepError
 from castelino.agents.update.facts import facts_from_search
 from castelino.agents.update.models import Fact
 from castelino.agents.weekly.tools import SEARCH_SYSTEM, series_fact
 from castelino.config import get_settings
 
-SYSTEM = """You frame a trade idea so it can be tested with market data.
+SYSTEM = (
+    """You frame a trade idea so it can be tested with market data.
 Return: a title of at most 6 words; the thesis in one sentence; 2 to 4 stand-ins, each a Yahoo Finance
-ticker that exists (ETFs, indices like ^NSEI, FX like INR=X, futures like BZ=F): exactly one "subject"
-(what the idea is about) and 1 to 3 "benchmark"s to compare it with; a horizon in months; 1 to 3 tests
-that would prove the thesis wrong, each measurable with prices (e.g. "INDA's 26-week correlation with SMH
-rises above 0.6"); and a web search query for why the idea matters this week.
-Never make a buy or sell call."""
+ticker that exists (ETFs, indices like ^NSEI, FX like INR=X, futures like BZ=F), its label being the
+instrument's full name (e.g. iShares MSCI India ETF): exactly one "subject" (what the idea is about) and
+1 to 3 "benchmark"s to compare it with; a horizon in months; 1 to 3 tests that would prove the thesis
+wrong, each measurable with prices (e.g. "iShares MSCI India ETF (INDA)'s 26-week correlation with VanEck
+Semiconductor ETF (SMH) rises above 0.6"); and a web search query for why the idea matters this week.
+Never make a buy or sell call. """
+    + NAMES
+)
 
 
 def _yahoo(ticker: str):

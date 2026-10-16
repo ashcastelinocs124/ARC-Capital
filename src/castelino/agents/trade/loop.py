@@ -30,10 +30,15 @@ def run(
             break
         calls = [t.model_dump() for t in msg.tool_calls]
         msgs.append({"role": "assistant", "content": msg.content or "", "tool_calls": calls})
+        parsed: list[dict | None] = []
         for tc in msg.tool_calls:
             try:
-                args = json.loads(tc.function.arguments or "{}")
+                parsed.append(json.loads(tc.function.arguments or "{}"))
             except json.JSONDecodeError:
+                parsed.append(None)
+        box.prefetch([(tc.function.name, a) for tc, a in zip(msg.tool_calls, parsed, strict=True)])
+        for tc, args in zip(msg.tool_calls, parsed, strict=True):
+            if args is None:
                 box.calls += 1  # counts against the budget, so the loop always ends
                 result = "Error: arguments were not valid JSON"
             else:

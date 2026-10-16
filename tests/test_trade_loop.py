@@ -1,3 +1,4 @@
+import threading
 from datetime import date
 
 import pandas as pd
@@ -55,6 +56,41 @@ def test_runs_tools_then_parses(fake):
     tool_msg = next(m for m in msgs if m["role"] == "tool")
     assert tool_msg["content"].startswith("[B1.1]")
     assert msgs[-1] == {"role": "user", "content": "Write your turn."}
+
+
+def test_a_turns_searches_run_at_once_inside_the_budget_and_keep_their_order(fake):
+    """News desks ask for 8 to 10 searches in one turn; one at a time they took 4 minutes (2026-10-15)."""
+    gate = threading.Barrier(2, timeout=2)  # one search at a time would wait here, then break
+    ran: list[str] = []
+
+    def search(system, user, model=None):
+        q = user.rsplit(" ", 1)[-1]
+        ran.append(q)
+        gate.wait()
+        line = f"{q} rose 5%"
+        return line, [(q, f"https://{q}.com/a", 0, len(line))]
+
+    queries = ("alpha", "beta", "gamma")
+    fake.script = [
+        said(calls=[tool_call("web_search", {"query": q}) for q in queries]),
+        said("done"),
+        parsed(TurnDraft(text="x", fact_ids=[])),
+    ]
+    box = tools.TradeToolBox(
+        agent="t",
+        prefix="NA1.",
+        allowed=["web_search"],
+        board=Board(),
+        end=date(2026, 10, 14),
+        max_calls=2,
+        search=search,
+    )
+    run(box)
+    assert sorted(ran) == ["alpha", "beta"]  # the third is over budget, so it never starts
+    assert [(f.id, f.text) for f in box.facts] == [
+        ("NA1.1", "alpha rose 5%"),
+        ("NA1.2", "beta rose 5%"),
+    ]
 
 
 def test_invalid_json_counts_against_the_budget_and_exhausted_forces_none(fake):

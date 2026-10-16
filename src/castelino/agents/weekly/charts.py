@@ -127,7 +127,10 @@ def _frame(
     head = f"Exhibit {n}: {title}"[:72]
     # shrink a long title so it stops short of the logo (13pt fits ~52 characters)
     fig.text(0.06, 0.905, head, fontsize=min(13, 13 * 52 / len(head)), fontweight="bold")
-    fig.text(0.06, 0.855, sub, fontsize=10, color=INK2)
+    if "\n" in sub:  # a wrapped subtitle hangs from under the title instead of growing up into it
+        fig.text(0.06, 0.885, sub, fontsize=10, color=INK2, va="top")
+    else:
+        fig.text(0.06, 0.855, sub, fontsize=10, color=INK2)
     fig.text(0.06, 0.055, "Source: ARC Research", fontsize=9, fontweight="bold")
     fig.text(0.06, 0.02, f"Data: {data}"[:110], fontsize=8, color=INK2)
     logo = _logo()
