@@ -111,6 +111,7 @@ data/deep/
 # Theme Charts runs + charts (agents/themes.py)
 data/themes/
 data/trades/
+data/chart_desk/
 
 # Public Vercel snapshot (scripts/publish_snapshot.sh)
 frontend/public/api/

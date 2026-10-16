@@ -220,6 +220,24 @@ class TradeLabCfg(BaseModel):
     }
 
 
+class ChartDeskCfg(BaseModel):
+    """Admin → Charts (agents/chart_desk.py): only for talking to the chart agent directly; never
+    changes another workflow's model. OpenRouter ids contain a "/"."""
+
+    data_dir: str = "data/chart_desk"
+    chat_model: str = "gpt-6-luna"
+    compare_models: list[str] = [
+        "gpt-6-luna",  # Trade Lab's chart model, for reference
+        "moonshotai/kimi-k3",
+        "deepseek/deepseek-v4-pro",
+        "qwen/qwen3.8-max-0902",
+        "z-ai/glm-5.3",
+        "mistralai/mistral-large-4-0",
+        "deepseek/deepseek-v4.1-flash",
+    ]
+    compare_default: int = 5  # the first N of compare_models start ticked
+
+
 # ────────────────────────── figure_deviation (Wave 1) ────────────────────────
 # Generalises `speech.speakers` into a multi-source, multi-lexicon engine.
 # Existing Fed speakers are ported here in Wave 1. Trump (X API) lands in
@@ -252,6 +270,7 @@ class Settings(BaseModel):
     deep_research: DeepResearchCfg = DeepResearchCfg()
     deep_dive: DeepDiveCfg = DeepDiveCfg()
     trade_lab: TradeLabCfg = TradeLabCfg()
+    chart_desk: ChartDeskCfg = ChartDeskCfg()
     update_agent: UpdateAgentCfg = UpdateAgentCfg()
     themes: ThemesCfg = ThemesCfg()
     cover: CoverCfg = CoverCfg()

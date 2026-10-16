@@ -19,7 +19,7 @@ from http.cookies import CookieError, SimpleCookie
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from castelino.dashboard.endpoints import admin_desk, trade
+from castelino.dashboard.endpoints import admin_desk, chart_desk, trade
 
 app = FastAPI(title="ARC admin desk", docs_url=None, redoc_url=None, openapi_url=None)
 COOKIE = "arc_admin"
@@ -68,14 +68,17 @@ async def gate(request: Request, call_next):
     return await call_next(request)
 
 
-# Trade Lab first: the Daily desk's /admin/desk/{day} would otherwise catch /admin/desk/trade
+# Trade Lab and Charts first: the Daily desk's /admin/desk/{day} would otherwise catch them
 app.include_router(trade.router)
+app.include_router(chart_desk.router)
 app.include_router(admin_desk.router)
 
 
 @app.on_event("startup")
 def _recover_trade_lab() -> None:
     """A deploy restarts the machine: steps that were running can't finish, so mark them for Retry."""
+    from castelino.agents import chart_desk as charts
     from castelino.agents.trade import runner
 
     runner.recover_interrupted()
+    charts.recover_interrupted()

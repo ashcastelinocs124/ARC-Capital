@@ -401,6 +401,26 @@ agents:
       writes: ["Chart options + C facts; PNGs in data/trades/<id>/charts/"]
       persists: "The idea record."
 
+  - id: chart_desk
+    name: Chart desk
+    group: Trade Lab
+    family: Trade Lab
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-luna, the chat default"}
+      - {key: OPENROUTER_API_KEY, required: false, why: "Kimi K3 and the other open-weights models, when picked in the chat or Compare"}
+    prompt: "castelino.agents.chart_desk:SYSTEM"
+    schema: "castelino.agents.chart_desk:Proposal"
+    summary: >-
+      On the private admin Charts tab, turns your idea (and the thread so far) into up to 4 charts from
+      Trade Lab's 12 forms; code fetches FRED / Yahoo data and draws each one. Compare models runs one
+      prompt on several models side by side and you vote for the best. gpt-6-luna by default, only here.
+    tools:
+      - {name: "Chart forms (code)", does: "The same 12 forms as Trade Lab, kicker CHART DESK; a chart that can't be drawn shows why"}
+    memory:
+      reads: ["Your messages and the specs of the charts already drawn in this thread", "The 12-form catalog"]
+      writes: ["data/chart_desk/<id>/run.json + PNGs; votes"]
+      persists: "Threads, compare runs and votes, as files on the Fly volume."
+
   - id: trade_editor
     name: Trade Lab · Editor
     group: Trade Lab
@@ -666,6 +686,8 @@ systems:
         flow: [["agent:trade_chartist|up to 3 per section"], ["gate:You pick|one per section"], ["agent:trade_editor|Claude"], ["code:Number guard|1 retry"], ["end:Substack draft|↓ Talk 2"]]
       - title: "Trade Lab 4 · Talk 2 assistant"
         flow: [["Your message"], ["agent:trade_decide|research? edit?"], ["agent:trade_news_desk|≤4 searches, if needed"], ["agent:trade_talk|Haiku answers + edits"], ["end:Draft updated|Sonnet if checks fail"]]
+      - title: "Charts tab · chat and compare"
+        flow: [["Your idea"], ["agent:chart_desk|gpt-6-luna · or 2-8 models"], ["code:Spec check|1 retry"], ["code:Chart forms|FRED · Yahoo"], ["end:Admin Charts|chat · ★ vote"]]
 
   - group: Theme Charts
     trigger: "Cron on the Fly server at 08:00 ET, weekdays"

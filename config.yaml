@@ -183,3 +183,17 @@ trade_lab:
   talk_research_calls: 4
   cost_cap_usd: 5.0
   concurrency: 2
+
+chart_desk:
+  # Admin → Charts (src/castelino/agents/chart_desk.py): talking to the chart agent directly, and
+  # Compare models. Only for direct use: never changes another workflow's model (trade_lab above).
+  chat_model: gpt-6-luna   # cheapest and fastest in the Oct 16 comparison
+  compare_models:
+    - gpt-6-luna            # Trade Lab's chart model, for reference
+    - moonshotai/kimi-k3
+    - deepseek/deepseek-v4-pro
+    - qwen/qwen3.8-max-0902
+    - z-ai/glm-5.3
+    - mistralai/mistral-large-4-0
+    - deepseek/deepseek-v4.1-flash
+  compare_default: 5        # the first 5 start ticked

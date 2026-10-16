@@ -194,6 +194,7 @@ TRADE_LAB = {
     "trade_technical_desk",
     "trade_chartist",
     "trade_editor",
+    "chart_desk",  # the admin Charts tab, admin-only like the rest of Trade Lab
 }
 
 

@@ -650,7 +650,9 @@ def spec_errors(spec: ChartSpec) -> list[str]:
     return errs
 
 
-def render(spec: ChartSpec, src: Sources, out: Path, n: int) -> list[tuple[str, float]]:
+def render(
+    spec: ChartSpec, src: Sources, out: Path, n: int, *, kicker: str = KICKER
+) -> list[tuple[str, float]]:
     if errs := spec_errors(spec):
         raise ValueError("; ".join(errs))
     data = {}
@@ -663,5 +665,5 @@ def render(spec: ChartSpec, src: Sources, out: Path, n: int) -> list[tuple[str, 
         sorted({"FRED" if s.startswith("fred:") else "Yahoo Finance" for s in spec.series})
     )
     source = f"{feeds} ({', '.join(_ticker(s) for s in spec.series)}); computed by ARC."
-    _frame(n, spec.title, _wrap(sub, 72), source, out, draw, kicker=KICKER, **layout)
+    _frame(n, spec.title, _wrap(sub, 72), source, out, draw, kicker=kicker, **layout)
     return nums

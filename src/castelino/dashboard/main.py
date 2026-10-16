@@ -64,10 +64,12 @@ def _warm_openbb_adapter() -> None:
 
 @app.on_event("startup")
 def _recover_trade_lab() -> None:
-    """Trade Lab steps that were running when the server stopped can't finish: mark them for Retry."""
+    """Trade Lab steps and chart desk replies that were running when the server stopped can't finish."""
+    from castelino.agents import chart_desk as charts
     from castelino.agents.trade import runner
 
     runner.recover_interrupted()
+    charts.recover_interrupted()
 
 
 # Update Agent and Sector Sentiment refreshes run from the dashboard Refresh button
@@ -89,6 +91,7 @@ from castelino.dashboard.endpoints import (  # noqa: E402
     adoption,
     agent_catalog,
     ai_sentiment,
+    chart_desk,
     cross_asset,
     daily_posts,
     deep_research,
@@ -126,9 +129,10 @@ app.include_router(section_posts.router)
 # the private models: the public site gets them only via /api/admin/ (password-gated by middleware.ts)
 for _private in (models.router, adoption.router, cross_asset.router):
     app.include_router(_private, prefix="/admin")
-# local: no login; on Fly these two run alone behind a password (desk_app.py). Trade Lab first: the
-# Daily desk's /admin/desk/{day} would otherwise catch /admin/desk/trade
+# local: no login; on Fly these run alone behind a password (desk_app.py). Trade Lab and Charts
+# first: the Daily desk's /admin/desk/{day} would otherwise catch /admin/desk/trade and /charts
 app.include_router(trade.router)
+app.include_router(chart_desk.router)
 app.include_router(admin_desk.router)
 
 

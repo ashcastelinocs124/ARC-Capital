@@ -13,9 +13,10 @@ import threading
 from datetime import datetime
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
+from castelino import costs as cost_log
 from castelino.agents.update import desk
 
 router = APIRouter(prefix="/admin/desk")
@@ -222,6 +223,12 @@ def x_post_chain(slug: str, body: XPostIn):
         return {"posted_ids": rec["ids"], "total": len(texts), "error": error}
     finally:
         _x_lock.release()
+
+
+@router.get("/costs")
+def costs(days: int = Query(30, ge=1, le=365)):
+    """What the models cost: logged calls × list prices. Above /{day}, or that route would take it."""
+    return cost_log.summary(days)
 
 
 @router.get("/{day}")
