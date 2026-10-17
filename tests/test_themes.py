@@ -234,6 +234,26 @@ def test_explainer_lines_never_carry_a_figure_and_never_block_the_thread():
     assert themes.thread(rec, lines=long) == themes.thread(rec)  # past 280: dropped, not cut
 
 
+def test_commentary_keeps_traced_figures_drops_the_rest_and_never_blocks_the_post():
+    rec = themes.run(NOW, gather_fn=lambda now: FACTS, fetch=fetch, picker=lambda **kw: pick())
+    say = lambda *notes: lambda **kw: themes.ChartNotes(notes=list(notes))  # noqa: E731
+    note = themes.ChartNote
+    got = themes.commentary(rec, say(
+        note(n=1, text="Brent rose 4.1% on the week as supply talks stalled."),  # a fact's number
+        note(n=2, text="Breakevens jumped 9.9% in a day."),  # traced to nothing: dropped
+        note(n=9, text="There is no chart nine."),
+        note(n=3, text="Word " * 150),  # over 600 characters
+    ))  # fmt: skip
+    assert got == {1: "Brent rose 4.1% on the week as supply talks stalled."}
+
+    def boom(**kw):
+        raise RuntimeError("OpenAI 500")
+
+    assert themes.commentary(rec, boom) == {}  # the post publishes as before
+    up = {e.file: {"url": f"https://cdn/{e.file}"} for e in rec.exhibits}
+    assert themes.substack_doc(rec, up, {}) == themes.substack_doc(rec, up)
+
+
 def test_thread_keeps_whole_sentences_under_280():
     rec = themes.ThemeRun.model_validate(
         {"run_id": "2026-10-14-am", "date": "2026-10-14", "slot": "am", "generated_at": "",
@@ -271,12 +291,15 @@ def test_published_run_is_a_substack_card_and_the_thread_links_its_post(tmp_path
 
     monkeypatch.setattr(substack, "push", push)
     monkeypatch.setattr(substack, "publish", publish)
-    url = themes.publish_substack(rec)
+    note = themes.ChartNote(n=1, text="Brent is climbing as supply talks stall.")
+    url = themes.publish_substack(rec, lambda **kw: themes.ChartNotes(notes=[note]))
     assert url == "https://archresearch.substack.com/p/oils-run"
     assert got["title"] == rec.theme and got["subtitle"].startswith("ARC Theme Charts · Wednesday")
     assert (got["section"], got["send"]) == (themes.SECTION, False)
-    images = [c for c in got["doc"]["content"] if c["type"] == "captionedImage"]
+    content = got["doc"]["content"]
+    images = [i for i, c in enumerate(content) if c["type"] == "captionedImage"]
     assert len(images) == len(rec.exhibits)
+    assert content[images[0] + 1]["content"][0]["text"] == note.text  # right under chart 1
     assert themes.thread(rec, themes.post_url(rec.run_id))[-1].endswith(url)
     [card] = themes_posts()
     assert card["url"] == url and card["title"] == rec.theme

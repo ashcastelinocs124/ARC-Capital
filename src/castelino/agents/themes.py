@@ -6,8 +6,8 @@ least 5 must pass the checks, or the retry is told why);
 code fetches every series and draws it with the Weekly Deep Dive's renderer plus this page's own
 forms (`theme_charts`: heatmap, scatter, range), so the LLM never supplies a plotted number. Each run is data/themes/<YYYY-MM-DD>-<am|pm>.json + its PNGs; each exhibit
 also carries its plotted numbers (`data`), which /themes draws interactively. Run by deploy/crontab at 08:00 ET on weekdays: python -m castelino.agents.themes
-The cron line then publishes the run on Substack (--substack) and, once the site is
-redeployed, posts it to X as a thread linking that post (--post); no approval step for either.
+The cron line then publishes the run on Substack (--substack, with gpt-6-luna's two or three
+sentences under each chart) and, once the site is redeployed, posts it to X as a thread linking that post (--post); no approval step for either.
 """
 
 from __future__ import annotations
@@ -199,11 +199,13 @@ class ChartExplainer(StructuredAgent[ChartLines]):
         return EXPLAIN
 
     def user_prompt(self, *, rec: ThemeRun) -> str:
-        charts = "\n".join(
-            f"n={e.n} ({e.kind}) {EXHIBIT.sub('', e.title)} | {e.subtitle}"
-            for e in rec.exhibits[1:]
-        )
-        return f"Theme: {rec.theme}\nWhy: {rec.why}\n\nCharts:\n{charts}"
+        return f"Theme: {rec.theme}\nWhy: {rec.why}\n\nCharts:\n{_charts(rec.exhibits[1:])}"
+
+
+def _charts(exhibits: list[ThemeExhibit]) -> str:
+    return "\n".join(
+        f"n={e.n} ({e.kind}) {EXHIBIT.sub('', e.title)} | {e.subtitle}" for e in exhibits
+    )
 
 
 def explain(rec: ThemeRun, explainer=None) -> dict[int, str]:
@@ -224,6 +226,69 @@ def explain(rec: ThemeRun, explainer=None) -> dict[int, str]:
             continue
         lines[ln.n] = text
     return lines
+
+
+COMMENT = """You write the short commentary under each chart in ARC Research's Theme Charts post on
+Substack. For each chart, write two or three plain sentences: what the chart shows and why it
+matters for today's theme. Write for a general reader: describe, never advise, no hype and no dashes.
+You see only each chart's title and data line, not the chart itself, so claim nothing about its
+shape or path that they, the why or the signals don't say.
+The chart's data line is printed right above your text, so don't restate its numbers: say what
+they mean. Avoid figures; any you do use must appear in that data line or in the why. Return one
+entry per chart, with its n."""
+NUM = re.compile(r"[-+]?\d+(?:\.\d+)?")
+
+
+class ChartNote(BaseModel):
+    n: int
+    text: str
+
+
+class ChartNotes(BaseModel):  # LLM output (closed schema: no defaults)
+    notes: list[ChartNote]
+
+
+class ChartCommentary(StructuredAgent[ChartNotes]):
+    """The Substack post's two or three sentences under every chart (gpt-6-luna)."""
+
+    name = "chart_commentary"
+    output_schema = ChartNotes
+    tier = "fast"
+
+    def __init__(self) -> None:
+        self.model = get_settings().themes.explainer_model
+
+    def system_prompt(self) -> str:
+        return COMMENT
+
+    def user_prompt(self, *, rec: ThemeRun) -> str:
+        signals = "\n".join(f"- {s.headline}. {s.note}" for s in rec.signals)
+        return (
+            f"Theme: {rec.theme}\nWhy: {rec.why}\nSignals:\n{signals}\n\n"
+            f"Charts:\n{_charts(rec.exhibits)}"
+        )
+
+
+def commentary(rec: ThemeRun, agent=None) -> dict[int, str]:
+    """n -> the paragraph under that chart in the Substack post. A note whose %/bp/pp figure is
+    not among the run's fact numbers or that chart's code-written data line is dropped (as is one
+    over 600 characters), and a failed call returns {} so the post publishes as before."""
+    try:
+        out = (agent or ChartCommentary())(rec=rec)
+    except Exception as e:  # noqa: BLE001 - the post never waits on the commentary
+        log.warning("themes: chart commentary failed, publishing without it: %s", e)
+        return {}
+    facts = {x for f in rec.facts for x in f.numbers}
+    subs = {e.n: e.subtitle for e in rec.exhibits}
+    notes = {}
+    for c in out.notes:
+        text = c.text.strip()
+        nums = facts | {float(x) for x in NUM.findall(subs.get(c.n, ""))}
+        if c.n not in subs or not text or len(text) > 600 or unsupported([text], nums):
+            log.info("themes: dropped commentary for chart %d: %s", c.n, text)
+            continue
+        notes[c.n] = text
+    return notes
 
 
 def gather(now: datetime) -> list[Fact]:
@@ -461,7 +526,9 @@ def post_url(run_id: str) -> str | None:
     return json.loads(p.read_text()).get("url") if p.exists() else None
 
 
-def substack_doc(rec: ThemeRun, uploaded: dict[str, dict]) -> dict:
+def substack_doc(
+    rec: ThemeRun, uploaded: dict[str, dict], notes: dict[int, str] | None = None
+) -> dict:
     from castelino import substack as sb
 
     cited = set(rec.fact_ids)
@@ -471,11 +538,10 @@ def substack_doc(rec: ThemeRun, uploaded: dict[str, dict]) -> dict:
         for s in rec.signals
     ]
     c = [sb._p(*sb._rich(rec.why)), _bullets(signals)]
-    c += [
-        sb._image(uploaded[e.file], f"{e.title}. {e.subtitle}")
-        for e in rec.exhibits
-        if e.file in uploaded
-    ]
+    for e in (e for e in rec.exhibits if e.file in uploaded):
+        c.append(sb._image(uploaded[e.file], f"{e.title}. {e.subtitle}"))
+        if note := (notes or {}).get(e.n):
+            c.append(sb._p(sb._text(note)))
     if sources:
         c.append(sb._heading("Sources"))
         c.append(_bullets([sb._p(sb._text(t, u or None)) for t, u in sources.items()]))
@@ -492,9 +558,10 @@ def _bullets(paras: list[dict]) -> dict:
     }
 
 
-def publish_substack(rec: ThemeRun) -> str:
-    """Draft and publish the run on Substack, web only (no email). Returns the post's URL; the
-    marker in data/themes/substack/ makes a rerun return it instead of posting again."""
+def publish_substack(rec: ThemeRun, commentator=None) -> str:
+    """Draft and publish the run on Substack, web only (no email), with commentary() under each
+    chart. Returns the post's URL; the marker in data/themes/substack/ makes a rerun return it
+    instead of posting again (push skips a published draft before calling body)."""
     from castelino import substack as sb
 
     charts = _dir() / "charts" / rec.run_id
@@ -503,7 +570,7 @@ def publish_substack(rec: ThemeRun) -> str:
         title=rec.theme,
         subtitle=f"ARC Theme Charts · {datetime.fromisoformat(rec.date):%A, %B %-d, %Y}",
         pngs={e.file: charts / e.file for e in rec.exhibits},
-        body=lambda up: substack_doc(rec, up),
+        body=lambda up: substack_doc(rec, up, commentary(rec, commentator)),
         label=rec.run_id,
     )
     return sb.publish(_marker(rec.run_id), section_id=SECTION)

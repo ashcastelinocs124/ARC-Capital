@@ -150,6 +150,20 @@ agents:
     tools: []
     memory: {reads: ["The run's theme and why, and each chart's title, kind and code-written data line"], writes: ["The posted texts, saved with the X ids in data/x_posts/themes/"], persists: "Nothing between runs."}
 
+  - id: chart_commentary
+    name: Chart Commentary
+    group: Theme Charts
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "LLM call (gpt-6-luna)"}
+    class: castelino.agents.themes.ChartCommentary
+    summary: >-
+      When the weekday Theme Charts post is published on Substack, one cheap call writes two or
+      three plain sentences under every chart: what it shows and why it matters for the day's
+      theme. A paragraph with a %, bp or pp figure that isn't among the run's facts or that chart's
+      data line is dropped; if the call fails, the post publishes without commentary.
+    tools: []
+    memory: {reads: ["The run's theme, why and three signals, and each chart's title, kind and code-written data line"], writes: ["The paragraphs, inside the Substack post"], persists: "Nothing between runs."}
+
   - id: move_explainer
     name: Move Explainer
     group: Market alerts
@@ -715,7 +729,7 @@ systems:
         flow: [["08:00 ET · Mon-Fri"], ["code:News & X|cited web search", "code:Market moves|1d · 1w · 1m", "code:Polymarket|odds swings"], ["agent:theme_picker|#1 theme + 5-6 charts"], ["code:Number guard|1 retry"], ["end:↓ to stage 2"]]
         loops: [{from: 3, to: 2, label: "retry with errors"}]
       - title: "Theme Charts 2 · Chart & publish"
-        flow: [["code:Fetch series|FRED · Yahoo"], ["code:Chart forms|heatmap · scatter · range"], ["code:Save run|last 6 runs = memory"], ["agent:chart_explainer|X: one line per chart"], ["end:Substack post|08:00 weekdays · /themes card", "end:X thread|08:00 weekdays"]]
+        flow: [["code:Fetch series|FRED · Yahoo"], ["code:Chart forms|heatmap · scatter · range"], ["code:Save run|last 6 runs = memory"], ["agent:chart_explainer|X: one line per chart", "agent:chart_commentary|Substack: 2-3 sentences per chart"], ["end:Substack post|08:00 weekdays · /themes card", "end:X thread|08:00 weekdays"]]
 
   - group: Market alerts
     trigger: "Cron on the Fly server every 30 minutes, 9:35-16:05 ET on weekdays"
@@ -899,6 +913,7 @@ pipelines:
       - {id: substack, kind: out, layer: delivery, x: 800, w: 160, name: Substack, sub: post · /themes card, does: "Each run is published on Substack and shown as a card on the Theme Charts page."}
       - {id: xthread, kind: out, layer: delivery, x: 990, w: 140, name: X thread, sub: links the post, does: "Posted to X as a thread that links the Substack post."}
       - {id: explainer, kind: llm, agent: chart_explainer, layer: agents, x: 990, w: 150, name: Chart explainer, sub: one line per chart, does: "A light model writes one plain sentence under each chart in the X thread. It may not use figures, so every number on X stays the code's."}
+      - {id: commentary, kind: llm, agent: chart_commentary, layer: delivery, x: 600, w: 160, name: Chart commentary, sub: 2-3 sentences a chart, does: "A light model writes two or three plain sentences under every chart in the Substack post. A paragraph with a figure code can't trace to the run's facts or the chart's own data line is dropped."}
     edges:
       - schedule > gather
       - signals > gather
@@ -911,13 +926,14 @@ pipelines:
       - charts > substack
       - substack > xthread
       - explainer > xthread
+      - commentary > substack
     steps:
       - {title: Trigger, nodes: [schedule], edges: [schedule > gather], io: ["in: clock", "out: start run"], text: "A scheduled job starts the run at 8 am New York time, Monday to Friday."}
       - {title: Gather signals, nodes: [signals, gather], edges: [signals > gather], io: ["in: web · prices · odds", "out: facts"], text: "Plain code gathers three signals: what news and financial X discuss most, the biggest market moves, and the biggest swings in prediction-market odds."}
       - {title: Pick the theme, nodes: [picker, memory], edges: [gather > picker, memory > picker], io: ["in: facts + memory", "out: theme + chart plan"], text: "One LLM call names the day's #1 macro theme and the 5-6 charts that tell it. It sees its last six runs so it doesn't repeat itself."}
       - {title: Check every number, nodes: [guard, picker], edges: [picker > guard, guard > picker], io: ["in: write-up", "out: pass or errors"], text: "Code checks every figure in the write-up against the facts; a miss sends it back to the picker once."}
       - {title: Chart, nodes: [charts, series], edges: [guard > charts, series > charts], io: ["in: chart plan", "out: charts"], text: "Code downloads every series from FRED and Yahoo Finance and draws the charts, so every plotted number comes from the source."}
-      - {title: Publish, nodes: [substack, xthread, explainer], edges: [charts > substack, substack > xthread, explainer > xthread], io: ["in: charts + text", "out: post + thread"], text: "The run is published on Substack and posted to X as a thread, with a light model's one-line read under each chart."}
+      - {title: Publish, nodes: [substack, xthread, explainer, commentary], edges: [charts > substack, substack > xthread, explainer > xthread, commentary > substack], io: ["in: charts + text", "out: post + thread"], text: "The run is published on Substack with a light model's two or three sentences under each chart, and posted to X as a thread with a one-line read under each chart."}
 
   - id: market-alerts
     name: Market alerts
