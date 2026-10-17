@@ -174,7 +174,7 @@ function StartHere() {
 }
 
 // Section cards (after semianalysis.com's tool cards): line art, the name and one fact in mono. A light
-// moves from one card to the next, redrawing each card's art; hovering a card holds it there.
+// moves from one card to the next on its own, redrawing each card's art.
 function Sections() {
   const wa = useWeekAhead().data;
   const deep = useWeeklyPosts().data?.[0];
@@ -187,19 +187,18 @@ function Sections() {
     ["/agents", "Agents", "How the desk is built", <AgentsArt />],
   ];
   const [lit, setLit] = useState(0);
-  const [held, setHeld] = useState<number | null>(null);
   useEffect(() => {
-    if (held != null || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const t = setInterval(() => setLit((i) => (i + 1) % cards.length), 2400);
     return () => clearInterval(t);
-  }, [held, cards.length]);
+  }, [cards.length]);
   return (
     <section>
       <Heading n="01" kicker="Browse by section" title="Everything on ARC Research, at a glance." />
       <div className="mt-4 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {cards.map(([to, title, sub, art, tag], i) => (
-          <Link key={to} to={to} onMouseEnter={() => setHeld(i)} onMouseLeave={() => { setLit(i); setHeld(null); }}
-            className={cn("group flex flex-col overflow-hidden rounded-[10px] border bg-surface-2 transition-colors", i === (held ?? lit) ? "sec-lit border-border-strong" : "border-border")}>
+          <Link key={to} to={to}
+            className={cn("group flex flex-col overflow-hidden rounded-[10px] border bg-surface-2 transition-colors hover:border-border-strong", i === lit ? "sec-lit border-border-strong" : "border-border")}>
             <span className="relative aspect-[16/10] sm:aspect-square">
               <span className="absolute inset-0">{art}</span>
               {tag && <span className="absolute bottom-2.5 right-3 font-mono text-[10px] tracking-[0.1em] text-muted">{tag}</span>}
