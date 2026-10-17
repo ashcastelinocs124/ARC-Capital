@@ -187,10 +187,13 @@ class TradeLabCfg(BaseModel):
     """Trade Lab (agents/trade/): idea → bull/bear debate → talks → desks → charts → editor → Substack draft."""
 
     data_dir: str = "data/trades"
-    framer_model: str = "deepseek/deepseek-v4-pro"  # OpenRouter ids contain a "/"
-    debate_model: str = "deepseek/deepseek-v4-pro"  # bull, bear, moderator
+    # OpenRouter ids contain a "/". V4.1 Flash 1017 replaced V4 Pro on 2026-10-17: it framed the India idea
+    # well and finished the debate, where V4 Pro failed a rebuttal on the number check
+    framer_model: str = "deepseek/deepseek-v4.1-flash-1017"
+    debate_model: str = "deepseek/deepseek-v4.1-flash-1017"  # bull, bear, moderator
     # talk answers, Talk 2 edits, "another idea": Haiku passed 4 of 4 test edits on the India report, DeepSeek
-    # V4 Pro 2 of 4 (2026-10-16); its edits that fail the number check twice go to fallback_talk_model
+    # V4 Pro 2 of 4 (2026-10-16); V4.1 Flash 1017 passed 4 of 4 but ran 4x slower and cut text it was told to
+    # keep (2026-10-17). Edits that fail the number check twice go to fallback_talk_model
     talk_model: str = "anthropic/claude-haiku-5.5"
     orchestrator_model: str = "gpt-6-sol"
     desk_model: str = "gpt-6-luna"

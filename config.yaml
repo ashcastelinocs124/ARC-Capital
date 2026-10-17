@@ -168,8 +168,10 @@ deep_dive:
 trade_lab:
   # Trade Lab (/admin): idea → bull/bear debate → your view → research desks → charts → Claude editor → Substack draft.
   data_dir: data/trades
-  framer_model: deepseek/deepseek-v4-pro
-  debate_model: deepseek/deepseek-v4-pro
+  # DeepSeek V4.1 Flash 1017 framed the India idea well and finished the debate; V4 Pro framed it worse and
+  # failed a rebuttal on the number check (2026-10-17)
+  framer_model: deepseek/deepseek-v4.1-flash-1017
+  debate_model: deepseek/deepseek-v4.1-flash-1017
   talk_model: anthropic/claude-haiku-5.5  # answers and slight edits; 4 of 4 test edits passed (2026-10-16)
   orchestrator_model: gpt-6-sol
   desk_model: gpt-6-luna

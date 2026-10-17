@@ -1,6 +1,6 @@
 """Editor: Claude Opus 5.5 writes the Special Topics report from the debate, the user's talk, the desks'
 findings and the charts the user picked; the number check sends it back once. Talk 2 edits revise one part
-on the talk model (DeepSeek V4 Pro), with the same check."""
+on the talk model (Claude Haiku 5.5), with the same check."""
 
 from __future__ import annotations
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from castelino.agents.update.models import Fact
 
@@ -38,6 +38,11 @@ class StandIn(BaseModel):
     ticker: str
     role: Literal["subject", "benchmark"]
     label: str  # the instrument's full name, e.g. iShares MSCI India ETF
+
+    @model_validator(mode="after")
+    def _no_ticker_in_label(self) -> StandIn:  # a model may write "iShares MSCI India ETF (INDA)"
+        self.label = self.label.removesuffix(f"({self.ticker})").strip() or self.ticker
+        return self
 
     @property
     def full(self) -> str:

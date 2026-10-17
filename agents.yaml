@@ -218,7 +218,7 @@ agents:
     group: Trade Lab
     family: Trade Lab
     dependencies:
-      - {key: OPENROUTER_API_KEY, required: false, why: "DeepSeek V4 Pro via OpenRouter; unset = gpt-6-sol"}
+      - {key: OPENROUTER_API_KEY, required: false, why: "DeepSeek V4.1 Flash via OpenRouter; unset = gpt-6-sol"}
       - {key: OPENAI_API_KEY, required: true, why: "Fallback model and the why-now web search"}
     prompt: "castelino.agents.trade.framer:SYSTEM"
     schema: "castelino.agents.trade.models:Frame"
@@ -239,7 +239,7 @@ agents:
     group: Trade Lab
     family: Trade Lab
     dependencies:
-      - {key: OPENROUTER_API_KEY, required: false, why: "DeepSeek V4 Pro via OpenRouter; unset = gpt-6-sol"}
+      - {key: OPENROUTER_API_KEY, required: false, why: "DeepSeek V4.1 Flash via OpenRouter; unset = gpt-6-sol"}
       - {key: OPENAI_API_KEY, required: true, why: "Web search (gpt-6-luna) and the fallback model"}
     prompt: "castelino.agents.trade.debate:BULL"
     schema: "castelino.agents.trade.models:TurnDraft"
@@ -258,7 +258,7 @@ agents:
     group: Trade Lab
     family: Trade Lab
     dependencies:
-      - {key: OPENROUTER_API_KEY, required: false, why: "DeepSeek V4 Pro via OpenRouter; unset = gpt-6-sol"}
+      - {key: OPENROUTER_API_KEY, required: false, why: "DeepSeek V4.1 Flash via OpenRouter; unset = gpt-6-sol"}
       - {key: OPENAI_API_KEY, required: true, why: "Web search (gpt-6-luna) and the fallback model"}
     prompt: "castelino.agents.trade.debate:BEAR"
     schema: "castelino.agents.trade.models:TurnDraft"
@@ -276,7 +276,7 @@ agents:
     group: Trade Lab
     family: Trade Lab
     dependencies:
-      - {key: OPENROUTER_API_KEY, required: false, why: "DeepSeek V4 Pro via OpenRouter; unset = gpt-6-sol"}
+      - {key: OPENROUTER_API_KEY, required: false, why: "DeepSeek V4.1 Flash via OpenRouter; unset = gpt-6-sol"}
     prompt: "castelino.agents.trade.debate:MODERATOR"
     schema: "castelino.agents.trade.models:Moderation"
     summary: >-
@@ -387,7 +387,7 @@ agents:
     group: Trade Lab
     family: Trade Lab
     dependencies:
-      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-luna; \"+ Another idea\" on DeepSeek V4 Pro"}
+      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-luna; \"+ Another idea\" on the talk model (Claude Haiku 5.5)"}
     prompt: "castelino.agents.trade.chartist:SYSTEM"
     schema: "castelino.agents.trade.models:SpecList"
     summary: >-

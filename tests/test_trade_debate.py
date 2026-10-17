@@ -43,6 +43,13 @@ def a_frame(*tickers):
     )
 
 
+def test_a_stand_in_named_with_its_ticker_prints_it_once():
+    """DeepSeek V4.1 Flash 1017 wrote labels like "iShares MSCI India ETF (INDA)" (2026-10-17)."""
+    s = StandIn(ticker="INDA", role="subject", label="iShares MSCI India ETF (INDA)")
+    assert s.label == "iShares MSCI India ETF"
+    assert s.full == "iShares MSCI India ETF (INDA)"
+
+
 def test_framer_makes_a_fact_per_ticker_and_why_now_facts(fake):
     fake.script = [parsed(a_frame("INDA", "SMH"))]
     news = (

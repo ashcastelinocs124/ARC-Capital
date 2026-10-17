@@ -26,6 +26,7 @@ PRICES: dict[str, tuple[float, float]] = {
     "gpt-image-2": (5.0, 30.0),  # text prompt in, image tokens out
     "claude-opus-5-5": (4.0, 20.0),
     "deepseek/deepseek-v4-pro": (1.30, 2.60),
+    "deepseek/deepseek-v4.1-flash-1017": (0.15, 0.60),  # Trade Lab debate, list 2026-10-17
     "anthropic/claude-haiku-5.5": (0.10, 0.50),  # Trade Lab Talk 2, OpenRouter list 2026-10-16
     "anthropic/claude-sonnet-5.5": (2.0, 10.0),
     # chart desk models: OpenRouter's listed prices on 2026-10-16

@@ -23,6 +23,7 @@ NAMES = {  # how the Talk 2 trail names a model
     "anthropic/claude-haiku-5.5": "Claude Haiku 5.5",
     "anthropic/claude-sonnet-5.5": "Claude Sonnet 5.5",
     "deepseek/deepseek-v4-pro": "DeepSeek V4 Pro",
+    "deepseek/deepseek-v4.1-flash-1017": "DeepSeek V4.1 Flash",
     "gpt-6-luna": "GPT-6 Luna",
     "gpt-6-sol": "GPT-6 Sol",
 }
