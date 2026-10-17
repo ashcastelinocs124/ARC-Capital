@@ -1,4 +1,4 @@
-"""GET /section_posts: posts in the Substack sections shown on Daily Update (AI Update, Special Topics)."""
+"""GET /section_posts: posts in the Substack sections that have their own page (/ai/*, /special-topics)."""
 
 from __future__ import annotations
 
@@ -10,7 +10,13 @@ from castelino.dashboard.endpoints.videos import POST_PREFIX, THUMB_OVERRIDES, a
 router = APIRouter()
 
 # Substack section slug -> shown on the site (the order is the page order).
-SECTIONS = {"artificial-intelligence-update": "AI Update", "special-topics": "Special Topics"}
+# AI is split into Models and Semis & Chips; posts still in the old AI Update section show under Models.
+SECTIONS = {
+    "ai-models": "AI Models",
+    "semis-chips": "Semis & Chips",
+    "artificial-intelligence-update": "AI Update",
+    "special-topics": "Special Topics",
+}
 
 
 def parse_section_posts(archive: list[dict]) -> list[dict]:

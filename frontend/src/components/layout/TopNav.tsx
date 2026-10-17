@@ -18,7 +18,8 @@ const NAV: Entry[] = [
     { to: "/themes", label: "Theme Charts", desc: "The day's top macro theme, charted at 08:00 ET on weekdays" },
   ] },
   { label: "AI", items: [
-    { to: "/ai", label: "AI Update", desc: "Models, chips and the AI stack" },
+    { to: "/ai/models", label: "Models", desc: "Frontier and open-weight models, labs and releases" },
+    { to: "/ai/chips", label: "Semis & Chips", desc: "GPUs, foundries and the compute supply chain" },
   ] },
   { label: "Special Topics", to: "/special-topics" },
   { label: "How it works", items: [

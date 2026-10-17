@@ -41,9 +41,12 @@ const PUBS: [string, string, string, string][] = [
   ["/themes", "Weekdays · 08:00 ET", "Theme Charts", "The day's top macro theme in five or six charts."],
   ["/macro", "Daily · 09:30 & 17:00 ET", "Radar", "The week ahead, Fear & Greed, and which sectors are stretched."],
   ["/deep-research", "Sundays", "Deep Research", "The week's 10 to 12 trends, researched in depth."],
-  ["/ai", "New videos", "AI Update", "Video essays on models, chips and the AI stack."],
+  ["/ai/models", "New videos", "AI Models", "Video essays on frontier and open-weight models and the labs behind them."],
+  ["/ai/chips", "New videos", "Semis & Chips", "Video essays on GPUs, foundries and the compute supply chain."],
   ["/special-topics", "Occasional", "Special Topics", "Longer dives and presentations."],
 ];
+
+const AI_LABEL: Record<string, string> = { "ai-models": "AI Models", "semis-chips": "Semis & Chips", "artificial-intelligence-update": "AI Models" };
 
 type Row = { label: string; color: string; when: string; title: string; href: string; image?: string | null; score?: number };
 
@@ -52,13 +55,13 @@ function useDesk(): Row[] {
   const fg = useSectorSentiment().data?.fear_greed;
   const memo = useDailyPosts().data?.[0];
   const deep = useWeeklyPosts().data?.[0];
-  const ai = useSectionPosts().data?.find((p) => p.section === "artificial-intelligence-update");
+  const ai = useSectionPosts().data?.find((p) => p.section in AI_LABEL); // newest first
   const rows: (Row | false | null | undefined)[] = [
     theme && { label: "Theme Charts", color: C.inflation, when: day(theme.date), title: theme.title, href: theme.url, image: theme.image },
     fg && { label: "Radar", color: C.jobs, when: "Today", title: `Fear & Greed: ${zoneOf(fg.score).name}`, href: "/macro#sector-sentiment", score: fg.score },
     memo && { label: "Memo", color: C.accent, when: day(memo.date), title: memo.title, href: memo.url, image: memo.image },
     deep && { label: "Deep Research", color: C.ai, when: `Week ${Number(deep.week.split("W")[1])}`, title: deep.title, href: deep.url, image: deep.image },
-    ai && { label: "AI Update", color: C.text2, when: `${day(ai.date)}${ai.duration ? ` · ▶ ${Math.round(ai.duration / 60)} min` : ""}`,
+    ai && { label: AI_LABEL[ai.section], color: C.text2, when: `${day(ai.date)}${ai.duration ? ` · ▶ ${Math.round(ai.duration / 60)} min` : ""}`,
       title: ai.title, href: ai.url, image: ai.thumbnail },
   ];
   // every off-site link must be one of our Substack posts

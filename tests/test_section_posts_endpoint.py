@@ -21,6 +21,12 @@ ARCHIVE = [
         "type": "newsletter",
     },
     {
+        "section_slug": "semis-chips",
+        "title": "Chips",
+        "canonical_url": P + "chips",
+        "post_date": "2026-10-01T04:00:00Z",
+    },
+    {
         "section_slug": "financial-markets",
         "title": "Daily",
         "canonical_url": P + "daily",
@@ -35,12 +41,12 @@ ARCHIVE = [
 ]
 
 
-def test_parse_section_posts_keeps_the_two_sections_with_safe_links():
+def test_parse_section_posts_keeps_the_page_sections_with_safe_links():
     posts = parse_section_posts(ARCHIVE)
-    assert [p["title"] for p in posts] == ["Neolabs", "Note"]
+    assert [p["title"] for p in posts] == ["Neolabs", "Chips", "Note"]
     assert (
         posts[0]["video"] is True
         and posts[0]["duration"] == 2171
         and posts[0]["date"] == "2026-10-07"
     )
-    assert posts[1]["video"] is False and posts[1]["thumbnail"] is None
+    assert posts[2]["video"] is False and posts[2]["thumbnail"] is None

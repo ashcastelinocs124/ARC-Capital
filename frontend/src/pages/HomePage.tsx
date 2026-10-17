@@ -261,8 +261,8 @@ function Sections() {
       blurb: "The Sunday deep dive: the week in 10–12 trends, each researched by a desk of agents and grilled by an editor.",
       points: [["Trends", "10–12 a week"], ["Desks", "Five research desks"], ["Checked", "Every %, bp and pp"]] },
     { to: "/videos", title: "Videos", sub: n ? `${n} videos` : "On camera", vis: <VideosVis />,
-      blurb: "AI Update and Special Topics, explained on camera.",
-      points: [["AI Update", "Models, chips, labs"], ["Special Topics", "One idea, in depth"]] },
+      blurb: "AI (Models, Semis & Chips) and Special Topics, explained on camera.",
+      points: [["Models", "Labs and releases"], ["Semis & Chips", "GPUs, foundries, supply"], ["Special Topics", "One idea, in depth"]] },
     { to: "/agents", title: "Agents", sub: "How it's made", vis: <AgentsVis />,
       blurb: "The AI desk behind every memo: what each agent does and how the systems fit together.",
       points: [["Briefings", "The daily Morning Note desk"], ["Weekly", "Lead, desks and editor"]] },
@@ -349,8 +349,8 @@ function Sections() {
 }
 
 type Kind = "memo" | "deep" | "ai" | "special" | "video";
-const KINDS: [Kind, string][] = [["memo", "Memo"], ["deep", "Deep Dive"], ["ai", "AI Update"], ["special", "Special Topics"], ["video", "Videos"]];
-const SECTION_KIND: Record<string, Kind> = { "artificial-intelligence-update": "ai", "special-topics": "special" };
+const KINDS: [Kind, string][] = [["memo", "Memo"], ["deep", "Deep Dive"], ["ai", "AI"], ["special", "Special Topics"], ["video", "Videos"]];
+const SECTION_KIND: Record<string, Kind> = { "ai-models": "ai", "semis-chips": "ai", "artificial-intelligence-update": "ai", "special-topics": "special" };
 interface Item { url: string; title: string; date: string; when: string; image: string | null; kinds: Set<Kind>; duration: number | null }
 
 function useResearch(): Item[] {
