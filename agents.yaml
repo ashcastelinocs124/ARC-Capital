@@ -127,7 +127,7 @@ agents:
     tools:
       - {name: "gather() (code)", does: "One cited web search for the most-discussed macro themes, 1d/1w/1m market moves, Polymarket economy + Fed odds swings"}
       - {name: "resolve() (code)", does: "Fetches each fred:/yahoo: series a chart names; the weekly guard drops a chart that can't be drawn"}
-      - {name: "Chart renderer (code)", does: "The Weekly Deep Dive's line / compare / movers exhibits plus heatmap, scatter and range (theme_charts.py), kicker THEME CHARTS"}
+      - {name: "Chart renderer (code)", does: "The Weekly Deep Dive's line / compare / movers exhibits plus heatmap, together (how often two markets moved the same way) and range (theme_charts.py), kicker THEME CHARTS"}
       - {name: "Number guard", does: "Every %, bp or pp in the theme, why and signals must be in the cited facts; one retry"}
       - {name: "Substack post (code)", does: "Weekdays at 08:00: theme as title, why, the three signals, every chart, sources; published in Financial Markets, web only (no email); URL in data/themes/substack/, never posted twice"}
       - {name: "X thread (code)", does: "Weekdays after the 08:00 publish: theme + why with chart 1, one post per further chart (title + code-written subtitle + the Chart Explainer's plain line), then the Substack post's link; ids and texts in data/x_posts/themes/, never posted twice"}
@@ -729,7 +729,7 @@ systems:
         flow: [["08:00 ET · Mon-Fri"], ["code:News & X|cited web search", "code:Market moves|1d · 1w · 1m", "code:Polymarket|odds swings"], ["agent:theme_picker|#1 theme + 5-6 charts"], ["code:Number guard|1 retry"], ["end:↓ to stage 2"]]
         loops: [{from: 3, to: 2, label: "retry with errors"}]
       - title: "Theme Charts 2 · Chart & publish"
-        flow: [["code:Fetch series|FRED · Yahoo"], ["code:Chart forms|heatmap · scatter · range"], ["code:Save run|last 6 runs = memory"], ["agent:chart_explainer|X: one line per chart", "agent:chart_commentary|Substack: 2-3 sentences per chart"], ["end:Substack post|08:00 weekdays · /themes card", "end:X thread|08:00 weekdays"]]
+        flow: [["code:Fetch series|FRED · Yahoo"], ["code:Chart forms|heatmap · together · range"], ["code:Save run|last 6 runs = memory"], ["agent:chart_explainer|X: one line per chart", "agent:chart_commentary|Substack: 2-3 sentences per chart"], ["end:Substack post|08:00 weekdays · /themes card", "end:X thread|08:00 weekdays"]]
 
   - group: Market alerts
     trigger: "Cron on the Fly server every 30 minutes, 9:35-16:05 ET on weekdays"
@@ -909,7 +909,7 @@ pipelines:
       - {id: gather, kind: code, layer: agents, x: 316, w: 170, name: Signal gatherer, sub: 3 signals → facts, does: "Plain code gathers the three signals and turns them into numbered facts."}
       - {id: picker, kind: llm, agent: theme_picker, layer: agents, x: 560, w: 170, name: Theme picker, sub: theme + 5-6 charts, does: "One LLM call names today's #1 macro theme, the three signals behind it and the 5-6 charts that tell it."}
       - {id: guard, kind: guard, layer: guardrails, x: 560, w: 170, name: Number guard, sub: figures vs facts, does: "Every figure in the write-up must be among the facts' numbers, or the picker tries again once."}
-      - {id: charts, kind: code, layer: guardrails, x: 800, w: 160, name: Chart renderer, sub: fetch + draw, does: "Downloads every series and draws the charts (lines, heatmaps, scatters, ranges). The AI never supplies a plotted number."}
+      - {id: charts, kind: code, layer: guardrails, x: 800, w: 160, name: Chart renderer, sub: fetch + draw, does: "Downloads every series and draws the charts (lines, heatmaps, together lines, ranges). The AI never supplies a plotted number."}
       - {id: substack, kind: out, layer: delivery, x: 800, w: 160, name: Substack, sub: post · /themes card, does: "Each run is published on Substack and shown as a card on the Theme Charts page."}
       - {id: xthread, kind: out, layer: delivery, x: 990, w: 140, name: X thread, sub: links the post, does: "Posted to X as a thread that links the Substack post."}
       - {id: explainer, kind: llm, agent: chart_explainer, layer: agents, x: 990, w: 150, name: Chart explainer, sub: one line per chart, does: "A light model writes one plain sentence under each chart in the X thread. It may not use figures, so every number on X stays the code's."}

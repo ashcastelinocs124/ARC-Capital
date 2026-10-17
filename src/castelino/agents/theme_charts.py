@@ -1,8 +1,8 @@
 """Theme Charts' own chart forms, beyond the Weekly Deep Dive's lines and bars.
 
 heatmap: each series' 1d/1w/1m/3m move, shaded by how unusual it is (σ of the same-length moves
-over 2 years) · scatter: two series against each other, week by week, so a trail shows whether they
-move together · range: where each series sits between its 1-year low and high, with a ring where
+over 2 years) · together: how often two series moved the same way (the share of the last 13 weeks),
+one line coloured by zone · range: where each series sits between its 1-year low and high, with a ring where
 it was a month ago. Every number is computed here from the fetched daily series, never the LLM's;
 moves use the same bar counts as the Morning Note's market facts (1d=1, 1w=5, 1m=21, 3m=63), so a
 cell matches the M fact the picker quotes. Plugged into `make_weekly_exhibits(forms=FORMS)`.
@@ -12,10 +12,14 @@ browser, which draws /themes interactively; the PNGs remain for older runs and t
 
 from __future__ import annotations
 
+import math
+
+import matplotlib.dates as mdates
 import numpy as np
 import pandas as pd
 from matplotlib.collections import LineCollection
 from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.lines import Line2D
 
 from castelino.agents.update.charts import GREEN, INK, INK2, SLATE, is_rate
 from castelino.agents.update.collector import BARS
@@ -23,9 +27,9 @@ from castelino.agents.update.models import Fact
 from castelino.agents.weekly.charts import RED, window_label
 
 HORIZONS = ("1d", "1w", "1m", "3m")
-SIZES = {"heatmap": (2, 8), "scatter": (2, 2), "range": (2, 6)}
+SIZES = {"heatmap": (2, 8), "together": (2, 2), "range": (2, 6)}
 SIGMA = LinearSegmentedColormap.from_list("sigma", [RED, "#FFFFFF", GREEN])
-TRAIL = LinearSegmentedColormap.from_list("trail", ["#CBD5E1", GREEN])
+ROLL, TOGETHER, APART = 13, 60, 40  # weeks per share; the "move together" / "move opposite" bands
 
 
 def form_errors(ch, by: dict[str, Fact]) -> list[str]:
@@ -36,8 +40,8 @@ def form_errors(ch, by: dict[str, Fact]) -> list[str]:
         for i in ch.fact_ids
     ):
         errs.append(f"{ch.kind} takes only FRED or Yahoo series")
-    if ch.kind == "scatter" and not 30 <= ch.window_days <= 3650:
-        errs.append(f"scatter window {ch.window_days} days is out of range")
+    if ch.kind == "together" and not 180 <= ch.window_days <= 3650:
+        errs.append(f"together window {ch.window_days} days is out of range (180-3650)")
     return errs
 
 
@@ -117,36 +121,63 @@ def weekly(cited: list[Fact], series, days: int) -> pd.DataFrame:
     df = pd.concat([_daily(fx, series, days), _daily(fy, series, days)], axis=1, join="inner")
     w = df.groupby(df.index.to_period("W-FRI")).tail(1)
     if len(w) < 4:
-        raise ValueError("scatter: fewer than 4 weeks overlap")
+        raise ValueError("together: fewer than 4 weeks overlap")
     return w
 
 
-def scatter(pick, cited: list[Fact], series):
-    fx, fy = cited
-    w = weekly(cited, series, pick.window_days)
-    xs, ys = w.iloc[:, 0].to_numpy(), w.iloc[:, 1].to_numpy()
-    r = w.diff().dropna().corr().iloc[0, 1]
-    names = [f.series.label or f.series.id for f in (fx, fy)]
+def together_share(cited: list[Fact], series, days: int) -> pd.Series:
+    """% of the last ROLL weeks in which both series moved the same way, one point a week over `days`
+    (a flat week counts as not the same way)."""
+    w = weekly(cited, series, days + (ROLL + 2) * 7)
+    share = (w.diff().dropna().prod(axis=1) > 0).rolling(ROLL).mean().dropna() * 100
+    share = share[share.index >= share.index[-1] - pd.Timedelta(days=days)]
+    if len(share) < 4:
+        raise ValueError("together: fewer than 4 weeks of shares")
+    return share
+
+
+def _zone(v: float) -> str:
+    return GREEN if v >= TOGETHER else RED if v <= APART else SLATE
+
+
+def together(pick, cited: list[Fact], series):
+    s = together_share(cited, series, pick.window_days)
+    last, same = s.iloc[-1], round(s.iloc[-1] * ROLL / 100)
+    hi, lo = math.ceil(ROLL * TOGETHER / 100), math.floor(ROLL * APART / 100)
 
     def draw(ax):
-        t = np.linspace(0, 1, len(xs))
+        ax.axhspan(TOGETHER, 100, color=GREEN, alpha=0.07, lw=0)
+        ax.axhspan(0, APART, color=RED, alpha=0.06, lw=0)
+        # ponytail: densified so the colour switches close to where the line crosses a band edge
+        x = mdates.date2num(s.index)
+        xs = np.linspace(x[0], x[-1], len(s) * 24)
+        ys = np.interp(xs, x, s.to_numpy())
         segs = np.stack([np.column_stack([xs[:-1], ys[:-1]]), np.column_stack([xs[1:], ys[1:]])], 1)
-        ax.add_collection(LineCollection(segs, colors=TRAIL(t[1:]), lw=2.2, zorder=1))
-        ax.scatter(xs[:-1], ys[:-1], c=TRAIL(t[:-1]), s=18, zorder=2)
-        ax.annotate("", (xs[-1], ys[-1]), (xs[-2], ys[-2]),
-                    arrowprops={"arrowstyle": "-|>", "color": GREEN, "lw": 2.2, "shrinkB": 6})  # fmt: skip
-        ax.scatter([xs[-1]], [ys[-1]], s=110, color=GREEN, edgecolor="white", lw=1.5, zorder=3)
-        ax.scatter([xs[0]], [ys[0]], s=60, facecolor="white", edgecolor=SLATE, lw=1.5, zorder=3)
-        for k, color, weight in ((0, INK2, "normal"), (-1, GREEN, "bold")):
-            ax.annotate(f"{w.index[k]:%b %d}", (xs[k], ys[k]), xytext=(7, 5),
-                        textcoords="offset points", fontsize=8.5, color=color, fontweight=weight)  # fmt: skip
-        for setter, name, f in ((ax.set_xlabel, names[0], fx), (ax.set_ylabel, names[1], fy)):
-            setter(name + (" (%)" if _rate(f) else ""), fontsize=9, color=INK2)
-        ax.grid(color="#E2E8F0", lw=0.7)
-        ax.margins(0.12)
+        colors = [_zone(v) for v in (ys[:-1] + ys[1:]) / 2]
+        ax.add_collection(LineCollection(segs, colors=colors, lw=2.2, capstyle="round", zorder=2))
+        ax.scatter([x[-1]], [last], s=90, color=_zone(last), edgecolor="white", lw=1.5, zorder=3,
+                   clip_on=False)  # fmt: skip
+        ax.annotate(f"{last:.0f}%", (x[-1], last), xytext=(9, 0), textcoords="offset points",
+                    fontsize=9, color=INK2 if _zone(last) == SLATE else _zone(last), fontweight="bold", va="center",
+                    annotation_clip=False)  # fmt: skip
+        keys = ((GREEN, f"Move together ({hi}+ of {ROLL} weeks)"), (SLATE, "No steady link"),
+                (RED, f"Move opposite ({lo} or fewer)"))  # fmt: skip
+        ax.legend([Line2D([], [], color=c, lw=2.2) for c, _ in keys], [t for _, t in keys],
+                  loc="lower left", bbox_to_anchor=(0, 1.0), ncol=3, frameon=False, fontsize=8,
+                  handlelength=1.6, borderaxespad=0.2)  # fmt: skip
+        ax.set_xlim(x[0], x[-1])
+        ax.set_ylim(0, 100)
+        ax.xaxis_date()
+        ax.xaxis.set_major_formatter(
+            mdates.DateFormatter("%b %Y" if pick.window_days > 400 else "%b")
+        )
+        ax.set_ylabel(f"% of the last {ROLL} weeks\nmoving the same way", fontsize=9, color=INK2)
+        ax.grid(axis="y", color="#E2E8F0", lw=0.7)
 
-    sub = f"Weekly closes, {window_label(pick.window_days)} · weekly moves correlate {r:+.2f}"
-    return draw, sub, {"left": 0.13, "bottom": 0.24}
+    sub = (
+        f"Moved the same way in {same} of the last {ROLL} weeks · {window_label(pick.window_days)}"
+    )
+    return draw, sub, {"left": 0.13}
 
 
 def range_rows(cited: list[Fact], series) -> list[dict]:
@@ -208,7 +239,7 @@ def range_(pick, cited: list[Fact], series):
     return draw, sub, {"left": 0.24, "bottom": 0.16}
 
 
-FORMS = {"heatmap": heatmap, "scatter": scatter, "range": range_}
+FORMS = {"heatmap": heatmap, "together": together, "range": range_}
 
 YEAR = 370  # days of daily points sent for the 1M-1Y range buttons
 
@@ -228,16 +259,11 @@ def chart_data(ch, cited: list[Fact], series, fetch) -> dict:
         return {"rows": heat_rows(cited, series)}
     if ch.kind == "range":
         return {"rows": range_rows(cited, series)}
-    if ch.kind == "scatter":
-        w = weekly(cited, series, max(ch.window_days, YEAR))
+    if ch.kind == "together":
         return {
             "names": [f.series.label or f.series.id for f in cited],
-            "rates": [_rate(f) for f in cited],
             "window": ch.window_days,
-            "points": [
-                [d.strftime("%Y-%m-%d"), round(float(x), 4), round(float(y), 4)]
-                for d, (x, y) in w.iterrows()
-            ],  # fmt: skip
+            "points": _pts(together_share(cited, series, ch.window_days)),
         }
     out, dated = [], True
     for f in cited[:1] if ch.kind == "line" else cited:

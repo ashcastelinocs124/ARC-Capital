@@ -133,28 +133,55 @@ def test_no_drawable_chart_saves_nothing(tmp_path):
     assert not list(tmp_path.glob("*.json"))
 
 
-def test_heatmap_scatter_and_range_draw_from_series_and_take_reader_names(tmp_path):
+def test_heatmap_together_and_range_draw_from_series_and_take_reader_names(tmp_path):
     charts = [
         chart("heatmap", "Where oil reaches", ["M1", "M2", "fred:DGS10"], 0,
               names=["Brent", "S&P 500", "10y yield"]),
-        chart("scatter", "Oil against stocks", ["M1", "M2"], 180, names=["Brent", "S&P 500"]),
+        chart("together", "Oil against stocks", ["M1", "M2"], 730, names=["Brent", "S&P 500"]),
         chart("range", "How stretched", ["M1", "fred:DGS10"], 0),
         chart("range", "Odds can't range", ["M1", "N1"], 0),  # N1 has no series: dropped
     ]  # fmt: skip
     rec = themes.run(
         NOW, gather_fn=lambda now: FACTS, fetch=fetch, picker=lambda **kw: pick(charts=charts)
     )
-    assert [e.kind for e in rec.exhibits] == ["heatmap", "scatter", "range"]
+    assert [e.kind for e in rec.exhibits] == ["heatmap", "together", "range"]
     assert rec.exhibits[0].subtitle.startswith("Most unusual: ")
-    assert "correlate" in rec.exhibits[1].subtitle
+    assert "of the last 13 weeks · last 2 years" in rec.exhibits[1].subtitle
     assert "% of its 1-year range" in rec.exhibits[2].subtitle
     assert all((tmp_path / "charts" / rec.run_id / e.file).is_file() for e in rec.exhibits)
-    # the browser draws the same numbers: heatmap cells, weekly scatter points, 1-year ranges
+    # the browser data carries the same numbers: heatmap cells, weekly same-way shares, 1y ranges
     heat, sc, rng = (e.data for e in rec.exhibits)
     assert [r["name"].split(" · ")[0] for r in heat["rows"]] == ["Brent", "S&P 500", "10y yield"]
     assert all(len(r["cells"]) == 4 for r in heat["rows"]) and heat["rows"][2]["rate"]
-    assert sc["names"] == ["Brent", "S&P 500"] and sc["window"] == 180 and len(sc["points"]) > 26
+    assert sc["names"] == ["Brent", "S&P 500"] and sc["window"] == 730 and len(sc["points"]) > 90
     assert all(r["lo"] <= r["last"] <= r["hi"] for r in rng["rows"])
+
+
+def test_together_is_the_share_of_the_last_13_weeks_moving_the_same_way():
+    from castelino.agents import theme_charts
+
+    idx = pd.bdate_range(end="2026-10-13", periods=400)
+    up = pd.Series([100.0 + i + (i % 3) for i in range(400)], index=idx)
+    data = {"A": up, "B": up * 2, "C": 1000 - up}  # B moves with A, C against it
+
+    def fact(sid):
+        return Fact(id=sid, text=sid, numbers=[], provenance="data", source_title=sid,
+                    source_url="", series=SeriesRef(kind="daily", provider="yahoo", id=sid, label=sid))  # fmt: skip
+
+    def series(ref, days):
+        s = data[ref.id]
+        return s[s.index >= s.index[-1] - pd.Timedelta(days=days)]
+
+    same = theme_charts.together_share([fact("A"), fact("B")], series, 180)
+    apart = theme_charts.together_share([fact("A"), fact("C")], series, 180)
+    assert (same == 100).all() and (apart == 0).all() and len(same) >= 25
+    assert (
+        theme_charts._zone(61.5) == theme_charts.GREEN
+        and theme_charts._zone(46) == theme_charts.SLATE
+    )
+    assert theme_charts._zone(38.5) == theme_charts.RED
+    short = chart("together", "Too short", ["M1", "M2"], 90)
+    assert theme_charts.form_errors(short, {f.id: f for f in FACTS})  # under 180 days
 
 
 def test_fewer_than_five_charts_retries_then_publishes_what_passed():

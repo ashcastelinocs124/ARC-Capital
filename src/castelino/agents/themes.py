@@ -4,7 +4,7 @@ Code gathers three signal sets as facts (N: the macro themes news and financial 
 M: 1d/1w/1m market moves, P: Polymarket odds swings); one LLM call picks the theme and 6 charts (at
 least 5 must pass the checks, or the retry is told why);
 code fetches every series and draws it with the Weekly Deep Dive's renderer plus this page's own
-forms (`theme_charts`: heatmap, scatter, range), so the LLM never supplies a plotted number. Each run is data/themes/<YYYY-MM-DD>-<am|pm>.json + its PNGs; each exhibit
+forms (`theme_charts`: heatmap, together, range), so the LLM never supplies a plotted number. Each run is data/themes/<YYYY-MM-DD>-<am|pm>.json + its PNGs; each exhibit
 also carries its plotted numbers (`data`), which /themes draws interactively. Run by deploy/crontab at 08:00 ET on weekdays: python -m castelino.agents.themes
 The cron line then publishes the run on Substack (--substack, with gpt-6-luna's two or three
 sentences under each chart) and, once the site is redeployed, posts it to X as a thread linking that post (--post); no approval step for either.
@@ -52,7 +52,7 @@ class Signal(BaseModel):
 
 
 class ThemeChart(ExhibitPick):
-    kind: Literal["line", "compare", "movers", "heatmap", "scatter", "range"]
+    kind: Literal["line", "compare", "movers", "heatmap", "together", "range"]
     names: list[str]  # reader names for fact_ids, in order ("WTI crude", "10y yield")
 
 
@@ -127,14 +127,15 @@ Rules:
   - movers: 2-8 bars, each point's value one of the numbers of the fact its fact_id names.
   - heatmap: 2-8 daily series, each row's 1d/1w/1m/3m move shaded by how unusual it is; shows
     how far a theme reaches across markets.
-  - scatter: exactly 2 daily series plotted against each other week by week; shows whether they
-    move together (oil vs breakevens, yields vs the dollar).
+  - together: exactly 2 daily series; one line of how often they moved the same way week to week
+    (the share of the last 13 weeks), coloured by whether they move together, opposite or neither;
+    shows whether two markets are linked (oil vs breakevens, yields vs the dollar).
   - range: 2-6 daily series, where each sits between its 1-year low and high and where it was a
     month ago; shows which markets are stretched.
-  heatmap, scatter and range take only FRED or Yahoo series. fact_ids name listed facts, or fetch
+  heatmap, together and range take only FRED or Yahoo series. fact_ids name listed facts, or fetch
   a new series as "fred:SERIES_ID" (e.g. fred:T5YIE, fred:DGS10, fred:BAMLH0A0HYM2) or
   "yahoo:TICKER" (e.g. yahoo:BZ=F, yahoo:^GSPC, yahoo:XLE). window_days: 90 for line and compare
-  unless the theme needs longer; 180 for scatter; 7 for a Polymarket line; heatmap and range
+  unless the theme needs longer; 730 for together; 7 for a Polymarket line; heatmap and range
   ignore it. title: plain words, no numbers. names: a short reader name for each fact_id, in
   order ("WTI crude", "10y yield", "Energy stocks (XLE)"), never a value; [] for line and
   movers. points: [] unless movers. unit: the movers bars' unit (% or bp), else "".
