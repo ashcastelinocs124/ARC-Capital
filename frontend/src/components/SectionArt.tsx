@@ -137,7 +137,7 @@ export function DotMatrix({ value }: { value?: number }) {
       dots.push(
         <rect key={r * n + c} x={c * cell + 1.6} y={r * cell + 1.6} width={cell - 3.2} height={cell - 3.2} rx={1.6}
           className={on ? "dot-on fill-muted-2 transition-[fill] duration-300 group-[.sec-lit]:fill-accent" : "fill-accent"} opacity={o}
-          style={on ? { animationDelay: `${(c - x0) * 0.025}s` } : undefined} />,
+          style={on ? { animationDelay: `${(c - x0) * 0.04}s` } : undefined} />,
       );
     }
   return (
