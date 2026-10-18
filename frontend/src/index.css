@@ -183,7 +183,7 @@ html:not(.dark) .splash-logo { filter: brightness(1.06); } /* its tile is off-wh
 /* home "Browse by section": the lit card redraws its lines and switches its dots on, then the light
    moves to the next card (Sections in HomePage.tsx) */
 .sec-lit .sec-art [pathLength] { stroke-dasharray: 1; stroke-dashoffset: 1; animation: trace-draw .9s cubic-bezier(.6,0,.2,1) forwards; }
-.sec-lit .dot-on { animation: dot-on .25s ease-out both; }
+.sec-lit .dot-on { animation: dot-on .25s ease-out both; filter: url(#dot-glow); } /* grey until lit, like the line art */
 @keyframes dot-on { from { opacity: .12; } }
 @media (prefers-reduced-motion: reduce) { .sec-lit .sec-art [pathLength], .sec-lit .dot-on { animation: none; stroke-dashoffset: 0; } }
 /* sideways-scrolling tab rows on phones: swipeable, no grey bar */

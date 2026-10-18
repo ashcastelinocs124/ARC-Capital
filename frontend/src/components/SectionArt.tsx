@@ -118,8 +118,8 @@ const FONT: Record<string, string[]> = {
   "9": ["01110", "10001", "10001", "01111", "00001", "00010", "01100"],
 };
 
-// A square field of dim dots fading out from the middle, with `value` lit and glowing in it; under
-// `.sec-lit` the lit dots switch on left to right. Without a value (still loading) it's just the field.
+// A square field of dim dots fading out from the middle, with `value` drawn grey in it; under
+// `.sec-lit` its dots turn accent, glow and switch on left to right. Without a value (still loading) it's just the field.
 export function DotMatrix({ value }: { value?: number }) {
   const digits = value == null ? "" : String(value);
   const width = digits.length * 6 - 1, n = Math.max(22, width + 10), cell = 300 / n;
@@ -136,7 +136,7 @@ export function DotMatrix({ value }: { value?: number }) {
       if (o < 0.03) continue;
       dots.push(
         <rect key={r * n + c} x={c * cell + 1.6} y={r * cell + 1.6} width={cell - 3.2} height={cell - 3.2} rx={1.6}
-          className={on ? "dot-on fill-accent" : "fill-accent"} opacity={o} filter={on ? "url(#dot-glow)" : undefined}
+          className={on ? "dot-on fill-muted-2 transition-[fill] duration-300 group-[.sec-lit]:fill-accent" : "fill-accent"} opacity={o}
           style={on ? { animationDelay: `${(c - x0) * 0.025}s` } : undefined} />,
       );
     }
