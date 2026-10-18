@@ -84,7 +84,7 @@ export function WeekMap({ data }: { data: WeekAhead }) {
       if (cur + 2 * r > end) { hidden++; return; }
       const X = cur + r, Y = cy(5);
       cur = X + r + 3;
-      // growth off a zero or negative base is meaningless (same rule as EpsGrowth)
+      // growth off a zero or negative base is meaningless
       const g = (e.eps_est ?? 0) > 0 && (e.eps_year_ago ?? 0) > 0 ? ((e.eps_est! / e.eps_year_ago! - 1) * 100).toFixed(1) : null;
       const session = e.session === "pre" ? "pre-market" : e.session === "post" ? "after the close" : "time not given";
       marks.push(

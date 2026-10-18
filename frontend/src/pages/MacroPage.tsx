@@ -1,8 +1,6 @@
 import { useWeekAhead } from "@/hooks/useWeekAhead";
 import { PageIntro } from "@/components/layout/PageIntro";
 import { WeekMap } from "@/components/weekAhead/WeekMap";
-import { InflationExpectations } from "@/components/weekAhead/InflationExpectations";
-import { EpsGrowth } from "@/components/weekAhead/EpsGrowth";
 import { OpenRouterBars, RampChart } from "@/components/weekAhead/AiSpend";
 import { GapNote } from "@/components/weekAhead/Tooltip";
 import { SectorValuation } from "@/components/weekAhead/SectorValuation";
@@ -59,7 +57,7 @@ export default function MacroPage() {
           note: `updated ${new Date(data.generated_at).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" })} ET`,
         } : undefined}>
         Inflation and jobs releases from the five largest economies, S&amp;P 500 and big AI-company earnings and AI model
-        launches on one timeline, today's biggest macro theme in charts, then what the market expects, how fearful or greedy it is, and where AI money is going.
+        launches on one timeline, today's biggest macro theme in charts, then sector valuations, how fearful or greedy the market is, and where AI money is going.
         Refreshed each evening after the close; the theme every weekday at 08:00 ET.
       </PageIntro>
       {!data ? (
@@ -86,10 +84,6 @@ export default function MacroPage() {
           <CardBoundary name="Today's theme"><ThemeOfTheDay /></CardBoundary>
           {/* everything after the week map sits ~15% narrower; charts are w-full so they shrink with their cards */}
           <div className="space-y-6 md:w-[85%] md:mx-auto">
-            <div className="grid gap-6 md:grid-cols-2">
-              <Card title="Inflation: previous → consensus" sub="y/y %"><InflationExpectations events={data.events} /></Card>
-              <Card title="Expected EPS growth vs a year ago" sub="consensus EPS ÷ year-ago EPS"><EpsGrowth events={data.events} /></Card>
-            </div>
             {data.sectors && data.sectors.length > 0 && (
               <Card title="Sectors: year-to-date vs valuation" sub="SPDR sector ETFs · YTD price return vs trailing P/E · hover for details">
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-2 mb-1">
