@@ -189,7 +189,7 @@ function Sections() {
   const [lit, setLit] = useState(0);
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const t = setInterval(() => setLit((i) => (i + 1) % cards.length), 2400);
+    const t = setInterval(() => setLit((i) => (i + 1) % cards.length), 1600);
     return () => clearInterval(t);
   }, [cards.length]);
   return (
