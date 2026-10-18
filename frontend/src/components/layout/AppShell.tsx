@@ -37,7 +37,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 // Shown under every page, including the public site.
 function Disclaimer() {
   return (
-    <footer className="px-4 md:px-8 pb-6 pt-2 text-[11px] leading-relaxed text-muted max-w-5xl">
+    <footer className="px-4 md:px-8 pb-6 pt-2 text-[11px] leading-relaxed text-muted max-w-5xl mx-auto text-center">
       <b className="font-semibold text-text-2">Not investment advice.</b> ARC Research is for informational and
       educational purposes only. Nothing here is investment, financial, legal or tax advice, or an offer or
       solicitation to buy or sell any security. Figures come from simulated models, AI-generated text and
