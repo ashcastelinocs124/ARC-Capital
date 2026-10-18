@@ -29,45 +29,49 @@ function Why({ rec }: { rec: ThemeRun }) {
   const cited = rec.facts.filter((f) => rec.fact_ids.includes(f.id));
   const shown = open ? cited : cited.slice(0, SHOWN);
   return (
-    <aside className="flex min-w-0 flex-col gap-3 border-t border-border pt-4 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
-      <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">Why this theme</div>
-      <p className="text-[13.5px] leading-[21px] text-text-2">{rec.why}</p>
-      <div className="flex flex-col gap-2">
-        {rec.signals.map((s) => (
-          <button key={s.kind} type="button" onClick={() => { setLit(lit === s.kind ? null : s.kind); setOpen(true); }}
-            className={cn("rounded-[10px] border px-3 py-2.5 text-left hover:shadow-card-hover",
-              s.kind === rec.lead ? "border-accent bg-accent-soft" : "border-border bg-surface-2")}>
-            <div className={cn("text-[10.5px] font-bold uppercase tracking-[0.08em]", s.kind === rec.lead ? "text-accent" : "text-muted")}>
-              {SIGNAL[s.kind]}{s.kind === rec.lead && " · led the pick"}
-            </div>
-            <div className="mt-0.5 text-sm font-semibold text-text">{s.headline}</div>
-            <div className="mt-0.5 text-xs text-muted">{s.note}</div>
-          </button>
-        ))}
-      </div>
-      {cited.length > 0 && (
-        <>
-          <div className="mt-1 text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
-            Sources <span className="font-medium normal-case tracking-normal">· {cited.length} facts</span>
-          </div>
-          <ul className="flex flex-col gap-1.5">
-            {shown.map((f) => (
-              <li key={f.id} className={cn("rounded-lg border px-2 py-1.5 text-xs leading-[17px] text-text-2 transition-colors",
-                lit && f.id.startsWith(PREFIX[lit]) ? "border-accent-soft-2 bg-accent-soft" : "border-transparent")}>
-                <span className="mr-1 text-[9.5px] font-bold uppercase tracking-[0.06em] text-muted-2">{SOURCE[f.id[0]]}</span>
-                {f.text.replace(/\*\*/g, "")}
-                <a href={f.source_url} target="_blank" rel="noreferrer" className="mt-0.5 block text-[11px] text-muted hover:text-accent">{f.source_title} ↗</a>
-              </li>
-            ))}
-          </ul>
-          {cited.length > SHOWN && (
-            <button type="button" onClick={() => setOpen(!open)} className="self-start text-[12.5px] font-semibold text-accent hover:text-accent-hover">
-              {open ? "Show fewer ▴" : `Show all ${cited.length} ▾`}
+    // lg: absolute, so the row is as tall as the chart and the rail scrolls inside it (a long source
+    // list used to stretch the row and leave a gap under the chart); phones stack it at full length
+    <aside className="relative min-w-0 border-t border-border pt-4 lg:border-l lg:border-t-0 lg:pt-0">
+      <div className="flex flex-col gap-3 lg:absolute lg:inset-0 lg:overflow-y-auto lg:pl-5 lg:pr-1">
+        <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">Why this theme</div>
+        <p className="text-[13.5px] leading-[21px] text-text-2">{rec.why}</p>
+        <div className="flex flex-col gap-2">
+          {rec.signals.map((s) => (
+            <button key={s.kind} type="button" onClick={() => { setLit(lit === s.kind ? null : s.kind); setOpen(true); }}
+              className={cn("rounded-[10px] border px-3 py-2.5 text-left hover:shadow-card-hover",
+                s.kind === rec.lead ? "border-accent bg-accent-soft" : "border-border bg-surface-2")}>
+              <div className={cn("text-[10.5px] font-bold uppercase tracking-[0.08em]", s.kind === rec.lead ? "text-accent" : "text-muted")}>
+                {SIGNAL[s.kind]}{s.kind === rec.lead && " · led the pick"}
+              </div>
+              <div className="mt-0.5 text-sm font-semibold text-text">{s.headline}</div>
+              <div className="mt-0.5 text-xs text-muted">{s.note}</div>
             </button>
-          )}
-        </>
-      )}
-      <p className="text-[11px] leading-4 text-muted">Every number in the charts is market data.</p>
+          ))}
+        </div>
+        {cited.length > 0 && (
+          <>
+            <div className="mt-1 text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
+              Sources <span className="font-medium normal-case tracking-normal">· {cited.length} facts</span>
+            </div>
+            <ul className="flex flex-col gap-1.5">
+              {shown.map((f) => (
+                <li key={f.id} className={cn("rounded-lg border px-2 py-1.5 text-xs leading-[17px] text-text-2 transition-colors",
+                  lit && f.id.startsWith(PREFIX[lit]) ? "border-accent-soft-2 bg-accent-soft" : "border-transparent")}>
+                  <span className="mr-1 text-[9.5px] font-bold uppercase tracking-[0.06em] text-muted-2">{SOURCE[f.id[0]]}</span>
+                  {f.text.replace(/\*\*/g, "")}
+                  <a href={f.source_url} target="_blank" rel="noreferrer" className="mt-0.5 block text-[11px] text-muted hover:text-accent">{f.source_title} ↗</a>
+                </li>
+              ))}
+            </ul>
+            {cited.length > SHOWN && (
+              <button type="button" onClick={() => setOpen(!open)} className="self-start text-[12.5px] font-semibold text-accent hover:text-accent-hover">
+                {open ? "Show fewer ▴" : `Show all ${cited.length} ▾`}
+              </button>
+            )}
+          </>
+        )}
+        <p className="text-[11px] leading-4 text-muted">Every number in the charts is market data.</p>
+      </div>
     </aside>
   );
 }
