@@ -124,6 +124,21 @@ def test_unsupported_figure_retries_and_memory_counts_the_streak(tmp_path):
     assert "Oil shock reaches the pump" in prompt and "9.9%" in prompt
 
 
+def test_a_saved_run_prunes_last_weeks_same_day_and_older_but_keeps_post_records(tmp_path):
+    for run_id in ("2026-10-06-am", "2026-10-07-am", "2026-10-07-pm", "2026-10-08-am"):
+        rec = {"run_id": run_id, "date": run_id[:10], "slot": run_id[-2:], "theme": "Oil"}
+        (tmp_path / f"{run_id}.json").write_text(json.dumps(rec))
+        (tmp_path / "charts" / run_id).mkdir(parents=True)
+        (tmp_path / "charts" / run_id / "exhibit_1.png").write_bytes(b"png")
+    (tmp_path / "substack").mkdir()
+    (tmp_path / "substack" / "2026-10-07-am.json").write_text('{"url": "u"}')
+    themes.run(NOW, gather_fn=lambda now: FACTS, fetch=fetch, picker=lambda **kw: pick())  # Wed 14
+    left = sorted(p.stem for p in tmp_path.glob("*.json"))
+    assert left == ["2026-10-08-am", "2026-10-14-am"]  # last Wednesday's (and older) went
+    assert sorted(p.name for p in (tmp_path / "charts").iterdir()) == left
+    assert themes.post_url("2026-10-07-am") == "u"  # the never-post-twice record stays
+
+
 def test_no_drawable_chart_saves_nothing(tmp_path):
     bad = [chart("line", "?", ["yahoo:NOPE"])]
     with pytest.raises(RuntimeError):

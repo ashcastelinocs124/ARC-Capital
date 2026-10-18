@@ -5,7 +5,7 @@ M: 1d/1w/1m market moves, P: Polymarket odds swings); one LLM call picks the the
 least 5 must pass the checks, or the retry is told why);
 code fetches every series and draws it with the Weekly Deep Dive's renderer plus this page's own
 forms (`theme_charts`: heatmap, together, range), so the LLM never supplies a plotted number. Each run is data/themes/<YYYY-MM-DD>-<am|pm>.json + its PNGs; each exhibit
-also carries its plotted numbers (`data`), which /themes draws interactively. Run by deploy/crontab at 08:00 ET on weekdays: python -m castelino.agents.themes
+also carries its plotted numbers (`data`), which Radar (/macro#theme) draws interactively. Run by deploy/crontab at 08:00 ET on weekdays: python -m castelino.agents.themes
 The cron line then publishes the run on Substack (--substack, with gpt-6-luna's two or three
 sentences under each chart) and, once the site is redeployed, posts it to X as a thread linking that post (--post); no approval step for either.
 """
@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import shutil
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -421,6 +422,22 @@ def recent_runs(d: Path, n: int) -> list[dict]:
     return out
 
 
+KEEP_DAYS = 7  # Radar's day chips span one week; today's run replaces the same weekday's last week
+
+
+def prune(d: Path, today: datetime) -> list[str]:
+    """Delete runs (JSON + chart PNGs) dated KEEP_DAYS or more before today. The Substack and X
+    records (substack/, x_posts/) stay: they're tiny and keep a post from going out twice."""
+    cut = f"{today - timedelta(days=KEEP_DAYS):%Y-%m-%d}"
+    gone = []
+    for p in d.glob("????-??-??-?m.json"):
+        if p.name[:10] <= cut:
+            p.unlink()
+            shutil.rmtree(d / "charts" / p.stem, ignore_errors=True)
+            gone.append(p.stem)
+    return sorted(gone)
+
+
 def run(
     now: datetime | None = None, *, gather_fn=gather, fetch=fetch_series, picker=None
 ) -> ThemeRun:
@@ -508,6 +525,8 @@ def run(
         facts=[f for f in [*facts, *fetched] if f.id in cited],
     )
     atomic_write_text(d / f"{run_id}.json", rec.model_dump_json(indent=2))
+    if gone := prune(d, now):  # only after a run saved, so a failed day never empties the card
+        log.info("themes: pruned %s", gone)
     return rec
 
 

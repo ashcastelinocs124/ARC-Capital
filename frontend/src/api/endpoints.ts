@@ -187,7 +187,30 @@ export const fetchWeeklyPosts = async (): Promise<WeeklyPost[]> => {
 export const fetchWeeklyStatus = () =>
   api.get<{ stage: string; week?: string; error?: string | null; due?: string | null }>("/weekly/status");
 
-// ── Theme Charts (/themes/posts: the 08:00 runs published on Substack) ─────
+// ── Theme Charts (/themes/latest drawn on Radar; /themes/posts: the runs published on Substack) ─────
+export interface ThemeExhibit {
+  n: number; kind: string; title: string; subtitle: string; file: string;
+  data?: (Record<string, unknown> & { sources?: string[] }) | null; // agents/theme_charts.chart_data
+}
+export type ThemeSignalKind = "coverage" | "move" | "odds";
+export interface ThemeRun {
+  run_id: string; date: string; slot: "am" | "pm"; generated_at: string;
+  theme: string; why: string; lead: ThemeSignalKind; streak: number;
+  signals: { kind: ThemeSignalKind; headline: string; note: string }[];
+  fact_ids: string[];
+  exhibits: ThemeExhibit[]; // `data` = numbers for the interactive chart; absent in runs before 2026-10-15
+  facts: { id: string; text: string; source_title: string; source_url: string }[];
+}
+// run null = the latest; a 404 (no runs yet, or one pruned after a week) maps to [] and so to null
+export const fetchThemeRun = async (run: string | null): Promise<ThemeRun | null> => {
+  const data = await api.get<ThemeRun>(`/themes/${run ?? "latest"}`);
+  return data && !Array.isArray(data) && typeof data.run_id === "string" ? data : null;
+};
+export interface ThemeDay { run_id: string; date: string; slot: "am" | "pm"; theme: string }
+export const fetchThemeHistory = async (): Promise<ThemeDay[]> => {
+  const data = await api.get<{ items: ThemeDay[] }>("/themes/history"); // newest first
+  return Array.isArray(data?.items) ? data.items : [];
+};
 export interface ThemePost { run_id: string; date: string; title: string; takeaways: string[]; image: string | null; url: string }
 export const fetchThemePosts = async (): Promise<ThemePost[]> => {
   const data = await api.get<ThemePost[]>("/themes/posts"); // the client maps a 404 to []

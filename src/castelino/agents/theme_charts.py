@@ -7,7 +7,7 @@ it was a month ago. Every number is computed here from the fetched daily series,
 moves use the same bar counts as the Morning Note's market facts (1d=1, 1w=5, 1m=21, 3m=63), so a
 cell matches the M fact the picker quotes. Plugged into `make_weekly_exhibits(forms=FORMS)`.
 `chart_data` hands the same numbers (plus a year of daily points for the range buttons) to the
-browser, which draws /themes interactively; the PNGs remain for older runs and the download link.
+browser, which draws Radar's theme card (/macro#theme) interactively; the PNGs remain for older runs and the download link.
 """
 
 from __future__ import annotations

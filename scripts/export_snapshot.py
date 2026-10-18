@@ -31,6 +31,8 @@ PATHS = [
     "/weekly/status",
     "/weekly/latest",
     "/weekly/history",
+    "/themes/latest",  # Radar's "Today's theme" card
+    "/themes/history",  # its day chips; each run fans out below
     "/themes/posts",
     "/agents/catalog",
     "/sector_sentiment",
@@ -145,13 +147,15 @@ def export() -> int:
             copy_charts(path.rsplit("/", 1)[1], data)
         if re.fullmatch(r"/weekly/\d{4}-W\d{2}", path):
             copy_weekly_charts(path.rsplit("/", 1)[1], data)
-        if re.fullmatch(r"/themes/\d{4}-\d{2}-\d{2}-(am|pm)", path):
-            copy_theme_charts(path.rsplit("/", 1)[1], data)
+        if re.fullmatch(r"/themes/(\d{4}-\d{2}-\d{2}-(am|pm)|latest)", path):
+            copy_theme_charts(data["run_id"], data)
         # Fan out to the parameterised GETs the pages make.
         if path == "/update/history":
             queue += [f"/update/{d}" for d in data.get("dates", [])]
         elif path == "/weekly/history":
             queue += [f"/weekly/{i['week']}" for i in data.get("items", [])]
+        elif path == "/themes/history":
+            queue += [f"/themes/{i['run_id']}" for i in data.get("items", [])]
         elif path == "/themes/posts":  # each card's cover: the post's first chart
             for it in data:
                 copy_theme_charts(

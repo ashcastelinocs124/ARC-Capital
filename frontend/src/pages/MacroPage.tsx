@@ -9,6 +9,7 @@ import { SectorValuation } from "@/components/weekAhead/SectorValuation";
 import { C } from "@/lib/theme";
 import { SectorSentimentSection } from "@/components/SectorSentimentSection";
 import { CardBoundary } from "@/components/modelCard";
+import { ThemeOfTheDay } from "@/components/themes/ThemeOfTheDay";
 
 const span = (a: string, b: string) => {
   const f = (d: string) => new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -58,8 +59,8 @@ export default function MacroPage() {
           note: `updated ${new Date(data.generated_at).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" })} ET`,
         } : undefined}>
         Inflation and jobs releases from the five largest economies, S&amp;P 500 and big AI-company earnings and AI model
-        launches on one timeline, then what the market expects, how fearful or greedy it is, and where AI money is going.
-        Refreshed each evening after the close.
+        launches on one timeline, today's biggest macro theme in charts, then what the market expects, how fearful or greedy it is, and where AI money is going.
+        Refreshed each evening after the close; the theme every weekday at 08:00 ET.
       </PageIntro>
       {!data ? (
         <p className="text-sm text-muted">{isLoading ? "Loading…" : "No Week Ahead data yet."}</p>
@@ -81,6 +82,8 @@ export default function MacroPage() {
             )}
             <GapNote gaps={data.gaps} lanes={["econ", "earnings", "ai"]} />
           </Card>
+          {/* Theme Charts moved here from /themes on 2026-10-17 */}
+          <CardBoundary name="Today's theme"><ThemeOfTheDay /></CardBoundary>
           {/* everything after the week map sits ~15% narrower; charts are w-full so they shrink with their cards */}
           <div className="space-y-6 md:w-[85%] md:mx-auto">
             <div className="grid gap-6 md:grid-cols-2">

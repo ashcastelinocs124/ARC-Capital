@@ -38,7 +38,7 @@ const STEPS: { name: string; blurb: string; detail: string; chips?: string[]; gu
 
 const PUBS: [string, string, string, string][] = [
   ["/updates", "Every weekday", "Memo", "The daily note: five stories, what moved and why it matters."],
-  ["/themes", "Weekdays · 08:00 ET", "Theme Charts", "The day's top macro theme in five or six charts."],
+  ["/macro#theme", "Weekdays · 08:00 ET", "Theme Charts", "The day's top macro theme in five or six charts."],
   ["/macro", "Daily · 09:30 & 17:00 ET", "Radar", "The week ahead, Fear & Greed, and which sectors are stretched."],
   ["/deep-research", "Sundays", "Deep Research", "The week's 10 to 12 trends, researched in depth."],
   ["/ai/models", "New videos", "AI Models", "Video essays on frontier and open-weight models and the labs behind them."],
