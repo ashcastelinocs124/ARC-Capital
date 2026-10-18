@@ -56,3 +56,24 @@ def test_a_hand_made_cover_wins():
         ARCHIVE, overrides={"hike-risk-oil-shocks-and-an-ai-reality": "/thumbs/x.jpg"}
     )
     assert posts[0]["image"] == "/thumbs/x.jpg"
+
+
+def test_an_extra_post_is_listed_by_its_topic_and_day():
+    india = {
+        "slug": "india-diversifies-from-chips-but",
+        "title": "India diversifies from chips",
+        "subtitle": "ARC Special Topics · India as AI Diversification · October 16, 2026",
+        "post_date": "2026-10-17T21:27:39.887Z",
+        "canonical_url": "https://archresearch.substack.com/p/india-diversifies-from-chips-but",
+        "body_html": "<ul><li><strong>Low correlation.</strong> 0.04.</li></ul>",
+    }
+    other = {
+        **india,
+        "slug": "not-listed",
+        "canonical_url": "https://archresearch.substack.com/p/not-listed",
+    }
+    posts = parse_weekly_posts([*ARCHIVE, india, other], overrides={})
+    p = posts[0]
+    assert (p["week"], p["start"], p["topic"]) == ("", "2026-10-17", "India as AI Diversification")
+    assert p["takeaways"] == ["Low correlation."] and len(posts) == 3
+    assert posts[1]["topic"] is None

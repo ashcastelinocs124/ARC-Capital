@@ -53,7 +53,7 @@ export default function DeepResearchPage() {
         {posts.map((p, i) => (
           // ponytail: the first five trends; the post has all of them
           <PostCard key={p.url} p={{ ...p, takeaways: p.takeaways.slice(0, 5) }} latest={i === 0}
-            eyebrow={`Week ${weekNo(p.week)} · ${fmtRange(p.start, p.end)}`} />
+            eyebrow={p.topic ? `${p.topic} · ${MD.format(new Date(`${p.start}T00:00:00Z`))}` : `Week ${weekNo(p.week)} · ${fmtRange(p.start, p.end)}`} />
         ))}
       </div>
     </div>

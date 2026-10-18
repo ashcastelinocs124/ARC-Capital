@@ -19,6 +19,12 @@ router = APIRouter()
 _SUBTITLE = re.compile(
     r"^ARC Weekly Deep Dive\s*\S*\s*(\w{3} \d{1,2})\s*[–-]\s*(\w{3} \d{1,2}), (\d{4})"
 )
+# Other posts listed on /deep-research beside the weekly reports, by Substack slug (hand-kept).
+EXTRA = {"india-diversifies-from-chips-but"}
+
+
+def _listed(p: dict) -> bool:
+    return bool(_SUBTITLE.match((p.get("subtitle") or "").strip())) or p.get("slug") in EXTRA
 
 
 def _strip(html: str) -> str:
@@ -42,21 +48,34 @@ def parse_weekly_posts(
 ) -> list[dict]:
     out = []
     for p in archive:
-        m = _SUBTITLE.match((p.get("subtitle") or "").strip())
+        sub = (p.get("subtitle") or "").strip()
+        m = _SUBTITLE.match(sub)
         url = p.get("canonical_url") or ""
-        if not m or not url.startswith(POST_PREFIX):  # the link is rendered as an href
+        if not _listed(p) or not url.startswith(POST_PREFIX):  # the link is rendered as an href
             continue
-        start = datetime.strptime(f"{m.group(1)} {m.group(3)}", "%b %d %Y").date()
-        end = datetime.strptime(f"{m.group(2)} {m.group(3)}", "%b %d %Y").date()
-        if start > end:  # "Dec 29–Jan 2, 2026": the year is the end's
-            start = start.replace(year=start.year - 1)
-        iso = start.isocalendar()
+        if m:
+            start = datetime.strptime(f"{m.group(1)} {m.group(3)}", "%b %d %Y").date()
+            end = datetime.strptime(f"{m.group(2)} {m.group(3)}", "%b %d %Y").date()
+            if start > end:  # "Dec 29–Jan 2, 2026": the year is the end's
+                start = start.replace(year=start.year - 1)
+            iso = start.isocalendar()
+            week, start, end, topic = (
+                f"{iso[0]}-W{iso[1]:02d}",
+                start.isoformat(),
+                end.isoformat(),
+                None,
+            )
+        else:  # an EXTRA post: "ARC Special Topics · India as AI Diversification · …" -> its topic
+            day = (p.get("post_date") or "")[:10]
+            parts = sub.split(" · ")
+            week, start, end, topic = "", day, day, parts[1] if len(parts) > 2 else "Special topic"
         cover = p.get("cover_image") or ""
         out.append(
             {
-                "week": f"{iso[0]}-W{iso[1]:02d}",
-                "start": start.isoformat(),
-                "end": end.isoformat(),
+                "week": week,
+                "start": start,
+                "end": end,
+                "topic": topic,
                 "title": (p.get("title") or "").strip(),
                 "takeaways": _takeaways(p.get("body_html") or ""),
                 "image": overrides.get(
@@ -69,8 +88,8 @@ def parse_weekly_posts(
 
 
 def _with_body(p: dict) -> dict:
-    """The archive list leaves body_html empty; fetch the post itself for a weekly (a few posts, so no cache)."""
-    if p.get("body_html") or not _SUBTITLE.match((p.get("subtitle") or "").strip()):
+    """The archive list leaves body_html empty; fetch the post itself for a listed one (a few posts, so no cache)."""
+    if p.get("body_html") or not _listed(p):
         return p
     try:
         r = httpx.get(f"https://archresearch.substack.com/api/v1/posts/{p.get('slug')}", timeout=20)
