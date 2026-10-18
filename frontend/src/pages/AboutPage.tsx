@@ -9,6 +9,7 @@ import { useSectionPosts } from "@/hooks/useSectionPosts";
 import { useSectorSentiment } from "@/hooks/useSectorSentiment";
 import { useThemePosts } from "@/hooks/useThemes";
 import { useWeeklyPosts } from "@/hooks/useWeekly";
+import { weekLabel } from "@/api/endpoints";
 
 // /about: who's behind ARC (profile + a live "Latest from ARC" desk), how a Memo is made, and what ARC publishes.
 // The desk reads feeds the site already exports, so the public snapshot needs nothing new; an empty feed hides its row.
@@ -60,7 +61,7 @@ function useDesk(): Row[] {
     theme && { label: "Theme Charts", color: C.inflation, when: day(theme.date), title: theme.title, href: theme.url, image: theme.image },
     fg && { label: "Radar", color: C.jobs, when: "Today", title: `Fear & Greed: ${zoneOf(fg.score).name}`, href: "/macro#sector-sentiment", score: fg.score },
     memo && { label: "Memo", color: C.accent, when: day(memo.date), title: memo.title, href: memo.url, image: memo.image },
-    deep && { label: "Deep Research", color: C.ai, when: `Week ${Number(deep.week.split("W")[1])}`, title: deep.title, href: deep.url, image: deep.image },
+    deep && { label: "Deep Research", color: C.ai, when: weekLabel(deep), title: deep.title, href: deep.url, image: deep.image },
     ai && { label: AI_LABEL[ai.section], color: C.text2, when: `${day(ai.date)}${ai.duration ? ` · ▶ ${Math.round(ai.duration / 60)} min` : ""}`,
       title: ai.title, href: ai.url, image: ai.thumbnail },
   ];

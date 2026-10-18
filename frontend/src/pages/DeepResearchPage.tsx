@@ -2,15 +2,16 @@ import { useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useWeeklyPosts } from "@/hooks/useWeekly";
 import { PostCard } from "@/components/DailyPostsFeed";
+import { weekLabel } from "@/api/endpoints";
 import { PageIntro } from "@/components/layout/PageIntro";
 
 const MD = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 const fmtRange = (start: string, end: string) => {
   if (!start || !end) return "";
+  if (start === end) return MD.format(new Date(`${start}T00:00:00Z`));
   const [a, b] = [new Date(`${start}T00:00:00Z`), new Date(`${end}T00:00:00Z`)];
   return a.getUTCMonth() === b.getUTCMonth() ? `${MD.format(a)}–${b.getUTCDate()}` : `${MD.format(a)}–${MD.format(b)}`;
 };
-const weekNo = (w: string) => Number(w.split("-W")[1]);
 // The next Sunday 08:00 ET release (today, if it's Sunday before 08:00 in New York).
 function nextSunday(now = new Date()): string {
   const ny = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
@@ -53,7 +54,7 @@ export default function DeepResearchPage() {
         {posts.map((p, i) => (
           // ponytail: the first five trends; the post has all of them
           <PostCard key={p.url} p={{ ...p, takeaways: p.takeaways.slice(0, 5) }} latest={i === 0}
-            eyebrow={p.topic ? `${p.topic} · ${MD.format(new Date(`${p.start}T00:00:00Z`))}` : `Week ${weekNo(p.week)} · ${fmtRange(p.start, p.end)}`} />
+            eyebrow={`${weekLabel(p)} · ${fmtRange(p.start, p.end)}`} />
         ))}
       </div>
     </div>

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, ArrowUpRight, Search } from "lucide-react";
 import { useDailyPosts } from "@/hooks/useDailyPosts";
 import { useWeeklyPosts } from "@/hooks/useWeekly";
+import { weekLabel } from "@/api/endpoints";
 import { useSectionPosts } from "@/hooks/useSectionPosts";
 import { useVideos } from "@/hooks/useVideos";
 import { useSectorSentiment } from "@/hooks/useSectorSentiment";
@@ -18,7 +19,6 @@ import { AgentsArt, DeepArt, DotMatrix, MemoArt, VideosArt } from "@/components/
 const SUBSTACK = "https://archresearch.substack.com/";
 const isPost = (url: string) => url.startsWith(`${SUBSTACK}p/`); // every rendered feed link must be a post
 const short = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-const weekNo = (w: string) => `Week ${Number(w.split("W")[1])}`;
 
 const Cover = ({ src }: { src: string | null | undefined }) =>
   src ? <img src={src} alt="" loading="lazy" className="h-full w-full object-cover" /> : <div className="h-full w-full bg-gradient-to-br from-accent-soft-2 via-accent to-accent-hover" />;
@@ -151,7 +151,7 @@ function StartHere() {
   const video = useVideos().data?.find((v) => isPost(v.url));
   const reads = [
     daily && { url: daily.url, img: daily.image, tag: `Memo · ${short(daily.date)}`, title: daily.title },
-    weekly && { url: weekly.url, img: weekly.image, tag: `Deep Dive · ${weekNo(weekly.week)}`, title: weekly.title },
+    weekly && { url: weekly.url, img: weekly.image, tag: `Deep Dive · ${weekLabel(weekly)}`, title: weekly.title },
     video && { url: video.url, img: video.thumbnail, tag: "Video", title: video.title },
   ].filter((r): r is { url: string; img: string | null; tag: string; title: string } => !!r && isPost(r.url));
   if (!reads.length) return null;
@@ -177,12 +177,12 @@ function StartHere() {
 // moves from one card to the next on its own, redrawing each card's art.
 function Sections() {
   const wa = useWeekAhead().data;
-  const deep = useWeeklyPosts().data?.[0];
+  const deep = useWeeklyPosts().data?.find((p) => p.week); // a weekly report, not a listed extra
   const n = useVideos().data?.length;
   const cards: [string, string, string, ReactNode, string?][] = [
     ["/macro", "Radar", wa ? `Week of ${short(wa.week_start)}` : "The week ahead", <DotMatrix value={wa?.events.length} />, "EVENTS THIS WEEK"],
     ["/updates", "Memo", "Five items, every weekday", <MemoArt />],
-    ["/deep-research", "Deep Research", deep?.takeaways.length ? `${weekNo(deep.week)} · ${deep.takeaways.length} trends` : "10–12 trends, every Sunday", <DeepArt />],
+    ["/deep-research", "Deep Research", deep?.takeaways.length ? `${weekLabel(deep)} · ${deep.takeaways.length} trends` : "10–12 trends, every Sunday", <DeepArt />],
     ["/videos", "Videos", n ? `${n} videos on camera` : "Explained on camera", <VideosArt />],
     ["/agents", "Agents", "How the desk is built", <AgentsArt />],
   ];
@@ -231,7 +231,7 @@ function useResearch(): Item[] {
       byUrl.set(it.url, cur);
     };
     daily?.forEach((p) => add({ url: p.url, title: p.title, date: p.date, when: short(p.date), image: p.image, duration: null }, "memo"));
-    weekly?.forEach((p) => add({ url: p.url, title: p.title, date: p.end, when: weekNo(p.week), image: p.image, duration: null }, "deep"));
+    weekly?.forEach((p) => add({ url: p.url, title: p.title, date: p.end, when: weekLabel(p), image: p.image, duration: null }, "deep"));
     sections?.forEach((p) => {
       const k: Kind[] = [SECTION_KIND[p.section], ...(p.video !== false && p.duration ? (["video"] as Kind[]) : [])].filter(Boolean);
       add({ url: p.url, title: p.title, date: p.date, when: short(p.date), image: p.thumbnail, duration: p.duration }, ...k);

@@ -181,6 +181,8 @@ export const fetchWeekly = (week: string | null) => api.get<WeeklyRecord>(week ?
 // Published Weekly Deep Dive posts on Substack (newest first).
 // `topic` is set on a non-weekly post listed beside them (`week` is then "").
 export interface WeeklyPost { week: string; start: string; end: string; topic?: string | null; title: string; takeaways: string[]; image: string | null; url: string }
+// "Week 41" for a weekly deep dive, else the listed post's topic.
+export const weekLabel = (p: Pick<WeeklyPost, "week" | "topic">) => p.topic || `Week ${Number(p.week.split("-W")[1])}`;
 export const fetchWeeklyPosts = async (): Promise<WeeklyPost[]> => {
   const data = await api.get<WeeklyPost[]>("/weekly_posts"); // the client maps a 404 to []
   return Array.isArray(data) ? data : [];
