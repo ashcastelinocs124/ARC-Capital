@@ -76,6 +76,67 @@ function Chip({ p }: { p: Provider }) {
   );
 }
 
+// What each provider may cost a month (estimates set 2026-10-17); edit here to change them.
+const BUDGET: Record<Provider, number> = { openai: 100, anthropic: 100, openrouter: 20, fly: 50 };
+const MONTH = new Intl.DateTimeFormat("en-US", { month: "long", timeZone: "UTC" });
+
+// This calendar month's spend per provider against its budget, and where it lands at month-end if
+// the last 7 days' pace holds. Its own 31-day fetch, so it doesn't depend on the range picked below.
+function Budget() {
+  const [data, setData] = useState<Summary | null>(null);
+  useEffect(() => {
+    call<Summary>("/costs?days=31").then(setData, () => setData(null)); // the page below shows the error
+  }, []);
+  if (!data) return null;
+  const t = new Date(`${data.today}T00:00:00Z`);
+  const left = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + 1, 0)).getUTCDate() - t.getUTCDate();
+  const week = daysBack(data.today, 7);
+  const tone = (spent: number, proj: number, budget: number) =>
+    spent > budget ? "text-danger" : proj > budget ? "text-warning" : "text-muted";
+  const lines = PROVIDERS.map(([p, name, color]) => {
+    const rows = data.rows.filter((r) => r.provider === p);
+    const spent = usd(rows.filter((r) => r.day.startsWith(data.today.slice(0, 7))));
+    // pace = $ a day over the last 7 days, counting only days since this provider's first row
+    // (Fly.io billing began Oct 13; dividing a 5-day-old cost by 7 would understate it)
+    const since = rows.reduce((a, r) => (r.day < a ? r.day : a), data.today);
+    const span = week.filter((d) => d >= since).length;
+    const proj = spent + (usd(rows.filter((r) => r.day >= week[0])) / span) * left;
+    return { p, name, color, spent, proj, budget: BUDGET[p], tone: tone(spent, proj, BUDGET[p]) };
+  });
+  const total = (k: "spent" | "proj" | "budget") => lines.reduce((a, l) => a + l[k], 0);
+  const all = { spent: total("spent"), proj: total("proj"), budget: total("budget"), tone: tone(total("spent"), total("proj"), total("budget")) };
+  const pct = (x: number, of: number) => `${Math.min(100, (x / of) * 100)}%`;
+  return (
+    <div className="card p-4 md:p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 className="text-[15px] font-semibold text-text">Monthly budget · {MONTH.format(t)}</h2>
+        <span className="num text-[13px] text-text-2">
+          <b className="text-text">{money(all.spent)}</b> of ${all.budget} spent · on pace for{" "}
+          <b className={all.tone === "text-muted" ? "text-text" : all.tone}>{money(all.proj)}</b> · {left} {left === 1 ? "day" : "days"} left
+        </span>
+      </div>
+      <div className="mt-3.5 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+        {lines.map((l) => (
+          <div key={l.p}>
+            <div className="flex items-baseline justify-between text-[13px]">
+              <span className="font-semibold" style={{ color: l.color }}>{l.name}</span>
+              <span className="num text-text-2"><b className="text-text">{money(l.spent)}</b> / ${l.budget}</span>
+            </div>
+            {/* solid = spent so far, faint = where the last 7 days' pace takes it by month-end */}
+            <div className="relative mt-1.5 h-2.5 overflow-hidden rounded-full bg-surface-3">
+              <i className="absolute inset-y-0 left-0 rounded-full opacity-30" style={{ width: pct(l.proj, l.budget), background: l.color }} />
+              <i className="absolute inset-y-0 left-0 rounded-full" style={{ width: pct(l.spent, l.budget), background: l.color }} />
+            </div>
+            <div className={cn("num mt-1 text-xs", l.tone)}>
+              {l.spent > l.budget ? `Over budget by ${money(l.spent - l.budget)}` : `On pace for ${money(l.proj)} · ${Math.round((l.proj / l.budget) * 100)}% of budget`}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Tile({ label, value, sub }: { label: string; value: React.ReactNode; sub: string }) {
   return (
     <div className="card px-4 py-4">
@@ -172,6 +233,8 @@ export default function Costs() {
         {intro}
         {rangeSwitch}
       </div>
+
+      <Budget />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Tile label="Today" value={money(usd(todayRows))}
