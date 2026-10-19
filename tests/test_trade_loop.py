@@ -137,3 +137,27 @@ def test_fix_appends_errors_and_reparses(fake):
     assert out.text == "fixed"
     sent = fake.calls[0][1]["messages"]
     assert sent[-2]["role"] == "assistant" and "9%" in sent[-1]["content"]
+
+
+def test_history_continues_a_saved_transcript(fake):
+    fake.script = [said("ok"), parsed(TurnDraft(text="x", fact_ids=[]))]
+    hist = [
+        {"role": "system", "content": "old system"},
+        {"role": "user", "content": "old ask"},
+        {"role": "assistant", "content": "old answer"},
+    ]
+    out, msgs = loop.run(
+        agent="t",
+        model="gpt-6-sol",
+        fallback=None,
+        system="IGNORED",
+        user="new question",
+        box=make_box(),
+        meter=llm.Meter(),
+        schema=TurnDraft,
+        ask="answer",
+        history=hist,
+    )
+    assert msgs[:3] == hist and msgs[3] == {"role": "user", "content": "new question"}
+    assert all(m.get("content") != "IGNORED" for m in msgs)
+    assert fake.calls[0][1]["messages"][0]["content"] == "old system"

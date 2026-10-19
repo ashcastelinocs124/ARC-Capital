@@ -16,9 +16,13 @@ T = TypeVar("T", bound=BaseModel)
 
 
 def run(
-    *, agent, model, fallback, system, user, box, meter, schema: type[T], ask: str
+    *, agent, model, fallback, system, user, box, meter, schema: type[T], ask: str, history=None
 ) -> tuple[T, list[dict]]:
-    msgs: list[dict] = [{"role": "system", "content": system}, {"role": "user", "content": user}]
+    # history: a saved message list to continue (Deep Research's editor desk); system is then unused
+    if history:
+        msgs: list[dict] = [*history, {"role": "user", "content": user}]
+    else:
+        msgs = [{"role": "system", "content": system}, {"role": "user", "content": user}]
     specs = chat_tools(box)
     # each turn calls a budgeted tool or stops; +3 turns for models that ignore tool_choice="none"
     for _ in range(box.max_calls + 3):
