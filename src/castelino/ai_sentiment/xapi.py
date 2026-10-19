@@ -59,13 +59,15 @@ def _get(params: dict) -> dict:
     return r.json()
 
 
-def search(query: str, start: str, end: str, get=_get, cap: int = DAY_CAP) -> list[dict]:
+def search(
+    query: str, start: str, end: str, get=_get, cap: int = DAY_CAP, max_results: int = 100
+) -> list[dict]:
     posts: list[dict] = []
     params = {
         "query": query,
         "start_time": start,
         "end_time": end,
-        "max_results": 100,
+        "max_results": max(10, min(100, max_results)),  # X allows 10-100 per page
         "tweet.fields": "created_at,author_id,note_tweet",
         "expansions": "author_id",
         "user.fields": "username",

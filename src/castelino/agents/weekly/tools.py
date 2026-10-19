@@ -110,6 +110,10 @@ def series_fact(fid: str, s: pd.Series, *, provider: str, sid: str, title: str, 
 
 
 class ToolBox:
+    # Deep Research's ToolBox reframes the same search for any topic (agents/research/deep/tools.py)
+    search_system = SEARCH_SYSTEM
+    search_frame = "Week ending {end:%Y-%m-%d}. "
+
     def __init__(
         self,
         *,
@@ -233,9 +237,9 @@ class ToolBox:
     def _web_search(self, query: str) -> list[Fact]:
         from castelino.data import web_search
 
-        user = f"Week ending {self.end:%Y-%m-%d}. {query}"
+        user = self.search_frame.format(end=self.end) + query
         search = self._search or web_search.search_cited
-        text, cites = search(SEARCH_SYSTEM, user, model=self.search_model)
+        text, cites = search(self.search_system, user, model=self.search_model)
         return self._renumber(facts_from_search("tmp", text, cites))
 
     def _post(self, note: str, fact_ids: list[str]) -> str:
