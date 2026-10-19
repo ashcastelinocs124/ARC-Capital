@@ -211,7 +211,7 @@ agents:
       - {key: OPENAI_API_KEY, required: true, why: "Web search (x_scout.search_model, gpt-6-luna)"}
     prompt: "castelino.x_scout:SCAN_USER"
     summary: >-
-      Every 2 hours on weekdays (and Saturday noon), one cited web search lists up to 8 macro and AI
+      Every 2 hours on weekdays from 10:15 ET (and Saturday noon), one cited web search lists up to 8 macro and AI
       items from the last 6 hours: data releases against forecasts, central banks, model and chip
       launches, AI capex. Lines without a citation are dropped before the Scout sees them.
     tools:
@@ -794,7 +794,7 @@ systems:
         flow: [["Every 30 min"], ["code:Market check|10 markets · z ≥ 2.5"], ["agent:move_explainer|cited why"], ["agent:x_chart_picker|intraday or context chart"], ["end:Post on X|+ chart · or dry-run log"]]
 
   - group: X Scout
-    trigger: "Cron on the Fly server every 2 hours, 8:15-18:15 ET on weekdays, and 12:15 on Saturdays"
+    trigger: "Cron on the Fly server every 2 hours, 10:15-18:15 ET on weekdays (an hour clear of the Theme Charts thread), and 12:15 on Saturdays"
     output: "At most 2 X posts a day: a cited macro or AI finding with a code-drawn chart, and one reply of analysis (dry run until X_SCOUT_LIVE=1)"
     blurb: >-
       A cited search finds the last 6 hours of macro and AI news; the Scout picks one item worth a
@@ -1039,7 +1039,7 @@ pipelines:
     nodes:
       - {id: web, kind: source, layer: sources, x: 326, name: web search, sub: cited sources, does: "A web search that returns cited sources; only lines with a citation are kept."}
       - {id: series, kind: source, layer: sources, x: 794, name: FRED · Yahoo, sub: chart series, does: "The data series behind the chart, downloaded straight from the source."}
-      - {id: schedule, kind: trigger, layer: agents, x: 150, w: 120, name: Schedule, sub: every 2 h, does: "Runs every 2 hours from 8:15 to 18:15 New York time on weekdays, and at 12:15 on Saturdays."}
+      - {id: schedule, kind: trigger, layer: agents, x: 150, w: 120, name: Schedule, sub: every 2 h, does: "Runs every 2 hours from 10:15 to 18:15 New York time on weekdays, and at 12:15 on Saturdays, never within an hour of the morning Theme Charts thread."}
       - {id: search, kind: llm, agent: x_scout_search, layer: agents, x: 326, name: Scout search, sub: macro + AI news, does: "Searches the last 6 hours of macro and AI news and keeps only the lines it can cite."}
       - {id: scout, kind: llm, agent: x_scout, layer: agents, x: 560, name: Scout, sub: 1 item or nothing, does: "Picks the one item worth a post, or nothing, and names the data series that chart it."}
       - {id: writer, kind: llm, agent: x_scout_writer, layer: agents, x: 794, name: Writer, sub: post + reply, does: "Writes the post and one reply of analysis from the cited line and the chart's numbers."}

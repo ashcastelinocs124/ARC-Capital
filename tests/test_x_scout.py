@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import datetime
 
 import pandas as pd
@@ -161,6 +162,17 @@ def test_two_a_day_and_never_the_same_source_twice(monkeypatch, tmp_path):
     assert x_scout.run(dry=True, now=AT, root=tmp_path)
     monkeypatch.setattr(x_scout, "scan", lambda now: [item(url="https://wsj.com/c")])
     assert x_scout.run(dry=True, now=AT, root=tmp_path) is None  # 2 a day
+
+
+def test_waits_an_hour_after_the_theme_charts_thread(monkeypatch, tmp_path):
+    fake(monkeypatch)
+    rec = tmp_path / "data/x_posts/themes/2026-10-16-am.json"  # rewritten after each thread post
+    rec.parent.mkdir(parents=True)
+    rec.write_text("{}")
+    os.utime(rec, (AT.timestamp() - 30 * 60,) * 2)
+    assert x_scout.run(dry=True, now=AT, root=tmp_path) is None
+    os.utime(rec, (AT.timestamp() - 61 * 60,) * 2)
+    assert x_scout.run(dry=True, now=AT, root=tmp_path)
 
 
 def test_scout_sees_a_week_of_its_posts_and_todays_market_alerts(tmp_path):

@@ -8,7 +8,7 @@ topic tag and the source line. Every figure must be among those numbers (check()
 must fit 280, or the Writer gets one retry told what failed, then nothing is posted. The chart is
 the point, so a chart failure posts nothing. At most MAX_PER_DAY posts a day; the Scout sees this
 account's posts from the last MEMORY_DAYS days and today's market alerts, and code refuses a source
-URL already posted. Dry run (log only) unless X_SCOUT_LIVE=1 and the X write keys are set (see
+URL already posted. A run within THEME_GAP of today's Theme Charts thread is skipped. Dry run (log only) unless X_SCOUT_LIVE=1 and the X write keys are set (see
 x_post.py). Each day's posts: data/x_posts/scout/<YYYY-MM-DD>.json, charts in <YYYY-MM-DD>/<HHMM>.png.
 Run by deploy/crontab: python -m castelino.x_scout [--dry-run]
 """
@@ -38,6 +38,7 @@ from castelino.config import get_settings
 ET = ZoneInfo("America/New_York")
 MAX_PER_DAY = 2
 MEMORY_DAYS = 7
+THEME_GAP = timedelta(hours=1)  # the morning Theme Charts thread gets the feed to itself this long
 TAG = {"macro": "📊 MACRO · ", "ai": "🤖 AI · "}
 
 SCAN_SYSTEM = (
@@ -261,6 +262,12 @@ def run(dry: bool = False, now: datetime | None = None, root: Path | None = None
     if len(day["posts"]) >= MAX_PER_DAY:
         print(f"  already {MAX_PER_DAY} posts today")
         return None
+    theme = base / "themes" / f"{now:%Y-%m-%d}-am.json"  # rewritten after each thread post
+    if theme.exists():
+        quiet = datetime.fromtimestamp(theme.stat().st_mtime, ET) + THEME_GAP
+        if now < quiet:
+            print(f"  Theme Charts thread posted: quiet until {quiet:%H:%M} ET")
+            return None
     items = scan(now)
     print(f"  scan: {len(items)} cited items")
     posted = recent(base, now)

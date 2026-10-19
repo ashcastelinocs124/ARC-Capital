@@ -14,7 +14,9 @@
 # Market alerts (x_moves.py): every 30 min, the job itself skips outside 9:35-16:05 ET on weekdays.
 # Dry run (log only) until X_MOVES_LIVE=1 and the four X_API_* / X_ACCESS_* keys are Fly secrets.
 5,35 9-16 * * 1-5 cd /app && timeout 10m python -m castelino.x_moves >> data/x_moves.log 2>&1
-# X Scout (x_scout.py): one cited macro or AI finding with a chart, every 2 h from 8:15 to 18:15 ET on
+# X Scout (x_scout.py): one cited macro or AI finding with a chart, every 2 h from 10:15 to 18:15 ET on
 # weekdays and 12:15 on Saturdays, at most 2 posts a day. Dry run (log only) until X_SCOUT_LIVE=1 is a Fly secret.
-15 8-18/2 * * 1-5 cd /app && timeout 10m python -m castelino.x_scout >> data/x_scout.log 2>&1
+# Weekdays start at 10:15 so the 08:00 Theme Charts thread (done by 09:00, its 1h timeout) has the feed to itself
+# for at least an hour; x_scout also skips a run within an hour of that thread's last post (a late re-run).
+15 10-18/2 * * 1-5 cd /app && timeout 10m python -m castelino.x_scout >> data/x_scout.log 2>&1
 15 12 * * 6 cd /app && timeout 10m python -m castelino.x_scout >> data/x_scout.log 2>&1
