@@ -842,7 +842,9 @@ systems:
     blurb: >-
       A cited search finds the last 6 hours of macro and AI news; the Scout picks one item worth a
       post (usually none) and the series that chart it. Code draws the chart, and every figure the
-      Writer uses must come from the source line or the chart data.
+      Writer uses must come from the source line or the chart data. Its Calendar lane posts the week's
+      or today's calendar card each weekday morning and each key release as it lands; code writes
+      every number and the two writers only add words.
     lanes:
       - title: "X Scout"
         flow: [["Every 2 h"], ["agent:x_scout_search|cited macro + AI"], ["agent:x_scout|1 item or nothing"], ["agent:x_scout_writer|post + reply"], ["end:Post on X|+ chart · or dry-run log"]]
