@@ -25,6 +25,7 @@ const NAV: Entry[] = [
     { to: "/agents", label: "Agents", desc: "How ARC's own agents are built" },
     { to: "/docs", label: "Docs", desc: "What each model predicts and how to read it" },
   ] },
+  { label: "Resources", to: "/resources" },
   { label: "About", to: "/about" },
 ];
 
@@ -48,10 +49,11 @@ export function TopNav({ pill = false }: { pill?: boolean }) {
 
   if (pill) {
     return (
-      <nav ref={nav} className="hidden items-center gap-1 rounded-full border border-border bg-surface-2 p-1 lg:flex" onMouseLeave={() => setOpen(null)}>
+      // xl, not lg: seven tabs plus the right-hand buttons overlap below 1280px (measured 2026-10-18)
+      <nav ref={nav} className="hidden items-center gap-1 rounded-full border border-border bg-surface-2 p-1 xl:flex" onMouseLeave={() => setOpen(null)}>
         {NAV.map((e) => {
           const tab = (active: boolean) =>
-            cn("flex items-center whitespace-nowrap rounded-full px-4 py-2 text-[15px] font-medium transition-colors",
+            cn("flex items-center whitespace-nowrap rounded-full px-3 py-2 text-[15px] font-medium transition-colors 2xl:px-4",
               active ? "bg-surface text-text shadow-card ring-1 ring-border" : "text-text-2 hover:text-text");
           if ("to" in e) return <NavLink key={e.label} to={e.to} className={({ isActive }) => tab(isActive)}>{e.label}</NavLink>;
           const isOpen = open === e.label;
@@ -83,7 +85,7 @@ export function TopNav({ pill = false }: { pill?: boolean }) {
 
   const group = NAV.find((e) => e.label === open && "items" in e) as { items: Item[] } | undefined;
   return (
-    <nav ref={nav} className="shrink-0 border-b border-border bg-surface lg:hidden">
+    <nav ref={nav} className="shrink-0 border-b border-border bg-surface xl:hidden">
       <div className="no-scrollbar flex gap-7 overflow-x-auto px-4">
         {NAV.map((e) => {
           const line = (active: boolean) =>

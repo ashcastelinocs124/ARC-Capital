@@ -10,6 +10,7 @@ import VideosPage from "./pages/VideosPage";
 import AdminPage from "./pages/AdminPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import AboutPage from "./pages/AboutPage";
+import ResourcesPage from "./pages/ResourcesPage";
 import SectionPage from "./pages/SectionPage";
 import ThemesPage from "./pages/ThemesPage";
 
@@ -28,6 +29,7 @@ const PAGES: [string, React.ReactNode][] = [
   ["/special-topics", <SectionPage slugs={["special-topics"]} kicker="Special Topics" title="Deeper dives and presentations" blurb="Every Special Topics post, newest first." />],
   ["/agents", <PipelinesPage />],
   ["/docs", <DocsPage />],
+  ["/resources", <ResourcesPage />],
   ["/about", <AboutPage />],
   ["/admin", <AdminPage />], // not in the tabs; password-gated on the public site (middleware.ts)
 ];
