@@ -1,6 +1,7 @@
 import pytest
 
 from castelino.agents.research.deep import (
+    charts,
     critic,
     editor_desk,
     lead,
@@ -11,26 +12,32 @@ from castelino.agents.research.deep import (
 )
 from castelino.agents.research.deep.models import (
     Busy,
+    ChartValue,
     Clarification,
     Critique,
     Finding,
     Job,
     Point,
+    PointChart,
     Proposal,
     ResearchReport,
 )
 from tests.research_fakes import agent, brief, fact
 
+CHARTED: list[list[str]] = []
 
-class NoCharts:
-    def resolve_all(self, specs):
-        return []
+
+def fake_charts(points, by, meter):
+    CHARTED.append([p.id for p in points])
+    one = [ChartValue(fact_id="A1", label="firms", value=9.2)]
+    return {p.id: PointChart(form="stat", title=p.headline, unit="%", values=one) for p in points}
 
 
 @pytest.fixture(autouse=True)
 def _dir(tmp_path, monkeypatch):
     monkeypatch.setenv("ARC_RESEARCH_DIR", str(tmp_path))
-    monkeypatch.setattr(runner, "ChartResolver", NoCharts)
+    monkeypatch.setattr(charts, "chart_points", fake_charts)
+    CHARTED.clear()
 
 
 @pytest.fixture
@@ -68,6 +75,26 @@ def test_run_plans_researches_and_writes(ran):
     s = store.load(sid)
     assert s.status == "complete" and s.job.state == "done" and s.report.points[0].id == "p1"
     assert [a.letter for a in s.agents] == ["A", "B"] and ran == ["A", "B"]
+    assert s.report.points[0].chart.form == "stat" and CHARTED == [["p1"]]
+
+
+def test_the_charts_step_fills_only_points_without_a_chart():
+    sid = new_session()
+    drawn = PointChart(form="stat", title="t", values=[ChartValue(fact_id="A1", label="x", value=1.0)])
+    with store.edit(sid) as x:
+        x.status = "complete"
+        x.report = ResearchReport(
+            title="t",
+            subtitle="s",
+            points=[
+                Point(id="p1", agent="A", headline="h1", body="b", fact_ids=["A1"], chart=drawn),
+                Point(id="p2", agent="A", headline="h2", body="b", fact_ids=["A1"]),
+            ],
+        )
+    runner.submit(sid, "charts", sync=True)
+    s = store.load(sid)
+    assert CHARTED == [["p2"]] and s.job.state == "done"
+    assert s.report.points[0].chart == drawn and s.report.points[1].chart.title == "h2"
 
 
 def test_retry_keeps_agents_that_have_findings(ran, monkeypatch):

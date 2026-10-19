@@ -235,6 +235,7 @@ RESEARCH = {
     "research_writer",
     "research_revise",
     "research_compact",
+    "research_charter",
 }
 
 

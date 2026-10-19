@@ -104,8 +104,6 @@ deep_research:
   x_posts_per_report: 100
   keep_full_days: 14
   cost_cap_usd: 8.0
-  max_charts: 4
-  chart_lookback_days_default: 365
 
 paths:
   data_dir: "data"

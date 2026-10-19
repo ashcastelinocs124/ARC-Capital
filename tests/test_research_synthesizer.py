@@ -2,8 +2,6 @@ import pytest
 
 from castelino.agents.research.deep import synthesizer
 from castelino.agents.research.deep.models import (
-    ChartDraft,
-    ChartType,
     Finding,
     PointDraft,
     ReportDraft,
@@ -56,15 +54,6 @@ def draft(body_a="The survey puts it at 9.2% [A1].", owner="A · Adoption rate")
             ),
         ],
         caveats=["Survey data only."],
-        chart_specs=[
-            ChartDraft(
-                type=ChartType.PRICE_HISTORY,
-                title="NVDA",
-                rationale="spend",
-                symbols=["NVDA"],
-                series_id="",
-            )
-        ],
     )
 
 
@@ -74,7 +63,11 @@ def test_write_numbers_points_normalizes_owners_and_strips_ids():
     p1, p2 = rep.points
     assert (p1.id, p1.agent, p1.version) == ("p1", "A", 1) and p2.agent == "B"
     assert p1.body == "The survey puts it at 9.2%."
-    assert rep.chart_specs[0].lookback_days == 365 and meter.total > 0
+    assert meter.total > 0 and rep.chart_specs == [] and rep.points[0].chart is None
+
+
+def test_the_writer_leaves_charts_to_the_chart_agent():
+    assert "chart_specs" not in ReportDraft.model_fields and "chart" not in synthesizer.SYSTEM
 
 
 def test_one_retry_with_the_guard_errors():

@@ -7,7 +7,6 @@ import re
 
 from castelino.agents.research.deep import guard
 from castelino.agents.research.deep.models import (
-    ChartSpec,
     Point,
     ReportDraft,
     ResearchReport,
@@ -29,9 +28,6 @@ using only the researchers' findings and facts: every number must be one of the 
 - A fact whose source is "@handle on X" is what that person said, never a fact: write "@handle says ..."
   in the same sentence as any figure from it.
 - caveats: the main limits of this evidence.
-- chart_specs: 0 to {max_charts} charts, only these types: price_history (one ticker in symbols),
-  comparison (2 to 4 tickers in symbols), econ_indicator (series_id = a FRED id), yield_curve. Leave
-  symbols empty and series_id "" where they don't apply. Prefer none to a weak chart.
 Style: plain words, no dashes as punctuation (no "—" or "–"), no fact ids in the prose."""
 
 
@@ -61,7 +57,7 @@ def write(s: ResearchSession, meter: llm.Meter, *, client=None) -> ResearchRepor
     client = client or AnthropicEditorClient(
         cfg.writer_model, cfg.writer_effort, cfg.writer_max_tokens, agent="research_writer"
     )
-    system = SYSTEM.format(max_charts=cfg.max_charts)
+    system = SYSTEM
     by = s.fact_map()
     owners = {a.letter for a in s.agents if a.findings}
     msgs = [{"role": "user", "content": brief(s)}]
@@ -92,21 +88,9 @@ def write(s: ResearchSession, meter: llm.Meter, *, client=None) -> ResearchRepor
         )
         for k, p in enumerate(out.points, 1)
     ]
-    specs = [
-        ChartSpec(
-            type=c.type,
-            title=c.title,
-            rationale=c.rationale,
-            symbols=c.symbols,
-            series_id=c.series_id,
-            lookback_days=cfg.chart_lookback_days_default,
-        )
-        for c in out.chart_specs
-    ]
     return ResearchReport(
         title=out.title,
         subtitle=out.subtitle,
         points=points,
         caveats=out.caveats,
-        chart_specs=specs,
     )

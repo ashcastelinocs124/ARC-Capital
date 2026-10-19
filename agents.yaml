@@ -641,7 +641,6 @@ agents:
     summary: "Writes the report as 5 to 10 points, each owned by the agent whose facts it uses; number guard, one retry."
     tools:
       - {name: "Number guard (code)", does: "Every %, bp or pp must be in the point's cited facts; X figures name their @handle"}
-      - {name: "ChartResolver (code)", does: "FRED / Yahoo charts only when one fits; bad specs dropped"}
     memory:
       reads: ["Every agent's findings and facts"]
       writes: ["The report"]
@@ -663,6 +662,26 @@ agents:
       reads: ["The point, your text, the agent's answer, the cited and new facts"]
       writes: ["A proposal: before → after"]
       persists: "The edit log in the session file."
+
+  - id: research_charter
+    name: Deep Research · Chart agent
+    group: Deep research
+    family: Deep Research
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-luna"}
+    prompt: "castelino.agents.research.deep.charts:SYSTEM"
+    schema: "castelino.agents.research.deep.models:ChartSet"
+    summary: >-
+      Gives every point a chart from the figures it cites, in one call after the writer (bars, a line over
+      time, before and after, or a big-number tile); redraws a point after an approved edit. Every value must
+      be one of its fact's numbers, one retry; a point that still fails gets a code-made tile.
+    tools:
+      - {name: "Chart guard (code)", does: "Each value is one of its cited fact's numbers; form sizes (bars 2-10, line 3-10, dumbbell 2, stat 1)"}
+      - {name: "Tile fallback (code)", does: "The first figure the point's text states that a cited fact holds, never a year"}
+    memory:
+      reads: ["Each point's headline, body and cited facts with their numbers"]
+      writes: ["Point.chart"]
+      persists: "The session file."
 
   - id: research_compact
     name: Deep Research · Compactor
@@ -875,7 +894,7 @@ systems:
       - title: "1 · Clarify and plan"
         flow: [["Your topic"], ["agent:research_clarifier|≤3 questions"], ["gate:You answer|or skip"], ["agent:research_lead|≤8 angles"], ["end:↓ research"]]
       - title: "2 · Research and write"
-        flow: [["agent:research_agent|×8 · 12 tool calls"], ["agent:research_critic|findings enough?"], ["agent:research_writer|Claude · points"], ["code:Number guard|1 retry"], ["end:Report|↓ editor desk"]]
+        flow: [["agent:research_agent|×8 · 12 tool calls"], ["agent:research_critic|findings enough?"], ["agent:research_writer|Claude · points · number guard"], ["agent:research_charter|a chart per point"], ["end:Report|↓ editor desk"]]
         loops: [{from: 1, to: 0, label: "1 gap round"}]
       - title: "3 · Editor desk"
         flow: [["gate:You ask|about one point"], ["agent:research_agent|rethinks in its thread"], ["agent:research_revise|that point only"], ["gate:You approve|or reject"], ["end:Point v2"]]

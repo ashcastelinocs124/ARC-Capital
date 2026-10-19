@@ -10,6 +10,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 
 from castelino.agents.research.deep import (
+    charts,
     compact,
     critic,
     editor_desk,
@@ -18,12 +19,12 @@ from castelino.agents.research.deep import (
     sub_agent,
     synthesizer,
 )
-from castelino.agents.research.deep.chart_resolver import ChartResolver
 from castelino.agents.research.deep.models import (
     AgentRun,
     Brief,
     Busy,
     Job,
+    Point,
     ResearchSession,
     StepError,
 )
@@ -34,7 +35,7 @@ from castelino.config import get_settings
 
 log = logging.getLogger(__name__)
 LETTERS = "ABCDEFGHIJKLMNOP"
-EST = {"run": 2.50, "compact": 0.0}  # $ a step may cost, checked against the cap before it starts
+EST = {"run": 2.50, "compact": 0.0, "charts": 0.05}  # $ a step may cost, checked before it starts
 RUNNING = {"run": "researching"}
 _sem: threading.BoundedSemaphore | None = None
 _sem_lock = threading.Lock()
@@ -106,18 +107,32 @@ def _run(sid: str, meter: llm.Meter) -> None:
     _round(sid, 2, meter)
     with store.edit(sid) as x:
         x.status = "writing"
-    rep = synthesizer.write(store.load(sid), meter)
-    try:
-        charts = ChartResolver().resolve_all(rep.chart_specs)
-    except Exception as e:  # noqa: BLE001 - a chart is never load-bearing
-        log.warning("research %s: charts failed: %s", sid, e)
-        charts = []
+    s = store.load(sid)
+    rep = synthesizer.write(s, meter)
+    rep = rep.model_copy(update={"points": _charted(rep.points, s, meter), "gaps_remaining": gaps})
     with store.edit(sid) as x:
-        x.report = rep.model_copy(update={"charts": charts, "gaps_remaining": gaps})
+        x.report = rep
         x.status = "complete"
 
 
-STEPS = {"run": _run, "compact": compact.compact}
+def _charted(points: list[Point], s: ResearchSession, meter: llm.Meter) -> list[Point]:
+    """The points with a chart from their cited facts (charts.py); a point it can't chart keeps none."""
+    drawn = charts.chart_points(points, s.fact_map(), meter)
+    return [p.model_copy(update={"chart": drawn.get(p.id, p.chart)}) for p in points]
+
+
+def _charts(sid: str, meter: llm.Meter) -> None:
+    """Chart the points that have none yet: reports written before point charts, or a failed chart call."""
+    s = store.load(sid)
+    todo = [p for p in (s.report.points if s.report else []) if p.chart is None]
+    if not todo:
+        return
+    new = {p.id: p for p in _charted(todo, s, meter)}
+    with store.edit(sid) as x:
+        x.report.points = [new.get(p.id, p) if p.chart is None else p for p in x.report.points]
+
+
+STEPS = {"run": _run, "compact": compact.compact, "charts": _charts}
 
 
 def _execute(sid: str, step: str) -> None:

@@ -1,7 +1,7 @@
 """General Deep Research models: the session JSON (data/research/<id>.json) and the LLM outputs.
 
-LLM-output models are closed (no defaults) for structured outputs. The chart models are the first engine's;
-chart_resolver.py uses them."""
+LLM-output models are closed (no defaults) for structured outputs. ChartSpec and ResolvedChart only read
+reports written before point charts (2026-10-19); new charts are PointChart, on each point."""
 
 from __future__ import annotations
 
@@ -52,7 +52,7 @@ class ChartSeries(BaseModel):
 
 
 class ResolvedChart(BaseModel):
-    """A chart with real data grafted on by the ChartResolver."""
+    """A report-level chart from before point charts (the removed ChartResolver drew it)."""
 
     type: ChartType
     title: str
@@ -97,14 +97,6 @@ class FindingDrafts(BaseModel):
     findings: list[FindingDraft]
 
 
-class ChartDraft(BaseModel):
-    type: ChartType
-    title: str
-    rationale: str
-    symbols: list[str]
-    series_id: str
-
-
 class PointDraft(BaseModel):
     agent: str
     headline: str
@@ -117,7 +109,6 @@ class ReportDraft(BaseModel):
     subtitle: str
     points: list[PointDraft]
     caveats: list[str]
-    chart_specs: list[ChartDraft]
 
 
 class AnswerDraft(BaseModel):
@@ -206,7 +197,7 @@ class ResearchReport(BaseModel):
     points: list[Point]
     caveats: list[str] = Field(default_factory=list)
     gaps_remaining: list[str] = Field(default_factory=list)
-    chart_specs: list[ChartSpec] = Field(default_factory=list)
+    chart_specs: list[ChartSpec] = Field(default_factory=list)  # reports from before point charts
     charts: list[ResolvedChart] = Field(default_factory=list)
 
 

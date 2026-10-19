@@ -1,12 +1,14 @@
 import pytest
 
-from castelino.agents.research.deep import editor_desk, store, sub_agent
+from castelino.agents.research.deep import charts, editor_desk, store, sub_agent
 from castelino.agents.research.deep.models import (
     AnswerDraft,
     Busy,
+    ChartValue,
     Clarification,
     Finding,
     Point,
+    PointChart,
     ResearchReport,
     RevisedPoint,
 )
@@ -22,10 +24,17 @@ TRANSCRIPT = [
 ]
 
 
+def redraw(points, by, meter):
+    p = points[0]
+    vals = [ChartValue(fact_id=i, label=by[i].text, value=by[i].numbers[0]) for i in p.fact_ids]
+    return {p.id: PointChart(form="stat", title=p.headline, unit="%", values=vals[:1])}
+
+
 @pytest.fixture(autouse=True)
 def _env(tmp_path, monkeypatch):
     monkeypatch.setenv("ARC_RESEARCH_DIR", str(tmp_path))
     monkeypatch.setenv("OPENROUTER_API_KEY", "test")
+    monkeypatch.setattr(charts, "chart_points", redraw)
 
 
 @pytest.fixture
@@ -140,6 +149,15 @@ def test_a_change_becomes_a_pending_one_point_proposal(monkeypatch, fake):
     assert "A2" in {f.id for f in s.agent("A").facts}
     assert s.agent("A").transcript[-1]["content"] == "q"
     assert fake.calls[0][1]["model"] == "anthropic/claude-haiku-5.5"
+
+
+def test_the_rewrite_carries_its_redrawn_chart_and_approve_swaps_both(monkeypatch, fake):
+    sid = asked_and_rethought(monkeypatch, fake)
+    p = store.load(sid).proposal(1)
+    assert p.after.chart.values[0].fact_id == "A2" and p.after.chart.values[0].value == 9.7
+    assert any(t.startswith("Redrew p1's chart") for t in p.trail)
+    editor_desk.approve(sid, 1)
+    assert store.load(sid).report.points[0].chart.values[0].value == 9.7
 
 
 def test_a_defended_point_is_answered_without_a_rewrite(monkeypatch, fake):

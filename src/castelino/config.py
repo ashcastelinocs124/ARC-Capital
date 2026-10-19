@@ -179,8 +179,6 @@ class DeepResearchCfg(BaseModel):
     x_posts_per_report: int = 100
     keep_full_days: int = 14
     cost_cap_usd: float = 8.0
-    max_charts: int = 4  # chart_resolver.py
-    chart_lookback_days_default: int = 365
 
 
 class DeepDiveCfg(BaseModel):
