@@ -83,11 +83,17 @@ const AIR: [string, string, number, number][] = [
   ["HONG KONG", "LONDON", 6, 2.2], ["HONG KONG", "DUBAI", 4.2, 6.6], ["SINGAPORE", "PARIS", 5.8, 3.4],
   ["SINGAPORE", "DUBAI", 4, 5.2], ["SEOUL", "NEW YORK", 7, 4], ["TOKYO", "SINGAPORE", 3.4, 6.2],
   ["MUMBAI", "LONDON", 4.5, 2.8], ["MUMBAI", "NEW YORK", 6, 5.6],
+  // flights out of Africa
+  ["JOHANNESBURG", "LONDON", 5.5, 3], ["JOHANNESBURG", "DUBAI", 4, 5.4], ["JOHANNESBURG", "SINGAPORE", 5.5, 2.1],
+  ["LAGOS", "LONDON", 4.2, 4.1], ["LAGOS", "NEW YORK", 5.5, 6.4], ["NAIROBI", "DUBAI", 3.4, 2.6],
+  ["NAIROBI", "LONDON", 5, 5.9], ["CAIRO", "PARIS", 3.4, 3.8], ["CASABLANCA", "NEW YORK", 5, 4.7],
 ];
 const HUBS: Record<string, { lon: number; lat: number }> = {
   CHICAGO: { lon: -87.63, lat: 41.88 }, HOUSTON: { lon: -95.37, lat: 29.76 }, "SÃO PAULO": { lon: -46.63, lat: -23.55 },
   "HONG KONG": { lon: 114.17, lat: 22.32 }, SINGAPORE: { lon: 103.82, lat: 1.35 }, SEOUL: { lon: 126.98, lat: 37.57 },
   MUMBAI: { lon: 72.88, lat: 19.08 },
+  JOHANNESBURG: { lon: 28.05, lat: -26.2 }, LAGOS: { lon: 3.38, lat: 6.52 }, NAIROBI: { lon: 36.82, lat: -1.29 },
+  CAIRO: { lon: 31.24, lat: 30.04 }, CASABLANCA: { lon: -7.59, lat: 33.57 },
 };
 const at = (city: string) => HUBS[city] ?? LANDMARKS.find((m) => m.city === city)!;
 const FLIGHTS = AIR.map(([a, b, dur, start]) => {
