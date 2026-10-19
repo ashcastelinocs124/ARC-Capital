@@ -96,5 +96,6 @@ def test_brief_has_findings_and_facts_and_skips_failed_agents():
 
 
 def test_owner_letter():
-    got = [synthesizer.owner_letter(x) for x in ("B", "b · Who leads", "Researcher C", " D ")]
-    assert got == ["B", "B", "C", "D"]
+    names = ("B", "b · Who leads", "Researcher C", " D ", "Agent B", "agent: C", "researcher E")
+    got = [synthesizer.owner_letter(x) for x in names]
+    assert got == ["B", "B", "C", "D", "B", "C", "E"]

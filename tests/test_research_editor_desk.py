@@ -122,6 +122,15 @@ def test_start_opens_one_question_per_point():
         editor_desk.start(sid, "p9", "?")
 
 
+def test_one_rethink_at_a_time_per_owning_agent():
+    # p1 and p3 are both agent A's: two rethinks at once would mint the same new fact id
+    sid = saved()
+    editor_desk.start(sid, "p1", "Is 9.2% current?")
+    with pytest.raises(Busy, match="A"):
+        editor_desk.start(sid, "p3", "And this one?")
+    assert editor_desk.start(sid, "p2", "Agent B is free").n == 2
+
+
 def test_a_change_becomes_a_pending_one_point_proposal(monkeypatch, fake):
     sid = asked_and_rethought(monkeypatch, fake)
     s = store.load(sid)

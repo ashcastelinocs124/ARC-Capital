@@ -23,6 +23,9 @@ def due(s: ResearchSession, now: datetime | None = None) -> bool:
         p.status == "running" for p in s.proposals
     ):
         return False
+    # housekeeping: a failed compaction waits for your Retry instead of rerunning on every page poll
+    if s.job and s.job.step == "compact" and s.job.state in ("failed", "interrupted"):
+        return False
     age = (now or datetime.now()) - datetime.fromisoformat(s.created_at)
     return age > timedelta(days=get_settings().deep_research.keep_full_days)
 
@@ -31,6 +34,8 @@ def compact(sid: str, meter: llm.Meter) -> None:
     cfg = get_settings().deep_research
     s = store.load(sid)
     cited = {i for p in (s.report.points if s.report else []) for i in p.fact_ids}
+    # a proposal still waiting for you keeps the facts its new version cites
+    cited |= {i for p in s.proposals if p.status == "pending" and p.after for i in p.after.fact_ids}
     summaries: dict[str, str] = {}
     for a in s.agents:
         if a.summary:

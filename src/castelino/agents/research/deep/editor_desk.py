@@ -34,6 +34,11 @@ def start(sid: str, point_id: str, text: str) -> Proposal:
         point = s.point(point_id)
         if any(p.point_id == point_id and p.status in OPEN for p in s.proposals):
             raise Busy(f"{point_id} already has a question open")
+        # one rethink per agent at a time: two would number their new facts from the same snapshot
+        if any(p.agent == point.agent and p.status == "running" for p in s.proposals):
+            raise Busy(
+                f"Agent {point.agent} is still rechecking another point. Ask again when it's done."
+            )
         if s.cost_usd + ASK_EST > cap:
             raise Busy(f"Cost cap: ${s.cost_usd:.2f} of ${cap:.2f} spent on this report")
         p = Proposal(

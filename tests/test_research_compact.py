@@ -64,6 +64,38 @@ def test_due_after_14_days_when_complete_and_idle():
     assert not compact.due(s.model_copy(update={"status": "writing"}), NOW)
 
 
+def test_a_failed_compaction_is_not_resubmitted_by_itself():
+    s = saved()
+    for state in ("failed", "interrupted"):
+        failed = Job(step="compact", state=state, at="x")
+        assert not compact.due(s.model_copy(update={"job": failed}), NOW)
+    after_run = Job(step="run", state="failed", at="x")
+    assert compact.due(s.model_copy(update={"job": after_run}), NOW)
+
+
+def test_compact_keeps_the_facts_a_pending_proposal_cites(monkeypatch):
+    c = FakeClient([parsed(Summary(text="A found 9.2%."))])
+    monkeypatch.setattr(llm, "_client", lambda m: c)
+    s = saved()
+    with store.edit(s.id) as x:
+        p = x.report.points[0]
+        x.proposals.append(
+            Proposal(
+                n=2,
+                point_id="p1",
+                agent="A",
+                text="?",
+                base_version=1,
+                created_at="x",
+                status="pending",
+                before=p,
+                after=p.model_copy(update={"fact_ids": ["A2"], "version": 2}),
+            )
+        )
+    compact.compact(s.id, llm.Meter())
+    assert [f.id for f in store.load(s.id).agents[0].facts] == ["A1", "A2"]
+
+
 def test_compact_keeps_a_summary_cited_facts_and_the_edit_log(monkeypatch):
     c = FakeClient([parsed(Summary(text="A found 9.2% in BTOS [A1]."))])
     monkeypatch.setattr(llm, "_client", lambda m: c)

@@ -3,6 +3,8 @@ from every finding and fact; the number guard sends it back once."""
 
 from __future__ import annotations
 
+import re
+
 from castelino.agents.research.deep import guard
 from castelino.agents.research.deep.models import (
     ChartSpec,
@@ -16,6 +18,7 @@ from castelino.agents.trade import llm
 from castelino.agents.weekly.editor import AnthropicEditorClient
 from castelino.config import get_settings
 
+_LETTER = re.compile(r"(?<![A-Za-z])([A-Pa-p])(?![A-Za-z])")  # an agent letter on its own
 SYSTEM = """You are ARC Research's editor. Write a research report that answers the research question,
 using only the researchers' findings and facts: every number must be one of the cited facts' numbers.
 - title: the answer as a short claim. subtitle: one line on scope.
@@ -47,9 +50,10 @@ def brief(s: ResearchSession) -> str:
 
 
 def owner_letter(agent: str) -> str:
-    """ "B", "B · Who leads" or "Researcher B" → "B"."""
-    t = agent.strip().removeprefix("Researcher ").strip()
-    return t[:1].upper()
+    """ "B", "B · Who leads", "Researcher B" or "Agent B" → "B": the first standalone letter, so a word
+    like "Agent" never becomes owner "A"."""
+    m = _LETTER.search(agent)
+    return m.group(1).upper() if m else agent.strip()[:1].upper()
 
 
 def write(s: ResearchSession, meter: llm.Meter, *, client=None) -> ResearchReport:
