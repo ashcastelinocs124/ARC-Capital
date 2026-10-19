@@ -119,7 +119,7 @@ const Owner = ({ a, letter }: { a?: AgentRun; letter: string }) => (
 const INK = "#008744";
 
 function fmt(v: number, unit: PointChartT["unit"], decimals: number): string {
-  const n = v.toFixed(decimals);
+  const n = v.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   return unit === "%" ? `${n}%` : unit === "$" ? `$${n}` : unit === "bp" || unit === "pp" ? `${n} ${unit}` : n;
 }
 
