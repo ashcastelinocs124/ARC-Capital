@@ -3,14 +3,13 @@ import { ArrowUpRight, Download, X } from "lucide-react";
 import { PageIntro } from "@/components/layout/PageIntro";
 import { C } from "@/lib/theme";
 
-// Hand-kept: add a deck as one line in its group, newest first. A deck with a PDF in the public
-// Workshop-Slides repo (`pdf`: its URL-encoded path there) opens in a viewer on this page and downloads;
-// the rest link to the claude.ai deck (`url`), which must be shared publicly and can't be framed.
-// jsDelivr serves the repo's files as real PDFs (GitHub's raw links refuse framing). ponytail: its
-// limits are 20 MB a file and up to 12 h of caching on @main, so a replaced PDF can lag; purge at
-// purge.jsdelivr.net or host the PDFs on the site if either bites.
+// Hand-kept: add a deck as one line in its group, newest first. Every deck is a PDF (`pdf`) that opens in a
+// viewer on this page and downloads: one in the public Workshop-Slides repo comes through jsDelivr (GitHub's
+// raw links refuse framing), and a claude.ai deck is exported (Download → PDF) into public/slides/, since
+// claude.ai can't be framed. ponytail: jsDelivr allows 20 MB a file and caches @main up to 12 h, so a
+// replaced PDF can lag; purge at purge.jsdelivr.net or move it to public/slides/ if either bites.
 const CDN = "https://cdn.jsdelivr.net/gh/ashcastelinocs124/Workshop-Slides@main/";
-const ART = "https://claude.ai/artifact/";
+const SITE = "/slides/";
 
 const BOOK = {
   url: "https://ashcastelinocs124.github.io/Macro-Investing-Textbook/",
@@ -18,29 +17,29 @@ const BOOK = {
   parts: ["How the economy works", "Policy makers", "The asset classes", "The global system", "Doing macro"],
 };
 
-type Deck = { title: string; date: string; slides: number; blurb: string; pdf?: string; url?: string };
+type Deck = { title: string; date: string; slides: number; blurb: string; pdf: string };
 const GROUPS: { name: string; sub: string; color: string; decks: Deck[] }[] = [
   { name: "AI industry", sub: "who builds, funds and powers frontier AI", color: C.ai, decks: [
-    { title: "Learning on the job: continual learning for LLMs", date: "Oct 8, 2026", slides: 50, pdf: "AI/ai-update/Continual%20Learning%20Labs%20%26%20Neolabs.pdf",
+    { title: "Learning on the job: continual learning for LLMs", date: "Oct 8, 2026", slides: 50, pdf: `${CDN}AI/ai-update/Continual%20Learning%20Labs%20%26%20Neolabs.pdf`,
       blurb: "How LLMs could keep learning after deployment, the labs betting on it, and what it means for chips." },
-    { title: "Neoclouds & Neolabs", date: "Oct 6, 2026", slides: 63, pdf: "Finance/market-update/Neoclouds%20%26%20Neolabs.pdf",
+    { title: "Neoclouds & Neolabs", date: "Oct 6, 2026", slides: 63, pdf: `${CDN}Finance/market-update/Neoclouds%20%26%20Neolabs.pdf`,
       blurb: "How GPU-rental neoclouds and well-funded new AI labs work, how they are financed, and what could break." },
-    { title: "AI Data Centers Are Going to Space", date: "Sep 24, 2026", slides: 22, url: `${ART}YXCeVqA5xvibrikHoh2QnS`,
+    { title: "AI Data Centers Are Going to Space", date: "Sep 24, 2026", slides: 22, pdf: `${SITE}ai-data-centers-space.pdf`,
       blurb: "Google's Project Suncatcher, and the five engineering problems between a design paper and an orbital AI cluster." },
-    { title: "Money for Machines", date: "Sep 23, 2026", slides: 31, pdf: "Finance/market-update/Money%20for%20Machines.pdf",
+    { title: "Money for Machines", date: "Sep 23, 2026", slides: 31, pdf: `${CDN}Finance/market-update/Money%20for%20Machines.pdf`,
       blurb: "Crypto payment rails for AI agents are built and backed by incumbents; real agent demand is still tiny." },
   ] },
   { name: "Macro", sub: "elections, policy and where capital goes", color: C.inflation, decks: [
-    { title: "Brazil 2026: the runoff, the market, the Congress", date: "Oct 8, 2026", slides: 57, url: `${ART}2wP4yaiqmaUD12W3CAAqj4`,
+    { title: "Brazil 2026: the runoff, the market, the Congress", date: "Oct 8, 2026", slides: 57, pdf: `${SITE}brazil-2026.pdf`,
       blurb: "Brazil's Lula vs Flávio Bolsonaro runoff, how markets reacted, the new Congress and the macro backdrop." },
-    { title: "Where Money Goes Next", date: "Sep 28, 2026", slides: 23, url: `${ART}PVSvGEmGpQGUi1Ev7WrG7p`,
+    { title: "Where Money Goes Next", date: "Sep 28, 2026", slides: 23, pdf: `${SITE}where-money-goes-next.pdf`,
       blurb: "How AI, energy, government debt, metals and crypto connect, and where capital may be positioned next." },
   ] },
   { name: "Weekly market updates", sub: "the week in markets, presented live", color: C.jobs, decks: [
-    { title: "Tech blinks, the Dow holds", date: "Week of Oct 12–16, 2026", slides: 38, url: `${ART}87dygTfrUjE1hXWZUbgyjU`,
+    { title: "Tech blinks, the Dow holds", date: "Week of Oct 12–16, 2026", slides: 38, pdf: `${SITE}weekly-market-update-2026-10-16.pdf`,
       blurb: "Money left AI hardware and AI credit for defensives and energy, as CoreWeave fell and oil topped $100." },
     { title: "Weekly Market Update", date: "Week ending Sep 18, 2026", slides: 28,
-      pdf: "Finance/market-update/Weekly%20Market%20Update%20%E2%80%94%20Sept%2018%2C%202026.pdf",
+      pdf: `${CDN}Finance/market-update/Weekly%20Market%20Update%20%E2%80%94%20Sept%2018%2C%202026.pdf`,
       blurb: "The Fed hiked, the 10-year hit 5% and breadth cracked; plus Japan, AI and the Anthropic IPO." },
   ] },
 ];
@@ -52,12 +51,12 @@ const SECONDARY = `${BTN} border border-border-strong text-text hover:border-tex
 
 // A cross-origin <a download> is ignored (the browser just opens the PDF), so fetch it and save it under its title.
 async function download(d: Deck) {
-  const href = CDN + d.pdf;
+  const href = d.pdf;
   try {
     const r = await fetch(href);
     if (!r.ok) throw new Error(String(r.status));
     const url = URL.createObjectURL(await r.blob());
-    Object.assign(document.createElement("a"), { href: url, download: `${d.title}.pdf` }).click();
+    Object.assign(document.createElement("a"), { href: url, download: `${d.title.replace(/[\\/:*?"<>|]/g, "")}.pdf` }).click();
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
   } catch {
     window.open(href, "_blank", "noopener");
@@ -101,14 +100,14 @@ function Viewer({ deck, onClose }: { deck: Deck | null; onClose: () => void }) {
               </div>
             </div>
             <DownloadButton deck={deck} className={PRIMARY} label="Download PDF" />
-            <a href={CDN + deck.pdf} {...out} className={SECONDARY}>
+            <a href={deck.pdf} {...out} className={SECONDARY}>
               Open in new tab <ArrowUpRight className="h-3.5 w-3.5" />
             </a>
             <button onClick={() => ref.current?.close()} aria-label="Close" className="rounded-full p-1.5 text-text-2 hover:text-text">
               <X className="h-5 w-5" />
             </button>
           </div>
-          <iframe src={CDN + deck.pdf} title={deck.title} className="w-full flex-1 border-0 bg-surface-3" />
+          <iframe src={deck.pdf} title={deck.title} className="w-full flex-1 border-0 bg-surface-3" />
         </div>
       )}
     </dialog>
@@ -120,7 +119,7 @@ export default function ResourcesPage() {
   const [open, setOpen] = useState<Deck | null>(null);
   // phones get the PDF in a new tab: mobile browsers show one page of a framed PDF, or none
   const view = (d: Deck) => {
-    if (window.matchMedia("(max-width: 767px)").matches) window.open(CDN + d.pdf, "_blank", "noopener");
+    if (window.matchMedia("(max-width: 767px)").matches) window.open(d.pdf, "_blank", "noopener");
     else setOpen(d);
   };
   return (
@@ -174,34 +173,22 @@ export default function ResourcesPage() {
             {g.name} <span className="font-normal text-muted">· {g.sub}</span>
           </h3>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 md:gap-4">
-            {g.decks.map((d) => {
-              const body = (
-                <>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="eyebrow">{d.date}</span>
-                    <span className="pill">{d.slides} SLIDES</span>
-                  </div>
-                  <h4 className="mt-3 text-[15.5px] font-semibold leading-snug text-text">{d.title}</h4>
-                  <p className="mt-1.5 flex-1 text-[12.5px] leading-relaxed text-muted">{d.blurb}</p>
-                </>
-              );
-              return d.pdf ? (
-                <div key={d.title} className="card flex flex-col p-[18px]">
-                  {body}
-                  <div className="mt-3.5 flex flex-wrap gap-2">
-                    <button onClick={() => view(d)} className={PRIMARY}>
-                      View
-                    </button>
-                    <DownloadButton deck={d} className={SECONDARY} label="Download" />
-                  </div>
+            {g.decks.map((d) => (
+              <div key={d.title} className="card flex flex-col p-[18px]">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="eyebrow">{d.date}</span>
+                  <span className="pill">{d.slides} SLIDES</span>
                 </div>
-              ) : (
-                <a key={d.title} href={d.url} {...out} className="card flex flex-col p-[18px] transition-shadow hover:shadow-card-hover">
-                  {body}
-                  <div className="mt-3.5 text-[13px] font-semibold text-accent">View on claude.ai ↗</div>
-                </a>
-              );
-            })}
+                <h4 className="mt-3 text-[15.5px] font-semibold leading-snug text-text">{d.title}</h4>
+                <p className="mt-1.5 flex-1 text-[12.5px] leading-relaxed text-muted">{d.blurb}</p>
+                <div className="mt-3.5 flex flex-wrap gap-2">
+                  <button onClick={() => view(d)} className={PRIMARY}>
+                    View
+                  </button>
+                  <DownloadButton deck={d} className={SECONDARY} label="Download" />
+                </div>
+              </div>
+            ))}
           </div>
         </section>
       ))}
