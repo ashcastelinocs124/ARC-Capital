@@ -7,7 +7,7 @@ import { STATIC } from "@/api/client";
 
 export function TopBar() {
   return (
-    <header className="h-16 shrink-0 bg-surface border-b border-border grid grid-cols-[1fr_auto] lg:grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 md:h-[76px] md:px-8">
+    <header className="h-16 shrink-0 bg-surface border-b border-border grid grid-cols-[1fr_auto] xl:grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 md:h-[76px] md:px-8">
       <NavLink to="/" className="flex items-center" aria-label="ARC Research home">
         <img src="/arc-logo.png" alt="ARC Research" className="logo-img h-11 w-auto md:h-14" />
       </NavLink>
@@ -17,7 +17,7 @@ export function TopBar() {
         {/* a full page load, not a router Link: only a real request to /admin reaches the password middleware */}
         <a href="/admin" className="inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] text-muted hover:text-accent" aria-label="Admin login">
           <Lock className="h-3.5 w-3.5" />
-          <span className="hidden md:inline">Admin login</span>
+          <span className="hidden 2xl:inline">Admin login</span>
         </a>
         <ThemeToggle />
         <a
