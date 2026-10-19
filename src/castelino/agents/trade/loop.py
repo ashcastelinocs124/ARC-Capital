@@ -28,16 +28,19 @@ def run(
         )
         if not msg.tool_calls:
             break
-        calls = [t.model_dump() for t in msg.tool_calls]
+        # keep only the calls the budget can take (at least one, so the loop still ends): a news desk asked
+        # for 560 in one turn on 2026-10-18 and the API refused the resent message (at most 128 tool calls)
+        tcs = msg.tool_calls[: max(1, box.max_calls - box.calls)]
+        calls = [t.model_dump() for t in tcs]
         msgs.append({"role": "assistant", "content": msg.content or "", "tool_calls": calls})
         parsed: list[dict | None] = []
-        for tc in msg.tool_calls:
+        for tc in tcs:
             try:
                 parsed.append(json.loads(tc.function.arguments or "{}"))
             except json.JSONDecodeError:
                 parsed.append(None)
-        box.prefetch([(tc.function.name, a) for tc, a in zip(msg.tool_calls, parsed, strict=True)])
-        for tc, args in zip(msg.tool_calls, parsed, strict=True):
+        box.prefetch([(tc.function.name, a) for tc, a in zip(tcs, parsed, strict=True)])
+        for tc, args in zip(tcs, parsed, strict=True):
             if args is None:
                 box.calls += 1  # counts against the budget, so the loop always ends
                 result = "Error: arguments were not valid JSON"

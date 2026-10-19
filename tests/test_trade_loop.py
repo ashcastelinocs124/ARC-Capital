@@ -58,6 +58,20 @@ def test_runs_tools_then_parses(fake):
     assert msgs[-1] == {"role": "user", "content": "Write your turn."}
 
 
+def test_a_turn_with_more_calls_than_the_budget_resends_only_the_budget(fake):
+    """A news desk asked for 560 calls in one turn; the API refuses a resent message with over 128 (2026-10-18)."""
+    asked = [
+        tool_call("yahoo_prices", {"ticker": "INDA", "start": "2026-01-01"}, cid=f"c{k}")
+        for k in range(200)
+    ]
+    fake.script = [said(calls=asked), said("done"), parsed(TurnDraft(text="x", fact_ids=[]))]
+    box = make_box(max_calls=2)
+    _, msgs = run(box)
+    sent = next(m for m in msgs if m["role"] == "assistant")
+    assert [c["id"] for c in sent["tool_calls"]] == ["c0", "c1"]
+    assert [m["tool_call_id"] for m in msgs if m["role"] == "tool"] == ["c0", "c1"]
+
+
 def test_a_turns_searches_run_at_once_inside_the_budget_and_keep_their_order(fake):
     """News desks ask for 8 to 10 searches in one turn; one at a time they took 4 minutes (2026-10-15)."""
     gate = threading.Barrier(2, timeout=2)  # one search at a time would wait here, then break
