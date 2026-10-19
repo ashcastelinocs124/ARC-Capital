@@ -261,6 +261,44 @@ agents:
       writes: ["data/x_posts/scout/<date>.json (texts, chart, X ids, dry_run)"]
       persists: "Each day's posts: at most 2 a day."
 
+  - id: x_calendar_writer
+    name: Calendar Writer
+    group: X Scout
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "LLM call (x_scout.writer_model, gpt-6-luna)"}
+      - {key: X_API_KEY, required: false, why: "With X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET and X_SCOUT_LIVE=1, posts go live; else dry run"}
+    class: castelino.x_calendar.CardWriter
+    summary: >-
+      At 07:00 ET on weekdays code draws the calendar card from Week Ahead (Monday: the week; Tuesday
+      to Friday: today, with the rows it will watch marked) and this call writes the short read on
+      top. Every figure must be on the card; one retry, then a code-written line.
+    tools:
+      - {name: "pick() + draw_card() (code)", does: "Key US releases by tier with a consensus, inflation and jobs abroad, the largest companies reporting; drawn in the ARC chart frame"}
+      - {name: "x_scout.check (code)", does: "Every figure in the read must be one of the card's numbers; ≤280 characters"}
+    memory:
+      reads: ["The card's rows (time, release, consensus, previous; company, session, EPS estimate)"]
+      writes: ["data/x_posts/calendar/<date>.json (card post, today's watch list)", "data/x_posts/calendar/<date>/card.png"]
+      persists: "One card a day; the watch list for the release posts."
+
+  - id: x_release_writer
+    name: Release Writer
+    group: X Scout
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "LLM call (x_scout.writer_model, gpt-6-luna)"}
+      - {key: X_API_KEY, required: false, why: "With X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET and X_SCOUT_LIVE=1, posts go live; else dry run"}
+    class: castelino.x_calendar.ReleaseWriter
+    summary: >-
+      Every 5 minutes from 07:00 to 19:55 ET on weekdays code checks Nasdaq's live calendar; when a
+      watched release or earnings report lands, code writes the numbers line (actual vs expected,
+      previous) and this call adds one plain sentence with no digit, dropped if it has one.
+    tools:
+      - {name: "landed() (code)", does: "Today's Nasdaq economic and earnings rows matched to the morning's watch list; a release's m/m and y/y post together"}
+      - {name: "x_post (code)", does: "One post per release, once, at most 4 a day; may post in the Theme Charts quiet hour"}
+    memory:
+      reads: ["The release's numbers line"]
+      writes: ["data/x_posts/calendar/<date>.json (releases posted, X ids)"]
+      persists: "Each day's release posts: never twice, at most 4."
+
   - id: desk_chat
     name: Desk Chat
     group: Briefings
@@ -799,8 +837,8 @@ systems:
         flow: [["Every 30 min"], ["code:Market check|10 markets · z ≥ 2.5"], ["agent:move_explainer|cited why"], ["agent:x_chart_picker|intraday or context chart"], ["end:Post on X|+ chart · or dry-run log"]]
 
   - group: X Scout
-    trigger: "Cron on the Fly server every 2 hours, 10:15-18:15 ET on weekdays (an hour clear of the Theme Charts thread), and 12:15 on Saturdays"
-    output: "At most 2 X posts a day: a cited macro or AI finding with a code-drawn chart, and one reply of analysis (dry run until X_SCOUT_LIVE=1)"
+    trigger: "Cron on the Fly server: the Scout every 2 hours, 10:15-18:15 ET on weekdays and 12:15 on Saturdays; the calendar card at 07:00 and its watcher every 5 min, 07:00-19:55, on weekdays"
+    output: "On X only (dry run until X_SCOUT_LIVE=1): up to 2 cited findings a day with a chart and a reply; a calendar card each weekday morning (the week on Mondays); a post for each watched release as it lands, up to 4 a day"
     blurb: >-
       A cited search finds the last 6 hours of macro and AI news; the Scout picks one item worth a
       post (usually none) and the series that chart it. Code draws the chart, and every figure the
@@ -808,6 +846,8 @@ systems:
     lanes:
       - title: "X Scout"
         flow: [["Every 2 h"], ["agent:x_scout_search|cited macro + AI"], ["agent:x_scout|1 item or nothing"], ["agent:x_scout_writer|post + reply"], ["end:Post on X|+ chart · or dry-run log"]]
+      - title: "Calendar"
+        flow: [["7:00 · every 5 min"], ["code:Week Ahead|pick + card · watch list"], ["agent:x_calendar_writer|week or day read"], ["agent:x_release_writer|one line per release"], ["end:Post on X|card · release posts ≤4/day"]]
 
   - group: Deep research
     trigger: "A question asked on /deep-research"
@@ -1069,6 +1109,39 @@ pipelines:
       - {title: Pick, nodes: [scout, limits, stop], edges: [search > scout, limits > scout, scout > stop], io: ["in: cited items + past posts", "out: one item or stop"], text: "The Scout agent picks the one item worth a post and the series that chart it. It skips anything already posted, and most runs stop here."}
       - {title: Chart and write, nodes: [writer, series], edges: [scout > writer, series > writer], io: ["in: item + chart data", "out: post + reply"], text: "Code downloads the series and draws the chart; the Writer agent writes the post and one reply of analysis."}
       - {title: Check and post, nodes: [check, post], edges: [writer > check, check > post], io: ["in: post + reply", "out: X post"], text: "Code checks every number against the source and the chart and the 280-character limit, then posts the chart and the reply on X."}
+
+  - id: x-calendar
+    name: X Calendar
+    trigger: "cron · 07:00 + every 5 min · weekdays"
+    guardrails: "numbers from the calendar · 4 releases a day"
+    delivery: "calendar card + release posts on X"
+    nodes:
+      - {id: calendar, kind: source, layer: sources, x: 326, name: Week Ahead, sub: the week's calendar, does: "ARC's calendar of the week's economic releases (with consensus and previous) and the companies reporting, refreshed every evening."}
+      - {id: nasdaq, kind: source, layer: sources, x: 794, name: Nasdaq calendar, sub: live actuals, does: "Nasdaq's economic and earnings calendars, which show the actual number or EPS within minutes of a release."}
+      - {id: schedule, kind: trigger, layer: agents, x: 150, w: 120, name: Schedule, sub: 07:00 · every 5 min, does: "The card goes out at 7:00 New York time on weekdays (the whole week on Mondays); the watcher checks every 5 minutes from 7:00 to 19:55."}
+      - {id: pick, kind: code, layer: agents, x: 326, name: Pick + card, sub: key rows · drawn by code, does: "Plain code picks the key US releases, inflation and jobs abroad and the largest companies reporting, draws the card and saves the four most important rows to watch."}
+      - {id: cardw, kind: llm, agent: x_calendar_writer, layer: agents, x: 560, name: Calendar writer, sub: week or day read, does: "Writes the short read on top of the card from the card's own rows."}
+      - {id: releasew, kind: llm, agent: x_release_writer, layer: agents, x: 794, name: Release writer, sub: one plain line, does: "Adds one plain sentence, with no numbers, under each release post."}
+      - {id: check, kind: guard, layer: guardrails, x: 560, name: Number check, sub: card's figures only, does: "Every figure in the read must be on the card, and the post must fit 280 characters, or the card goes out with a plain code-written line."}
+      - {id: watchcap, kind: guard, layer: guardrails, x: 794, name: Watch list, sub: once · 4 a day, does: "Only the morning card's watched releases post, each once, at most four a day; code writes every number in the post."}
+      - {id: cardpost, kind: out, layer: delivery, x: 560, name: Calendar card, sub: week · today, does: "The week's or today's calendar card posted to X with its read. While the feature is in test mode, posts are only logged."}
+      - {id: relpost, kind: out, layer: delivery, x: 794, name: Release post, sub: actual vs expected, does: "A post on X as each watched release or earnings report lands. While the feature is in test mode, posts are only logged."}
+    edges:
+      - schedule > pick
+      - calendar > pick
+      - pick > cardw
+      - cardw > check
+      - check > cardpost
+      - pick > watchcap
+      - nasdaq > releasew
+      - watchcap > releasew
+      - releasew > relpost
+    steps:
+      - {title: Trigger, nodes: [schedule], edges: [schedule > pick], io: ["in: clock", "out: start run"], text: "At 7:00 on weekdays a scheduled job builds the card; every 5 minutes another checks for releases."}
+      - {title: Card, nodes: [pick, calendar, cardw], edges: [calendar > pick, pick > cardw], io: ["in: the week's calendar", "out: card + read"], text: "Code picks the key releases and reporters and draws the card; the Calendar writer adds a short read."}
+      - {title: Check and post, nodes: [check, cardpost], edges: [cardw > check, check > cardpost], io: ["in: card + read", "out: X post"], text: "Code checks every figure in the read against the card, then the card goes out on X."}
+      - {title: Watch, nodes: [watchcap, nasdaq, releasew], edges: [pick > watchcap, watchcap > releasew, nasdaq > releasew], io: ["in: watch list + live calendar", "out: landed releases"], text: "Code watches Nasdaq's live calendar for the morning's four key releases; the Release writer adds one plain sentence to each."}
+      - {title: Release post, nodes: [relpost], edges: [releasew > relpost], io: ["in: numbers line + sentence", "out: X post"], text: "Each release posts once with its actual against what was expected."}
 
   - id: sector-sentiment
     name: Sector Sentiment

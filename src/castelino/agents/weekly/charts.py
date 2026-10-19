@@ -111,6 +111,7 @@ def _frame(
     left=0.1,
     bottom=0.2,
     kicker: str = "WEEKLY DEEP DIVE",
+    numbered: bool = True,  # False: the title stands alone (an X calendar card is not an exhibit)
 ) -> None:
     plt.rcParams.update(
         {
@@ -137,7 +138,7 @@ def _frame(
         fontweight="bold",
         color="#475569",
     )
-    head = f"Exhibit {n}: {title}"[:72]
+    head = (f"Exhibit {n}: {title}" if numbered else title)[:72]
     fig.text(0.06, 0.905, head, fontsize=_title_size(fig, head), fontweight="bold")
     if "\n" in sub:  # a wrapped subtitle hangs from under the title instead of growing up into it
         fig.text(0.06, 0.885, sub, fontsize=10, color=INK2, va="top")
