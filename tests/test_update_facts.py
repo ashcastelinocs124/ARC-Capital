@@ -30,6 +30,12 @@ def test_facts_from_search_one_per_cited_line_and_strips_links():
     assert facts[1].numbers == [0.8]
 
 
+def test_bold_markers_are_dropped_from_fact_text():
+    text = "- **Q2 2026:** 41% of firms used AI ([x.com](https://x.org/a))"
+    facts = facts_from_search("N", text, [("X", "https://x.org/a", text.index("(["), 0)])
+    assert facts[0].text == "Q2 2026: 41% of firms used AI"
+
+
 def test_no_citations_gives_no_facts():
     assert facts_from_search("N", "Oil rose 4%", []) == []
 

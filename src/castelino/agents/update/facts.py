@@ -40,7 +40,7 @@ def facts_from_search(prefix: str, text: str, cites: list[tuple[str, str, int, i
         start, end = pos, pos + len(line)
         pos = end + 1
         hit = next((c for c in cites if start <= c[2] <= end), None)
-        body = _LINK.sub("", line).strip(" -*•\t")
+        body = _LINK.sub("", line).replace("**", "").strip(" -*•\t")
         if hit is None or not body:
             continue
         facts.append(
