@@ -5,6 +5,7 @@ from the new researchers' findings, and never touches the points already written
 from __future__ import annotations
 
 import re
+from datetime import date
 
 from castelino.agents.research.deep import guard
 from castelino.agents.research.deep.models import (
@@ -29,6 +30,8 @@ using only the researchers' findings and facts: every number must be one of the 
   body: 2 to 4 sentences of evidence. fact_ids: every fact the point uses.
 - A fact whose source is "@handle on X" is what that person said, never a fact: write "@handle says ..."
   in the same sentence as any figure from it.
+- Use the most recent figures: when facts measure the same thing, use the newest, and say when each
+  figure is from. A figure older than 12 months needs its year and "the latest available" if it is.
 - caveats: the main limits of this evidence.
 Style: plain words, no dashes as punctuation (no "—" or "–"), no fact ids in the prose."""
 MORE = """You are ARC Research's editor. The report is already written; new researchers have now covered
@@ -40,11 +43,13 @@ number must be one of the cited facts' numbers, and never repeat what the report
   point uses.
 - A fact whose source is "@handle on X" is what that person said, never a fact: write "@handle says ..."
   in the same sentence as any figure from it.
+- Use the most recent figures: when facts measure the same thing, use the newest, and say when each
+  figure is from. A figure older than 12 months needs its year and "the latest available" if it is.
 Style: plain words, no dashes as punctuation (no "—" or "–"), no fact ids in the prose."""
 
 
 def brief(s: ResearchSession, letters: list[str] | None = None) -> str:
-    parts = [f"Research question: {s.question}"]
+    parts = [f"Today is {date.today()}.\nResearch question: {s.question}"]
     for a in s.agents:
         if a.error or not a.findings or (letters is not None and a.letter not in letters):
             continue

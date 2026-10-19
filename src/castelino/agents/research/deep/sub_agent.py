@@ -27,6 +27,9 @@ Your brief: {brief}
 Today is {today}.
 Rules:
 - Every number you rely on must come from a tool result, cited by its fact id (like {letter}3).
+- Use the most recent data: search for the latest release of each survey or series first, with the year
+  in the query. Use a figure older than 12 months only when nothing newer exists, and say so. Every
+  finding says when its figures are from.
 - Prefer data tools (FRED, Yahoo, BLS, Polymarket) for anything measurable; use web search for studies,
   surveys, causes and context.
 - x_search reaches only the last 7 days of X. A post is what its author said, not a fact: use it as

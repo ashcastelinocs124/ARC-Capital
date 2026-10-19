@@ -3,6 +3,8 @@ names the gaps for one more round. Judges the findings, before anything is writt
 
 from __future__ import annotations
 
+from datetime import date
+
 from castelino.agents.research.deep.models import Critique, ResearchSession
 from castelino.agents.trade import llm
 from castelino.config import get_settings
@@ -10,7 +12,8 @@ from castelino.config import get_settings
 SYSTEM = """You are a strict research critic. Given the research question and what each researcher found,
 decide whether the findings answer the question well enough to write a report. If not, list at most {n}
 specific gaps that would materially change the answer. Do not ask for perfection: done is true when the
-remaining gaps are minor."""
+remaining gaps are minor. A key figure older than 12 months, where a newer release likely exists, is a
+gap: name the newer release to find."""
 
 
 def findings_text(s: ResearchSession) -> str:
@@ -30,7 +33,8 @@ def review(s: ResearchSession, meter: llm.Meter) -> Critique:
         {"role": "system", "content": SYSTEM.format(n=cfg.max_gap_agents)},
         {
             "role": "user",
-            "content": f"Research question: {s.question}\n\nFindings:\n{findings_text(s)}",
+            "content": f"Today is {date.today()}.\nResearch question: {s.question}\n\n"
+            f"Findings:\n{findings_text(s)}",
         },
     ]
     out = llm.structured("research_critic", cfg.critic_model, msgs, Critique, meter)

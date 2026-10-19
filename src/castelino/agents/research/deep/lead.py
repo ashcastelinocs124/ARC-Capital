@@ -3,6 +3,8 @@ plans agents for the gaps only; on a finished report, plans agents for the angle
 
 from __future__ import annotations
 
+from datetime import date
+
 from castelino.agents.research.deep.models import Brief, Plan, ResearchSession, StepError
 from castelino.agents.trade import llm
 from castelino.config import get_settings
@@ -12,7 +14,8 @@ fully: each angle is one question a single researcher can answer alone, with no 
 Prefer fewer, higher-leverage angles. For each give name (2 to 4 words), angle (the question it answers)
 and brief (what to find and where to look first). The researchers' tools: cited web search, X posts from
 the last 7 days, FRED, Yahoo Finance, BLS and Polymarket. Where a clarifying question is unanswered,
-choose a sensible assumption and state it in the briefs."""
+choose a sensible assumption and state it in the briefs. Every brief asks for the most recent data: the
+latest release of each survey or series."""
 
 
 def _context(s: ResearchSession) -> str:
@@ -21,7 +24,7 @@ def _context(s: ResearchSession) -> str:
         for q in s.clarifying_questions
     )
     return (
-        f"Research question: {s.question}\nAs typed: {s.topic}\n\n"
+        f"Today is {date.today()}.\nResearch question: {s.question}\nAs typed: {s.topic}\n\n"
         f"Clarifying questions and answers:\n{asked or '- (none)'}\n\n"
     )
 

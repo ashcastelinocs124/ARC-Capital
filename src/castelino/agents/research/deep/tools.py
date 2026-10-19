@@ -14,8 +14,10 @@ from castelino.agents.weekly.tools import SPECS, ToolError, _obj
 from castelino.ai_sentiment import xapi
 
 SEARCH_SYSTEM = (
-    "You are a research assistant. Report only what reputable sources published. "
-    "Quote figures exactly. One bullet per fact, each ending with its citation."
+    "You are a research assistant. Report only what reputable sources published, and prefer the "
+    "latest release of each survey or series: from the last 12 months whenever one exists. Quote "
+    "figures exactly. One bullet per fact: start it with the date or period the figure covers (e.g. "
+    "'Q2 2026:' or 'Published March 2026:'), and end it with its citation."
 )
 DATA_TOOLS = ["web_search", "fred_series", "yahoo_prices", "bls_series", "polymarket_odds"]
 _START = {"type": "string", "description": "Window start, YYYY-MM-DD"}
