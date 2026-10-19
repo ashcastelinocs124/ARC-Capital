@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 
-from castelino import x_post, x_scout
+from castelino import substack, x_post, x_scout
 from castelino.x_scout import ET, CardRead, ReleaseRead
 
 MON = datetime(2026, 10, 19, 7, 0, tzinfo=ET)
@@ -232,5 +232,24 @@ def test_live_watch_posts_on_x(monkeypatch, tmp_path):
     monkeypatch.setattr(x_post, "can_post", lambda: True)
     sent = []
     monkeypatch.setattr(x_post, "post", lambda text, **k: sent.append(text) or "99")
+    monkeypatch.setattr(substack, "can_note", lambda: True)
+    monkeypatch.setattr(substack, "post_note", lambda *a: (_ for _ in ()).throw(AssertionError))
     out = x_scout.watch(now=WED.replace(hour=8, minute=35), root=tmp_path)
-    assert out[0]["id"] == "99" and not out[0]["dry_run"] and len(sent) == 1
+    assert (
+        out[0]["id"] == "99" and not out[0]["dry_run"] and len(sent) == 1
+    )  # release posts: X only
+
+
+def test_live_card_also_posts_a_note_with_the_card(monkeypatch, tmp_path):
+    week_file(tmp_path)
+    fake_card(monkeypatch)
+    monkeypatch.setenv("X_SCOUT_LIVE", "1")
+    monkeypatch.setattr(x_post, "can_post", lambda: True)
+    monkeypatch.setattr(x_post, "upload_image", lambda data: "m1")
+    monkeypatch.setattr(x_post, "post", lambda text, **k: "x1")
+    notes = []
+    monkeypatch.setattr(substack, "can_note", lambda: True)
+    monkeypatch.setattr(substack, "post_note", lambda text, png: notes.append((text, png)) or "n1")
+    rec = x_scout.card(now=TUE, root=tmp_path)
+    assert rec["id"] == "x1" and rec["note_id"] == "n1"
+    assert notes == [(rec["text"], tmp_path / "data/x_posts/calendar/2026-10-20/card.png")]

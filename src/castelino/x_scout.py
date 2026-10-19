@@ -1,5 +1,7 @@
-"""X Scout: ARC's X account, run by one module with three jobs. X only; dry run (log only) unless
-X_SCOUT_LIVE=1 and the X write keys are set (see x_post.py). One log: data/x_scout.log.
+"""X Scout: ARC's short updates, run by one module with three jobs. They post on X, and the card and
+the findings also go out as Substack Notes (note(): after X, never blocking it; substack.post_note
+with the SUBSTACK_SID cookie). Dry run (log only) unless X_SCOUT_LIVE=1 and the X write keys are set
+(see x_post.py). One log: data/x_scout.log.
 
 `scout` (the default; every 2 h, 10:15-18:15 ET on weekdays and 12:15 on Saturdays): post one
 interesting macro or AI finding with a chart. Code runs one cited web search for the last 6 hours of
@@ -45,7 +47,7 @@ from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel
 
-from castelino import x_post
+from castelino import substack, x_post
 from castelino.agents.base import StructuredAgent
 from castelino.agents.update.charts import is_rate
 from castelino.agents.update.facts import _NUM, facts_from_search, numbers_in
@@ -325,6 +327,8 @@ def run(dry: bool = False, now: datetime | None = None, root: Path | None = None
             ids.append(x_post.post(reply, reply_to=ids[0]))
         except Exception as e:  # the lead is out: record it anyway so it never goes twice
             print(f"  reply failed: {e}")
+    # one Note reads better than a lead + reply: the lead, then the analysis and source, with the chart
+    noted = note(f"{lead}\n\n{reply}", png, live)
     rec = {
         "at": now.isoformat(timespec="minutes"),
         "topic": pick.topic,
@@ -338,6 +342,7 @@ def run(dry: bool = False, now: datetime | None = None, root: Path | None = None
         "reply": reply,
         "dry_run": not live,
         "ids": ids,
+        **noted,
     }
     day["posts"].append(rec)
     atomic_write_text(path, json.dumps(day, indent=2, ensure_ascii=False))
@@ -607,6 +612,22 @@ def _live(dry: bool) -> bool:
     return not dry and os.getenv("X_SCOUT_LIVE") == "1" and x_post.can_post()
 
 
+def note(text: str, png: Path | None, live: bool) -> dict:
+    """The same post as a Substack Note (the card and findings; release posts stay on X). Runs
+    after X and never raises: the Notes API is unofficial, so a failure is logged and recorded."""
+    if not live:
+        print("  DRY RUN would also post it as a Substack Note")
+        return {"note_id": None}
+    if not substack.can_note():
+        print("  no Substack Note: SUBSTACK_SID is not set")
+        return {"note_id": None}
+    try:
+        return {"note_id": substack.post_note(text, png)}
+    except Exception as e:  # noqa: BLE001 - X already went out; the Note is a bonus
+        print(f"  note failed: {e}")
+        return {"note_id": None, "note_error": str(e)[:200]}
+
+
 # ── the morning card ───────────────────────────────────────────────────────
 
 
@@ -685,6 +706,7 @@ def card(now: datetime | None = None, root: Path | None = None, dry: bool = Fals
         "file": f"{png.parent.name}/{png.name}",
         "dry_run": not live,
         "id": post_id,
+        **note(text, png, live),
     }
     rec["watch"] = [{"key": key(r), **r} for r in today]
     rec.setdefault("releases", [])

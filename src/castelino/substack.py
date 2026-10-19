@@ -137,6 +137,50 @@ def _upload(http: httpx.Client, api: str, png: Path) -> dict:
     return _check(http.post(f"{api}/image", json={"image": data_uri})).json()
 
 
+NOTES_API = "https://substack.com/api/v1"  # Notes belong to the account, not the publication
+
+
+def can_note() -> bool:
+    return bool(os.getenv("SUBSTACK_SID"))
+
+
+def note_payload(text: str, attachment_ids: list[str]) -> dict:
+    """A Note's body: one plain-text paragraph per blank-line block (substack-gateway-oss's shape;
+    links stay plain text, as the gateway sends them)."""
+    paras = [
+        {"type": "paragraph", "content": [{"type": "text", "text": p.strip()}]}
+        for p in text.split("\n\n")
+        if p.strip()
+    ]
+    out = {
+        "bodyJson": {"type": "doc", "attrs": {"schemaVersion": "v1"}, "content": paras},
+        "tabId": "for-you",
+        "surface": "feed",
+        "replyMinimumRole": "everyone",
+    }
+    if attachment_ids:
+        out["attachmentIds"] = attachment_ids
+    return out
+
+
+def post_note(text: str, png: Path | None = None) -> str:
+    """Post a Substack Note as the session's account, `png` attached; returns the Note id. Raises
+    with Substack's message on failure. Image Notes: upload, register an image attachment (checked
+    against Substack on 2026-10-19), then post the Note with its id."""
+    sid, connect = os.getenv("SUBSTACK_SID"), os.getenv("SUBSTACK_CONNECT_SID")
+    if not sid:
+        raise RuntimeError("SUBSTACK_SID not set")
+    cookies = {"substack.sid": sid} | ({"connect.sid": connect} if connect else {})
+    with httpx.Client(cookies=cookies, timeout=60) as http:
+        ids = []
+        if png is not None:
+            url = _upload(http, NOTES_API, png)["url"]
+            att = http.post(f"{NOTES_API}/comment/attachment", json={"url": url, "type": "image"})
+            ids.append(_check(att).json()["id"])
+        r = http.post(f"{NOTES_API}/comment/feed", json=note_payload(text, ids))
+        return str(_check(r).json()["id"])
+
+
 def push(
     *,
     marker: Path,

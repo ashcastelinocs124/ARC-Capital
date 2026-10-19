@@ -73,3 +73,43 @@ def test_bold_markers_become_strong_marks():
         ("What to watch:", [{"type": "strong"}]),
         (" CPI.", None),
     ]
+
+
+def test_a_note_is_paragraphs_with_its_attachments():
+    from castelino.substack import note_payload
+
+    p = note_payload("Lead line.\n\nSource: https://x.com/a", ["att-1"])
+    assert p["bodyJson"]["type"] == "doc" and p["bodyJson"]["attrs"] == {"schemaVersion": "v1"}
+    texts = [c["content"][0]["text"] for c in p["bodyJson"]["content"]]
+    assert texts == ["Lead line.", "Source: https://x.com/a"]
+    assert p["attachmentIds"] == ["att-1"] and p["replyMinimumRole"] == "everyone"
+    assert "attachmentIds" not in note_payload("Text only.", [])
+
+
+def test_post_note_uploads_attaches_then_posts(monkeypatch, tmp_path):
+    import httpx
+
+    from castelino import substack
+
+    png = tmp_path / "card.png"
+    png.write_bytes(b"\x89PNG")
+    calls = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        calls.append((req.method, req.url.path, json.loads(req.content or b"{}")))
+        if req.url.path == "/api/v1/image":
+            return httpx.Response(200, json={"id": 1, "url": "https://img/card.png"})
+        if req.url.path == "/api/v1/comment/attachment":
+            return httpx.Response(200, json={"id": "att-9", "type": "image"})
+        return httpx.Response(200, json={"id": 365})
+
+    real = httpx.Client
+    monkeypatch.setattr(
+        substack.httpx, "Client", lambda **kw: real(transport=httpx.MockTransport(handler), **kw)
+    )
+    monkeypatch.setenv("SUBSTACK_SID", "s")
+    assert substack.post_note("Hello.", png) == "365"
+    paths = [c[1] for c in calls]
+    assert paths == ["/api/v1/image", "/api/v1/comment/attachment", "/api/v1/comment/feed"]
+    assert calls[1][2] == {"url": "https://img/card.png", "type": "image"}
+    assert calls[2][2]["attachmentIds"] == ["att-9"]

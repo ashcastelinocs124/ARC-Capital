@@ -5,7 +5,7 @@ from datetime import datetime
 import pandas as pd
 import pytest
 
-from castelino import x_post, x_scout
+from castelino import substack, x_post, x_scout
 from castelino.agents.update.models import Fact
 from castelino.agents.weekly.tools import series_fact
 from castelino.x_scout import ET, ScoutPick, ScoutPost
@@ -121,11 +121,42 @@ def test_live_posts_the_lead_with_its_chart_then_the_reply(monkeypatch, tmp_path
         return f"id{len(sent)}"
 
     monkeypatch.setattr(x_post, "post", post)
+    notes = []
+    monkeypatch.setattr(substack, "can_note", lambda: True)
+    monkeypatch.setattr(substack, "post_note", lambda text, png: notes.append((text, png)) or "n1")
     rec = x_scout.run(now=AT, root=tmp_path)
     lead, reply = sent
     assert lead[1:] == (None, "m1") and lead[0].startswith("🤖 AI · ")
     assert reply[1] == "id1" and reply[0].endswith("https://reuters.com/a")
     assert rec["ids"] == ["id1", "id2"] and not rec["dry_run"]
+    # the same finding as one Substack Note: lead, then the analysis and source, with the chart
+    assert notes == [
+        (f"{lead[0]}\n\n{reply[0]}", tmp_path / "data/x_posts/scout/2026-10-16/1215.png")
+    ]
+    assert rec["note_id"] == "n1"
+
+
+def test_a_failed_note_never_blocks_x(monkeypatch, tmp_path):
+    fake(monkeypatch)
+    monkeypatch.setenv("X_SCOUT_LIVE", "1")
+    monkeypatch.setattr(x_post, "can_post", lambda: True)
+    monkeypatch.setattr(x_post, "upload_image", lambda data: "m1")
+    monkeypatch.setattr(x_post, "post", lambda text, **k: "x1")
+    monkeypatch.setattr(substack, "can_note", lambda: True)
+
+    def boom(text, png):
+        raise RuntimeError("401 from Substack: session cookie expired")
+
+    monkeypatch.setattr(substack, "post_note", boom)
+    rec = x_scout.run(now=AT, root=tmp_path)
+    assert rec["ids"] == ["x1", "x1"] and rec["note_id"] is None and "expired" in rec["note_error"]
+
+
+def test_a_dry_run_never_touches_substack(monkeypatch, tmp_path):
+    fake(monkeypatch)
+    monkeypatch.delenv("X_SCOUT_LIVE", raising=False)
+    monkeypatch.setattr(substack, "post_note", lambda *a: (_ for _ in ()).throw(AssertionError))
+    assert x_scout.run(dry=True, now=AT, root=tmp_path)["note_id"] is None
 
 
 def test_scout_saying_nothing_posts_nothing(monkeypatch, tmp_path):

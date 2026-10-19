@@ -838,7 +838,7 @@ systems:
 
   - group: X Scout
     trigger: "Cron on the Fly server: the Scout every 2 hours, 10:15-18:15 ET on weekdays and 12:15 on Saturdays; the calendar card at 07:00 and its watcher every 5 min, 07:00-19:55, on weekdays"
-    output: "On X only (dry run until X_SCOUT_LIVE=1): up to 2 cited findings a day with a chart and a reply; a calendar card each weekday morning (the week on Mondays); a post for each watched release as it lands, up to 4 a day"
+    output: "On X, with the card and findings also as Substack Notes (dry run until X_SCOUT_LIVE=1): up to 2 cited findings a day with a chart and a reply; a calendar card each weekday morning (the week on Mondays); a post on X for each watched release as it lands, up to 4 a day"
     blurb: >-
       A cited search finds the last 6 hours of macro and AI news; the Scout picks one item worth a
       post (usually none) and the series that chart it. Code draws the chart, and every figure the
@@ -847,9 +847,9 @@ systems:
       every number and the two writers only add words.
     lanes:
       - title: "Findings"
-        flow: [["Every 2 h"], ["agent:x_scout_search|cited macro + AI"], ["agent:x_scout|1 item or nothing"], ["agent:x_scout_writer|post + reply"], ["end:Post on X|+ chart · or dry-run log"]]
+        flow: [["Every 2 h"], ["agent:x_scout_search|cited macro + AI"], ["agent:x_scout|1 item or nothing"], ["agent:x_scout_writer|post + reply"], ["end:X + Substack Note|+ chart · or dry-run log"]]
       - title: "Calendar"
-        flow: [["7:00 · every 5 min"], ["code:Week Ahead|pick + card · watch list"], ["agent:x_calendar_writer|week or day read"], ["agent:x_release_writer|one line per release"], ["end:Post on X|card · release posts ≤4/day"]]
+        flow: [["7:00 · every 5 min"], ["code:Week Ahead|pick + card · watch list"], ["agent:x_calendar_writer|week or day read"], ["agent:x_release_writer|one line per release"], ["end:X + Notes|card on both · releases X only ≤4/day"]]
 
   - group: Deep research
     trigger: "A question asked on /deep-research"
@@ -1083,7 +1083,7 @@ pipelines:
     name: X Scout
     trigger: "cron · findings every 2 h · calendar 07:00 + every 5 min"
     guardrails: "numbers from sources · no repeats · daily caps"
-    delivery: "on X: findings, calendar cards, release posts"
+    delivery: "X + Substack Notes: findings, calendar cards; release posts on X"
     nodes:
       - {id: web, kind: source, layer: sources, x: 170, name: web search, sub: cited sources, does: "A web search that returns cited sources; only lines with a citation are kept."}
       - {id: series, kind: source, layer: sources, x: 490, name: FRED · Yahoo, sub: chart series, does: "The data series behind a finding's chart, downloaded straight from the source."}
@@ -1102,8 +1102,8 @@ pipelines:
       - {id: cardcheck, kind: guard, layer: guardrails, x: 950, name: Card check, sub: card's figures only, does: "Every figure in the read must be on the card, and the post must fit 280 characters, or the card goes out with a plain code-written line."}
       - {id: watchcap, kind: guard, layer: guardrails, x: 1110, name: Watch list, sub: once · 4 a day, does: "Only the morning card's watched releases post, each once, at most four a day; code writes every number in the post."}
       - {id: stop, kind: stop, layer: delivery, x: 330, name: Nothing worth posting, sub: until next run, does: "Most findings runs find nothing worth a post, and the run simply stops."}
-      - {id: post, kind: out, layer: delivery, x: 490, name: Finding, sub: + chart · 1 reply, does: "The finding is posted to X with its chart, and the analysis follows as a reply with the source link. While the feature is in test mode, posts are only logged."}
-      - {id: cardpost, kind: out, layer: delivery, x: 950, name: Calendar card, sub: week · today, does: "The week's or today's calendar card posted to X with its read. While the feature is in test mode, posts are only logged."}
+      - {id: post, kind: out, layer: delivery, x: 490, name: Finding, sub: X + Substack Note, does: "The finding is posted to X with its chart, and the analysis follows as a reply with the source link; the same finding goes out as one Substack Note with the chart. While the feature is in test mode, posts are only logged."}
+      - {id: cardpost, kind: out, layer: delivery, x: 950, name: Calendar card, sub: X + Substack Note, does: "The week's or today's calendar card posted to X with its read, and as a Substack Note. While the feature is in test mode, posts are only logged."}
       - {id: relpost, kind: out, layer: delivery, x: 1110, name: Release post, sub: actual vs expected, does: "A post on X as each watched release or earnings report lands. While the feature is in test mode, posts are only logged."}
     edges:
       - schedule > search
