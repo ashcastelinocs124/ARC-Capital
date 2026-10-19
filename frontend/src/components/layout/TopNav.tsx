@@ -21,11 +21,11 @@ const NAV: Entry[] = [
     { to: "/ai/chips", label: "Semis & Chips", desc: "GPUs, foundries and the compute supply chain" },
   ] },
   { label: "Special Topics", to: "/special-topics" },
-  { label: "How it works", items: [
+  { label: "Resources", items: [
+    { to: "/resources", label: "Resources", desc: "Talks, slides and the Global Macro Cookbook" },
     { to: "/agents", label: "Agents", desc: "How ARC's own agents are built" },
     { to: "/docs", label: "Docs", desc: "What each model predicts and how to read it" },
   ] },
-  { label: "Resources", to: "/resources" },
   { label: "About", to: "/about" },
 ];
 
