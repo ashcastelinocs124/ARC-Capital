@@ -19,6 +19,7 @@ export type PointChart = {
 };
 export type Point = {
   id: string; agent: string; headline: string; body: string; fact_ids: string[]; version: number; chart: PointChart | null;
+  added: number | null; // the Addition that wrote it; null for the original report
 };
 export type Proposal = {
   n: number; point_id: string; agent: string; text: string; answer: string; base_version: number;
@@ -26,13 +27,17 @@ export type Proposal = {
   status: "running" | "pending" | "answered" | "approved" | "rejected" | "failed";
   error: string; trail: string[]; created_at: string; decided_at: string | null;
 };
+// Angles added to a finished report: new agents (round 2 + n) research them; Claude writes new points only.
+export type Addition = {
+  n: number; text: string; round: number; status: "running" | "done" | "failed"; error: string; created_at: string;
+};
 export type Report = { title: string; subtitle: string; points: Point[]; caveats: string[]; gaps_remaining: string[] };
 export type Status = "awaiting_answers" | "researching" | "writing" | "complete";
 export type Session = {
   id: string; topic: string; question: string; clarifying_questions: { question: string; why: string }[];
   answers: Record<string, string>; status: Status; job: Job | null; agents: AgentRun[];
   board: { agent: string; note: string; fact_ids: string[] }[]; board_facts: Record<string, Fact>;
-  report: Report | null; proposals: Proposal[]; cost_usd: number; cost_cap_usd: number; fallbacks: string[];
+  report: Report | null; proposals: Proposal[]; additions: Addition[]; cost_usd: number; cost_cap_usd: number; fallbacks: string[];
   created_at: string; updated_at: string; compacted_at: string | null;
 };
 export type Row = {
@@ -61,6 +66,7 @@ export const research = {
   answers: (id: string, answers: Record<string, string>) => req<Session>("POST", `/${id}/answers`, { answers }),
   retry: (id: string) => req<Session>("POST", `/${id}/retry`),
   ask: (id: string, pid: string, text: string) => req<Session>("POST", `/${id}/points/${pid}/ask`, { text }),
+  addAngles: (id: string, text: string) => req<Session>("POST", `/${id}/angles`, { text }),
   approve: (id: string, n: number) => req<Session>("POST", `/${id}/proposals/${n}/approve`),
   reject: (id: string, n: number) => req<Session>("POST", `/${id}/proposals/${n}/reject`),
 };

@@ -1,5 +1,5 @@
 """Lead (gpt-6-sol): invents the angles for this topic, one brief per research agent; after the Critic,
-plans agents for the gaps only."""
+plans agents for the gaps only; on a finished report, plans agents for the angles you asked to add."""
 
 from __future__ import annotations
 
@@ -49,3 +49,18 @@ def plan_gaps(s: ResearchSession, gaps: list[str], meter: llm.Meter) -> list[Bri
         f"Plan angles for ONLY these gaps, at most {cap}."
     )
     return _ask(s, ask, meter)[:cap]
+
+
+def plan_angles(s: ResearchSession, text: str, meter: llm.Meter) -> list[Brief]:
+    cap = get_settings().deep_research.max_added_agents
+    done = "\n".join(f"- {a.letter} · {a.brief.name}: {a.brief.angle}" for a in s.agents)
+    says = "\n".join(f"- {p.headline}" for p in s.report.points)
+    ask = (
+        f"Angles already researched:\n{done}\n\nThe report already says:\n{says}\n\n"
+        f"The analyst wants the report to also cover: {text}\n\n"
+        f"Plan angles for ONLY what the analyst asked, at most {cap}; never repeat an angle above."
+    )
+    briefs = _ask(s, ask, meter)[:cap]
+    if not briefs:
+        raise StepError("The Lead planned no angles for what you asked.")
+    return briefs

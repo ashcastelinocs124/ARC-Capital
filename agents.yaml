@@ -587,10 +587,10 @@ agents:
       - {key: OPENAI_API_KEY, required: true, why: "gpt-6-sol"}
     prompt: "castelino.agents.research.deep.lead:SYSTEM"
     schema: "castelino.agents.research.deep.models:Plan"
-    summary: "Invents up to 8 angles for the topic, one brief per research agent; after the Critic, plans up to 4 more for the gaps only."
+    summary: "Invents up to 8 angles for the topic, one brief per research agent; after the Critic, plans up to 4 more for the gaps only; on a finished report, plans up to 3 for angles you add."
     tools: []
     memory:
-      reads: ["The research question, your answers, the angles already researched, the Critic's gaps"]
+      reads: ["The research question, your answers, the angles already researched, the Critic's gaps, the angles you add"]
       writes: ["Briefs → research agents"]
       persists: "The session file."
 
@@ -638,7 +638,7 @@ agents:
       - {key: ANTHROPIC_API_KEY, required: true, why: "Claude Opus 5.5 (effort high)"}
     prompt: "castelino.agents.research.deep.synthesizer:SYSTEM"
     schema: "castelino.agents.research.deep.models:ReportDraft"
-    summary: "Writes the report as 5 to 10 points, each owned by the agent whose facts it uses; number guard, one retry."
+    summary: "Writes the report as 5 to 10 points, each owned by the agent whose facts it uses; number guard, one retry. Angles you add get new points only, from the new agents."
     tools:
       - {name: "Number guard (code)", does: "Every %, bp or pp must be in the point's cited facts; X figures name their @handle"}
     memory:
@@ -889,7 +889,8 @@ systems:
       Any topic. The Lead invents up to 8 angles, one research agent each (DeepSeek V4.1 Flash, 12 tool calls
       over web, X, FRED, Yahoo, BLS and Polymarket, with a shared board). The Critic checks the findings and
       may add one gap round, then Claude Opus writes the points. On the editor desk the agent behind a point
-      rethinks in its own thread, Claude Haiku rewrites only that point, and you approve or reject.
+      rethinks in its own thread, Claude Haiku rewrites only that point, and you approve or reject. Add angles
+      to a finished report and up to 3 new agents research them; Claude adds new points only.
     lanes:
       - title: "1 · Clarify and plan"
         flow: [["Your topic"], ["agent:research_clarifier|≤3 questions"], ["gate:You answer|or skip"], ["agent:research_lead|≤8 angles"], ["end:↓ research"]]
@@ -900,6 +901,8 @@ systems:
         flow: [["gate:You ask|about one point"], ["agent:research_agent|rethinks in its thread"], ["agent:research_revise|that point only"], ["gate:You approve|or reject"], ["end:Point v2"]]
       - title: "4 · After 14 days"
         flow: [["code:Open or list|older than 14 days"], ["agent:research_compact|summary per agent"], ["end:Transcripts dropped|report kept"]]
+      - title: "5 · Add angles"
+        flow: [["gate:You add angles|to a finished report"], ["agent:research_lead|≤3 angles"], ["agent:research_agent|new agents only"], ["agent:research_writer|new points, charted"], ["end:Points appended|old points unchanged"]]
 
   - group: Theme Charts
     trigger: "Cron on the Fly server at 08:00 ET, weekdays"

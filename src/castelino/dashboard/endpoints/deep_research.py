@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from castelino.agents.research.deep import clarifier, editor_desk, runner, store
-from castelino.agents.research.deep.models import Busy, ResearchSession
+from castelino.agents.research.deep.models import Addition, Busy, ResearchSession
 from castelino.agents.trade import llm
 from castelino.config import get_settings
 
@@ -111,6 +111,28 @@ def _ask(sid: str, pid: str, text: str) -> None:
 @router.post("/{sid}/points/{pid}/ask")
 def ask(sid: str, pid: str, req: Ask):
     _do(_ask, sid, pid, req.text)
+    return _public(store.load(sid))
+
+
+def _angles(sid: str, text: str) -> None:
+    with store.edit(sid) as s:
+        if s.status != "complete" or not s.report:
+            raise Busy("the report isn't finished yet")
+        if runner.busy(s):
+            raise Busy(f"{s.job.step} is still running")
+        if any(a.status == "running" for a in s.additions):
+            raise Busy("angles are already being added")
+        n = len(s.additions) + 1
+        s.additions.append(Addition(n=n, text=text.strip(), round=2 + n, created_at=store.now()))
+    runner.submit(sid, "add")
+    with store.edit(sid) as s:
+        if s.job and s.job.step == "add" and s.job.state == "failed" and s.additions[-1].n == n:
+            s.additions[-1].status, s.additions[-1].error = "failed", s.job.message  # cost cap
+
+
+@router.post("/{sid}/angles")
+def angles(sid: str, req: Ask):
+    _do(_angles, sid, req.text)
     return _public(store.load(sid))
 
 

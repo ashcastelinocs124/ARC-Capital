@@ -95,6 +95,7 @@ deep_research:
   clarify_max_questions: 3
   max_agents: 8
   max_gap_agents: 4
+  max_added_agents: 3
   max_tool_calls: 12
   gap_rounds: 1
   agent_concurrency: 4

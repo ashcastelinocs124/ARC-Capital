@@ -170,6 +170,7 @@ class DeepResearchCfg(BaseModel):
     clarify_max_questions: int = 3
     max_agents: int = 8
     max_gap_agents: int = 4
+    max_added_agents: int = 3  # agents per "Add angles" request
     max_tool_calls: int = 12
     gap_rounds: int = 1
     agent_concurrency: int = 4

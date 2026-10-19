@@ -35,7 +35,12 @@ from castelino.config import get_settings
 
 log = logging.getLogger(__name__)
 LETTERS = "ABCDEFGHIJKLMNOP"
-EST = {"run": 2.50, "compact": 0.0, "charts": 0.05}  # $ a step may cost, checked before it starts
+EST = {
+    "run": 2.50,
+    "compact": 0.0,
+    "charts": 0.05,
+    "add": 1.00,
+}  # $ a step may cost, checked before it starts
 RUNNING = {"run": "researching"}
 _sem: threading.BoundedSemaphore | None = None
 _sem_lock = threading.Lock()
@@ -132,7 +137,33 @@ def _charts(sid: str, meter: llm.Meter) -> None:
         x.report.points = [new.get(p.id, p) if p.chart is None else p for p in x.report.points]
 
 
-STEPS = {"run": _run, "compact": compact.compact, "charts": _charts}
+def _angles(sid: str, meter: llm.Meter) -> None:
+    """The last addition: plan its agents (round 2 + n), research, write new points, chart them, append.
+    The points already in the report are never rewritten; a Retry keeps agents that have findings."""
+    add = store.load(sid).additions[-1]
+    with store.edit(sid) as x:
+        x.additions[-1].status, x.additions[-1].error = "running", ""
+    try:
+        if not any(a.round == add.round for a in store.load(sid).agents):
+            _add(sid, lead.plan_angles(store.load(sid), add.text, meter), add.round)
+        _round(sid, add.round, meter)
+        s = store.load(sid)
+        new = [a for a in s.agents if a.round == add.round]
+        if not any(a.findings for a in new):
+            first = next((a.error for a in new if a.error), "no findings")
+            raise StepError(f"Every new research agent failed. First error: {first}")
+        points = synthesizer.write_more(s, [a.letter for a in new], add.n, meter)
+        points = _charted(points, s, meter)
+        with store.edit(sid) as x:
+            x.report.points += points
+            x.additions[-1].status = "done"
+    except Exception as e:
+        with store.edit(sid) as x:
+            x.additions[-1].status, x.additions[-1].error = "failed", str(e)[:300]
+        raise
+
+
+STEPS = {"run": _run, "compact": compact.compact, "charts": _charts, "add": _angles}
 
 
 def _execute(sid: str, step: str) -> None:
@@ -208,7 +239,8 @@ def maybe_compact(s: ResearchSession) -> None:
 def recover_interrupted() -> int:
     n = 0
     for s in store.all():
-        if not (busy(s) or any(p.status == "running" for p in s.proposals)):
+        running = [*s.proposals, *s.additions]
+        if not (busy(s) or any(p.status == "running" for p in running)):
             continue
         with store.edit(s.id) as x:
             if busy(x):
@@ -223,5 +255,8 @@ def recover_interrupted() -> int:
                 if p.status == "running":
                     p.status = "failed"
                     p.error = "The server restarted while this ran. Ask again."
+            for a in x.additions:
+                if a.status == "running":
+                    a.status, a.error = "failed", "The server restarted while this ran. Retry it."
         n += 1
     return n

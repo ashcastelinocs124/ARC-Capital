@@ -43,7 +43,8 @@ function rowNote(r: Row): string {
   if (r.job?.state === "failed" || r.job?.state === "interrupted") return "Failed · retry";
   if (r.pending) return `${r.pending} proposal${r.pending > 1 ? "s" : ""} to review`;
   if (r.status === "awaiting_answers") return "Answer the clarifier";
-  if (r.job?.state === "queued" || r.job?.state === "running") return r.status === "writing" ? "Writing…" : "Research…";
+  if (r.job?.state === "queued" || r.job?.state === "running")
+    return r.status === "writing" ? "Writing…" : r.job.step === "add" ? "Adding angles…" : "Research…";
   return `${r.created_at.slice(0, 10)}${r.compacted ? " · summarized" : ""}`;
 }
 
@@ -369,6 +370,7 @@ function ReportView({ s, facts, selected, onSelect }: {
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[11px] font-bold text-black/40">POINT {i + 1}</span>
                 <Owner a={agentOf(p.agent)} letter={p.agent} />
+                {p.added && <span title={s.additions.find((a) => a.n === p.added)?.text} className="rounded-full bg-info-soft px-2 py-0.5 text-[11px] font-semibold text-info">added</span>}
                 {p.version > 1 && <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-semibold text-accent">v{p.version} · edited</span>}
                 {openFor(p.id) && <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-semibold text-warning">open question</span>}
               </div>
@@ -511,6 +513,57 @@ const PILL_LABEL: Record<Proposal["status"], string> = {
   running: "rechecking", pending: "pending", answered: "answered, no change", approved: "approved", rejected: "rejected", failed: "failed",
 };
 
+// Angles you ask to add to a finished report: new agents research them, Claude writes new points only.
+function AddAngles({ s, onSession }: { s: Session; onSession: (s: Session) => void }) {
+  const [text, setText] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const running = s.job?.state === "queued" || s.job?.state === "running" || s.additions.some((a) => a.status === "running");
+  const send = () => {
+    const t = text.trim();
+    if (t.length < 3 || running) return;
+    setErr(null);
+    research.addAngles(s.id, t).then((x) => { setText(""); onSession(x); }).catch((e) => setErr(String(e.message ?? e)));
+  };
+  return (
+    <div className="flex flex-col gap-2.5 rounded-2xl border border-border bg-surface p-4">
+      <label htmlFor="add-angles" className="eyebrow">Add angles to this report</label>
+      <p className="-mt-1 text-[12.5px] text-muted">
+        Up to 3 new agents research what you ask. Claude writes new points with charts; the points already in the report don't change.
+      </p>
+      <textarea id="add-angles" rows={3} value={text} onChange={(e) => setText(e.target.value)} disabled={running}
+        placeholder={running ? "Wait for the current step to finish…" : "e.g. which AI models companies use, frontier vs open models, interest in sovereign AI"}
+        className="w-full rounded-xl border border-border-strong bg-surface-2 px-3 py-2 text-sm outline-none focus:border-accent disabled:opacity-60" />
+      {err && <div role="alert" className="text-xs text-danger">{err}</div>}
+      <div className="flex items-center justify-between gap-2 text-[11.5px] text-muted">
+        <span>About $0.50 to $1 · ${s.cost_usd.toFixed(2)} of ${s.cost_cap_usd.toFixed(0)} spent</span>
+        <button onClick={send} disabled={running || text.trim().length < 3}
+          className="rounded-full bg-accent px-3.5 py-1.5 text-xs font-semibold text-on-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50">
+          Add angles
+        </button>
+      </div>
+      {s.additions.length > 0 && (
+        <ul className="space-y-1.5 border-t border-border pt-2.5 text-[12.5px]">
+          {[...s.additions].reverse().map((a) => {
+            const made = s.report!.points.filter((p) => p.added === a.n).length;
+            return (
+              <li key={a.n}>
+                <div className="flex justify-between gap-2">
+                  <span className="truncate" title={a.text}>"{a.text}"</span>
+                  <span className={cn("whitespace-nowrap rounded-full px-2 text-[11px] font-semibold",
+                    a.status === "done" ? "bg-accent-soft text-accent" : a.status === "failed" ? "bg-danger-soft text-danger" : "bg-warning-soft text-warning")}>
+                    {a.status === "done" ? `${made} new point${made === 1 ? "" : "s"}` : a.status === "failed" ? "failed" : "researching"}
+                  </span>
+                </div>
+                {a.status === "failed" && a.error && <div className="text-[11.5px] text-danger">{a.error}</div>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function EditLog({ s, onPick }: { s: Session; onPick: (pid: string) => void }) {
   if (!s.proposals.length) return null;
   const idx = (pid: string) => s.report!.points.findIndex((p) => p.id === pid) + 1;
@@ -570,6 +623,8 @@ export default function Research() {
   const groups = ["Needs you", "Running", "Reports"].map((g) => [g, (rows ?? []).filter((r) => groupOf(r) === g)] as const);
   const job = s?.job;
   const done = s ? s.agents.filter((a) => a.findings.length || a.error).length : 0;
+  const lastAdd = s?.additions[s.additions.length - 1];
+  const fresh = lastAdd ? s!.agents.filter((a) => a.round === lastAdd.round) : [];
 
   return (
     <div className="grid items-start gap-4 px-4 pb-8 md:grid-cols-[250px_1fr] md:px-8">
@@ -606,7 +661,9 @@ export default function Research() {
             )}
             {(job?.state === "queued" || job?.state === "running") && (
               <div className="rounded-xl bg-warning-soft px-4 py-2.5 text-sm text-warning">
-                {s.status === "writing" ? "Writing…" : job.step === "compact" ? "Summarizing…" : `Research… ${done} of ${s.agents.length || "?"} agents done`}
+                {s.status === "writing" ? "Writing…" : job.step === "compact" ? "Summarizing…"
+                  : job.step === "add" ? `Adding angles… ${fresh.filter((a) => a.findings.length || a.error).length} of ${fresh.length || "?"} new agents done, then Claude writes the new points`
+                  : `Research… ${done} of ${s.agents.length || "?"} agents done`}
                 {" "}(started {job.at.slice(11, 16)}). This page updates by itself.
               </div>
             )}
@@ -616,8 +673,12 @@ export default function Research() {
               <div className="grid items-start gap-3.5 lg:grid-cols-[1.45fr_1fr]">
                 <ReportView s={s} facts={facts} selected={point} onSelect={setPoint} />
                 <div className="space-y-3.5 lg:sticky lg:top-4">
-                  {point ? <Desk key={point} s={s} facts={facts} pid={point} onSession={onSession} />
-                    : <div className="rounded-2xl border border-dashed border-border-strong bg-surface p-5 text-sm text-muted">Click any point to question it or tell its agent what to change.</div>}
+                  {point ? <Desk key={point} s={s} facts={facts} pid={point} onSession={onSession} /> : (
+                    <>
+                      <div className="rounded-2xl border border-dashed border-border-strong bg-surface p-5 text-sm text-muted">Click any point to question it or tell its agent what to change.</div>
+                      <AddAngles s={s} onSession={onSession} />
+                    </>
+                  )}
                   <EditLog s={s} onPick={setPoint} />
                 </div>
               </div>

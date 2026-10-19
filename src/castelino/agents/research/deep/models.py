@@ -111,6 +111,12 @@ class ReportDraft(BaseModel):
     caveats: list[str]
 
 
+class MorePoints(BaseModel):
+    """The writer's new points for an addition: only the new researchers' findings."""
+
+    points: list[PointDraft]
+
+
 class AnswerDraft(BaseModel):
     answer: str
     change: bool
@@ -191,6 +197,7 @@ class Point(BaseModel):
     fact_ids: list[str]
     version: int = 1
     chart: PointChart | None = None
+    added: int | None = None  # the Addition that wrote it; None for the original report
 
 
 class ResearchReport(BaseModel):
@@ -220,6 +227,18 @@ class Proposal(BaseModel):
     decided_at: str | None = None
 
 
+class Addition(BaseModel):
+    """Angles you asked to add to a finished report: new agents research them in round 2 + n, the writer adds
+    points from their findings only, and every existing point stays as it is."""
+
+    n: int
+    text: str
+    round: int
+    status: Literal["running", "done", "failed"] = "running"
+    error: str = ""
+    created_at: str
+
+
 class Job(BaseModel):
     step: str
     state: Literal["queued", "running", "done", "failed", "interrupted"]
@@ -240,6 +259,7 @@ class ResearchSession(BaseModel):
     board_facts: dict[str, Fact] = Field(default_factory=dict)
     report: ResearchReport | None = None
     proposals: list[Proposal] = Field(default_factory=list)
+    additions: list[Addition] = Field(default_factory=list)
     cost_usd: float = 0.0
     fallbacks: list[str] = Field(default_factory=list)
     created_at: str
