@@ -14,3 +14,7 @@
 # Market alerts (x_moves.py): every 30 min, the job itself skips outside 9:35-16:05 ET on weekdays.
 # Dry run (log only) until X_MOVES_LIVE=1 and the four X_API_* / X_ACCESS_* keys are Fly secrets.
 5,35 9-16 * * 1-5 cd /app && timeout 10m python -m castelino.x_moves >> data/x_moves.log 2>&1
+# X Scout (x_scout.py): one cited macro or AI finding with a chart, every 2 h from 8:15 to 18:15 ET on
+# weekdays and 12:15 on Saturdays, at most 2 posts a day. Dry run (log only) until X_SCOUT_LIVE=1 is a Fly secret.
+15 8-18/2 * * 1-5 cd /app && timeout 10m python -m castelino.x_scout >> data/x_scout.log 2>&1
+15 12 * * 6 cd /app && timeout 10m python -m castelino.x_scout >> data/x_scout.log 2>&1

@@ -124,6 +124,12 @@ themes:
   memory_runs: 6
   data_dir: data/themes
 
+x_scout:
+  # X Scout (x_scout.py): a cited macro/AI finding + chart on X, weekdays every 2 h and Saturday noon.
+  search_model: gpt-6-luna
+  scout_model: gpt-6-sol    # picks the item worth posting, or nothing
+  writer_model: gpt-6-luna  # the lead post and its reply
+
 cover:
   # Cover art on the Morning Note and Weekly Deep Dive Substack drafts (src/castelino/cover.py).
   model: gpt-image-2

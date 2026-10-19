@@ -204,6 +204,58 @@ agents:
       writes: ["data/x_posts/moves/<date>/<HHMM>.png"]
       persists: "Nothing; the day file records which chart went out and why."
 
+  - id: x_scout_search
+    name: Scout Search
+    group: X Scout
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "Web search (x_scout.search_model, gpt-6-luna)"}
+    prompt: "castelino.x_scout:SCAN_USER"
+    summary: >-
+      Every 2 hours on weekdays (and Saturday noon), one cited web search lists up to 8 macro and AI
+      items from the last 6 hours: data releases against forecasts, central banks, model and chip
+      launches, AI capex. Lines without a citation are dropped before the Scout sees them.
+    tools:
+      - {name: "web_search", does: "One cited search per run; each cited line becomes a fact with its numbers and source"}
+    memory: {reads: ["The time of the run"], writes: ["Nothing; the cited items go straight to the Scout"], persists: "Nothing between runs."}
+
+  - id: x_scout
+    name: Scout
+    group: X Scout
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "LLM call (x_scout.scout_model, gpt-6-sol)"}
+      - {key: FRED_API_KEY, required: false, why: "A fred: chart series; falls back to the keyless CSV endpoint when unset"}
+    class: castelino.x_scout.Scout
+    summary: >-
+      Picks the one cited item a macro investor would stop scrolling for, or nothing (the usual
+      answer), and names 1-4 FRED or Yahoo series to chart it. Code fetches and draws every plotted
+      value; a chart that can't be drawn means no post.
+    tools:
+      - {name: "chart() (code)", does: "fetch_series per series, drawn as one line or 2-4 compared (prices rebased to 100) with the Morning Note renderer"}
+    memory:
+      reads: ["The cited items", "This account's posts from the last 7 days (data/x_posts/scout/)", "Today's market alerts (data/x_posts/moves/)"]
+      writes: ["data/x_posts/scout/<date>/<HHMM>.png"]
+      persists: "Each day's posts; code also refuses a source URL already posted in the last 7 days."
+
+  - id: x_scout_writer
+    name: Scout Writer
+    group: X Scout
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "LLM call (x_scout.writer_model, gpt-6-luna)"}
+      - {key: X_API_KEY, required: false, why: "With X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET and X_SCOUT_LIVE=1, posts go live; else dry run"}
+    class: castelino.x_scout.Writer
+    summary: >-
+      Writes the lead post (the finding and what the chart shows) and one reply (2-3 sentences of
+      analysis) from the cited line and the chart's code-computed numbers. Any number not among
+      them, or a post over 280 characters, gets one retry, then nothing is posted. Code adds the
+      topic tag and the source link.
+    tools:
+      - {name: "check() (code)", does: "Every figure must be in the source line or the chart data (unit figures via the Morning Note guard); each post ≤280"}
+      - {name: "x_post (code)", does: "Uploads the chart, posts the lead, then the reply under it; dry-run log until X_SCOUT_LIVE=1"}
+    memory:
+      reads: ["The picked cited line", "The chart's numbers: last, change, high, low, below the high, rebased level"]
+      writes: ["data/x_posts/scout/<date>.json (texts, chart, X ids, dry_run)"]
+      persists: "Each day's posts: at most 2 a day."
+
   - id: desk_chat
     name: Desk Chat
     group: Briefings
@@ -741,6 +793,17 @@ systems:
       - title: "Market alerts"
         flow: [["Every 30 min"], ["code:Market check|10 markets · z ≥ 2.5"], ["agent:move_explainer|cited why"], ["agent:x_chart_picker|intraday or context chart"], ["end:Post on X|+ chart · or dry-run log"]]
 
+  - group: X Scout
+    trigger: "Cron on the Fly server every 2 hours, 8:15-18:15 ET on weekdays, and 12:15 on Saturdays"
+    output: "At most 2 X posts a day: a cited macro or AI finding with a code-drawn chart, and one reply of analysis (dry run until X_SCOUT_LIVE=1)"
+    blurb: >-
+      A cited search finds the last 6 hours of macro and AI news; the Scout picks one item worth a
+      post (usually none) and the series that chart it. Code draws the chart, and every figure the
+      Writer uses must come from the source line or the chart data.
+    lanes:
+      - title: "X Scout"
+        flow: [["Every 2 h"], ["agent:x_scout_search|cited macro + AI"], ["agent:x_scout|1 item or nothing"], ["agent:x_scout_writer|post + reply"], ["end:Post on X|+ chart · or dry-run log"]]
+
   - group: Deep research
     trigger: "A question asked on /deep-research"
     output: "A cited report with charts in data/research/"
@@ -967,6 +1030,39 @@ pipelines:
       - {title: Explain, nodes: [explainer, web], edges: [test > explainer, web > explainer], io: ["in: the move", "out: cited reason"], text: "The Move explainer agent searches the web for the reason and keeps it only if it can cite a source."}
       - {title: Pick a chart, nodes: [picker, series], edges: [explainer > picker, series > picker], io: ["in: post text", "out: chart choice"], text: "The Chart picker agent chooses today's intraday moves or a longer backdrop series."}
       - {title: Write and post, nodes: [writer, post], edges: [picker > writer, writer > post], io: ["in: text + chart", "out: X post"], text: "Code writes every number in the post, enforces the daily limits and draws the chart, and the alert goes out on X."}
+
+  - id: x-scout
+    name: X Scout
+    trigger: "cron · every 2 h · weekdays + Sat noon"
+    guardrails: "number check · no repeats · max 2 a day"
+    delivery: "post + chart on X, one reply"
+    nodes:
+      - {id: web, kind: source, layer: sources, x: 326, name: web search, sub: cited sources, does: "A web search that returns cited sources; only lines with a citation are kept."}
+      - {id: series, kind: source, layer: sources, x: 794, name: FRED · Yahoo, sub: chart series, does: "The data series behind the chart, downloaded straight from the source."}
+      - {id: schedule, kind: trigger, layer: agents, x: 150, w: 120, name: Schedule, sub: every 2 h, does: "Runs every 2 hours from 8:15 to 18:15 New York time on weekdays, and at 12:15 on Saturdays."}
+      - {id: search, kind: llm, agent: x_scout_search, layer: agents, x: 326, name: Scout search, sub: macro + AI news, does: "Searches the last 6 hours of macro and AI news and keeps only the lines it can cite."}
+      - {id: scout, kind: llm, agent: x_scout, layer: agents, x: 560, name: Scout, sub: 1 item or nothing, does: "Picks the one item worth a post, or nothing, and names the data series that chart it."}
+      - {id: writer, kind: llm, agent: x_scout_writer, layer: agents, x: 794, name: Writer, sub: post + reply, does: "Writes the post and one reply of analysis from the cited line and the chart's numbers."}
+      - {id: limits, kind: guard, layer: guardrails, x: 560, name: No repeats, sub: 7 days · 2 a day, does: "The Scout sees what this account posted in the last week and today's market alerts; code refuses a story already posted and stops after two posts a day."}
+      - {id: check, kind: guard, layer: guardrails, x: 794, name: Number check, sub: source or chart data, does: "Code draws the chart. Every number in the post must come from the cited source or the chart's data, and each post must fit 280 characters, or the post is dropped after one retry."}
+      - {id: stop, kind: stop, layer: delivery, x: 560, name: Nothing worth posting, sub: until next run, does: "Most runs find nothing worth a post, and the run simply stops."}
+      - {id: post, kind: out, layer: delivery, x: 794, name: X post, sub: + chart · 1 reply, does: "The finding is posted to X with its chart, and the analysis follows as a reply with the source link. While the feature is in test mode, posts are only logged."}
+    edges:
+      - schedule > search
+      - web > search
+      - search > scout
+      - limits > scout
+      - scout > stop
+      - scout > writer
+      - series > writer
+      - writer > check
+      - check > post
+    steps:
+      - {title: Trigger, nodes: [schedule], edges: [schedule > search], io: ["in: clock", "out: start run"], text: "Every 2 hours on weekdays, and once on Saturdays, a scheduled job starts a run."}
+      - {title: Scan, nodes: [search, web], edges: [web > search], io: ["in: last 6 hours of news", "out: cited items"], text: "The Scout search agent lists the macro and AI news of the last 6 hours, and only lines with a citation go on."}
+      - {title: Pick, nodes: [scout, limits, stop], edges: [search > scout, limits > scout, scout > stop], io: ["in: cited items + past posts", "out: one item or stop"], text: "The Scout agent picks the one item worth a post and the series that chart it. It skips anything already posted, and most runs stop here."}
+      - {title: Chart and write, nodes: [writer, series], edges: [scout > writer, series > writer], io: ["in: item + chart data", "out: post + reply"], text: "Code downloads the series and draws the chart; the Writer agent writes the post and one reply of analysis."}
+      - {title: Check and post, nodes: [check, post], edges: [writer > check, check > post], io: ["in: post + reply", "out: X post"], text: "Code checks every number against the source and the chart and the 280-character limit, then posts the chart and the reply on X."}
 
   - id: sector-sentiment
     name: Sector Sentiment

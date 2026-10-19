@@ -110,6 +110,14 @@ class ThemesCfg(BaseModel):
     data_dir: str = "data/themes"
 
 
+class XScoutCfg(BaseModel):
+    """X Scout (x_scout.py): one macro or AI finding a run, posted to X with a chart."""
+
+    search_model: str = "gpt-6-luna"
+    scout_model: str = "gpt-6-sol"  # judging "worth a post" is the hard part
+    writer_model: str = "gpt-6-luna"
+
+
 class CoverCfg(BaseModel):
     """Cover art for the Morning Note and Weekly Deep Dive drafts (cover.py)."""
 
@@ -277,6 +285,7 @@ class Settings(BaseModel):
     chart_desk: ChartDeskCfg = ChartDeskCfg()
     update_agent: UpdateAgentCfg = UpdateAgentCfg()
     themes: ThemesCfg = ThemesCfg()
+    x_scout: XScoutCfg = XScoutCfg()
     cover: CoverCfg = CoverCfg()
     model_refit: ModelRefitCfg = ModelRefitCfg()
     sector_sentiment: SectorSentimentCfg = SectorSentimentCfg()
