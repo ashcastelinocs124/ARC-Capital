@@ -131,7 +131,13 @@ def rethink(sid: str, n: int, meter: llm.Meter) -> None:
             # the new text gets a new chart from its cited facts; a point it can't chart keeps none
             chart = charts.chart_points([after], by, meter).get(after.id)
             after = after.model_copy(update={"chart": chart})
-            how = "no chartable figure" if chart is None else "a big-number tile" if chart.fallback else chart.form
+            how = (
+                "no chartable figure"
+                if chart is None
+                else "a big-number tile"
+                if chart.fallback
+                else chart.form
+            )
             trail.append(f"Redrew {point.id}'s chart · {how}")
     with store.edit(sid) as x:
         owner = x.agent(prop.agent)

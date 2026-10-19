@@ -37,10 +37,18 @@ GOOD_P1 = PointChartDraft(
     form="bars",
     title="Share of enterprises using AI",
     unit="%",
-    values=[v("A1", "EU (2025)", 20.0), v("A3", "OECD (2025)", 20.2), v("A6", "US (May 2026)", 19.8)],
+    values=[
+        v("A1", "EU (2025)", 20.0),
+        v("A3", "OECD (2025)", 20.2),
+        v("A6", "US (May 2026)", 19.8),
+    ],
 )
 GOOD_P9 = PointChartDraft(
-    point_id="p9", form="stat", title="Klarna chats handled by AI", unit="%", values=[v("C14", "Chats", 69.0)]
+    point_id="p9",
+    form="stat",
+    title="Klarna chats handled by AI",
+    unit="%",
+    values=[v("C14", "Chats", 69.0)],
 )
 
 
@@ -72,7 +80,10 @@ def test_chart_points_in_one_call_on_gpt_6_luna(fake):
     assert got["p1"].form == "bars" and [x.value for x in got["p1"].values] == [20.0, 20.2, 19.8]
     assert got["p9"].form == "stat" and not got["p9"].fallback
     assert len(fake.calls) == 1 and fake.calls[0][1]["model"] == "gpt-6-luna"
-    assert "[A6] US: 19.8% as of May 3, 2026 | numbers: 19.8, 3, 2026" in fake.calls[0][1]["messages"][1]["content"]
+    assert (
+        "[A6] US: 19.8% as of May 3, 2026 | numbers: 19.8, 3, 2026"
+        in fake.calls[0][1]["messages"][1]["content"]
+    )
 
 
 def test_one_retry_fixes_only_the_failed_points(fake):
@@ -89,16 +100,28 @@ def test_a_point_that_fails_twice_gets_a_tile_of_its_first_cited_percentage(fake
     got = charts.chart_points([P1, P9], BY, llm.Meter())
     tile = got["p9"]
     assert tile.fallback and tile.form == "stat" and tile.unit == "%"
-    assert tile.values == [v("C14", "Klarna's assistant handled 69% of chats", 69.0)]  # 69%, not the year 2025
+    assert tile.values == [
+        v("C14", "Klarna's assistant handled 69% of chats", 69.0)
+    ]  # 69%, not the year 2025
 
 
 def test_a_model_outage_never_fails_the_run(fake):
     fake.script = [RuntimeError("down")] * 2
     got = charts.chart_points([P1, P9], BY, llm.Meter())
-    assert got["p1"].fallback and got["p1"].values[0].value == 20.0 and got["p9"].values[0].value == 69.0
+    assert (
+        got["p1"].fallback
+        and got["p1"].values[0].value == 20.0
+        and got["p9"].values[0].value == 69.0
+    )
 
 
 def test_a_point_without_any_cited_figure_has_no_chart(fake):
-    plain = Point(id="p5", agent="A", headline="Adoption is broad.", body="Many firms use it.", fact_ids=["A1"])
+    plain = Point(
+        id="p5",
+        agent="A",
+        headline="Adoption is broad.",
+        body="Many firms use it.",
+        fact_ids=["A1"],
+    )
     fake.script = [parsed(ChartSet(charts=[])), parsed(ChartSet(charts=[]))]
     assert charts.chart_points([plain], BY, llm.Meter()) == {}

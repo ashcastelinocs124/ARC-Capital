@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CartesianGrid, LabelList, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { cn } from "@/lib/cn";
-import { research, type AgentRun, type Chart, type Fact, type Proposal, type Row, type Session } from "./api";
+import {
+  research, type AgentRun, type ChartValue, type Fact, type PointChart as PointChartT, type Proposal, type Row,
+  type Session,
+} from "./api";
 
 // /admin → Research: a topic → the clarifier → up to 8 research agents → Claude writes the points → you question
 // any point on the editor desk (approved mockup: docs/superpowers/specs/2026-10-19-general-deep-research/).
@@ -17,9 +19,6 @@ const STEP_BOXES: [string, string, boolean][] = [
 ];
 // X facts in the AI category colour (index.css), not a new hex
 const XTONE = "text-[rgb(var(--c-cat-ai))] bg-[rgb(var(--c-cat-ai)_/_0.12)]";
-// The report is white paper in both themes (like Trade Lab's draft), so its chart uses the light category
-// colours, in an order the dataviz validator passed on white (2026-10-19).
-const SERIES = ["#008744", "#1C7ED6", "#D9480F", "#7048E8"];
 
 const isX = (f?: Fact) => !!f && f.source_url.startsWith("https://x.com/");
 const live = (s: Session) =>
@@ -113,52 +112,96 @@ const Owner = ({ a, letter }: { a?: AgentRun; letter: string }) => (
   </span>
 );
 
-// One y-axis: two or more series (a comparison) are indexed to 100 at their first point.
-function MiniChart({ c }: { c: Chart }) {
-  const indexed = c.series.length > 1;
-  const rows = useMemo(() => {
-    const by: Record<string, Record<string, number | string>> = {};
-    c.series.forEach((s) => {
-      const base = s.points[0]?.y || 1;
-      s.points.forEach((p) => { (by[p.x] ??= { x: p.x })[s.name] = indexed ? Math.round((p.y / base) * 1000) / 10 : p.y; });
-    });
-    return Object.values(by).sort((a, b) => String(a.x).localeCompare(String(b.x)));
-  }, [c, indexed]);
-  const label = indexed ? "Index, first day = 100" : c.y_label;
-  const last = rows.length - 1;
-  return (
-    <figure className="my-3 rounded-lg border border-black/10 p-3">
-      <figcaption className="text-[13px] font-semibold">{c.title}</figcaption>
-      {c.rationale && <p className="text-[12px] text-black/55">{c.rationale}</p>}
-      <div className="mt-2 h-44">
-        <ResponsiveContainer>
-          <LineChart data={rows} margin={{ top: 8, right: 56, bottom: 0, left: 0 }}>
-            <CartesianGrid stroke="rgb(0 0 0 / 0.07)" vertical={false} />
-            <XAxis dataKey="x" tick={{ fontSize: 10, fill: "rgb(0 0 0 / 0.5)" }} tickLine={false} axisLine={{ stroke: "rgb(0 0 0 / 0.12)" }} minTickGap={48} />
-            <YAxis tick={{ fontSize: 10, fill: "rgb(0 0 0 / 0.5)" }} tickLine={false} axisLine={false} width={48} domain={["auto", "auto"]} />
-            <Tooltip contentStyle={{ background: "#fff", border: "1px solid rgb(0 0 0 / 0.15)", borderRadius: 8, fontSize: 12, color: "rgb(0 0 0 / 0.85)" }} />
-            {c.series.map((s, k) => (
-              <Line key={s.name} dataKey={s.name} stroke={SERIES[k % SERIES.length]} strokeWidth={2} dot={false} isAnimationActive={false}>
-                {/* direct label at the line's end: identity never rests on colour alone */}
-                <LabelList dataKey={s.name} content={(p: { index?: number; x?: number | string; y?: number | string }) =>
-                  p.index === last ? <text x={Number(p.x) + 6} y={Number(p.y) + 4} fontSize={10.5} fill="rgb(0 0 0 / 0.65)">{s.name}</text> : null} />
-              </Line>
-            ))}
-          </LineChart>
-        </ResponsiveContainer>
+// A point's chart, drawn from the figures it cites (charts.py). The report is white paper in both themes,
+// so it uses the light accent; one series per chart, so no legend. Every value is labelled, hover or focus
+// shows its source fact, and "Data" opens the table.
+const INK = "#008744";
+
+function fmt(v: number, unit: PointChartT["unit"], decimals: number): string {
+  const n = v.toFixed(decimals);
+  return unit === "%" ? `${n}%` : unit === "$" ? `$${n}` : unit === "bp" || unit === "pp" ? `${n} ${unit}` : n;
+}
+
+function PointChart({ c, facts }: { c: PointChartT; facts: Record<string, Fact> }) {
+  const [hover, setHover] = useState<ChartValue | null>(null);
+  // as many decimals as the most precise value, so 20.0 / 20.2 / 19.8 line up and 69 stays 69
+  const decimals = Math.max(0, ...c.values.map((v) => (String(v.value).split(".")[1] ?? "").length));
+  const f = (v: number) => fmt(v, c.unit, decimals);
+  const max = Math.max(...c.values.map((v) => v.value), 0) || 1;
+  const aria = `${c.title}: ${c.values.map((v) => `${v.label} ${f(v.value)}`).join(", ")}`;
+  const on = (v: ChartValue) => ({
+    onMouseEnter: () => setHover(v), onMouseLeave: () => setHover(null), onFocus: () => setHover(v), onBlur: () => setHover(null),
+    tabIndex: 0,
+  });
+  let body: JSX.Element;
+  if (c.form === "stat") {
+    const v = c.values[0];
+    body = (
+      <div className="mt-1 flex items-baseline gap-3" role="img" aria-label={aria}>
+        <b className="font-serif text-[40px] leading-none" style={{ color: INK }}>{f(v.value)}</b>
+        <span className="text-[12.5px] text-black/60">{v.label}</span>
       </div>
-      <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-black/55">
-        {c.series.length > 1 && c.series.map((s, k) => (
-          <span key={s.name} className="inline-flex items-center gap-1"><i className="h-2 w-2 rounded-full" style={{ background: SERIES[k % SERIES.length] }} />{s.name}</span>
+    );
+  } else if (c.form === "bars") {
+    body = (
+      <div className="mt-2 space-y-1.5" role="img" aria-label={aria}>
+        {c.values.map((v) => (
+          <div key={`${v.fact_id}-${v.label}`} className="grid grid-cols-[minmax(90px,170px)_1fr_auto] items-center gap-2 text-[12px]">
+            <span className="truncate text-right text-black/65" title={v.label}>{v.label}</span>
+            <span className="relative h-4 outline-none" {...on(v)}>
+              <span className="absolute inset-y-0 left-0 rounded-r-[4px]" style={{ width: `${(Math.max(v.value, 0) / max) * 100}%`, background: INK }} />
+            </span>
+            <span className="num font-semibold text-black/80">{f(v.value)}</span>
+          </div>
         ))}
-        <span>{[label, c.source].filter(Boolean).join(" · ")}</span>
+      </div>
+    );
+  } else {
+    const W = 560, H = c.form === "line" ? 130 : 66, pad = 34, top = max * 1.15;
+    const xs = (i: number) => pad + (i * (W - 2 * pad)) / Math.max(1, c.values.length - 1);
+    const xv = (v: number) => pad + (v / top) * (W - 2 * pad);
+    const y = (v: number) => H - 22 - (v / top) * (H - 42);
+    body = c.form === "line" ? (
+      <svg viewBox={`0 0 ${W} ${H}`} className="mt-1 w-full max-w-[600px]" role="img" aria-label={aria}>
+        <line x1={pad} x2={W - pad} y1={H - 22} y2={H - 22} stroke="rgb(0 0 0 / .12)" />
+        <polyline fill="none" stroke={INK} strokeWidth={2} points={c.values.map((v, i) => `${xs(i)},${y(v.value)}`).join(" ")} />
+        {c.values.map((v, i) => (
+          <g key={`${v.fact_id}-${v.label}`}>
+            <circle cx={xs(i)} cy={y(v.value)} r={5} fill={INK} stroke="#fff" strokeWidth={2} className="outline-none" {...on(v)} />
+            <text x={xs(i)} y={y(v.value) - 10} textAnchor="middle" fontSize={11} fontWeight={600} fill="rgb(0 0 0 / .75)">{f(v.value)}</text>
+            <text x={xs(i)} y={H - 6} textAnchor="middle" fontSize={10.5} fill="rgb(0 0 0 / .5)">{v.label}</text>
+          </g>
+        ))}
+      </svg>
+    ) : (
+      <svg viewBox={`0 0 ${W} ${H}`} className="mt-1 w-full max-w-[600px]" role="img" aria-label={aria}>
+        <line x1={xv(c.values[0].value)} x2={xv(c.values[1].value)} y1={28} y2={28} stroke="rgb(0 0 0 / .2)" strokeWidth={3} />
+        {c.values.map((v, i) => (
+          <g key={`${v.fact_id}-${v.label}`}>
+            <circle cx={xv(v.value)} cy={28} r={7} fill={i ? INK : "#fff"} stroke={i ? "#fff" : INK} strokeWidth={i ? 2 : 2.5} className="outline-none" {...on(v)} />
+            <text x={xv(v.value)} y={56} textAnchor="middle" fontSize={11} fill="rgb(0 0 0 / .65)">{v.label} · <tspan fontWeight={700}>{f(v.value)}</tspan></text>
+          </g>
+        ))}
+      </svg>
+    );
+  }
+  const ids = [...new Set(c.values.map((v) => v.fact_id))];
+  return (
+    <figure className="mt-2 rounded-lg border border-black/10 bg-white p-3 font-sans">
+      <figcaption className="text-[12.5px] font-semibold text-black/80">{c.title}</figcaption>
+      {body}
+      <div className="mt-1.5 flex flex-wrap items-center gap-1 text-[11px] text-black/45">
+        {hover ? <span className="text-black/70">{hover.label}: <b>{f(hover.value)}</b> · {facts[hover.fact_id]?.source_title ?? hover.fact_id}</span>
+          : <>From the point's cited facts<Chips ids={ids} facts={facts} />{c.fallback && " · big-number tile (the chart agent's chart failed the check)"}</>}
       </div>
       <details className="mt-1 text-[11px] text-black/55">
-        <summary className="cursor-pointer">Data</summary>
-        <div className="mt-1 max-h-40 overflow-auto">
-          <table className="w-full"><thead><tr><th className="text-left font-semibold">Date</th>{c.series.map((s) => <th key={s.name} className="text-right font-semibold">{s.name}</th>)}</tr></thead>
-            <tbody>{rows.map((r) => <tr key={String(r.x)}><td>{String(r.x)}</td>{c.series.map((s) => <td key={s.name} className="num text-right">{r[s.name] ?? ""}</td>)}</tr>)}</tbody></table>
-        </div>
+        <summary className="cursor-pointer font-semibold text-accent">Data</summary>
+        <table className="mt-1 w-full">
+          <thead><tr><th className="text-left font-semibold">Label</th><th className="text-right font-semibold">Value</th><th className="text-right font-semibold">Fact</th></tr></thead>
+          <tbody>{c.values.map((v) => (
+            <tr key={`${v.fact_id}-${v.label}`}><td>{v.label}</td><td className="num text-right">{f(v.value)}</td><td className="text-right font-mono">{v.fact_id}</td></tr>
+          ))}</tbody>
+        </table>
       </details>
     </figure>
   );
@@ -319,7 +362,6 @@ function ReportView({ s, facts, selected, onSelect }: {
             <li key={p.id} className={cn("my-1", p.id === selected && "font-semibold")}>{p.headline} <span className="text-[11px] text-black/40">{p.agent}</span></li>
           ))}
         </ol>
-        {r.charts.map((c) => <MiniChart key={c.title} c={c} />)}
         {r.points.map((p, i) => (
           <section key={p.id} onClick={() => onSelect(p.id)}
             className={cn("mt-4 cursor-pointer rounded-xl", p.id === selected && "-mx-3 bg-accent-soft/60 px-3 py-2 ring-2 ring-accent/40")}>
@@ -335,6 +377,7 @@ function ReportView({ s, facts, selected, onSelect }: {
             </div>
             <h4 className="mt-2 font-serif text-[18px] font-bold leading-snug">{p.headline}</h4>
             <p className="my-1.5 font-serif text-base leading-relaxed">{p.body}<Chips ids={p.fact_ids} facts={facts} /></p>
+            {p.chart && <PointChart c={p.chart} facts={facts} />}
           </section>
         ))}
         {r.caveats.length > 0 && (
@@ -369,13 +412,15 @@ function ProposalCard({ x, facts, n, onDecide }: {
       </div>
       <p className="mt-2 font-serif text-[15px] font-bold leading-relaxed text-text"><Diff a={a.headline} b={b.headline} /></p>
       <p className="mt-1 font-serif text-[15px] leading-relaxed text-text-2"><Diff a={a.body} b={b.body} /><Chips ids={b.fact_ids} facts={facts} /></p>
+      {b.chart && <div className="mt-2 text-[11px] font-semibold text-muted">The chart after the edit</div>}
+      {b.chart && <PointChart c={b.chart} facts={facts} />}
       {x.new_facts.length > 0 && (
         <div className="mt-2 rounded-lg bg-surface-2 px-3 py-2 text-[12px] text-muted">
           New: {x.new_facts.map((f) => <span key={f.id} className="mr-2"><b className="text-text-2">{f.source_title}</b> <Chip id={f.id} facts={facts} /></span>)}
         </div>
       )}
       <div className="mt-3 flex items-center justify-between gap-2">
-        <span className="text-[11.5px] text-muted">Approve changes Point {n} only. Nothing else in the report is rewritten.</span>
+        <span className="text-[11.5px] text-muted">Approve swaps Point {n}'s text and chart. Nothing else in the report changes.</span>
         <span className="flex gap-2">
           <button onClick={() => onDecide(false)} className="rounded-full border border-border-strong px-3.5 py-1.5 text-[12.5px] font-semibold text-text-2">Reject</button>
           <button onClick={() => onDecide(true)} className="rounded-full bg-accent px-3.5 py-1.5 text-[12.5px] font-semibold text-on-accent">Approve</button>

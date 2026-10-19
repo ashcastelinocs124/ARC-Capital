@@ -26,7 +26,8 @@ the facts it cites, each with the numbers it holds. Return one chart per point, 
   earlier first), stat for a single headline figure (exactly 1 value).
 - values: each is {fact_id, label, value}. value must be one of that fact's listed numbers, copied exactly;
   fact_id must be one of the point's facts. Never compute, convert or round a number, and never plot a year.
-- One measure per chart, all values in one unit: %, $, bp, pp, level or "".
+- One measure per chart, all values in one unit: %, $, bp, pp, level or "". Bars compare things of one
+  kind (all sectors, or all countries, or all firm sizes), never a mix.
 - title: what is measured, and where or when, in at most 10 plain words; no dashes.
 Chart the figures the point's headline is about."""
 SIZES = {"bars": (2, 10), "line": (3, 10), "dumbbell": (2, 2), "stat": (1, 1)}
@@ -48,7 +49,11 @@ def _brief(points: list[Point], by: dict[str, Fact]) -> str:
 
 def chart_errors(c: PointChartDraft, point: Point, by: dict[str, Fact]) -> list[str]:
     lo, hi = SIZES[c.form]
-    errs = [] if lo <= len(c.values) <= hi else [f"{point.id}: {c.form} needs {lo}-{hi} values, got {len(c.values)}"]
+    errs = (
+        []
+        if lo <= len(c.values) <= hi
+        else [f"{point.id}: {c.form} needs {lo}-{hi} values, got {len(c.values)}"]
+    )
     for v in c.values:
         if v.fact_id not in point.fact_ids or v.fact_id not in by:
             errs.append(f"{point.id}: {v.fact_id} is not one of this point's facts")
@@ -59,8 +64,13 @@ def chart_errors(c: PointChartDraft, point: Point, by: dict[str, Fact]) -> list[
 
 def tile(point: Point, by: dict[str, Fact]) -> PointChart | None:
     """The first figure the point's text states that a cited fact also holds: unit figures first, never a year."""
-    found = [(m.group(2) or "", float(m.group(1))) for m in _FIG.finditer(f"{point.headline} {point.body}")]
-    ranked = [f for f in found if f[0]] + [f for f in found if not f[0] and not 1900 <= f[1] <= 2100]
+    found = [
+        (m.group(2) or "", float(m.group(1)))
+        for m in _FIG.finditer(f"{point.headline} {point.body}")
+    ]
+    ranked = [f for f in found if f[0]] + [
+        f for f in found if not f[0] and not 1900 <= f[1] <= 2100
+    ]
     for unit, n in ranked:
         for i in point.fact_ids:
             if i in by and any(math.isclose(n, x, abs_tol=1e-9) for x in by[i].numbers):
@@ -84,7 +94,9 @@ def _ask(msgs: list[dict], meter: llm.Meter) -> ChartSet:
         return ChartSet(charts=[])
 
 
-def chart_points(points: list[Point], by: dict[str, Fact], meter: llm.Meter) -> dict[str, PointChart]:
+def chart_points(
+    points: list[Point], by: dict[str, Fact], meter: llm.Meter
+) -> dict[str, PointChart]:
     """A chart per point id; a point with no chartable figure is simply missing from the result."""
     if not points:
         return {}
@@ -105,8 +117,19 @@ def chart_points(points: list[Point], by: dict[str, Fact], meter: llm.Meter) -> 
 
     take(out)
     if errs:
-        fix = "Fix only these points' charts and return them:\n" + "\n".join(e for es in errs.values() for e in es)
-        take(_ask([*msgs, {"role": "assistant", "content": out.model_dump_json()}, {"role": "user", "content": fix}], meter))
+        fix = "Fix only these points' charts and return them:\n" + "\n".join(
+            e for es in errs.values() for e in es
+        )
+        take(
+            _ask(
+                [
+                    *msgs,
+                    {"role": "assistant", "content": out.model_dump_json()},
+                    {"role": "user", "content": fix},
+                ],
+                meter,
+            )
+        )
     for p in points:
         if p.id not in done and (t := tile(p, by)):
             done[p.id] = t

@@ -178,7 +178,9 @@ class PointChart(BaseModel):
     title: str
     unit: ChartUnit = ""
     values: list[ChartValue]
-    fallback: bool = False  # True: the chart agent's chart failed twice, so code made a big-number tile
+    fallback: bool = (
+        False  # True: the chart agent's chart failed twice, so code made a big-number tile
+    )
 
 
 class Point(BaseModel):

@@ -11,20 +11,22 @@ export type AgentRun = {
   letter: string; round: number; brief: Brief; model: string; tool_calls: number; x_posts: number;
   facts: Fact[]; findings: Finding[]; summary: string | null; error: string | null;
 };
-export type Point = { id: string; agent: string; headline: string; body: string; fact_ids: string[]; version: number };
+export type ChartValue = { fact_id: string; label: string; value: number };
+// A point's chart, drawn from its cited facts (charts.py); fallback = the code-made big-number tile.
+export type PointChart = {
+  form: "bars" | "line" | "dumbbell" | "stat"; title: string; unit: "%" | "$" | "bp" | "pp" | "level" | "";
+  values: ChartValue[]; fallback: boolean;
+};
+export type Point = {
+  id: string; agent: string; headline: string; body: string; fact_ids: string[]; version: number; chart: PointChart | null;
+};
 export type Proposal = {
   n: number; point_id: string; agent: string; text: string; answer: string; base_version: number;
   before: Point | null; after: Point | null; new_facts: Fact[];
   status: "running" | "pending" | "answered" | "approved" | "rejected" | "failed";
   error: string; trail: string[]; created_at: string; decided_at: string | null;
 };
-export type Chart = {
-  title: string; rationale: string; series: { name: string; points: { x: string; y: number }[] }[];
-  y_label: string; source: string;
-};
-export type Report = {
-  title: string; subtitle: string; points: Point[]; caveats: string[]; gaps_remaining: string[]; charts: Chart[];
-};
+export type Report = { title: string; subtitle: string; points: Point[]; caveats: string[]; gaps_remaining: string[] };
 export type Status = "awaiting_answers" | "researching" | "writing" | "complete";
 export type Session = {
   id: string; topic: string; question: string; clarifying_questions: { question: string; why: string }[];

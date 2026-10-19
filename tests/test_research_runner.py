@@ -80,7 +80,9 @@ def test_run_plans_researches_and_writes(ran):
 
 def test_the_charts_step_fills_only_points_without_a_chart():
     sid = new_session()
-    drawn = PointChart(form="stat", title="t", values=[ChartValue(fact_id="A1", label="x", value=1.0)])
+    drawn = PointChart(
+        form="stat", title="t", values=[ChartValue(fact_id="A1", label="x", value=1.0)]
+    )
     with store.edit(sid) as x:
         x.status = "complete"
         x.report = ResearchReport(
