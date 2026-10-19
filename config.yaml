@@ -91,6 +91,7 @@ deep_research:
   revise_fallback_model: anthropic/claude-sonnet-5.5
   revise_openai_model: gpt-6-sol
   compact_model: gpt-6-luna
+  chart_model: gpt-6-luna
   clarify_max_questions: 3
   max_agents: 8
   max_gap_agents: 4

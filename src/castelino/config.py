@@ -166,6 +166,7 @@ class DeepResearchCfg(BaseModel):
     revise_fallback_model: str = "anthropic/claude-sonnet-5.5"
     revise_openai_model: str = "gpt-6-sol"  # runs when OPENROUTER_API_KEY is unset
     compact_model: str = "gpt-6-luna"
+    chart_model: str = "gpt-6-luna"  # one call charts every point (charts.py)
     clarify_max_questions: int = 3
     max_agents: int = 8
     max_gap_agents: int = 4

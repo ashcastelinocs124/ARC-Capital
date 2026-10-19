@@ -137,6 +137,28 @@ class Summary(BaseModel):
     text: str
 
 
+ChartForm = Literal["bars", "line", "dumbbell", "stat"]
+ChartUnit = Literal["%", "$", "bp", "pp", "level", ""]
+
+
+class ChartValue(BaseModel):
+    fact_id: str  # one of the point's cited facts; the guard checks value is one of its numbers
+    label: str
+    value: float
+
+
+class PointChartDraft(BaseModel):
+    point_id: str
+    form: ChartForm
+    title: str
+    unit: ChartUnit
+    values: list[ChartValue]
+
+
+class ChartSet(BaseModel):
+    charts: list[PointChartDraft]
+
+
 # ── the session ──────────────────────────────────────────────────────────────
 class Finding(BaseModel):
     id: str
@@ -158,6 +180,16 @@ class AgentRun(BaseModel):
     error: str | None = None
 
 
+class PointChart(BaseModel):
+    """A point's chart: data only, drawn by the Research tab. Every value comes from a cited fact."""
+
+    form: ChartForm
+    title: str
+    unit: ChartUnit = ""
+    values: list[ChartValue]
+    fallback: bool = False  # True: the chart agent's chart failed twice, so code made a big-number tile
+
+
 class Point(BaseModel):
     id: str
     agent: str  # owner letter
@@ -165,6 +197,7 @@ class Point(BaseModel):
     body: str
     fact_ids: list[str]
     version: int = 1
+    chart: PointChart | None = None
 
 
 class ResearchReport(BaseModel):
