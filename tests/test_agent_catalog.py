@@ -225,3 +225,23 @@ def test_update_agent_family_groups_its_seven_agents():
         "update_editor",
         "desk_chat",
     ]
+
+
+RESEARCH = {
+    "research_clarifier",
+    "research_lead",
+    "research_agent",
+    "research_critic",
+    "research_writer",
+    "research_revise",
+    "research_compact",
+}
+
+
+def test_deep_research_agents_are_registered_with_live_prompts_and_stay_private():
+    body = cat.build_catalog()
+    assert {e["id"] for e in body["agents"] if e["group"] == "Deep research"} == RESEARCH
+    full = {e["id"]: e for e in body["agents"]}
+    assert all(full[i].get("prompt") for i in RESEARCH), "every research prompt must resolve"
+    public = cat.public_catalog(body)
+    assert not RESEARCH & {a["id"] for a in public["agents"]}

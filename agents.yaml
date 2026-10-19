@@ -563,6 +563,122 @@ agents:
       writes: ["The report; the draft id in data/trades/<id>/substack.json"]
       persists: "The idea record and the draft."
 
+  # ── Deep research (/admin only) ─────────────────────────────────────────
+  - id: research_clarifier
+    name: Deep Research · Clarifier
+    group: Deep research
+    family: Deep Research
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-sol"}
+    prompt: "castelino.agents.research.deep.clarifier:SYSTEM"
+    schema: "castelino.agents.research.deep.models:Clarification"
+    summary: "Rewords the topic into one research question and asks up to 3 clarifying questions, each with why it matters."
+    tools: []
+    memory:
+      reads: ["The topic as typed"]
+      writes: ["The research question and the clarifying questions"]
+      persists: "The session, data/research/<id>.json."
+
+  - id: research_lead
+    name: Deep Research · Lead
+    group: Deep research
+    family: Deep Research
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-sol"}
+    prompt: "castelino.agents.research.deep.lead:SYSTEM"
+    schema: "castelino.agents.research.deep.models:Plan"
+    summary: "Invents up to 8 angles for the topic, one brief per research agent; after the Critic, plans up to 4 more for the gaps only."
+    tools: []
+    memory:
+      reads: ["The research question, your answers, the angles already researched, the Critic's gaps"]
+      writes: ["Briefs → research agents"]
+      persists: "The session file."
+
+  - id: research_agent
+    name: Deep Research · Research agent
+    group: Deep research
+    family: Deep Research
+    dependencies:
+      - {key: OPENROUTER_API_KEY, required: false, why: "DeepSeek V4.1 Flash; unset = gpt-6-luna"}
+      - {key: OPENAI_API_KEY, required: true, why: "Web search (gpt-6-luna) and the fallback model"}
+      - {key: X_BEARER_TOKEN, required: false, why: "x_search over X's last 7 days; unset = no X"}
+    prompt: "castelino.agents.research.deep.sub_agent:SYSTEM"
+    schema: "castelino.agents.research.deep.models:FindingDrafts"
+    summary: >-
+      One per angle, 4 at a time: up to 12 tool calls, then findings that cite its facts. Its whole thread is
+      saved, so on the editor desk it rethinks a point it wrote with 4 more calls.
+    tools:
+      - {name: "web_search / x_search / fred_series / yahoo_prices / bls_series / polymarket_odds", does: "Facts computed by code or cited lines; X posts are attributed to their author"}
+      - {name: "post_to_board / read_board", does: "The shared board between agents"}
+    memory:
+      reads: ["Its brief, the board; on the editor desk its own saved thread (or its summary after 14 days)"]
+      writes: ["Facts, findings, its transcript"]
+      persists: "The session file; the transcript is dropped after 14 days."
+
+  - id: research_critic
+    name: Deep Research · Critic
+    group: Deep research
+    family: Deep Research
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-sol"}
+    prompt: "castelino.agents.research.deep.critic:SYSTEM"
+    schema: "castelino.agents.research.deep.models:Critique"
+    summary: "Reads every agent's findings and says done, or names up to 4 gaps for one more round, before anything is written."
+    tools: []
+    memory:
+      reads: ["Every agent's findings"]
+      writes: ["Done, or gaps → Lead"]
+      persists: "Nothing of its own."
+
+  - id: research_writer
+    name: Deep Research · Writer
+    group: Deep research
+    family: Deep Research
+    dependencies:
+      - {key: ANTHROPIC_API_KEY, required: true, why: "Claude Opus 5.5 (effort high)"}
+    prompt: "castelino.agents.research.deep.synthesizer:SYSTEM"
+    schema: "castelino.agents.research.deep.models:ReportDraft"
+    summary: "Writes the report as 5 to 10 points, each owned by the agent whose facts it uses; number guard, one retry."
+    tools:
+      - {name: "Number guard (code)", does: "Every %, bp or pp must be in the point's cited facts; X figures name their @handle"}
+      - {name: "ChartResolver (code)", does: "FRED / Yahoo charts only when one fits; bad specs dropped"}
+    memory:
+      reads: ["Every agent's findings and facts"]
+      writes: ["The report"]
+      persists: "The session file."
+
+  - id: research_revise
+    name: Deep Research · Point rewrite
+    group: Deep research
+    family: Deep Research
+    dependencies:
+      - {key: OPENROUTER_API_KEY, required: false, why: "Claude Haiku 5.5, then Sonnet 5.5; unset = gpt-6-sol"}
+      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-sol without the OpenRouter key"}
+    prompt: "castelino.agents.research.deep.editor_desk:REVISE"
+    schema: "castelino.agents.research.deep.models:RevisedPoint"
+    summary: "Rewrites only the questioned point from the agent's corrected finding; two tries at the number guard per model. You approve or reject."
+    tools:
+      - {name: "Number guard (code)", does: "Same check as the writer's"}
+    memory:
+      reads: ["The point, your text, the agent's answer, the cited and new facts"]
+      writes: ["A proposal: before → after"]
+      persists: "The edit log in the session file."
+
+  - id: research_compact
+    name: Deep Research · Compactor
+    group: Deep research
+    family: Deep Research
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-luna"}
+    prompt: "castelino.agents.research.deep.compact:SYSTEM"
+    schema: "castelino.agents.research.deep.models:Summary"
+    summary: "After 14 days writes a short summary per agent; transcripts, uncited facts and the board are then dropped."
+    tools: []
+    memory:
+      reads: ["Each agent's brief and findings"]
+      writes: ["One summary per agent"]
+      persists: "The session file."
+
   - id: sector_narrative
     name: Sector Sentiment Narrative
     group: Briefings
@@ -746,6 +862,25 @@ systems:
         flow: [["Your message"], ["agent:trade_decide|research? edit?"], ["agent:trade_news_desk|≤4 searches, if needed"], ["agent:trade_talk|Haiku answers + edits"], ["end:Draft updated|Sonnet if checks fail"]]
       - title: "Charts tab · chat and compare"
         flow: [["Your idea"], ["agent:chart_desk|gpt-6-luna · or 2-8 models"], ["code:Spec check|1 retry"], ["code:Chart forms|FRED · Yahoo"], ["end:Admin Charts|chat · ★ vote"]]
+
+  - group: Deep research
+    trigger: "You, in /admin → Research"
+    output: "A cited report of points in data/research/; you question any point"
+    blurb: >-
+      Any topic. The Lead invents up to 8 angles, one research agent each (DeepSeek V4.1 Flash, 12 tool calls
+      over web, X, FRED, Yahoo, BLS and Polymarket, with a shared board). The Critic checks the findings and
+      may add one gap round, then Claude Opus writes the points. On the editor desk the agent behind a point
+      rethinks in its own thread, Claude Haiku rewrites only that point, and you approve or reject.
+    lanes:
+      - title: "1 · Clarify and plan"
+        flow: [["Your topic"], ["agent:research_clarifier|≤3 questions"], ["gate:You answer|or skip"], ["agent:research_lead|≤8 angles"], ["end:↓ research"]]
+      - title: "2 · Research and write"
+        flow: [["agent:research_agent|×8 · 12 tool calls"], ["agent:research_critic|findings enough?"], ["agent:research_writer|Claude · points"], ["code:Number guard|1 retry"], ["end:Report|↓ editor desk"]]
+        loops: [{from: 1, to: 0, label: "1 gap round"}]
+      - title: "3 · Editor desk"
+        flow: [["gate:You ask|about one point"], ["agent:research_agent|rethinks in its thread"], ["agent:research_revise|that point only"], ["gate:You approve|or reject"], ["end:Point v2"]]
+      - title: "4 · After 14 days"
+        flow: [["code:Open or list|older than 14 days"], ["agent:research_compact|summary per agent"], ["end:Transcripts dropped|report kept"]]
 
   - group: Theme Charts
     trigger: "Cron on the Fly server at 08:00 ET, weekdays"
