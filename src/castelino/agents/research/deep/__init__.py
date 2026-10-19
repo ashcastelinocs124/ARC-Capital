@@ -1,6 +1,2 @@
-"""Deep research engine — multi-agent, OpenAI-web-search-backed, cited reports.
-
-Public API:
-    DeepResearchOrchestrator — drives the clarify → research → synthesize loop.
-    DeepResearchReport, ResearchSession — output + session models.
-"""
+"""General Deep Research: any topic → clarifier → up to 8 tool-using research agents → Claude writes the
+report as points → the editor desk revises one point at a time. Runs from /admin → Research."""

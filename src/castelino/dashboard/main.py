@@ -94,7 +94,6 @@ from castelino.dashboard.endpoints import (  # noqa: E402
     chart_desk,
     cross_asset,
     daily_posts,
-    deep_research,
     macro,
     models,
     refresh,
@@ -111,7 +110,6 @@ from castelino.dashboard.endpoints import weekly as weekly_ep  # noqa: E402
 
 app.include_router(models.router)
 app.include_router(macro.router)
-app.include_router(deep_research.router)
 app.include_router(update_ep.router)
 app.include_router(weekly_ep.router)
 app.include_router(themes_ep.router)

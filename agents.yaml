@@ -658,71 +658,6 @@ agents:
       writes: ["data/deep/<week>.json — written last, marks the week done"]
       persists: "The report and the grill log in the week's record."
 
-  # ── Trading pipeline ────────────────────────────────────────────────────
-  - id: deep_clarifier
-    name: Deep Research · Clarifier
-    group: Deep research
-    family: Deep Research
-    dependencies:
-      - {key: OPENAI_API_KEY, required: true, why: "LLM call (OpenAI)"}
-    class: castelino.agents.research.deep.clarifier.ClarifierAgent
-    summary: "Rewords the raw question and asks up to 3 clarifying questions before research starts."
-    tools: []
-    memory:
-      reads: ["The raw query"]
-      writes: ["Reworded query + clarifying questions"]
-      persists: "Session saved to data/research/<id>.json."
-
-  - id: deep_lead
-    name: Deep Research · Lead
-    group: Deep research
-    family: Deep Research
-    dependencies:
-      - {key: OPENAI_API_KEY, required: true, why: "LLM call (OpenAI)"}
-    class: castelino.agents.research.deep.lead.LeadAgent
-    summary: "Decomposes the clarified question into at most 6 sub-questions; re-plans on gaps in later rounds."
-    tools: []
-    memory:
-      reads: ["Reworded query + answers", "Round number", "Gaps from the previous synthesis"]
-      writes: ["Sub-questions → parallel sub-agents"]
-      persists: "Session file."
-
-  - id: deep_sub_agent
-    name: Deep Research · Sub-agent
-    group: Deep research
-    family: Deep Research
-    dependencies:
-      - {key: OPENAI_API_KEY, required: true, why: "LLM call and web search (OpenAI web_search tool)"}
-    prompt: "castelino.agents.research.deep.sub_agent:SYSTEM"
-    schema: "castelino.agents.research.deep.models:SubFinding"
-    tier: fast
-    summary: "One per sub-question, run in parallel: searches the web (OpenAI web_search) and distils cited findings."
-    tools:
-      - {name: "OpenAI web_search", does: "Web search with citations (global budget of 15 calls per report)"}
-    memory:
-      reads: ["One sub-question"]
-      writes: ["Cited findings → Synthesizer"]
-      persists: "Session file."
-
-  - id: deep_synthesizer
-    name: Deep Research · Synthesizer
-    group: Deep research
-    family: Deep Research
-    dependencies:
-      - {key: OPENAI_API_KEY, required: true, why: "LLM call (OpenAI)"}
-      - {key: OPENBB_PAT, required: false, why: "OpenBB data; uses saved OpenBB user settings or degrades gracefully when unset"}
-      - {key: FRED_API_KEY, required: false, why: "FRED data; falls back to the keyless CSV endpoint when unset"}
-    prompt: "castelino.agents.research.deep.synthesizer:SYNTH_SYSTEM"
-    schema: "castelino.agents.research.deep.models:DeepResearchReport"
-    tier: reasoning
-    summary: "Writes the cited report from all findings, reflects on gaps (up to 2 rounds) and proposes supporting charts."
-    tools:
-      - {name: "ChartResolver", does: "Deterministic: maps chart specs to OpenBB/FRED data; bad specs are dropped"}
-    memory:
-      reads: ["All sub-agent findings", "Previous round's gaps"]
-      writes: ["DeepResearchReport (answer, citations, charts)"]
-      persists: "Report saved to data/research/<id>.json; not fed into the trading pipeline."
-
   # ── Research metrics ────────────────────────────────────────────────────
   - id: adoption_extractor
     name: AI Adoption · Claim extractor
@@ -850,20 +785,6 @@ systems:
         flow: [["Every 2 h"], ["agent:x_scout_search|cited macro + AI"], ["agent:x_scout|1 item or nothing"], ["agent:x_scout_writer|post + reply"], ["end:X + Substack Note|+ chart · or dry-run log"]]
       - title: "Calendar"
         flow: [["7:00 · every 5 min"], ["code:Week Ahead|pick + card · watch list"], ["agent:x_calendar_writer|week or day read"], ["agent:x_release_writer|one line per release"], ["end:X + Notes|card on both · releases X only ≤4/day"]]
-
-  - group: Deep research
-    trigger: "A question asked on /deep-research"
-    output: "A cited report with charts in data/research/"
-    blurb: >-
-      A plain asyncio state machine. Sub-agents search the web in parallel and the Synthesizer
-      can send gaps back to the Lead. Capped at 15 web searches per report.
-    lanes:
-      - title: "1 · Clarify"
-        flow: [["Your question"], ["agent:deep_clarifier"], ["gate:You answer|or skip"], ["end:↓ to stage 2"]]
-      - title: "2 · Research"
-        flow: [["agent:deep_lead"], ["agent:deep_sub_agent|web_search", "agent:deep_sub_agent|web_search", "agent:deep_sub_agent|≤6 in parallel"], ["agent:deep_synthesizer"], ["code:ChartResolver|OpenBB / FRED"], ["end:Cited report"]]
-        regions: [{from: 0, to: 2, label: "Loop · max 2 rounds"}]
-        loops: [{from: 2, to: 0, label: "gaps → re-plan"}]
 
   - group: Research metrics
     trigger: "Refresh (AI Adoption Index); recipes are written by hand"
@@ -1163,44 +1084,6 @@ pipelines:
       - {title: Explain, nodes: [writers], edges: [calc > writers], io: ["in: scores", "out: summary + sector notes"], text: "Two LLM agents turn the numbers into words: one writes the summary, the other a short note for each sector. They never change a number."}
       - {title: Check, nodes: [check], edges: [writers > check], io: ["in: snapshot", "out: publish or keep last"], text: "If any sector couldn't be scored, code keeps the previous snapshot rather than publish a partial one."}
       - {title: Publish, nodes: [card], edges: [check > card], io: ["in: checked snapshot", "out: Radar card"], text: "The scores and notes appear on the Fear & Greed · Sector Sentiment card on Radar."}
-
-  - id: deep-research
-    name: Deep Research
-    trigger: "on request · a research question"
-    guardrails: "15-search cap · charts from real data"
-    delivery: "a cited report"
-    groups:
-      - {id: subs, label: SUB-AGENTS, note: UP TO 6 IN PARALLEL, nodes: [sub1, subs2]}
-    nodes:
-      - {id: web, kind: source, layer: sources, x: 680, w: 120, name: web search, does: "A web search that returns cited sources."}
-      - {id: openbb, kind: source, layer: sources, x: 1046, w: 110, name: OpenBB · FRED, does: "Market and economic data for the report's charts."}
-      - {id: question, kind: trigger, layer: agents, x: 150, w: 120, name: Question, sub: on request, does: "Someone asks a research question."}
-      - {id: clarifier, kind: llm, agent: deep_clarifier, layer: agents, x: 316, w: 130, name: Clarifier, sub: rewords · asks, does: "Rewords the question and asks up to three clarifying questions."}
-      - {id: lead, kind: llm, agent: deep_lead, layer: agents, x: 490, w: 130, name: Lead, sub: ≤ 6 questions, does: "Splits the question into at most six sub-questions, and re-plans if the Synthesizer finds gaps."}
-      - {id: sub1, kind: llm, agent: deep_sub_agent, layer: agents, x: 666, dy: -40, w: 150, name: Sub-agent 1, sub: web search, does: "One sub-agent per sub-question: searches the web and keeps cited findings."}
-      - {id: subs2, kind: llm, agent: deep_sub_agent, layer: agents, x: 666, dy: 40, w: 150, name: Sub-agents 2-6, sub: "same, in parallel", does: "The other sub-agents, running at the same time."}
-      - {id: synth, kind: llm, agent: deep_synthesizer, layer: agents, x: 870, w: 140, name: Synthesizer, sub: cited report, does: "Writes the cited report from every finding, looks for gaps, and proposes supporting charts."}
-      - {id: you, kind: human, layer: guardrails, x: 316, w: 130, name: You answer, sub: or skip, does: "The person who asked answers the clarifying questions, or skips them."}
-      - {id: charts, kind: code, layer: guardrails, x: 870, w: 140, name: Chart resolver, sub: real data only, does: "Plain code fetches the data for each proposed chart and drops any chart it can't draw."}
-      - {id: report, kind: out, layer: delivery, x: 870, w: 140, name: Cited report, sub: with charts, does: "The finished report, with a citation for every claim."}
-    edges:
-      - question > clarifier
-      - clarifier > you
-      - you > lead
-      - lead > subs
-      - web > subs
-      - subs > synth
-      - synth > lead | below | gaps → re-plan · max 2 rounds
-      - synth > charts
-      - openbb > charts
-      - charts > report
-    steps:
-      - {title: Ask, nodes: [question], edges: [question > clarifier], io: ["in: a question", "out: start"], text: "Someone asks a research question."}
-      - {title: Clarify, nodes: [clarifier, you], edges: [clarifier > you, you > lead], io: ["in: raw question", "out: clarified question"], text: "The Clarifier rewords the question and asks up to three clarifying questions; the person answers them or skips."}
-      - {title: Plan, nodes: [lead], edges: [lead > subs], io: ["in: clarified question", "out: ≤ 6 sub-questions"], text: "The Lead splits the question into at most six sub-questions."}
-      - {title: Research in parallel, nodes: [subs, web], edges: [web > subs], io: ["in: sub-question", "out: cited findings"], text: "One sub-agent per sub-question searches the web at the same time and keeps cited findings, with at most 15 searches per report."}
-      - {title: Synthesize, nodes: [synth, lead], edges: [subs > synth, synth > lead], io: ["in: all findings", "out: report or gaps"], text: "The Synthesizer writes the cited report and can send gaps back to the Lead for up to two more rounds."}
-      - {title: Chart and save, nodes: [charts, openbb, report], edges: [synth > charts, openbb > charts, charts > report], io: ["in: report + chart ideas", "out: cited report"], text: "Code fetches the data for each proposed chart, drops any it can't draw, and saves the cited report."}
 
   - id: ai-adoption
     name: AI Adoption

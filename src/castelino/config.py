@@ -148,24 +148,37 @@ class SectorSentimentCfg(BaseModel):
 
 
 class DeepResearchCfg(BaseModel):
+    """General Deep Research (agents/research/deep/, /admin → Research): any topic, up to 8 tool-using
+    research agents, Claude writes the points, the editor desk revises one point at a time."""
+
     enabled: bool = True
-    max_sub_questions: int = 6  # hard cap on decomposition fan-out
-    max_rounds: int = 2  # reflection rounds, incl. first
-    max_sonar_calls: int = 15  # global web-search budget per report (name kept: stored in reports)
-    concurrency: int = 3  # asyncio semaphore over sub-agents
-    clarify_max_questions: int = 3  # cap on clarifying questions
-    reasoning_tier: str = "reasoning"  # tier for clarifier/lead/synthesizer
-    fast_tier: str = "fast"  # tier for parallel sub-agents
-    reports_dir: str = "data/research"
-    # Per-call output ceiling for deep-research LLM calls. MUST be generous:
-    # the gpt-5.x reasoning models spend hidden reasoning tokens out of this
-    # SAME budget, so a small cap (e.g. the global 2048) gets fully consumed by
-    # reasoning and leaves nothing for the structured output → parse fails with
-    # "length limit reached". Billing is per token actually used, so a high
-    # ceiling costs nothing extra; it only prevents the truncation failure.
-    max_output_tokens: int = 16000
-    # Charts: hard cap on charts per report (bounds OpenBB calls) + default window.
-    max_charts: int = 4
+    data_dir: str = "data/research"
+    clarifier_model: str = "gpt-6-sol"
+    lead_model: str = "gpt-6-sol"
+    critic_model: str = "gpt-6-sol"
+    agent_model: str = "deepseek/deepseek-v4.1-flash-1017"  # OpenRouter; trade/loop.py
+    agent_fallback_model: str = "gpt-6-luna"
+    search_model: str = "gpt-6-luna"  # web_search inside the tool
+    writer_model: str = "claude-opus-5-5"
+    writer_effort: str = "high"
+    writer_max_tokens: int = 32000
+    revise_model: str = "anthropic/claude-haiku-5.5"
+    revise_fallback_model: str = "anthropic/claude-sonnet-5.5"
+    revise_openai_model: str = "gpt-6-sol"  # both revise models are OpenRouter; this runs without the key
+    compact_model: str = "gpt-6-luna"
+    clarify_max_questions: int = 3
+    max_agents: int = 8
+    max_gap_agents: int = 4
+    max_tool_calls: int = 12
+    gap_rounds: int = 1
+    agent_concurrency: int = 4
+    session_concurrency: int = 2
+    answer_tool_calls: int = 4
+    x_posts_per_call: int = 10
+    x_posts_per_report: int = 100
+    keep_full_days: int = 14
+    cost_cap_usd: float = 8.0
+    max_charts: int = 4  # chart_resolver.py
     chart_lookback_days_default: int = 365
 
 

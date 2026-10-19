@@ -25,8 +25,8 @@ def test_structured_agent_gets_live_prompt_tier_and_schema():
 
 
 def test_prompt_constant_reference_for_non_structured_agent():
-    e = _by_id(cat.build_catalog()["agents"])["deep_synthesizer"]
-    assert e["prompt"] and ":SYNTH_SYSTEM" in e["prompt_source"]
+    e = _by_id(cat.build_catalog()["agents"])["trade_editor"]
+    assert e["prompt"] and ":SYSTEM" in e["prompt_source"]
 
 
 def test_unregistered_and_broken_entries_do_not_500(tmp_path):
@@ -178,7 +178,9 @@ def test_pipelines_reference_real_agents_nodes_and_edges():
             assert set(s["nodes"]) <= boxes, where
             assert {e.replace(" ", "") for e in s["edges"]} <= edges, where
     # admin-only agents (the Daily desk chat and Trade Lab) stay off the public pipeline graphs
-    admin_only = {"desk_chat"} | {e["id"] for e in body["agents"] if e["group"] == "Trade Lab"}
+    admin_only = {"desk_chat"} | {
+        e["id"] for e in body["agents"] if e["group"] in ("Trade Lab", "Deep research")
+    }
     assert ids - drawn == admin_only, f"draw these agents in a pipeline: {ids - drawn - admin_only}"
 
 

@@ -74,21 +74,35 @@ adoption:
   request_interval_s: 0.12
 
 deep_research:
+  # General Deep Research (/admin → Research): any topic, up to 8 research agents, Claude writes the
+  # points, the editor desk revises one point at a time.
   enabled: true
-  max_sub_questions: 6
-  max_rounds: 2
-  max_sonar_calls: 15
-  concurrency: 3
+  data_dir: data/research
+  clarifier_model: gpt-6-sol
+  lead_model: gpt-6-sol
+  critic_model: gpt-6-sol
+  agent_model: deepseek/deepseek-v4.1-flash-1017
+  agent_fallback_model: gpt-6-luna
+  search_model: gpt-6-luna
+  writer_model: claude-opus-5-5
+  writer_effort: high
+  writer_max_tokens: 32000
+  revise_model: anthropic/claude-haiku-5.5
+  revise_fallback_model: anthropic/claude-sonnet-5.5
+  revise_openai_model: gpt-6-sol
+  compact_model: gpt-6-luna
   clarify_max_questions: 3
-  reasoning_tier: reasoning
-  fast_tier: fast
-  reports_dir: data/research
-  # Output ceiling per deep-research LLM call. High on purpose: gpt-5.x
-  # reasoning tokens come out of this same budget, so a small cap gets eaten by
-  # reasoning and truncates the structured output (parse fails). Pay-per-use, so
-  # the high ceiling is free; it just prevents the truncation failure.
-  max_output_tokens: 16000
-  # Thesis charts: cap per report (bounds OpenBB calls) + default lookback window.
+  max_agents: 8
+  max_gap_agents: 4
+  max_tool_calls: 12
+  gap_rounds: 1
+  agent_concurrency: 4
+  session_concurrency: 2
+  answer_tool_calls: 4
+  x_posts_per_call: 10
+  x_posts_per_report: 100
+  keep_full_days: 14
+  cost_cap_usd: 8.0
   max_charts: 4
   chart_lookback_days_default: 365
 

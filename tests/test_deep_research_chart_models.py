@@ -3,7 +3,6 @@ from castelino.agents.research.deep.models import (
     ChartSeries,
     ChartSpec,
     ChartType,
-    DeepResearchReport,
     ResolvedChart,
 )
 
@@ -31,7 +30,3 @@ def test_resolved_chart_roundtrip():
     dumped = chart.model_dump(mode="json")
     assert dumped["series"][0]["points"][0]["x"] == "2026-01-01"
 
-
-def test_report_has_charts_field_default_empty():
-    rep = DeepResearchReport(exec_summary="hi")
-    assert rep.charts == []

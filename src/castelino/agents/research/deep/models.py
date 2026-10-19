@@ -1,27 +1,28 @@
+"""General Deep Research models: the session JSON (data/research/<id>.json) and the LLM outputs.
+
+LLM-output models are closed (no defaults) for structured outputs. The chart models are the first engine's;
+chart_resolver.py uses them."""
+
 from __future__ import annotations
 
-from datetime import datetime
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
-
-class ResearchStatus(StrEnum):
-    CREATED = "created"
-    AWAITING_ANSWERS = "awaiting_answers"
-    RESEARCHING = "researching"
-    SYNTHESIZING = "synthesizing"
-    COMPLETE = "complete"
-    FAILED = "failed"
+from castelino.agents.update.models import Fact
+from castelino.agents.weekly.models import BoardPost
 
 
-class SourceRef(BaseModel):
-    """A web source backing a finding. Web-oriented (vs persona Citation)."""
-    title: str = ""
-    url: str = ""
-    snippet: str = ""
+class StepError(RuntimeError):
+    """A step that can't finish; its message is shown beside a Retry button."""
 
 
+class Busy(RuntimeError):  # noqa: N818 - the API answers 409
+    pass
+
+
+# ── charts (unchanged) ───────────────────────────────────────────────────────
 class ChartType(StrEnum):
     PRICE_HISTORY = "price_history"
     YIELD_CURVE = "yield_curve"
@@ -30,7 +31,8 @@ class ChartType(StrEnum):
 
 
 class ChartSpec(BaseModel):
-    """A chart the Synthesizer requests (no data — just the request)."""
+    """A chart the writer requests (no data, just the request)."""
+
     type: ChartType
     title: str
     rationale: str = ""
@@ -51,6 +53,7 @@ class ChartSeries(BaseModel):
 
 class ResolvedChart(BaseModel):
     """A chart with real data grafted on by the ChartResolver."""
+
     type: ChartType
     title: str
     rationale: str = ""
@@ -59,73 +62,183 @@ class ResolvedChart(BaseModel):
     source: str = "OpenBB"
 
 
-class ClarificationQuestion(BaseModel):
+# ── LLM outputs (closed) ─────────────────────────────────────────────────────
+class ClarifyQuestion(BaseModel):
     question: str
-    why: str = ""
+    why: str
 
 
-class ClarifierResult(BaseModel):
-    """Output of the Clarifier agent."""
-    reworded_query: str
-    clarifying_questions: list[ClarificationQuestion] = Field(default_factory=list)
-    assumptions: list[str] = Field(default_factory=list)  # used in --no-clarify mode
+class Clarification(BaseModel):
+    question: str  # the topic reworded as one research question
+    questions: list[ClarifyQuestion]
 
 
-class SubQuestion(BaseModel):
-    id: str
+class Brief(BaseModel):
+    name: str
+    angle: str
+    brief: str
+
+
+class Plan(BaseModel):
+    briefs: list[Brief]
+
+
+class Critique(BaseModel):
+    done: bool
+    gaps: list[str]
+
+
+class FindingDraft(BaseModel):
+    claim: str
+    fact_ids: list[str]
+
+
+class FindingDrafts(BaseModel):
+    findings: list[FindingDraft]
+
+
+class ChartDraft(BaseModel):
+    type: ChartType
+    title: str
+    rationale: str
+    symbols: list[str]
+    series_id: str
+
+
+class PointDraft(BaseModel):
+    agent: str
+    headline: str
+    body: str
+    fact_ids: list[str]
+
+
+class ReportDraft(BaseModel):
+    title: str
+    subtitle: str
+    points: list[PointDraft]
+    caveats: list[str]
+    chart_specs: list[ChartDraft]
+
+
+class AnswerDraft(BaseModel):
+    answer: str
+    change: bool
+    finding: str
+    fact_ids: list[str]
+
+
+class RevisedPoint(BaseModel):
+    headline: str
+    body: str
+    fact_ids: list[str]
+
+
+class Summary(BaseModel):
     text: str
-    rationale: str = ""
+
+
+# ── the session ──────────────────────────────────────────────────────────────
+class Finding(BaseModel):
+    id: str
+    claim: str
+    fact_ids: list[str]
+
+
+class AgentRun(BaseModel):
+    letter: str  # "A".."H", the gap round continues; also the agent's fact-id prefix
     round: int = 1
-
-
-class DecompositionResult(BaseModel):
-    """Output of the Lead/decomposer agent."""
-    sub_questions: list[SubQuestion] = Field(default_factory=list)
-
-
-class SubFinding(BaseModel):
-    sub_question_id: str
-    summary: str = ""
-    key_points: list[str] = Field(default_factory=list)
-    citations: list[SourceRef] = Field(default_factory=list)
-    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    brief: Brief
+    model: str = ""
+    tool_calls: int = 0
+    x_posts: int = 0
+    facts: list[Fact] = Field(default_factory=list)
+    findings: list[Finding] = Field(default_factory=list)
+    transcript: list[dict] | None = None  # None after compaction
+    summary: str | None = None  # set by compaction
     error: str | None = None
 
 
-class ReflectionResult(BaseModel):
-    is_sufficient: bool
-    gaps: list[str] = Field(default_factory=list)
-    new_sub_questions: list[SubQuestion] = Field(default_factory=list)
+class Point(BaseModel):
+    id: str
+    agent: str  # owner letter
+    headline: str  # the Key findings list is every point's headline, in order
+    body: str
+    fact_ids: list[str]
+    version: int = 1
 
 
-class DeepResearchReport(BaseModel):
-    exec_summary: str
-    findings: list[SubFinding] = Field(default_factory=list)
-    sources: list[SourceRef] = Field(default_factory=list)
-    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+class ResearchReport(BaseModel):
+    title: str
+    subtitle: str
+    points: list[Point]
     caveats: list[str] = Field(default_factory=list)
     gaps_remaining: list[str] = Field(default_factory=list)
-    chart_specs: list[ChartSpec] = Field(default_factory=list)  # synthesizer requests
-    charts: list[ResolvedChart] = Field(default_factory=list)  # resolver fills with data
+    chart_specs: list[ChartSpec] = Field(default_factory=list)
+    charts: list[ResolvedChart] = Field(default_factory=list)
 
 
-class ResearchRound(BaseModel):
-    round: int
-    sub_questions: list[SubQuestion] = Field(default_factory=list)
-    findings: list[SubFinding] = Field(default_factory=list)
-    reflection: ReflectionResult | None = None
+class Proposal(BaseModel):
+    n: int
+    point_id: str
+    agent: str
+    text: str  # what you typed: a question or an edit, one box
+    answer: str = ""
+    base_version: int
+    before: Point | None = None
+    after: Point | None = None
+    new_facts: list[Fact] = Field(default_factory=list)
+    status: Literal["running", "pending", "answered", "approved", "rejected", "failed"] = "running"
+    error: str = ""
+    trail: list[str] = Field(default_factory=list)
+    created_at: str
+    decided_at: str | None = None
+
+
+class Job(BaseModel):
+    step: str
+    state: Literal["queued", "running", "done", "failed", "interrupted"]
+    message: str = ""
+    at: str
 
 
 class ResearchSession(BaseModel):
     id: str
-    original_query: str
-    reworded_query: str = ""
-    status: ResearchStatus = ResearchStatus.CREATED
-    clarifying_questions: list[ClarificationQuestion] = Field(default_factory=list)
-    answers: dict[str, str] = Field(default_factory=dict)
-    rounds: list[ResearchRound] = Field(default_factory=list)
-    report: DeepResearchReport | None = None
-    sonar_calls_used: int = 0
-    error: str | None = None
-    created_at: datetime
-    updated_at: datetime
+    topic: str
+    question: str = ""
+    clarifying_questions: list[ClarifyQuestion] = Field(default_factory=list)
+    answers: dict[str, str] = Field(default_factory=dict)  # question text → answer; blanks dropped
+    status: Literal["awaiting_answers", "researching", "writing", "complete"] = "awaiting_answers"
+    job: Job | None = None
+    agents: list[AgentRun] = Field(default_factory=list)
+    board: list[BoardPost] = Field(default_factory=list)
+    board_facts: dict[str, Fact] = Field(default_factory=dict)
+    report: ResearchReport | None = None
+    proposals: list[Proposal] = Field(default_factory=list)
+    cost_usd: float = 0.0
+    fallbacks: list[str] = Field(default_factory=list)
+    created_at: str
+    updated_at: str
+    compacted_at: str | None = None
+
+    def fact_map(self) -> dict[str, Fact]:
+        out = dict(self.board_facts)
+        for a in self.agents:
+            out.update({f.id: f for f in a.facts})
+        return out
+
+    def agent(self, letter: str) -> AgentRun:
+        for a in self.agents:
+            if a.letter == letter:
+                return a
+        raise KeyError(f"agent {letter}")
+
+    def point(self, point_id: str) -> Point:
+        for p in self.report.points if self.report else []:
+            if p.id == point_id:
+                return p
+        raise KeyError(f"point {point_id}")
+
+    def proposal(self, n: int) -> Proposal:
+        if 1 <= n <= len(self.proposals):
+            return self.proposals[n - 1]
+        raise KeyError(f"proposal {n}")
