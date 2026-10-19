@@ -267,7 +267,7 @@ agents:
     dependencies:
       - {key: OPENAI_API_KEY, required: true, why: "LLM call (x_scout.writer_model, gpt-6-luna)"}
       - {key: X_API_KEY, required: false, why: "With X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET and X_SCOUT_LIVE=1, posts go live; else dry run"}
-    class: castelino.x_calendar.CardWriter
+    class: castelino.x_scout.CardWriter
     summary: >-
       At 07:00 ET on weekdays code draws the calendar card from Week Ahead (Monday: the week; Tuesday
       to Friday: today, with the rows it will watch marked) and this call writes the short read on
@@ -286,7 +286,7 @@ agents:
     dependencies:
       - {key: OPENAI_API_KEY, required: true, why: "LLM call (x_scout.writer_model, gpt-6-luna)"}
       - {key: X_API_KEY, required: false, why: "With X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET and X_SCOUT_LIVE=1, posts go live; else dry run"}
-    class: castelino.x_calendar.ReleaseWriter
+    class: castelino.x_scout.ReleaseWriter
     summary: >-
       Every 5 minutes from 07:00 to 19:55 ET on weekdays code checks Nasdaq's live calendar; when a
       watched release or earnings report lands, code writes the numbers line (actual vs expected,
@@ -846,7 +846,7 @@ systems:
       or today's calendar card each weekday morning and each key release as it lands; code writes
       every number and the two writers only add words.
     lanes:
-      - title: "X Scout"
+      - title: "Findings"
         flow: [["Every 2 h"], ["agent:x_scout_search|cited macro + AI"], ["agent:x_scout|1 item or nothing"], ["agent:x_scout_writer|post + reply"], ["end:Post on X|+ chart · or dry-run log"]]
       - title: "Calendar"
         flow: [["7:00 · every 5 min"], ["code:Week Ahead|pick + card · watch list"], ["agent:x_calendar_writer|week or day read"], ["agent:x_release_writer|one line per release"], ["end:Post on X|card · release posts ≤4/day"]]
@@ -1081,20 +1081,30 @@ pipelines:
 
   - id: x-scout
     name: X Scout
-    trigger: "cron · every 2 h · weekdays + Sat noon"
-    guardrails: "number check · no repeats · max 2 a day"
-    delivery: "post + chart on X, one reply"
+    trigger: "cron · findings every 2 h · calendar 07:00 + every 5 min"
+    guardrails: "numbers from sources · no repeats · daily caps"
+    delivery: "on X: findings, calendar cards, release posts"
     nodes:
-      - {id: web, kind: source, layer: sources, x: 326, name: web search, sub: cited sources, does: "A web search that returns cited sources; only lines with a citation are kept."}
-      - {id: series, kind: source, layer: sources, x: 794, name: FRED · Yahoo, sub: chart series, does: "The data series behind the chart, downloaded straight from the source."}
-      - {id: schedule, kind: trigger, layer: agents, x: 150, w: 120, name: Schedule, sub: every 2 h, does: "Runs every 2 hours from 10:15 to 18:15 New York time on weekdays, and at 12:15 on Saturdays, never within an hour of the morning Theme Charts thread."}
-      - {id: search, kind: llm, agent: x_scout_search, layer: agents, x: 326, name: Scout search, sub: macro + AI news, does: "Searches the last 6 hours of macro and AI news and keeps only the lines it can cite."}
-      - {id: scout, kind: llm, agent: x_scout, layer: agents, x: 560, name: Scout, sub: 1 item or nothing, does: "Picks the one item worth a post, or nothing, and names the data series that chart it."}
-      - {id: writer, kind: llm, agent: x_scout_writer, layer: agents, x: 794, name: Writer, sub: post + reply, does: "Writes the post and one reply of analysis from the cited line and the chart's numbers."}
-      - {id: limits, kind: guard, layer: guardrails, x: 560, name: No repeats, sub: 7 days · 2 a day, does: "The Scout sees what this account posted in the last week and today's market alerts; code refuses a story already posted and stops after two posts a day."}
-      - {id: check, kind: guard, layer: guardrails, x: 794, name: Number check, sub: source or chart data, does: "Code draws the chart. Every number in the post must come from the cited source or the chart's data, and each post must fit 280 characters, or the post is dropped after one retry."}
-      - {id: stop, kind: stop, layer: delivery, x: 560, name: Nothing worth posting, sub: until next run, does: "Most runs find nothing worth a post, and the run simply stops."}
-      - {id: post, kind: out, layer: delivery, x: 794, name: X post, sub: + chart · 1 reply, does: "The finding is posted to X with its chart, and the analysis follows as a reply with the source link. While the feature is in test mode, posts are only logged."}
+      - {id: web, kind: source, layer: sources, x: 170, name: web search, sub: cited sources, does: "A web search that returns cited sources; only lines with a citation are kept."}
+      - {id: series, kind: source, layer: sources, x: 490, name: FRED · Yahoo, sub: chart series, does: "The data series behind a finding's chart, downloaded straight from the source."}
+      - {id: calendar, kind: source, layer: sources, x: 790, name: Week Ahead, sub: the week's calendar, does: "ARC's calendar of the week's economic releases (with consensus and previous) and the companies reporting, refreshed every evening."}
+      - {id: nasdaq, kind: source, layer: sources, x: 1110, name: Nasdaq calendar, sub: live actuals, does: "Nasdaq's economic and earnings calendars, which show the actual number or EPS within minutes of a release."}
+      - {id: schedule, kind: trigger, layer: agents, x: 20, w: 120, name: Findings, sub: every 2 h, does: "Runs every 2 hours from 10:15 to 18:15 New York time on weekdays, and at 12:15 on Saturdays, never within an hour of the morning Theme Charts thread."}
+      - {id: search, kind: llm, agent: x_scout_search, layer: agents, x: 170, name: Scout search, sub: macro + AI news, does: "Searches the last 6 hours of macro and AI news and keeps only the lines it can cite."}
+      - {id: scout, kind: llm, agent: x_scout, layer: agents, x: 330, name: Scout, sub: 1 item or nothing, does: "Picks the one item worth a post, or nothing, and names the data series that chart it."}
+      - {id: writer, kind: llm, agent: x_scout_writer, layer: agents, x: 490, name: Writer, sub: post + reply, does: "Writes the post and one reply of analysis from the cited line and the chart's numbers."}
+      - {id: calsched, kind: trigger, layer: agents, x: 650, w: 120, name: Calendar, sub: 07:00 · every 5 min, does: "The calendar card goes out at 7:00 New York time on weekdays (the whole week on Mondays); the release watcher checks every 5 minutes from 7:00 to 19:55."}
+      - {id: pick, kind: code, layer: agents, x: 790, name: Pick + card, sub: key rows · drawn by code, does: "Plain code picks the key US releases, inflation and jobs abroad and the largest companies reporting, draws the card and saves the four most important releases to watch."}
+      - {id: cardw, kind: llm, agent: x_calendar_writer, layer: agents, x: 950, name: Calendar writer, sub: week or day read, does: "Writes the short read on top of the card from the card's own rows."}
+      - {id: releasew, kind: llm, agent: x_release_writer, layer: agents, x: 1110, name: Release writer, sub: one plain line, does: "Adds one plain sentence, with no numbers, under each release post."}
+      - {id: limits, kind: guard, layer: guardrails, x: 330, name: No repeats, sub: 7 days · 2 a day, does: "The Scout sees what this account posted in the last week and today's market alerts; code refuses a story already posted and stops after two findings a day."}
+      - {id: check, kind: guard, layer: guardrails, x: 490, name: Number check, sub: source or chart data, does: "Code draws the chart. Every number in the post must come from the cited source or the chart's data, and each post must fit 280 characters, or the post is dropped after one retry."}
+      - {id: cardcheck, kind: guard, layer: guardrails, x: 950, name: Card check, sub: card's figures only, does: "Every figure in the read must be on the card, and the post must fit 280 characters, or the card goes out with a plain code-written line."}
+      - {id: watchcap, kind: guard, layer: guardrails, x: 1110, name: Watch list, sub: once · 4 a day, does: "Only the morning card's watched releases post, each once, at most four a day; code writes every number in the post."}
+      - {id: stop, kind: stop, layer: delivery, x: 330, name: Nothing worth posting, sub: until next run, does: "Most findings runs find nothing worth a post, and the run simply stops."}
+      - {id: post, kind: out, layer: delivery, x: 490, name: Finding, sub: + chart · 1 reply, does: "The finding is posted to X with its chart, and the analysis follows as a reply with the source link. While the feature is in test mode, posts are only logged."}
+      - {id: cardpost, kind: out, layer: delivery, x: 950, name: Calendar card, sub: week · today, does: "The week's or today's calendar card posted to X with its read. While the feature is in test mode, posts are only logged."}
+      - {id: relpost, kind: out, layer: delivery, x: 1110, name: Release post, sub: actual vs expected, does: "A post on X as each watched release or earnings report lands. While the feature is in test mode, posts are only logged."}
     edges:
       - schedule > search
       - web > search
@@ -1105,45 +1115,22 @@ pipelines:
       - series > writer
       - writer > check
       - check > post
-    steps:
-      - {title: Trigger, nodes: [schedule], edges: [schedule > search], io: ["in: clock", "out: start run"], text: "Every 2 hours on weekdays, and once on Saturdays, a scheduled job starts a run."}
-      - {title: Scan, nodes: [search, web], edges: [web > search], io: ["in: last 6 hours of news", "out: cited items"], text: "The Scout search agent lists the macro and AI news of the last 6 hours, and only lines with a citation go on."}
-      - {title: Pick, nodes: [scout, limits, stop], edges: [search > scout, limits > scout, scout > stop], io: ["in: cited items + past posts", "out: one item or stop"], text: "The Scout agent picks the one item worth a post and the series that chart it. It skips anything already posted, and most runs stop here."}
-      - {title: Chart and write, nodes: [writer, series], edges: [scout > writer, series > writer], io: ["in: item + chart data", "out: post + reply"], text: "Code downloads the series and draws the chart; the Writer agent writes the post and one reply of analysis."}
-      - {title: Check and post, nodes: [check, post], edges: [writer > check, check > post], io: ["in: post + reply", "out: X post"], text: "Code checks every number against the source and the chart and the 280-character limit, then posts the chart and the reply on X."}
-
-  - id: x-calendar
-    name: X Calendar
-    trigger: "cron · 07:00 + every 5 min · weekdays"
-    guardrails: "numbers from the calendar · 4 releases a day"
-    delivery: "calendar card + release posts on X"
-    nodes:
-      - {id: calendar, kind: source, layer: sources, x: 326, name: Week Ahead, sub: the week's calendar, does: "ARC's calendar of the week's economic releases (with consensus and previous) and the companies reporting, refreshed every evening."}
-      - {id: nasdaq, kind: source, layer: sources, x: 794, name: Nasdaq calendar, sub: live actuals, does: "Nasdaq's economic and earnings calendars, which show the actual number or EPS within minutes of a release."}
-      - {id: schedule, kind: trigger, layer: agents, x: 150, w: 120, name: Schedule, sub: 07:00 · every 5 min, does: "The card goes out at 7:00 New York time on weekdays (the whole week on Mondays); the watcher checks every 5 minutes from 7:00 to 19:55."}
-      - {id: pick, kind: code, layer: agents, x: 326, name: Pick + card, sub: key rows · drawn by code, does: "Plain code picks the key US releases, inflation and jobs abroad and the largest companies reporting, draws the card and saves the four most important rows to watch."}
-      - {id: cardw, kind: llm, agent: x_calendar_writer, layer: agents, x: 560, name: Calendar writer, sub: week or day read, does: "Writes the short read on top of the card from the card's own rows."}
-      - {id: releasew, kind: llm, agent: x_release_writer, layer: agents, x: 794, name: Release writer, sub: one plain line, does: "Adds one plain sentence, with no numbers, under each release post."}
-      - {id: check, kind: guard, layer: guardrails, x: 560, name: Number check, sub: card's figures only, does: "Every figure in the read must be on the card, and the post must fit 280 characters, or the card goes out with a plain code-written line."}
-      - {id: watchcap, kind: guard, layer: guardrails, x: 794, name: Watch list, sub: once · 4 a day, does: "Only the morning card's watched releases post, each once, at most four a day; code writes every number in the post."}
-      - {id: cardpost, kind: out, layer: delivery, x: 560, name: Calendar card, sub: week · today, does: "The week's or today's calendar card posted to X with its read. While the feature is in test mode, posts are only logged."}
-      - {id: relpost, kind: out, layer: delivery, x: 794, name: Release post, sub: actual vs expected, does: "A post on X as each watched release or earnings report lands. While the feature is in test mode, posts are only logged."}
-    edges:
-      - schedule > pick
+      - calsched > pick
       - calendar > pick
       - pick > cardw
-      - cardw > check
-      - check > cardpost
-      - pick > watchcap
+      - cardw > cardcheck
+      - cardcheck > cardpost
+      - cardcheck > watchcap
       - nasdaq > releasew
       - watchcap > releasew
       - releasew > relpost
     steps:
-      - {title: Trigger, nodes: [schedule], edges: [schedule > pick], io: ["in: clock", "out: start run"], text: "At 7:00 on weekdays a scheduled job builds the card; every 5 minutes another checks for releases."}
-      - {title: Card, nodes: [pick, calendar, cardw], edges: [calendar > pick, pick > cardw], io: ["in: the week's calendar", "out: card + read"], text: "Code picks the key releases and reporters and draws the card; the Calendar writer adds a short read."}
-      - {title: Check and post, nodes: [check, cardpost], edges: [cardw > check, check > cardpost], io: ["in: card + read", "out: X post"], text: "Code checks every figure in the read against the card, then the card goes out on X."}
-      - {title: Watch, nodes: [watchcap, nasdaq, releasew], edges: [pick > watchcap, watchcap > releasew, nasdaq > releasew], io: ["in: watch list + live calendar", "out: landed releases"], text: "Code watches Nasdaq's live calendar for the morning's four key releases; the Release writer adds one plain sentence to each."}
-      - {title: Release post, nodes: [relpost], edges: [releasew > relpost], io: ["in: numbers line + sentence", "out: X post"], text: "Each release posts once with its actual against what was expected."}
+      - {title: Find, nodes: [schedule, search, web], edges: [schedule > search, web > search], io: ["in: last 6 hours of news", "out: cited items"], text: "Every 2 hours on weekdays the Scout search agent lists the macro and AI news of the last 6 hours, and only lines with a citation go on."}
+      - {title: Pick, nodes: [scout, limits, stop], edges: [search > scout, limits > scout, scout > stop], io: ["in: cited items + past posts", "out: one item or stop"], text: "The Scout agent picks the one item worth a post and the series that chart it. It skips anything already posted, and most runs stop here."}
+      - {title: Chart, write and post, nodes: [writer, series, check, post], edges: [scout > writer, series > writer, writer > check, check > post], io: ["in: item + chart data", "out: finding on X"], text: "Code draws the chart; the Writer agent writes the post and one reply; code checks every number, then the finding goes out on X."}
+      - {title: Calendar card, nodes: [calsched, pick, calendar, cardw], edges: [calsched > pick, calendar > pick, pick > cardw], io: ["in: the week's calendar", "out: card + read"], text: "At 7:00 on weekdays code picks the key releases and reporters and draws the card; the Calendar writer adds a short read."}
+      - {title: Check and post the card, nodes: [cardcheck, cardpost], edges: [cardw > cardcheck, cardcheck > cardpost], io: ["in: card + read", "out: card on X"], text: "Code checks every figure in the read against the card, then the card goes out on X."}
+      - {title: Release posts, nodes: [watchcap, nasdaq, releasew, relpost], edges: [cardcheck > watchcap, watchcap > releasew, nasdaq > releasew, releasew > relpost], io: ["in: watch list + live calendar", "out: release posts"], text: "Every 5 minutes code checks Nasdaq's live calendar for the morning's watched releases; each one that lands posts once with its actual against what was expected, plus one plain sentence."}
 
   - id: sector-sentiment
     name: Sector Sentiment

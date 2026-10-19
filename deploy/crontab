@@ -14,14 +14,14 @@
 # Market alerts (x_moves.py): every 30 min, the job itself skips outside 9:35-16:05 ET on weekdays.
 # Dry run (log only) until X_MOVES_LIVE=1 and the four X_API_* / X_ACCESS_* keys are Fly secrets.
 5,35 9-16 * * 1-5 cd /app && timeout 10m python -m castelino.x_moves >> data/x_moves.log 2>&1
-# X Scout (x_scout.py): one cited macro or AI finding with a chart, every 2 h from 10:15 to 18:15 ET on
-# weekdays and 12:15 on Saturdays, at most 2 posts a day. Dry run (log only) until X_SCOUT_LIVE=1 is a Fly secret.
-# Weekdays start at 10:15 so the 08:00 Theme Charts thread (done by 09:00, its 1h timeout) has the feed to itself
-# for at least an hour; x_scout also skips a run within an hour of that thread's last post (a late re-run).
-15 10-18/2 * * 1-5 cd /app && timeout 10m python -m castelino.x_scout >> data/x_scout.log 2>&1
-15 12 * * 6 cd /app && timeout 10m python -m castelino.x_scout >> data/x_scout.log 2>&1
-# X Scout calendar (x_calendar.py): 07:00 on Mondays the week's card, Tuesday to Friday today's card; every
-# 5 min from 07:00 to 19:55 on weekdays the watcher posts each watched release once it lands (at most 4 a day).
-# Same X_SCOUT_LIVE switch as the Scout. Release posts may land in the Theme Charts quiet hour: they are news.
-0 7 * * 1-5 cd /app && timeout 10m python -m castelino.x_calendar card >> data/x_calendar.log 2>&1
-*/5 7-19 * * 1-5 cd /app && timeout 4m python -m castelino.x_calendar watch >> data/x_calendar.log 2>&1
+# X Scout (x_scout.py), one system, three jobs, one log; dry run (log only) until X_SCOUT_LIVE=1 is a Fly secret.
+# scout: one cited macro or AI finding with a chart, every 2 h from 10:15 to 18:15 ET on weekdays and 12:15 on
+#   Saturdays, at most 2 a day. Weekdays start at 10:15 so the 08:00 Theme Charts thread (done by 09:00, its 1h
+#   timeout) has the feed to itself for an hour; a run within an hour of that thread's last post is skipped too.
+# card: 07:00 on weekdays, the week's calendar card on Mondays and today's Tuesday to Friday.
+# watch: every 5 min from 07:00 to 19:55 on weekdays, a post for each watched release as it lands (at most 4 a
+#   day); release posts may land in the Theme Charts quiet hour: they are news.
+15 10-18/2 * * 1-5 cd /app && timeout 10m python -m castelino.x_scout scout >> data/x_scout.log 2>&1
+15 12 * * 6 cd /app && timeout 10m python -m castelino.x_scout scout >> data/x_scout.log 2>&1
+0 7 * * 1-5 cd /app && timeout 10m python -m castelino.x_scout card >> data/x_scout.log 2>&1
+*/5 7-19 * * 1-5 cd /app && timeout 4m python -m castelino.x_scout watch >> data/x_scout.log 2>&1
