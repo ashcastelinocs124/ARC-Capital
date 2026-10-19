@@ -115,10 +115,10 @@ update_agent:
   updates_dir: data/updates
 
 themes:
-  # Theme Charts: the #1 macro theme at 08:00 ET on weekdays, charted, on /themes (deploy/crontab).
+  # Theme Charts: the macro theme a trader needs before the open, 08:00 ET on weekdays (deploy/crontab).
   picker_model: gpt-6-sol
   search_model: gpt-6-luna
-  explainer_model: gpt-6-luna   # X thread's one plain line + Substack's 2-3 sentences under each chart
+  explainer_model: gpt-6-luna   # the trader read under every chart, in the X thread and the Substack post
   max_charts: 6
   min_charts: 5   # fewer on the first try → one retry told why; the retry publishes what passed
   memory_runs: 6
