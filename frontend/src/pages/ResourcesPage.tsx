@@ -1,10 +1,15 @@
-import { ArrowUpRight } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowUpRight, Download, X } from "lucide-react";
 import { PageIntro } from "@/components/layout/PageIntro";
 import { C } from "@/lib/theme";
 
 // Hand-kept: add a deck as one line in its group, newest first. A deck with a PDF in the public
-// Workshop-Slides repo links there; the rest link to the claude.ai deck, which must be shared publicly.
-const GH = "https://github.com/ashcastelinocs124/Workshop-Slides/blob/main/";
+// Workshop-Slides repo (`pdf`: its URL-encoded path there) opens in a viewer on this page and downloads;
+// the rest link to the claude.ai deck (`url`), which must be shared publicly and can't be framed.
+// jsDelivr serves the repo's files as real PDFs (GitHub's raw links refuse framing). ponytail: its
+// limits are 20 MB a file and up to 12 h of caching on @main, so a replaced PDF can lag; purge at
+// purge.jsdelivr.net or host the PDFs on the site if either bites.
+const CDN = "https://cdn.jsdelivr.net/gh/ashcastelinocs124/Workshop-Slides@main/";
 const ART = "https://claude.ai/artifact/";
 
 const BOOK = {
@@ -13,16 +18,16 @@ const BOOK = {
   parts: ["How the economy works", "Policy makers", "The asset classes", "The global system", "Doing macro"],
 };
 
-type Deck = { title: string; date: string; slides: number; blurb: string; url: string };
+type Deck = { title: string; date: string; slides: number; blurb: string; pdf?: string; url?: string };
 const GROUPS: { name: string; sub: string; color: string; decks: Deck[] }[] = [
   { name: "AI industry", sub: "who builds, funds and powers frontier AI", color: C.ai, decks: [
-    { title: "Learning on the job: continual learning for LLMs", date: "Oct 8, 2026", slides: 50, url: `${GH}AI/ai-update/Continual%20Learning%20Labs%20%26%20Neolabs.pdf`,
+    { title: "Learning on the job: continual learning for LLMs", date: "Oct 8, 2026", slides: 50, pdf: "AI/ai-update/Continual%20Learning%20Labs%20%26%20Neolabs.pdf",
       blurb: "How LLMs could keep learning after deployment, the labs betting on it, and what it means for chips." },
-    { title: "Neoclouds & Neolabs", date: "Oct 6, 2026", slides: 63, url: `${GH}Finance/market-update/Neoclouds%20%26%20Neolabs.pdf`,
+    { title: "Neoclouds & Neolabs", date: "Oct 6, 2026", slides: 63, pdf: "Finance/market-update/Neoclouds%20%26%20Neolabs.pdf",
       blurb: "How GPU-rental neoclouds and well-funded new AI labs work, how they are financed, and what could break." },
     { title: "AI Data Centers Are Going to Space", date: "Sep 24, 2026", slides: 22, url: `${ART}YXCeVqA5xvibrikHoh2QnS`,
       blurb: "Google's Project Suncatcher, and the five engineering problems between a design paper and an orbital AI cluster." },
-    { title: "Money for Machines", date: "Sep 23, 2026", slides: 31, url: `${GH}Finance/market-update/Money%20for%20Machines.pdf`,
+    { title: "Money for Machines", date: "Sep 23, 2026", slides: 31, pdf: "Finance/market-update/Money%20for%20Machines.pdf",
       blurb: "Crypto payment rails for AI agents are built and backed by incumbents; real agent demand is still tiny." },
   ] },
   { name: "Macro", sub: "elections, policy and where capital goes", color: C.inflation, decks: [
@@ -35,20 +40,94 @@ const GROUPS: { name: string; sub: string; color: string; decks: Deck[] }[] = [
     { title: "Tech blinks, the Dow holds", date: "Week of Oct 12–16, 2026", slides: 38, url: `${ART}87dygTfrUjE1hXWZUbgyjU`,
       blurb: "Money left AI hardware and AI credit for defensives and energy, as CoreWeave fell and oil topped $100." },
     { title: "Weekly Market Update", date: "Week ending Sep 18, 2026", slides: 28,
-      url: `${GH}Finance/market-update/Weekly%20Market%20Update%20%E2%80%94%20Sept%2018%2C%202026.pdf`,
+      pdf: "Finance/market-update/Weekly%20Market%20Update%20%E2%80%94%20Sept%2018%2C%202026.pdf",
       blurb: "The Fed hiked, the 10-year hit 5% and breadth cracked; plus Japan, AI and the Anthropic IPO." },
   ] },
 ];
 
 const out = { target: "_blank", rel: "noopener noreferrer" } as const;
+const BTN = "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-semibold";
+const PRIMARY = `${BTN} bg-accent text-on-accent hover:bg-accent-hover`;
+const SECONDARY = `${BTN} border border-border-strong text-text hover:border-text`;
+
+// A cross-origin <a download> is ignored (the browser just opens the PDF), so fetch it and save it under its title.
+async function download(d: Deck) {
+  const href = CDN + d.pdf;
+  try {
+    const r = await fetch(href);
+    if (!r.ok) throw new Error(String(r.status));
+    const url = URL.createObjectURL(await r.blob());
+    Object.assign(document.createElement("a"), { href: url, download: `${d.title}.pdf` }).click();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  } catch {
+    window.open(href, "_blank", "noopener");
+  }
+}
+
+function DownloadButton({ deck, className, label }: { deck: Deck; className: string; label: string }) {
+  const [busy, setBusy] = useState(false);
+  const click = () => {
+    setBusy(true);
+    download(deck).finally(() => setBusy(false));
+  };
+  return (
+    <button className={className} disabled={busy} onClick={click}>
+      {busy ? "Downloading…" : label} <Download className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
+// The pop-up viewer: a native <dialog> (Esc closes it, focus stays inside), the PDF in the browser's own viewer.
+function Viewer({ deck, onClose }: { deck: Deck | null; onClose: () => void }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (deck) ref.current?.showModal();
+    else ref.current?.close();
+  }, [deck]);
+  return (
+    <dialog
+      ref={ref}
+      onClose={onClose}
+      onClick={(e) => e.target === ref.current && ref.current.close()} // a click on the backdrop
+      className="m-auto h-[min(92vh,920px)] max-h-none w-[min(94vw,1320px)] max-w-none overflow-hidden rounded-xl border border-border-strong bg-surface p-0 text-text backdrop:bg-black/70"
+    >
+      {deck && (
+        <div className="flex h-full flex-col">
+          <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[15px] font-semibold">{deck.title}</div>
+              <div className="text-xs text-muted">
+                {deck.date} · {deck.slides} slides
+              </div>
+            </div>
+            <DownloadButton deck={deck} className={PRIMARY} label="Download PDF" />
+            <a href={CDN + deck.pdf} {...out} className={SECONDARY}>
+              Open in new tab <ArrowUpRight className="h-3.5 w-3.5" />
+            </a>
+            <button onClick={() => ref.current?.close()} aria-label="Close" className="rounded-full p-1.5 text-text-2 hover:text-text">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <iframe src={CDN + deck.pdf} title={deck.title} className="w-full flex-1 border-0 bg-surface-3" />
+        </div>
+      )}
+    </dialog>
+  );
+}
 
 export default function ResourcesPage() {
   const count = GROUPS.reduce((n, g) => n + g.decks.length, 0);
+  const [open, setOpen] = useState<Deck | null>(null);
+  // phones get the PDF in a new tab: mobile browsers show one page of a framed PDF, or none
+  const view = (d: Deck) => {
+    if (window.matchMedia("(max-width: 767px)").matches) window.open(CDN + d.pdf, "_blank", "noopener");
+    else setOpen(d);
+  };
   return (
     <div className="space-y-5 p-4 md:p-8">
       <PageIntro kicker="Resources" title="Talks, slides and the Global Macro Cookbook">
-        The slides from talks I've given on AI and global macro, plus a free textbook I wrote. Each card opens the slides;
-        the book opens on its own site.
+        The slides from talks I've given on AI and global macro, plus a free textbook I wrote. View a deck right here or
+        download its PDF; the book opens on its own site.
       </PageIntro>
 
       <section className="card grid overflow-hidden md:grid-cols-[1.15fr_1fr]">
@@ -95,20 +174,38 @@ export default function ResourcesPage() {
             {g.name} <span className="font-normal text-muted">· {g.sub}</span>
           </h3>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 md:gap-4">
-            {g.decks.map((d) => (
-              <a key={d.url} href={d.url} {...out} className="card flex flex-col p-[18px] transition-shadow hover:shadow-card-hover">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="eyebrow">{d.date}</span>
-                  <span className="pill">{d.slides} SLIDES</span>
+            {g.decks.map((d) => {
+              const body = (
+                <>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="eyebrow">{d.date}</span>
+                    <span className="pill">{d.slides} SLIDES</span>
+                  </div>
+                  <h4 className="mt-3 text-[15.5px] font-semibold leading-snug text-text">{d.title}</h4>
+                  <p className="mt-1.5 flex-1 text-[12.5px] leading-relaxed text-muted">{d.blurb}</p>
+                </>
+              );
+              return d.pdf ? (
+                <div key={d.title} className="card flex flex-col p-[18px]">
+                  {body}
+                  <div className="mt-3.5 flex flex-wrap gap-2">
+                    <button onClick={() => view(d)} className={PRIMARY}>
+                      View
+                    </button>
+                    <DownloadButton deck={d} className={SECONDARY} label="Download" />
+                  </div>
                 </div>
-                <h4 className="mt-3 text-[15.5px] font-semibold leading-snug text-text">{d.title}</h4>
-                <p className="mt-1.5 flex-1 text-[12.5px] leading-relaxed text-muted">{d.blurb}</p>
-                <div className="mt-3.5 text-[13px] font-semibold text-accent">View slides ↗</div>
-              </a>
-            ))}
+              ) : (
+                <a key={d.title} href={d.url} {...out} className="card flex flex-col p-[18px] transition-shadow hover:shadow-card-hover">
+                  {body}
+                  <div className="mt-3.5 text-[13px] font-semibold text-accent">View on claude.ai ↗</div>
+                </a>
+              );
+            })}
           </div>
         </section>
       ))}
+      <Viewer deck={open} onClose={() => setOpen(null)} />
     </div>
   );
 }
