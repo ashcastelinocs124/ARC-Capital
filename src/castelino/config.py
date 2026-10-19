@@ -164,7 +164,7 @@ class DeepResearchCfg(BaseModel):
     writer_max_tokens: int = 32000
     revise_model: str = "anthropic/claude-haiku-5.5"
     revise_fallback_model: str = "anthropic/claude-sonnet-5.5"
-    revise_openai_model: str = "gpt-6-sol"  # both revise models are OpenRouter; this runs without the key
+    revise_openai_model: str = "gpt-6-sol"  # runs when OPENROUTER_API_KEY is unset
     compact_model: str = "gpt-6-luna"
     clarify_max_questions: int = 3
     max_agents: int = 8

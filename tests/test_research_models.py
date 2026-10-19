@@ -31,7 +31,9 @@ def _session() -> ResearchSession:
         agents=[agent("A"), agent("B", facts=[fact("B1", "27%", [27.0])])],
         board_facts={"B9": fact("B9", "posted", [1.0])},
         report=ResearchReport(title="t", subtitle="s", points=[p]),
-        proposals=[Proposal(n=1, point_id="p1", agent="A", text="?", base_version=1, created_at="x")],
+        proposals=[
+            Proposal(n=1, point_id="p1", agent="A", text="?", base_version=1, created_at="x")
+        ],
         created_at="2026-10-19T10:00:00",
         updated_at="2026-10-19T10:00:00",
     )

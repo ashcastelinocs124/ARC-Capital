@@ -25,7 +25,9 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr(
         clarifier,
         "clarify",
-        lambda topic, meter: Clarification(question="How fast are US firms adopting AI?", questions=qs),
+        lambda topic, meter: Clarification(
+            question="How fast are US firms adopting AI?", questions=qs
+        ),
     )
     calls = []
     monkeypatch.setattr(runner, "submit", lambda sid, step="run", **k: calls.append((sid, step)))

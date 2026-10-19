@@ -54,7 +54,11 @@ def test_x_search_makes_attributed_reported_facts():
     out = b.call("x_search", {"query": "enterprise AI"})
     f = b.facts[0]
     assert out.startswith("[A1] @sama: ")
-    assert (f.id, f.source_title, f.source_url) == ("A1", "@sama on X", "https://x.com/sama/status/1")
+    assert (f.id, f.source_title, f.source_url) == (
+        "A1",
+        "@sama on X",
+        "https://x.com/sama/status/1",
+    )
     assert f.provenance == "reported" and 40.0 in f.numbers
     sent = b._x_get.params[0]
     assert sent["query"] == "enterprise AI -is:retweet" and sent["max_results"] == 10

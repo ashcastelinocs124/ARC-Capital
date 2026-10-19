@@ -73,10 +73,18 @@ def revise(
         msgs = [{"role": "system", "content": REVISE}, {"role": "user", "content": user}]
         for _ in range(2):
             out = llm.structured(
-                "research_revise", model, msgs, RevisedPoint, meter, fallback=cfg.revise_openai_model
+                "research_revise",
+                model,
+                msgs,
+                RevisedPoint,
+                meter,
+                fallback=cfg.revise_openai_model,
             )
             out = out.model_copy(
-                update={"headline": guard.strip_ids(out.headline), "body": guard.strip_ids(out.body)}
+                update={
+                    "headline": guard.strip_ids(out.headline),
+                    "body": guard.strip_ids(out.body),
+                }
             )
             if not (errs := guard.point_errors(out, by)):
                 return out, model, []
@@ -117,7 +125,9 @@ def rethink(sid: str, n: int, meter: llm.Meter) -> None:
             trail.append(f"Rewrote {point.id} only · {llm.label(model)} · passed the number check")
     with store.edit(sid) as x:
         owner = x.agent(prop.agent)
-        owner.facts += r.new_facts  # kept even if you reject, so a later rethink never reuses their ids
+        owner.facts += (
+            r.new_facts
+        )  # kept even if you reject, so a later rethink never reuses their ids
         owner.transcript = r.transcript
         owner.tool_calls += r.calls
         owner.x_posts += r.x_posts

@@ -28,7 +28,10 @@ def review(s: ResearchSession, meter: llm.Meter) -> Critique:
     cfg = get_settings().deep_research
     msgs = [
         {"role": "system", "content": SYSTEM.format(n=cfg.max_gap_agents)},
-        {"role": "user", "content": f"Research question: {s.question}\n\nFindings:\n{findings_text(s)}"},
+        {
+            "role": "user",
+            "content": f"Research question: {s.question}\n\nFindings:\n{findings_text(s)}",
+        },
     ]
     out = llm.structured("research_critic", cfg.critic_model, msgs, Critique, meter)
     return out.model_copy(update={"gaps": out.gaps[: cfg.max_gap_agents]})

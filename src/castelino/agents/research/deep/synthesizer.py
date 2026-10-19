@@ -47,7 +47,7 @@ def brief(s: ResearchSession) -> str:
 
 
 def owner_letter(agent: str) -> str:
-    """"B", "B · Who leads" or "Researcher B" → "B"."""
+    """ "B", "B · Who leads" or "Researcher B" → "B"."""
     t = agent.strip().removeprefix("Researcher ").strip()
     return t[:1].upper()
 

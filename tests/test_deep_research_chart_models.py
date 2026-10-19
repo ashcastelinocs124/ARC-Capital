@@ -29,4 +29,3 @@ def test_resolved_chart_roundtrip():
     # serializes to JSON cleanly (used by the endpoint)
     dumped = chart.model_dump(mode="json")
     assert dumped["series"][0]["points"][0]["x"] == "2026-01-01"
-
