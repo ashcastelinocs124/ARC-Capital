@@ -1,13 +1,16 @@
-"""Theme Charts agent: the single most popular macro theme right now, charted, once a day.
+"""Theme Charts agent: the macro theme a trader must know before the US open, charted, once a day.
 
 Code gathers three signal sets as facts (N: the macro themes news and financial X discuss most,
-M: 1d/1w/1m market moves, P: Polymarket odds swings); one LLM call picks the theme and 6 charts (at
+M: 1d/1w/1m market moves, P: Polymarket odds swings) plus C: today's calendar (releases and the
+biggest earnings, from Week Ahead's file); one LLM call picks the theme and 6 charts (at
 least 5 must pass the checks, or the retry is told why);
 code fetches every series and draws it with the Weekly Deep Dive's renderer plus this page's own
 forms (`theme_charts`: heatmap, together, range), so the LLM never supplies a plotted number. Each run is data/themes/<YYYY-MM-DD>-<am|pm>.json + its PNGs; each exhibit
 also carries its plotted numbers (`data`), which Radar (/macro#theme) draws interactively. Run by deploy/crontab at 08:00 ET on weekdays: python -m castelino.agents.themes
-The cron line then publishes the run on Substack (--substack, with gpt-6-luna's two or three
-sentences under each chart) and, once the site is redeployed, posts it to X as a thread linking that post (--post); no approval step for either.
+The cron line then publishes the run on Substack (--substack) and, once the site is redeployed,
+posts it to X as a thread linking that post (--post); no approval step for either. Both carry a
+short trader read under every chart (gpt-6-luna), whose every number must be one code drew on that
+chart or a fact's (`_untraced`), plus today's calendar written by code.
 """
 
 from __future__ import annotations
@@ -29,9 +32,9 @@ from castelino import x_post
 from castelino.agents import theme_charts
 from castelino.agents.base import StructuredAgent
 from castelino.agents.update.charts import default_fetch
-from castelino.agents.update.facts import facts_from_search
+from castelino.agents.update.facts import facts_from_search, numbers_in
 from castelino.agents.update.fsio import atomic_write_text
-from castelino.agents.update.guard import unsupported
+from castelino.agents.update.guard import _supported, unsupported
 from castelino.agents.update.models import Fact
 from castelino.agents.weekly.charts import default_series, make_weekly_exhibits
 from castelino.agents.weekly.guard import _pick_errors
@@ -89,6 +92,7 @@ class ThemeRun(BaseModel):
     fact_ids: list[str]
     exhibits: list[ThemeExhibit]
     facts: list[Fact]
+    calendar: list[Fact] = []  # today's C facts; [] in runs before 2026-10-19
 
 
 SEARCH_SYSTEM = (
@@ -100,18 +104,24 @@ growth, jobs, oil, the dollar, credit, equities) that news outlets and financial
 in the last 12 hours, most-discussed first. One bullet per theme, one line each: the theme and what
 is being said, with the exact figures sources report, ending with its citation. No other text."""
 
-SYSTEM = """You pick the single most popular US macro theme right now for ARC Research's Theme
-Charts page, and the charts that show it. You get three signal sets as numbered facts:
+SYSTEM = """You pick the one US macro theme an analyst or trader must know before the US open today,
+for ARC Research's Theme Charts, and the charts that show it. Your readers are about to trade: they
+need what moved and why, what is already priced, how stretched markets are, and what is scheduled
+today. You get three signal sets and today's calendar as numbered facts:
 - N facts: the macro themes news outlets and financial X discussed most in the last 12 hours,
   most-discussed first.
 - M facts: 1d/1w/1m moves across equities, rates, credit, commodities and FX.
 - P facts: Polymarket economy and Fed markets with the biggest odds moves.
-Popular means widely discussed AND visible in prices or odds. Weigh all three; `lead` names the
-signal that mattered most.
+- C facts: today's scheduled releases (time ET, consensus, previous) and the biggest companies
+  reporting. They are the schedule, not data to chart.
+Pick the theme that matters most for today's trading: widely discussed AND visible in prices or
+odds, and better still if something on today's calendar can move it. Weigh all three signal sets;
+`lead` names the signal that mattered most.
 Rules:
 - theme: one headline under 70 characters saying what is happening.
 - fact_ids: the ids of the listed facts the theme, why and signals rest on.
-- why: 2-3 plain sentences. Use only numbers that appear in the facts listed in fact_ids. Never
+- why: 2-3 plain sentences: what happened, what is priced, and, if a C fact bears on the theme,
+  what is due today. Use only numbers that appear in the facts listed in fact_ids. Never
   compute, round differently or invent a figure.
 - signals: exactly three, one per kind (coverage, move, odds). headline: the one-line read, under
   40 characters; note: a short supporting detail. Coverage says how high the theme ranks among
@@ -119,10 +129,15 @@ Rules:
   about the theme, say so. Write for readers: never mention fact ids or the N, M and P sets.
 - same_as_last: true if this is the same theme as the newest one under Recent themes, however it
   is worded.
-- charts: 6 exhibits that show the theme (at least 5 must be drawable). Use at least 4 different
+- charts: 6 exhibits that show the theme (at least 5 must be drawable). Each answers a question a
+  trader asks before the open: what moved overnight and how unusual it is (heatmap or movers;
+  index futures such as yahoo:ES=F, yahoo:NQ=F and yahoo:ZN=F carry the overnight move), what is
+  priced (a Polymarket line), how stretched markets are (range), whether two markets trade
+  together (together), where the key levels are (line or compare). Put first the chart that
+  matters most for the open. Use at least 4 different
   forms. At most two may be line or compare, and never both heatmap and movers (both show moves).
   Two charts of the same form must show different series (one compare of stock prices, another
-  of yields). Forms:
+  of yields). Never chart a C fact. Forms:
   - line: one series; the right form for a Polymarket market's odds.
   - compare: 2-4 series on one chart; prices rebased to 100, rates shown as levels.
   - movers: 2-8 bars, each point's value one of the numbers of the fact its fact_id names.
@@ -170,11 +185,33 @@ class ThemePicker(StructuredAgent[ThemePick]):
         return out
 
 
-EXPLAIN = """You write the one-line read under each chart in ARC Research's Theme Charts thread on X.
-For each chart, give a heading of 2 to 5 words and one plain sentence on what the chart says about
-today's theme, for someone scrolling X. Use no figures or digits at all (the line above it already
-carries the numbers), no dashes and no hype. Heading and sentence together stay under 140 characters.
+DESK = """Your readers are analysts and traders about to trade the US open. Under each chart, give the
+read they need: what the chart says about today's theme and what it means for today's trading (the
+level that matters, the risk to watch). Each read says what only that chart shows: don't restate
+the theme or repeat another chart's read. Name a calendar entry only in the read of a chart it can
+move, and at most once across all reads; most reads need none. Interpret, never advise: no buy,
+sell, long or short calls, no price targets, no hype and no long dashes (hyphenated words such as
+ten-year are fine).
+You see each chart's title, its data line and the numbers code drew on it, not the picture, so
+claim nothing about its shape or path that they don't show. Any number you use must be one of that
+chart's numbers, a number in the facts or today's calendar, written as shown or rounded to fewer
+decimals. Never compute a new one (no differences, no ratios). Write periods and counts in words
+(one-year high, this week, two charts), never as digits. A time must be a calendar entry's.
 Return one entry per chart, with its n."""
+EXPLAIN = (
+    DESK
+    + """
+This is for ARC Research's Theme Charts thread on X. For each chart: heading = the read in 2 to 6
+words ("A hold is priced", "Level to watch: 5.31%"), sentence = one short sentence on what it means
+today. Heading and sentence together stay under 120 characters."""
+)
+COMMENT = (
+    DESK
+    + """
+This is for ARC Research's Theme Charts post on Substack, printed under each chart's data line.
+For each chart: heading = the read in 2 to 6 words, in sentence case; sentence = one or two
+sentences on what it means today. Heading and sentence together stay under 250 characters."""
+)
 
 
 class ChartLine(BaseModel):
@@ -187,12 +224,72 @@ class ChartLines(BaseModel):  # LLM output (closed schema: no defaults)
     lines: list[ChartLine]
 
 
+def _num(v: float) -> str:
+    return (f"{v:,.2f}" if abs(v) >= 10 else f"{v:.4f}").rstrip("0").rstrip(".")
+
+
+def _name(s: str) -> str:
+    return s.split(" · ")[0]  # drop the "· Oct 14" a lagging row carries
+
+
+def key_numbers(e: ThemeExhibit) -> list[str]:
+    """The numbers code drew on one chart, labelled, from its browser data: the commentary's only
+    numbers besides the facts. Runs before 2026-10-15 have no data: the data line alone."""
+    d, out = e.data or {}, []
+    for s in d.get("series", []):
+        v, u = [p[1] for p in s["points"]], s["unit"]
+        if d.get("dated"):
+            span = "one-year" if d.get("window", 0) <= theme_charts.YEAR else "window"
+            out.append(f"{_name(s['name'])}: last {_num(v[-1])}{u}, {span} high {_num(max(v))}{u}, "
+                       f"{span} low {_num(min(v))}{u}")  # fmt: skip
+        else:
+            out.append(f"{_name(s['name'])}: last {_num(v[-1])}{u}, first shown {_num(v[0])}{u}")
+    for r in d.get("rows", []):
+        if "cells" in r:  # heatmap: day, week, month, three months
+            cells = ", ".join(
+                f"{h} {theme_charts._move(m, r['rate'])} ({s:+.1f}σ)"
+                for h, (m, s) in zip(
+                    ("day", "week", "month", "three months"), r["cells"], strict=True
+                )
+            )
+            out.append(f"{_name(r['name'])}: {cells}")
+        else:  # range
+            u, lo, hi = "%" if r["rate"] else "", r["lo"], r["hi"]
+            pos = (r["last"] - lo) / (hi - lo) * 100 if hi > lo else 50.0
+            out.append(f"{_name(r['name'])}: last {_num(r['last'])}{u}, one-year low {_num(lo)}{u}, "
+                       f"high {_num(hi)}{u}, a month ago {_num(r['ago'])}{u}, "
+                       f"{pos:.0f}% of its one-year range")  # fmt: skip
+    for b in d.get("bars", []):
+        out.append(f"{b['label']}: {b['value']:+g}{d.get('unit', '')}")
+    if e.kind == "together" and d.get("points"):  # old "scatter" runs carry other points
+        out.append(f"{' and '.join(d['names'])}: latest share {d['points'][-1][1]:.0f}%")
+    return out
+
+
+def _brief(rec: ThemeRun) -> str:
+    """What both commentary agents see: the run, today's calendar and each chart's numbers."""
+    signals = "\n".join(f"- {s.headline}. {s.note}" for s in rec.signals)
+    cal = "\n".join(f"- {f.text}" for f in rec.calendar) or "(nothing scheduled)"
+    charts = "\n".join(
+        f"n={e.n} ({e.kind}) {EXHIBIT.sub('', e.title)} | {e.subtitle}"
+        + "".join(f"\n  {k}" for k in key_numbers(e))
+        for e in rec.exhibits
+    )
+    return (
+        f"Theme: {rec.theme}\nWhy: {rec.why}\nSignals:\n{signals}\n\n"
+        f"Today's calendar:\n{cal}\n\nCharts:\n{charts}"
+    )
+
+
 class ChartExplainer(StructuredAgent[ChartLines]):
-    """The X thread's plain-English line under each chart after the first (gpt-6-luna)."""
+    """The X thread's trader read under every chart (gpt-6-luna)."""
 
     name = "chart_explainer"
     output_schema = ChartLines
     tier = "fast"
+    max_output_tokens = (
+        8000  # gpt-6-luna spent the default 2048 on reasoning over six charts' numbers
+    )
 
     def __init__(self) -> None:
         self.model = get_settings().themes.explainer_model
@@ -201,100 +298,139 @@ class ChartExplainer(StructuredAgent[ChartLines]):
         return EXPLAIN
 
     def user_prompt(self, *, rec: ThemeRun) -> str:
-        return f"Theme: {rec.theme}\nWhy: {rec.why}\n\nCharts:\n{_charts(rec.exhibits[1:])}"
+        return _brief(rec)
 
 
-def _charts(exhibits: list[ThemeExhibit]) -> str:
-    return "\n".join(
-        f"n={e.n} ({e.kind}) {EXHIBIT.sub('', e.title)} | {e.subtitle}" for e in exhibits
-    )
-
-
-def explain(rec: ThemeRun, explainer=None) -> dict[int, str]:
-    """n -> "→ Heading. Sentence" for charts 2..n. A line with any digit is dropped (every figure on X
-    stays the code's), and a failed call returns {} so the thread posts as before."""
-    if len(rec.exhibits) < 2:
-        return {}
-    try:
-        out = (explainer or ChartExplainer())(rec=rec)
-    except Exception as e:  # noqa: BLE001 - the thread never waits on the explainer
-        log.warning("themes: chart explainer failed, posting without it: %s", e)
-        return {}
-    lines = {}
-    for ln in out.lines:
-        text = f"→ {ln.heading.strip().rstrip('.')}. {ln.sentence.strip()}"
-        if re.search(r"\d", text):
-            log.info("themes: dropped explainer line with a figure for chart %d: %s", ln.n, text)
-            continue
-        lines[ln.n] = text
-    return lines
-
-
-COMMENT = """You write the short commentary under each chart in ARC Research's Theme Charts post on
-Substack. For each chart, write two or three plain sentences: what the chart shows and why it
-matters for today's theme. Write for a general reader: describe, never advise, no hype and no dashes.
-You see only each chart's title and data line, not the chart itself, so claim nothing about its
-shape or path that they, the why or the signals don't say.
-The chart's data line is printed right above your text, so don't restate its numbers: say what
-they mean. Avoid figures; any you do use must appear in that data line or in the why. Return one
-entry per chart, with its n."""
-NUM = re.compile(r"[-+]?\d+(?:\.\d+)?")
-
-
-class ChartNote(BaseModel):
-    n: int
-    text: str
-
-
-class ChartNotes(BaseModel):  # LLM output (closed schema: no defaults)
-    notes: list[ChartNote]
-
-
-class ChartCommentary(StructuredAgent[ChartNotes]):
-    """The Substack post's two or three sentences under every chart (gpt-6-luna)."""
+class ChartCommentary(ChartExplainer):
+    """The Substack post's trader read under every chart (gpt-6-luna)."""
 
     name = "chart_commentary"
-    output_schema = ChartNotes
-    tier = "fast"
-
-    def __init__(self) -> None:
-        self.model = get_settings().themes.explainer_model
 
     def system_prompt(self) -> str:
         return COMMENT
 
-    def user_prompt(self, *, rec: ThemeRun) -> str:
-        signals = "\n".join(f"- {s.headline}. {s.note}" for s in rec.signals)
-        return (
-            f"Theme: {rec.theme}\nWhy: {rec.why}\nSignals:\n{signals}\n\n"
-            f"Charts:\n{_charts(rec.exhibits)}"
-        )
+
+TIME = re.compile(r"\b(\d{1,2}):(\d{2})\b")
+# Index names and tenors carry digits that are names, not data: "S&P 500", "10-year", "3-month".
+NAMES = re.compile(
+    r"\b(?:S&P|Nasdaq|Russell|Stoxx|FTSE|DAX|Nikkei)\s?\d+|\b\d+-(?:year|month|week|day)s?\b", re.I
+)
+DIGITS = re.compile(r"(?<![\w.])([-+−]?)(\d[\d,]*(?:\.\d+)?)")
 
 
-def commentary(rec: ThemeRun, agent=None) -> dict[int, str]:
-    """n -> the paragraph under that chart in the Substack post. A note whose %/bp/pp figure is
-    not among the run's fact numbers or that chart's code-written data line is dropped (as is one
-    over 600 characters), and a failed call returns {} so the post publishes as before."""
+def _untraced(text: str, nums: set[float], times: set[tuple[int, int]]) -> list[str]:
+    """Every number in `text` that isn't one of `nums` at its shown precision, and every time
+    that isn't a calendar entry's. Unlike the picker's guard this checks plain levels too."""
+    bad = [m[0] for m in TIME.finditer(text) if (int(m[1]), int(m[2])) not in times]
+    for m in DIGITS.finditer(NAMES.sub(" ", TIME.sub(" ", text))):
+        digits = m[2].replace(",", "")
+        decimals = len(digits.split(".")[1]) if "." in digits else 0
+        if not _supported(float(m[1].replace("−", "-") + digits), decimals, bool(m[1]), nums):
+            bad.append(m[0])
+    return bad
+
+
+def _reads(rec: ThemeRun, agent, limit: int, what: str) -> dict[int, tuple[str, str]]:
+    """n -> (heading, sentence) for each chart whose read fits `limit` characters and whose every
+    number traces to that chart's key numbers or the run's facts and calendar. A failed call
+    returns {}, so the post or thread goes out without reads."""
     try:
-        out = (agent or ChartCommentary())(rec=rec)
-    except Exception as e:  # noqa: BLE001 - the post never waits on the commentary
-        log.warning("themes: chart commentary failed, publishing without it: %s", e)
+        out = agent(rec=rec)
+    except Exception as e:  # noqa: BLE001 - nothing waits on the commentary
+        log.warning("themes: %s reads failed, going out without them: %s", what, e)
         return {}
-    facts = {x for f in rec.facts for x in f.numbers}
-    subs = {e.n: e.subtitle for e in rec.exhibits}
-    notes = {}
-    for c in out.notes:
-        text = c.text.strip()
-        nums = facts | {float(x) for x in NUM.findall(subs.get(c.n, ""))}
-        if c.n not in subs or not text or len(text) > 600 or unsupported([text], nums):
-            log.info("themes: dropped commentary for chart %d: %s", c.n, text)
+    facts = {x for f in [*rec.facts, *rec.calendar] for x in f.numbers}
+    times = {(int(h), int(m)) for f in rec.calendar for h, m in TIME.findall(f.text)}
+    charts = {e.n: e for e in rec.exhibits}
+    reads = {}
+    for ln in out.lines:
+        head, text = ln.heading.strip().rstrip("."), ln.sentence.strip()
+        e = charts.get(ln.n)
+        if e is None or not head or not text or len(f"{head}. {text}") > limit:
+            log.info("themes: dropped %s read for chart %d: %s. %s", what, ln.n, head, text)
             continue
-        notes[c.n] = text
-    return notes
+        nums = facts | set(numbers_in(" ".join([e.title, e.subtitle, *key_numbers(e)])))
+        if bad := _untraced(f"{head}. {text}", nums, times):
+            log.info("themes: dropped %s read for chart %d, untraced %s", what, ln.n, bad)
+            continue
+        reads[ln.n] = (head, text)
+    return reads
+
+
+def explain(rec: ThemeRun, explainer=None) -> dict[int, str]:
+    """n -> "→ Heading. Sentence" under every chart in the X thread (thread() drops one that
+    won't fit its post)."""
+    reads = _reads(rec, explainer or ChartExplainer(), 160, "X")
+    return {n: f"→ {h}. {s}" for n, (h, s) in reads.items()}
+
+
+def commentary(rec: ThemeRun, agent=None) -> dict[int, tuple[str, str]]:
+    """n -> (heading, sentence) under that chart in the Substack post."""
+    return _reads(rec, agent or ChartCommentary(), 280, "Substack")
+
+
+def _when(e: dict) -> str:
+    """An event's ET time for ordering the day; earnings go just before the open or after the close."""
+    return e.get("time_et") or {"pre": "09:29", "post": "16:01"}.get(e.get("session"), "12:00")
+
+
+def catalysts(now: datetime, path: Path | None = None) -> list[Fact]:
+    """What's still to come today as C facts, from Week Ahead's file (refreshed at 17:00 the day
+    before): up to 8 US releases and inflation/jobs releases abroad not yet out at `now`, and the
+    5 biggest companies reporting, in the day's order. A missing file, or another week's, gives none."""
+    from castelino.week_ahead.run import out_path
+
+    try:
+        events = json.loads((path or out_path()).read_text()).get("events", [])
+    except (OSError, ValueError) as e:
+        log.warning("themes: no Week Ahead calendar: %s", e)
+        return []
+    today = [e for e in events if e.get("date") == f"{now:%Y-%m-%d}"]
+    econ = [
+        e
+        for e in today
+        if (e.get("kind") in ("inflation", "jobs") or e.get("country") == "US")
+        and e.get("kind") not in ("earnings", "ai")
+        and _when(e) >= f"{now:%H:%M}"  # already out by the 08:00 run: its consensus is stale
+    ]
+    econ = sorted(econ, key=_when)[:8]
+    earn = [e for e in today if e.get("kind") == "earnings"]
+    earn = sorted(earn, key=lambda e: -(e.get("market_cap") or 0))[:5]
+    rows = []  # (when, text, numbers, source, url)
+    for e in econ:
+        u = e.get("unit") or ""
+        name = " ".join(x for x in (e.get("country"), e["name"], e.get("measure")) if x)
+        text = f"{e['time_et']} ET {name}" if e.get("time_et") else name
+        figs = [f"{k} {e[k]:g}{u}" for k in ("consensus", "previous") if e.get(k) is not None]
+        if figs:
+            text += " · " + ", ".join(figs)
+        rows.append((_when(e), text, [e.get("consensus"), e.get("previous")],
+                     "Nasdaq economic calendar",
+                     "https://www.nasdaq.com/market-activity/economic-calendar"))  # fmt: skip
+    for e in earn:
+        when = {"pre": "before the open", "post": "after the close"}.get(e.get("session"), "today")
+        text = f"{e['company']} ({e['ticker']}) reports {when}"
+        if e.get("eps_est") is not None:
+            text += f" · EPS estimate {e['eps_est']:g}"
+            if e.get("eps_year_ago") is not None:
+                text += f", a year ago {e['eps_year_ago']:g}"
+        rows.append((_when(e), text, [e.get("eps_est"), e.get("eps_year_ago")],
+                     "Nasdaq earnings calendar", "https://www.nasdaq.com/market-activity/earnings"))  # fmt: skip
+    return [
+        Fact(
+            id=f"C{i}",
+            text=text,
+            numbers=[float(x) for x in nums if x is not None],
+            provenance="data",
+            source_title=src,
+            source_url=url,
+        )  # fmt: skip
+        for i, (_, text, nums, src, url) in enumerate(sorted(rows, key=lambda r: r[0]), 1)
+    ]
 
 
 def gather(now: datetime) -> list[Fact]:
-    """The three signal sets as facts. One dead source must not sink the run."""
+    """The three signal sets and today's calendar as facts. One dead source must not sink the run."""
     from castelino.agents.update.collector import collect
     from castelino.agents.update.macro import market_facts
     from castelino.agents.update.sources import polymarket
@@ -317,8 +453,11 @@ def gather(now: datetime) -> list[Fact]:
         }
         return polymarket.facts(list(events.values()))
 
+    def calendar() -> list[Fact]:
+        return catalysts(now)
+
     facts: list[Fact] = []
-    for fn in (coverage, moves, odds):
+    for fn in (coverage, moves, odds, calendar):
         try:
             facts += fn()
         except Exception as e:  # noqa: BLE001
@@ -523,6 +662,7 @@ def run(
             for e, dt in zip(exhibits, data, strict=True)
         ],
         facts=[f for f in [*facts, *fetched] if f.id in cited],
+        calendar=[f for f in facts if f.id.startswith("C")],
     )
     atomic_write_text(d / f"{run_id}.json", rec.model_dump_json(indent=2))
     if gone := prune(d, now):  # only after a run saved, so a failed day never empties the card
@@ -547,7 +687,7 @@ def post_url(run_id: str) -> str | None:
 
 
 def substack_doc(
-    rec: ThemeRun, uploaded: dict[str, dict], notes: dict[int, str] | None = None
+    rec: ThemeRun, uploaded: dict[str, dict], notes: dict[int, tuple[str, str]] | None = None
 ) -> dict:
     from castelino import substack as sb
 
@@ -558,10 +698,13 @@ def substack_doc(
         for s in rec.signals
     ]
     c = [sb._p(*sb._rich(rec.why)), _bullets(signals)]
+    if rec.calendar:  # written by code from Week Ahead, never by the model
+        c.append(sb._p(sb._bold("On the calendar today")))
+        c.append(_bullets([sb._p(sb._text(f.text)) for f in rec.calendar]))
     for e in (e for e in rec.exhibits if e.file in uploaded):
         c.append(sb._image(uploaded[e.file], f"{e.title}. {e.subtitle}"))
         if note := (notes or {}).get(e.n):
-            c.append(sb._p(sb._text(note)))
+            c.append(sb._p(sb._bold(f"{note[0]}. "), sb._text(note[1])))
     if sources:
         c.append(sb._heading("Sources"))
         c.append(_bullets([sb._p(sb._text(t, u or None)) for t, u in sources.items()]))
@@ -597,11 +740,13 @@ def publish_substack(rec: ThemeRun, commentator=None) -> str:
 
 
 def thread(rec: ThemeRun, url: str | None = None, lines: dict[int, str] | None = None) -> list[str]:
-    """The run as an X thread: the theme and as much of the why as fits (chart 1 rides on it), one
-    post per further chart with its code-written subtitle and, when `lines` has one that fits, the
-    explainer's plain line (explain()), then the link to the Substack post. Every figure is the
-    guarded pick's or code's."""
-    text, sep = f"Before the open: {rec.theme} 🧵", "\n\n"
+    """The run as an X thread: the theme, chart 1's read (explain()) and as much of the why as fits
+    (chart 1 rides on it), one post per further chart with its code-written subtitle and read, then
+    today's calendar (as many entries as fit) and the link to the Substack post. A read that won't
+    fit its post is dropped, never cut. Every figure is the guarded pick's, code's or a traced read's."""
+    lines, text, sep = lines or {}, f"Before the open: {rec.theme} 🧵", "\n\n"
+    if (ln := lines.get(1)) and x_post.xlen(f"{text}{sep}{ln}") <= x_post.LIMIT:
+        text = f"{text}{sep}{ln}"
     for s in re.split(r"(?<=[.!?])\s+", rec.why):
         if x_post.xlen(nxt := f"{text}{sep}{s}") > x_post.LIMIT:
             break
@@ -611,10 +756,21 @@ def thread(rec: ThemeRun, url: str | None = None, lines: dict[int, str] | None =
     posts = []
     for e in rec.exhibits[1:]:
         post = f"{e.n}/ {EXHIBIT.sub('', e.title)}\n{e.subtitle}"
-        if (ln := (lines or {}).get(e.n)) and x_post.xlen(f"{post}\n{ln}") <= x_post.LIMIT:
+        if (ln := lines.get(e.n)) and x_post.xlen(f"{post}\n{ln}") <= x_post.LIMIT:
             post = f"{post}\n{ln}"
         posts.append(post)
-    return [text, *posts, f"{charts} with sources → {url or SITE}"]
+    link = f"{charts} with sources → {url or SITE}"
+    cal = ""
+    for f in rec.calendar:  # "08:30 ET US Retail Sales m/m", "Apple (AAPL) reports after the close"
+        nxt = (
+            f"{cal} · {f.text.split(' · ')[0]}"
+            if cal
+            else f"On today's calendar: {f.text.split(' · ')[0]}"
+        )
+        if x_post.xlen(f"{nxt}\n\n{link}") > x_post.LIMIT:
+            break
+        cal = nxt
+    return [text, *posts, f"{cal}\n\n{link}" if cal else link]
 
 
 def post_thread(

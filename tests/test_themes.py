@@ -261,32 +261,55 @@ def test_morning_run_posts_a_thread_once_and_resumes_a_broken_chain(tmp_path):
     assert themes.post_today(NOW.replace(day=17), tmp_path, post=post, upload=upload) is None  # Sat
 
 
-def test_explainer_lines_never_carry_a_figure_and_never_block_the_thread():
+def say(*lines):
+    return lambda **kw: themes.ChartLines(lines=list(lines))
+
+
+def test_reads_may_quote_the_charts_own_levels_and_nothing_else_and_never_block():
     rec = themes.run(NOW, gather_fn=lambda now: FACTS, fetch=fetch, picker=lambda **kw: pick())
-    say = lambda *lines: lambda **kw: themes.ChartLines(lines=list(lines))  # noqa: E731
     line = themes.ChartLine
-    assert themes.explain(rec, say(line(n=2, heading="Up", sentence="Up 4.1% on the week."))) == {}
+    last = rec.exhibits[0].data["series"][0]["points"][-1][1]  # what code drew on chart 1
+    assert f"Brent: last {themes._num(last)}" in themes.key_numbers(rec.exhibits[0])[0]
+    got = themes.explain(rec, say(
+        line(n=1, heading="Level to watch", sentence=f"Brent sits at {last:.1f} into the open."),
+        line(n=2, heading="Oil leads", sentence="Brent's 4.1% week tops the S&P 500's slip."),
+        line(n=2, heading="Made up", sentence="Brent is 3.2% off its high."),  # computed: dropped
+    ))  # fmt: skip
+    assert got == {
+        1: f"→ Level to watch. Brent sits at {last:.1f} into the open.",
+        2: "→ Oil leads. Brent's 4.1% week tops the S&P 500's slip.",  # a fact's number; an index
+    }
+    assert themes.thread(rec, lines=got)[0].startswith(  # chart 1's read sits under the header
+        f"Before the open: {rec.theme} 🧵\n\n→ Level to watch."
+    )
 
     def boom(**kw):
         raise RuntimeError("OpenAI 500")
 
     assert themes.explain(rec, boom) == {}  # the thread posts as before
     assert themes.thread(rec, lines={}) == themes.thread(rec)
-    long = {2: "→ Long. " + "word " * 60}
+    long = {1: "→ Long. " + "word " * 60, 2: "→ Long. " + "word " * 60}
     assert themes.thread(rec, lines=long) == themes.thread(rec)  # past 280: dropped, not cut
 
 
-def test_commentary_keeps_traced_figures_drops_the_rest_and_never_blocks_the_post():
+def test_untraced_checks_every_number_but_names_tenors_and_calendar_times():
+    nums, times = {5.19, 86.5, 0.3}, {(8, 30)}
+    ok = "The 10-year at 5.2% and 86.5% odds; the S&P 500 waits on CPI at 8:30, consensus 0.3%."
+    assert themes._untraced(ok, nums, times) == []
+    bad = "Oil at 157 by 9:15, odds -86.5"  # a level, a time and a sign none of them has
+    assert themes._untraced(bad, nums, times) == ["9:15", "157", "-86.5"]
+
+
+def test_commentary_keeps_traced_reads_drops_the_rest_and_never_blocks_the_post():
     rec = themes.run(NOW, gather_fn=lambda now: FACTS, fetch=fetch, picker=lambda **kw: pick())
-    say = lambda *notes: lambda **kw: themes.ChartNotes(notes=list(notes))  # noqa: E731
-    note = themes.ChartNote
+    line = themes.ChartLine
     got = themes.commentary(rec, say(
-        note(n=1, text="Brent rose 4.1% on the week as supply talks stalled."),  # a fact's number
-        note(n=2, text="Breakevens jumped 9.9% in a day."),  # traced to nothing: dropped
-        note(n=9, text="There is no chart nine."),
-        note(n=3, text="Word " * 150),  # over 600 characters
+        line(n=1, heading="Supply talks", sentence="Brent rose 4.1% on the week as talks stalled."),
+        line(n=2, heading="Breakevens", sentence="They jumped 9.9% in a day."),  # traced to nothing
+        line(n=9, heading="Nine", sentence="There is no chart nine."),
+        line(n=2, heading="Long", sentence="Word " * 60),  # over 280 characters
     ))  # fmt: skip
-    assert got == {1: "Brent rose 4.1% on the week as supply talks stalled."}
+    assert got == {1: ("Supply talks", "Brent rose 4.1% on the week as talks stalled.")}
 
     def boom(**kw):
         raise RuntimeError("OpenAI 500")
@@ -294,6 +317,50 @@ def test_commentary_keeps_traced_figures_drops_the_rest_and_never_blocks_the_pos
     assert themes.commentary(rec, boom) == {}  # the post publishes as before
     up = {e.file: {"url": f"https://cdn/{e.file}"} for e in rec.exhibits}
     assert themes.substack_doc(rec, up, {}) == themes.substack_doc(rec, up)
+
+
+def test_todays_calendar_feeds_the_picker_and_is_listed_by_code(tmp_path):
+    ev = {"date": "2026-10-14", "kind": "other", "country": "US", "unit": "%", "actual": None}
+    week = {"events": [
+        {**ev, "time_et": "08:30", "name": "Retail Sales", "measure": "m/m", "consensus": 0.4,
+         "previous": 0.6},
+        {**ev, "time_et": "10:00", "kind": "other", "country": "DE", "name": "Ifo"},  # not US
+        {**ev, "time_et": "07:00", "name": "MBA Mortgage Applications"},  # out before 08:00
+        {"date": "2026-10-14", "kind": "earnings", "company": "JPMorgan Chase", "ticker": "JPM",
+         "market_cap": 7e11, "session": "pre", "eps_est": 4.9, "eps_year_ago": 4.4},
+        {**ev, "date": "2026-10-15", "time_et": "08:30", "name": "CPI", "consensus": 0.3},
+        {"date": "2026-10-14", "kind": "earnings", "company": "Apple", "ticker": "AAPL",
+         "market_cap": 3e12, "session": "post", "eps_est": 1.6, "eps_year_ago": 1.4},
+    ]}  # fmt: skip
+    path = tmp_path / "week_ahead.json"
+    path.write_text(json.dumps(week))
+    cal = themes.catalysts(NOW, path)
+    assert [f.text for f in cal] == [  # in the day's order
+        "08:30 ET US Retail Sales m/m · consensus 0.4%, previous 0.6%",
+        "JPMorgan Chase (JPM) reports before the open · EPS estimate 4.9, a year ago 4.4",
+        "Apple (AAPL) reports after the close · EPS estimate 1.6, a year ago 1.4",
+    ]
+    assert [f.id for f in cal] == ["C1", "C2", "C3"] and cal[0].numbers == [0.4, 0.6]
+    assert themes.catalysts(NOW, tmp_path / "missing.json") == []
+
+    seen = []
+    rec = themes.run(NOW, gather_fn=lambda now: FACTS + cal, fetch=fetch,
+                     picker=lambda **kw: seen.append(kw) or pick())  # fmt: skip
+    assert rec.calendar == cal and "[C1] 08:30 ET" in themes.ThemePicker().user_prompt(**seen[0])
+    assert "Today's calendar:\n- 08:30 ET US Retail Sales" in themes._brief(rec)
+    read = themes.ChartLine(n=1, heading="Watch 8:30", sentence="Retail sales, consensus 0.4%.")
+    assert themes.explain(rec, say(read)) == {1: "→ Watch 8:30. Retail sales, consensus 0.4%."}
+    assert themes.thread(rec)[-1] == (
+        "On today's calendar: 08:30 ET US Retail Sales m/m · JPMorgan Chase (JPM) reports before"
+        " the open · Apple (AAPL) reports after the close"
+        "\n\nAll 2 charts with sources → https://arcresearch.markets/themes"
+    )
+    up = {e.file: {"url": f"https://cdn/{e.file}"} for e in rec.exhibits}
+    content = themes.substack_doc(rec, up)["content"]
+    i = next(
+        i for i, c in enumerate(content) if c["content"][0].get("text") == "On the calendar today"
+    )
+    assert content[i + 1]["content"][0]["content"][0]["content"][0]["text"] == cal[0].text
 
 
 def test_thread_keeps_whole_sentences_under_280():
@@ -333,15 +400,16 @@ def test_published_run_is_a_substack_card_and_the_thread_links_its_post(tmp_path
 
     monkeypatch.setattr(substack, "push", push)
     monkeypatch.setattr(substack, "publish", publish)
-    note = themes.ChartNote(n=1, text="Brent is climbing as supply talks stall.")
-    url = themes.publish_substack(rec, lambda **kw: themes.ChartNotes(notes=[note]))
+    note = themes.ChartLine(n=1, heading="Supply", sentence="Brent is climbing as talks stall.")
+    url = themes.publish_substack(rec, say(note))
     assert url == "https://archresearch.substack.com/p/oils-run"
     assert got["title"] == rec.theme and got["subtitle"].startswith("ARC Theme Charts · Wednesday")
     assert (got["section"], got["send"]) == (themes.SECTION, False)
     content = got["doc"]["content"]
     images = [i for i, c in enumerate(content) if c["type"] == "captionedImage"]
     assert len(images) == len(rec.exhibits)
-    assert content[images[0] + 1]["content"][0]["text"] == note.text  # right under chart 1
+    under = content[images[0] + 1]["content"]  # right under chart 1: the bold read, then the rest
+    assert [t["text"] for t in under] == ["Supply. ", note.sentence]
     assert themes.thread(rec, themes.post_url(rec.run_id))[-1].endswith(url)
     [card] = themes_posts()
     assert card["url"] == url and card["title"] == rec.theme
