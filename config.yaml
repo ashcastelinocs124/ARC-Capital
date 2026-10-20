@@ -139,7 +139,7 @@ themes:
   data_dir: data/themes
 
 x_scout:
-  # X Scout (x_scout.py): a cited macro/AI finding + chart on X, weekdays every 2 h and Saturday noon.
+  # X Scout (x_scout.py): a cited macro/AI finding + chart on X, every 2 h (deploy/crontab).
   search_model: gpt-6-luna
   scout_model: gpt-6-sol    # picks the item worth posting, or nothing
   writer_model: gpt-6-luna  # the lead post and its reply

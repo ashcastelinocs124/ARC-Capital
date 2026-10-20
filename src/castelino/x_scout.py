@@ -3,17 +3,21 @@ the findings also go out as Substack Notes (note(): after X, never blocking it; 
 with the SUBSTACK_SID cookie). Dry run (log only) unless X_SCOUT_LIVE=1 and the X write keys are set
 (see x_post.py). One log: data/x_scout.log.
 
-`scout` (the default; every 2 h, 10:15-18:15 ET on weekdays and 12:15 on Saturdays): post one
+`scout` (the default; every 2 h, 10:15-22:15 ET on weekdays and 08:15-22:15 at weekends): post one
 interesting macro or AI finding with a chart. Code runs one cited web search for the last 6 hours of
 macro and AI news (uncited lines are dropped). The Scout picks the one item worth a post, or nothing,
 and names 1-4 fred:/yahoo: series that chart it; code fetches and draws them with the Morning Note
 renderer. The Writer writes the lead post and one reply from that cited line and the chart's
-code-computed numbers; code adds the topic tag and the source line. Every figure must be among those
-numbers (check()) and each post must fit 280, or the Writer gets one retry told what failed, then
-nothing is posted. The chart is the point, so a chart failure posts nothing. At most MAX_PER_DAY
-posts a day; the Scout sees this account's posts from the last MEMORY_DAYS days and today's market
-alerts, and code refuses a source URL already posted. A run within THEME_GAP of today's Theme Charts
-thread is skipped. Records: data/x_posts/scout/<YYYY-MM-DD>.json, charts in <YYYY-MM-DD>/<HHMM>.png.
+code-computed numbers, and names the source; code adds the topic tag and "Source: <name>" to the
+lead. X posts carry no link: X's pay-per-use API charges $0.200 for a post with a URL against $0.015
+for a plain one (docs.x.com, 2026-10-19), and X turns a bare domain ("Investing.com") into a link,
+so check() refuses one anywhere in the posts. The Substack Note keeps the link (Notes are free).
+Every figure must be among those numbers (check()) and each post must fit 280, or the Writer gets
+one retry told what failed, then nothing is posted. The chart is the point, so a chart failure
+posts nothing. At most MAX_PER_DAY posts a day; the Scout sees this account's posts from the last
+MEMORY_DAYS days and today's market alerts, and code refuses a source URL already posted. A run
+within THEME_GAP of today's Theme Charts thread is skipped. Records:
+data/x_posts/scout/<YYYY-MM-DD>.json, charts in <YYYY-MM-DD>/<HHMM>.png.
 
 `card` (07:00 ET on weekdays): code reads Week Ahead's data/week_ahead.json, picks the key rows (US
 releases by TIERS with a consensus, inflation and jobs abroad, the largest companies reporting),
@@ -59,7 +63,7 @@ from castelino.week_ahead import econ, nasdaq
 from castelino.week_ahead.econ import parse_num
 
 ET = ZoneInfo("America/New_York")
-MAX_PER_DAY = 2
+MAX_PER_DAY = 8  # one per 2-hourly run (deploy/crontab)
 MEMORY_DAYS = 7
 THEME_GAP = timedelta(hours=1)  # the morning Theme Charts thread gets the feed to itself this long
 TAG = {"macro": "📊 MACRO · ", "ai": "🤖 AI · "}
@@ -88,11 +92,13 @@ series ("Chip stocks (SMH)"). window_days: 30-365. chart_title and headline: sho
 When post is false, leave item_id, series and names empty and give the reason."""
 
 WRITER = """You write one X post and its single reply for ARC Research, a macro research shop. The
-lead (at most 240 characters) states the finding and what the attached chart shows. The reply (at
-most 200 characters) is 2-3 plain sentences of analysis: why it matters and what to watch next.
+lead (at most 220 characters) states the finding and what the attached chart shows. The reply (at
+most 240 characters) is 2-3 plain sentences of analysis: why it matters and what to watch next.
 Use only figures from the source line and the chart data you are given, written as given; any
 other number gets the post dropped. Write a change in words ("up 10bp", "down 2.1%"), never with a
-+ sign. No hashtags, no emoji, no links, no advice: code adds the topic tag and the source."""
++ sign. No hashtags, no emoji, no links or web addresses, no advice: code adds the topic tag and
+the source. source: the name of the outlet or body that published the source line, as readers know
+it ("Reuters", "NAHB", "AP"), never a link or a domain: write "Investing", not "Investing.com"."""
 
 
 class ScoutPick(BaseModel):  # LLM output (closed schema: no defaults)
@@ -110,6 +116,7 @@ class ScoutPick(BaseModel):  # LLM output (closed schema: no defaults)
 class ScoutPost(BaseModel):  # LLM output (closed schema: no defaults)
     lead: str
     reply: str
+    source: str  # the publisher's name, never a link or domain
 
 
 class Scout(StructuredAgent[ScoutPick]):
@@ -145,7 +152,8 @@ class Writer(StructuredAgent[ScoutPost]):
         self, *, item: Fact, chart_title: str, numbers: str, fix: list[str] | None = None
     ) -> str:
         out = (
-            f"Source line ({item.source_title}): {item.text}\n\nThe chart: {chart_title}\n{numbers}"
+            f"Source line ({item.source_title}, {item.source_url}): {item.text}\n\n"
+            f"The chart: {chart_title}\n{numbers}"
         )
         if fix:
             out += "\n\nYour last draft had problems. Fix them:\n" + "\n".join(
@@ -236,10 +244,14 @@ def chart_numbers(facts: list[Fact], subtitle: str) -> tuple[str, set[float]]:
     return "\n".join(lines), nums
 
 
+_LINK = re.compile(r"https?://|\bwww\.|\w\.[a-z]{2,}\b", re.I)  # what X would turn into a link
+
+
 def check(lead: str, reply: str, source: str, nums: set[float]) -> list[str]:
-    """What's wrong with a draft: a figure no source gave, or a post over 280. Unit figures (%, bp,
-    pp) go through the Morning Note guard; any other number must be in `nums` too, except a year or a
-    plain count up to 31 (dates, "3 weeks"). The reply is measured with the source line code adds."""
+    """What's wrong with a draft: a figure no source gave, a link or domain (X bills a post with a
+    URL at $0.200), a source that isn't a name, or a post over 280. Unit figures (%, bp, pp) go
+    through the Morning Note guard; any other number must be in `nums` too, except a year or a plain
+    count up to 31 (dates, "3 weeks"). The lead is measured with the source line code adds."""
     texts = [lead, reply]
     bad = [f"{t} is not in the source line or the chart data" for t in unsupported(texts, nums)]
     for text in texts:
@@ -251,25 +263,29 @@ def check(lead: str, reply: str, source: str, nums: set[float]) -> list[str]:
             decimals = len(tok.split(".")[1]) if "." in tok else 0
             if not _supported(v, decimals, False, nums):
                 bad.append(f"{tok} is not in the source line or the chart data")
-    if (n := x_post.xlen(lead)) > x_post.LIMIT:
-        bad.append(f"the lead post is {n} characters; X allows 280")
-    room = x_post.LIMIT - x_post.xlen(f"\n\n{source}")
-    if (n := x_post.xlen(reply)) > room:
-        bad.append(f"the reply is {n} characters; it must be at most {room}")
+    for name, text in (("lead", lead), ("reply", reply)):
+        if _LINK.search(text):
+            bad.append(f"the {name} has a link or web address; X posts here carry none")
+    if not source.strip() or len(source) > 40 or _LINK.search(source):
+        bad.append(f"the source {source!r} must be a short name, not a link or domain")
+    if (n := x_post.xlen(f"{lead}\n\nSource: {source}")) > x_post.LIMIT:
+        bad.append(f"the lead post with its source line is {n} characters; X allows 280")
+    if (n := x_post.xlen(reply)) > x_post.LIMIT:
+        bad.append(f"the reply is {n} characters; X allows 280")
     return bad
 
 
-def write(pick: ScoutPick, item: Fact, numbers: str, nums: set[float]) -> tuple[str, str] | None:
-    """The lead and the reply, tagged and sourced by code; one retry told what failed, then None."""
+def write(
+    pick: ScoutPick, item: Fact, numbers: str, nums: set[float]
+) -> tuple[str, str, str] | None:
+    """The tagged lead, the reply and the source's name; one retry told what failed, then None."""
     writer, fix = Writer(), None
-    # just the link: X's card shows the outlet and headline, and a title can eat the reply's room
-    source = f"Source: {item.source_url}"
     for _ in range(2):
         d = writer(item=item, chart_title=pick.chart_title, numbers=numbers, fix=fix)
-        lead, reply = TAG[pick.topic] + d.lead.strip(), d.reply.strip()
+        lead, reply, source = TAG[pick.topic] + d.lead.strip(), d.reply.strip(), d.source.strip()
         fix = check(lead, reply, source, nums)
         if not fix:
-            return lead, f"{reply}\n\n{source}"
+            return lead, reply, source
         print("  guard: " + "; ".join(fix))
     return None
 
@@ -317,7 +333,8 @@ def run(dry: bool = False, now: datetime | None = None, root: Path | None = None
     if texts is None:
         print("  still failing after a retry: no post")
         return None
-    lead, reply = texts
+    text, reply, source = texts
+    lead = f"{text}\n\nSource: {source}"
     live = not dry and os.getenv("X_SCOUT_LIVE") == "1" and x_post.can_post()
     ids: list[str] = []
     if live:
@@ -327,8 +344,9 @@ def run(dry: bool = False, now: datetime | None = None, root: Path | None = None
             ids.append(x_post.post(reply, reply_to=ids[0]))
         except Exception as e:  # the lead is out: record it anyway so it never goes twice
             print(f"  reply failed: {e}")
-    # one Note reads better than a lead + reply: the lead, then the analysis and source, with the chart
-    noted = note(f"{lead}\n\n{reply}", png, live)
+    # one Note reads better than a lead + reply: the lead, the analysis, then the source with its
+    # link (free on Substack), with the chart
+    noted = note(f"{text}\n\n{reply}\n\nSource: {source} ({hit.source_url})", png, live)
     rec = {
         "at": now.isoformat(timespec="minutes"),
         "topic": pick.topic,
@@ -336,6 +354,7 @@ def run(dry: bool = False, now: datetime | None = None, root: Path | None = None
         "reason": pick.reason,
         "source_title": hit.source_title,
         "source_url": hit.source_url,
+        "source": source,
         "series": pick.series,
         "chart": f"{png.parent.name}/{png.name}",
         "lead": lead,

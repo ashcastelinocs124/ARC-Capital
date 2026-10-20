@@ -96,7 +96,7 @@ def test_post_note_uploads_attaches_then_posts(monkeypatch, tmp_path):
     calls = []
 
     def handler(req: httpx.Request) -> httpx.Response:
-        calls.append((req.method, req.url.path, json.loads(req.content or b"{}")))
+        calls.append((req.method, req.url.path, json.loads(req.content or b"{}"), req.headers))
         if req.url.path == "/api/v1/image":
             return httpx.Response(200, json={"id": 1, "url": "https://img/card.png"})
         if req.url.path == "/api/v1/comment/attachment":
@@ -113,3 +113,5 @@ def test_post_note_uploads_attaches_then_posts(monkeypatch, tmp_path):
     assert paths == ["/api/v1/image", "/api/v1/comment/attachment", "/api/v1/comment/feed"]
     assert calls[1][2] == {"url": "https://img/card.png", "type": "image"}
     assert calls[2][2]["attachmentIds"] == ["att-9"]
+    # without a browser's Origin, Substack answers the Note with a 403 (2026-10-19)
+    assert calls[2][3]["origin"] == "https://substack.com" and calls[2][3]["referer"]

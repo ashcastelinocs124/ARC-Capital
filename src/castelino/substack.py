@@ -138,6 +138,14 @@ def _upload(http: httpx.Client, api: str, png: Path) -> dict:
 
 
 NOTES_API = "https://substack.com/api/v1"  # Notes belong to the account, not the publication
+# Without a browser's Origin, Referer and User-Agent, Substack answers the Note itself with a 403 error
+# page, though the image upload and attachment pass (seen 2026-10-19, from the Mac and from Fly)
+BROWSER = {
+    "Origin": "https://substack.com",
+    "Referer": "https://substack.com/home",
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/141.0 Safari/537.36",
+}
 
 
 def can_note() -> bool:
@@ -171,7 +179,7 @@ def post_note(text: str, png: Path | None = None) -> str:
     if not sid:
         raise RuntimeError("SUBSTACK_SID not set")
     cookies = {"substack.sid": sid} | ({"connect.sid": connect} if connect else {})
-    with httpx.Client(cookies=cookies, timeout=60) as http:
+    with httpx.Client(cookies=cookies, timeout=60, headers=BROWSER) as http:
         ids = []
         if png is not None:
             url = _upload(http, NOTES_API, png)["url"]
