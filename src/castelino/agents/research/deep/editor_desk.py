@@ -27,7 +27,8 @@ REVISE = """You revise ONE point of an ARC Research report after its researcher 
 point to reflect the researcher's corrected finding and the analyst's request; change nothing else. Every
 figure must be one of the cited facts' numbers, and fact_ids lists every fact the point uses. A figure
 from an X post (source "@handle on X") must name that @handle in the same sentence. The headline stays one
-sentence; change it only if the finding changed. No dashes as punctuation, no fact ids in the prose."""
+sentence; change it only if the finding changed. The body keeps its paragraphs (what the evidence shows, why,
+what it means), separated by a blank line. No dashes as punctuation, no fact ids in the prose."""
 
 
 def start(sid: str, point_id: str, text: str) -> Proposal:
@@ -134,13 +135,7 @@ def rethink(sid: str, n: int, meter: llm.Meter) -> None:
             after = guard.dated(after, by, date.today())  # the rewrite may cite newer or older data
             chart = charts.chart_points([after], by, meter).get(after.id)
             after = after.model_copy(update={"chart": chart})
-            how = (
-                "no chartable figure"
-                if chart is None
-                else "a big-number tile"
-                if chart.fallback
-                else chart.form
-            )
+            how = "no chartable figures" if chart is None else chart.form
             trail.append(f"Redrew {point.id}'s chart · {how}")
     with store.edit(sid) as x:
         owner = x.agent(prop.agent)

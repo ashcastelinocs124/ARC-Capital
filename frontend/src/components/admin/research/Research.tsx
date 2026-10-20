@@ -193,7 +193,7 @@ function PointChart({ c, facts }: { c: PointChartT; facts: Record<string, Fact> 
       {body}
       <div className="mt-1.5 flex flex-wrap items-center gap-1 text-[11px] text-black/45">
         {hover ? <span className="text-black/70">{hover.label}: <b>{f(hover.value)}</b> · {facts[hover.fact_id]?.source_title ?? hover.fact_id}</span>
-          : <>From the point's cited facts<Chips ids={ids} facts={facts} />{c.fallback && " · big-number tile (the chart agent's chart failed the check)"}</>}
+          : <>From the point's cited facts<Chips ids={ids} facts={facts} />{c.fallback && " · big-number tile (an older chart)"}</>}
       </div>
       <details className="mt-1 text-[11px] text-black/55">
         <summary className="cursor-pointer font-semibold text-accent">Data</summary>
@@ -379,7 +379,7 @@ function ReportView({ s, facts, selected, onSelect }: {
                 p.id === selected ? "border-accent bg-accent text-on-accent" : "border-black/15 text-black/55")}>Ask or edit</span>
             </div>
             <h4 className="mt-2 font-serif text-[18px] font-bold leading-snug">{p.headline}</h4>
-            <p className="my-1.5 font-serif text-base leading-relaxed">{p.body}<Chips ids={p.fact_ids} facts={facts} /></p>
+            <p className="my-1.5 whitespace-pre-line font-serif text-base leading-relaxed">{p.body}<Chips ids={p.fact_ids} facts={facts} /></p>
             {p.chart && <PointChart c={p.chart} facts={facts} />}
           </section>
         ))}
@@ -414,7 +414,7 @@ function ProposalCard({ x, facts, n, onDecide }: {
         <span className="text-[11px] text-muted">v{a.version} → v{b.version}</span>
       </div>
       <p className="mt-2 font-serif text-[15px] font-bold leading-relaxed text-text"><Diff a={a.headline} b={b.headline} /></p>
-      <p className="mt-1 font-serif text-[15px] leading-relaxed text-text-2"><Diff a={a.body} b={b.body} /><Chips ids={b.fact_ids} facts={facts} /></p>
+      <p className="mt-1 whitespace-pre-line font-serif text-[15px] leading-relaxed text-text-2"><Diff a={a.body} b={b.body} /><Chips ids={b.fact_ids} facts={facts} /></p>
       {b.chart && <div className="mt-2 text-[11px] font-semibold text-muted">The chart after the edit</div>}
       {b.chart && <PointChart c={b.chart} facts={facts} />}
       {x.new_facts.length > 0 && (

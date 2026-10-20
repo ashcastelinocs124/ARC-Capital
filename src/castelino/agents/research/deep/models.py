@@ -134,7 +134,8 @@ class Summary(BaseModel):
     text: str
 
 
-ChartForm = Literal["bars", "line", "dumbbell", "stat"]
+DraftForm = Literal["bars", "line", "dumbbell"]  # what the chart agent may draw: never one figure
+ChartForm = DraftForm | Literal["stat"]  # "stat": single-figure tiles saved before 2026-10-20
 ChartUnit = Literal["%", "$", "bp", "pp", "level", ""]
 
 
@@ -146,7 +147,7 @@ class ChartValue(BaseModel):
 
 class PointChartDraft(BaseModel):
     point_id: str
-    form: ChartForm
+    form: DraftForm
     title: str
     unit: ChartUnit
     values: list[ChartValue]

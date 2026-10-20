@@ -46,7 +46,7 @@ def report_session():
             id="p2",
             agent="A",
             headline="It rose fast.",
-            body="From 5% to 9.2%.",
+            body="From 5% to 9.2%.\n\nWhy it rose.",
             fact_ids=["A1"],
             chart=chart("line", 5, 7, 9.2),
         ),
@@ -100,6 +100,9 @@ def test_the_draft_has_key_findings_each_point_with_its_chart_and_sources():
     body = json.dumps(publish.doc(s, up))
     assert "Key findings" in body and "AI use reached 9.2% of firms." in body
     assert body.count("captionedImage") == 4 and "https://img/3" in body
+    paras = [n for n in publish.doc(s, up)["content"] if n["type"] == "paragraph"]
+    texts = [n["content"][0]["text"] for n in paras if n.get("content")]
+    assert "From 5% to 9.2%." in texts and "Why it rose." in texts  # one Substack paragraph each
     assert (
         "https://census.gov/x" in body
         and "Survey data." in body

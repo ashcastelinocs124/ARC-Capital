@@ -147,12 +147,16 @@ def _sources(s: ResearchSession) -> list[tuple[str, str]]:
     return out
 
 
+def _paras(body: str) -> list[str]:
+    return [t.strip() for t in body.split("\n\n") if t.strip()]
+
+
 def doc(s: ResearchSession, uploaded: dict[str, dict]) -> dict:
     rep = s.report
     c = [sb._p(sb._text(f"The question: {s.question}")), sb._heading("Key findings")]
     c.append(_bullets([p.headline for p in rep.points]))
     for p in rep.points:
-        c += [sb._heading(p.headline), sb._p(sb._text(p.body))]
+        c += [sb._heading(p.headline), *(sb._p(sb._text(t)) for t in _paras(p.body))]
         if f"{p.id}.png" in uploaded:
             c.append(sb._image(uploaded[f"{p.id}.png"], p.chart.title))
     for head, items in (("Caveats", rep.caveats), ("Still open", rep.gaps_remaining)):

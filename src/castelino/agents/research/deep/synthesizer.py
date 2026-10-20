@@ -21,13 +21,20 @@ from castelino.agents.weekly.editor import AnthropicEditorClient
 from castelino.config import get_settings
 
 _LETTER = re.compile(r"(?<![A-Za-z])([A-Pa-p])(?![A-Za-z])")  # an agent letter on its own
-SYSTEM = """You are ARC Research's editor. Write a research report that answers the research question,
+# each point's body, for the report and for added points alike
+BODY = """three paragraphs separated by a blank line, about 180 to 250 words in all:
+  (1) what the evidence shows, each figure with its source and when it is from, comparing sources where
+  they differ; (2) why it is happening, from what the findings and facts say drives it; (3) what it means
+  for enterprises and what to watch next. Use every fact of the researcher's that bears on the point (most
+  points cite 3 or more), and never speculate past the evidence."""
+SYSTEM = f"""You are ARC Research's editor. Write a research report that answers the research question,
 using only the researchers' findings and facts: every number must be one of the cited facts' numbers.
 - title: the answer as a short claim. subtitle: one line on scope.
 - points: 5 to 10, in the order a reader needs them. Each point belongs to ONE researcher: agent is that
   researcher's letter, and the point uses only facts that researcher lists (facts it read from the board
   count). headline: one sentence stating the finding; the report's Key findings are these headlines.
-  body: 2 to 4 sentences of evidence. fact_ids: every fact the point uses.
+  body: {BODY}
+  fact_ids: every fact the point uses.
 - A fact whose source is "@handle on X" is what that person said, never a fact: write "@handle says ..."
   in the same sentence as any figure from it.
 - Use the most recent figures: when facts measure the same thing, use the newest, and say when each
@@ -35,13 +42,13 @@ using only the researchers' findings and facts: every number must be one of the 
   point's newest figure is older, say in its body that it is the latest available.
 - caveats: the main limits of this evidence.
 Style: plain words, no dashes as punctuation (no "—" or "–"), no fact ids in the prose."""
-MORE = """You are ARC Research's editor. The report is already written; new researchers have now covered
+MORE = f"""You are ARC Research's editor. The report is already written; new researchers have now covered
 angles the analyst asked to add. Write NEW points from the new researchers' findings and facts only: every
 number must be one of the cited facts' numbers, and never repeat what the report already says.
 - points: 1 to 3 per new researcher, in the order a reader needs them. Each point belongs to ONE new
   researcher: agent is that researcher's letter, and the point uses only facts that researcher lists.
-  headline: one sentence stating the finding. body: 2 to 4 sentences of evidence. fact_ids: every fact the
-  point uses.
+  headline: one sentence stating the finding. body: {BODY}
+  fact_ids: every fact the point uses.
 - A fact whose source is "@handle on X" is what that person said, never a fact: write "@handle says ..."
   in the same sentence as any figure from it.
 - Use the most recent figures: when facts measure the same thing, use the newest, and say when each
