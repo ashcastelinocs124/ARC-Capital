@@ -7,7 +7,7 @@ import { isNote, weekLabel } from "@/api/endpoints";
 import { useSectionPosts } from "@/hooks/useSectionPosts";
 import { useVideos } from "@/hooks/useVideos";
 import { useXFeed } from "@/hooks/useXFeed";
-import { FollowOnX, XCard } from "@/components/XFeed";
+import { FollowOnX, XStrip } from "@/components/XFeed";
 import { useSectorSentiment } from "@/hooks/useSectorSentiment";
 import { useWeekAhead } from "@/hooks/useWeekAhead";
 import { clock } from "@/pages/VideosPage";
@@ -303,9 +303,7 @@ function LatestOnX() {
         <Heading n="02" kicker="On X · @AshleynCas46131" title="Latest on X" />
         <FollowOnX />
       </div>
-      <div className="mt-4 grid gap-3.5 md:grid-cols-3">
-        {posts.slice(0, 3).map((p) => <XCard key={p.id} p={p} />)}
-      </div>
+      <div className="mt-4"><XStrip posts={posts} /></div>
     </section>
   );
 }

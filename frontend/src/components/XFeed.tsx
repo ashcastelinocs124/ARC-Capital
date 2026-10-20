@@ -1,22 +1,21 @@
 import { useState } from "react";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, BarChart2, Heart, MessageCircle, Repeat2 } from "lucide-react";
 import { X_PROFILE, type XPost } from "@/api/endpoints";
 import { useXFeed } from "@/hooks/useXFeed";
 import { cn } from "@/lib/cn";
 
-// Your posts on X: Home's "Latest on X" row (XCard) and About's "On X" feed (XFeedCard).
+// Your posts drawn as an X timeline: Home's "Latest on X" strip (XStrip) and About's "On X" feed (XFeedCard).
 // Every link is built by x_feed.py and checked by fetchXFeed: x.com/AshleynCas46131/status/<id>.
 
-const TIME = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" });
+const FULL = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", month: "short", day: "numeric", year: "numeric" });
 const DAY = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
-const when = (at: string) => {
-  const d = new Date(at); // the reader's own time zone, as on X
-  return Number.isNaN(d.getTime()) ? "" : `${TIME.format(d)} · ${DAY.format(d)}`;
+// As X writes it: "now", "12m", "4h", then the day ("Oct 20"). The reader's own clock and time zone.
+const ago = (at: string) => {
+  const t = new Date(at).getTime();
+  if (Number.isNaN(t)) return "";
+  const m = Math.max(0, Math.round((Date.now() - t) / 60_000));
+  return m < 1 ? "now" : m < 60 ? `${m}m` : m < 1440 ? `${Math.floor(m / 60)}h` : DAY.format(t);
 };
-// The automated posts open with their series; anything else (typed by hand) has no tag.
-const TAGS: [RegExp, string][] = [[/^MACRO · /, "Macro"], [/^AI · /, "AI"], [/^Before the open:/, "Theme Charts"], [/^(WEEK AHEAD|TODAY) · /, "Calendar"]];
-const tagOf = (text: string) => TAGS.find(([re]) => re.test(text))?.[1];
-const small = (img: string) => `${img}?name=small`; // X's CDN: 680 px wide
 
 function XLogo({ className }: { className?: string }) {
   return (
@@ -35,70 +34,65 @@ export function FollowOnX() {
   );
 }
 
-function Meta({ p }: { p: XPost }) {
-  const tag = tagOf(p.text);
+// One post as X draws it in a timeline. The whole post opens it on x.com; the action icons are
+// decoration (no counts: the cache only asks X for new posts, so counts would go stale).
+function XPostRow({ p, clamp }: { p: XPost; clamp?: boolean }) {
   return (
-    <span className="flex items-center gap-2 text-[12.5px] text-muted">
-      {tag && <span className="rounded-full border border-border-strong px-2 py-px text-[11px] font-semibold text-text-2">{tag}</span>}
-      <time dateTime={p.at}>{when(p.at)}</time>
-    </span>
-  );
-}
-
-// One post as a card: the chart on top when it has one (Home's row).
-export function XCard({ p }: { p: XPost }) {
-  return (
-    <a href={p.url} target="_blank" rel="noopener noreferrer"
-      className="card group flex flex-col overflow-hidden transition-colors hover:border-border-strong">
-      {p.image && <img src={small(p.image)} alt="Chart attached to the post" loading="lazy" className="aspect-[16/10] w-full bg-white object-cover" />}
-      <span className="flex flex-1 flex-col px-4 pb-4 pt-3.5">
-        <Meta p={p} />
-        <span className={cn("mt-1.5 whitespace-pre-line text-[14px] leading-relaxed text-text", p.image ? "line-clamp-5" : "line-clamp-[10]")}>{p.text}</span>
-        <span className="mt-auto pt-2 text-[12.5px] font-semibold text-accent group-hover:text-accent-hover">View on X ↗</span>
+    <a href={p.url} target="_blank" rel="noopener noreferrer" className="flex min-w-0 gap-3 px-4 py-3 hover:bg-surface-3/45">
+      <img src="/team/ashleyn.png" alt="" className="h-10 w-10 shrink-0 rounded-full object-cover object-[40%_30%]" />
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-1 text-[15px] leading-5">
+          <span className="shrink-0 font-bold text-text">Ashleyn Castelino</span>
+          <span className="truncate text-muted">@AshleynCas46131</span>
+          <span className="text-muted" aria-hidden="true">·</span>
+          <time dateTime={p.at} title={FULL.format(new Date(p.at))} className="shrink-0 text-muted">{ago(p.at)}</time>
+          <XLogo className="ml-auto h-4 w-4 shrink-0 text-muted" />
+        </span>
+        <span className={cn("mt-0.5 block whitespace-pre-line break-words text-[15px] leading-[1.45] text-text", clamp && "line-clamp-6")}>{p.text}</span>
+        {p.image && (
+          <img src={`${p.image}?name=small`} alt="Chart attached to the post" loading="lazy"
+            className="mt-3 aspect-[16/10] w-full rounded-2xl border border-border bg-white object-cover" />
+        )}
+        <span className="mt-3 flex max-w-[420px] justify-between text-muted" aria-hidden="true">
+          <MessageCircle className="h-[18px] w-[18px]" /><Repeat2 className="h-[18px] w-[18px]" />
+          <Heart className="h-[18px] w-[18px]" /><BarChart2 className="h-[18px] w-[18px]" />
+        </span>
       </span>
     </a>
   );
 }
 
-// About's feed: the 5 newest, then "Show 5 more" (the export keeps 10).
+// Home: the 3 newest side by side in one bordered strip, split by dividers.
+export function XStrip({ posts }: { posts: XPost[] }) {
+  return (
+    <div className="grid overflow-hidden rounded-2xl border border-border bg-background divide-y divide-border md:grid-cols-3 md:divide-x md:divide-y-0">
+      {posts.slice(0, 3).map((p) => <XPostRow key={p.id} p={p} clamp />)}
+    </div>
+  );
+}
+
+// About: the 5 newest as a timeline as wide as X's own column, then "Show more" (the export keeps 10).
 export function XFeedCard() {
   const posts = useXFeed().data ?? [];
   const [open, setOpen] = useState(false);
   if (!posts.length) return null;
   return (
-    <section aria-label="On X" className="card overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4 md:px-[26px]">
-        <div className="flex items-center gap-3">
-          <img src="/team/ashleyn.png" alt="" className="h-11 w-11 rounded-full object-cover object-[40%_30%]" />
-          <div>
-            <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-accent"><XLogo className="h-3.5 w-3.5" />On X</div>
-            <div className="font-bold text-text">Ashleyn Castelino <span className="font-normal text-muted">@AshleynCas46131</span></div>
-          </div>
+    <section aria-label="On X" className="max-w-[640px] overflow-hidden rounded-2xl border border-border bg-background">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3.5">
+        <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-accent">
+          <XLogo className="h-3.5 w-3.5" />On X · @AshleynCas46131
         </div>
         <FollowOnX />
       </div>
       <div className="divide-y divide-border">
-        {posts.slice(0, open ? 10 : 5).map((p) => (
-          <a key={p.id} href={p.url} target="_blank" rel="noopener noreferrer"
-            className={cn("group grid gap-4 px-5 py-4 hover:bg-surface-3/50 md:px-[26px]", p.image && "md:grid-cols-[1fr_210px]")}>
-            <span className="min-w-0">
-              <Meta p={p} />
-              <span className="mt-1.5 block whitespace-pre-line text-[14.5px] leading-relaxed text-text">{p.text}</span>
-              <span className="mt-2 block text-[12.5px] font-semibold text-accent group-hover:text-accent-hover">View on X ↗</span>
-            </span>
-            {p.image && <img src={small(p.image)} alt="Chart attached to the post" loading="lazy" className="aspect-[16/10] w-full rounded-[10px] border border-border bg-white object-cover md:w-[210px]" />}
-          </a>
-        ))}
+        {posts.slice(0, open ? 10 : 5).map((p) => <XPostRow key={p.id} p={p} />)}
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-3.5 text-[12.5px] text-muted md:px-[26px]">
-        <span>The newest posts, refreshed every time the site updates. Replies are left out.</span>
-        {posts.length > 5 && (
-          <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}
-            className="rounded-full border border-border-strong px-4 py-1.5 text-[13px] font-semibold text-text hover:border-accent">
-            {open ? "Show fewer" : `Show ${Math.min(5, posts.length - 5)} more`}
-          </button>
-        )}
-      </div>
+      {posts.length > 5 && (
+        <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}
+          className="block w-full border-t border-border px-4 py-3.5 text-left text-[15px] text-accent hover:bg-surface-3/45">
+          {open ? "Show fewer" : "Show more"}
+        </button>
+      )}
     </section>
   );
 }
