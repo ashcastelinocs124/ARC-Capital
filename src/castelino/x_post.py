@@ -77,7 +77,8 @@ def signature(
     return base64.b64encode(hmac.new(key.encode(), base.encode(), hashlib.sha1).digest()).decode()
 
 
-def _auth_header(method: str, url: str) -> str:
+def _auth_header(method: str, url: str, query: dict[str, str] | None = None) -> str:
+    """`url` without its query string; a GET's `query` params are signed too (OAuth 1.0a)."""
     oauth = {
         "oauth_consumer_key": os.environ["X_API_KEY"],
         "oauth_nonce": secrets.token_hex(16),
@@ -88,7 +89,11 @@ def _auth_header(method: str, url: str) -> str:
     }
     # a JSON body is not part of the OAuth 1.0a signature
     oauth["oauth_signature"] = signature(
-        method, url, oauth, os.environ["X_API_SECRET"], os.environ["X_ACCESS_SECRET"]
+        method,
+        url,
+        oauth | (query or {}),
+        os.environ["X_API_SECRET"],
+        os.environ["X_ACCESS_SECRET"],
     )
     return "OAuth " + ", ".join(f'{_enc(k)}="{_enc(v)}"' for k, v in sorted(oauth.items()))
 

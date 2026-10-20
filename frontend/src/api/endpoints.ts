@@ -250,6 +250,14 @@ export const fetchDailyPosts = async (): Promise<DailyPost[]> => {
   return Array.isArray(data) ? data : [];
 };
 
+// ── X posts (@AshleynCas46131, newest first, no replies; dashboard/endpoints/x_feed.py) ──
+export const X_PROFILE = "https://x.com/AshleynCas46131";
+export interface XPost { id: string; at: string; text: string; image: string | null; url: string }
+export const fetchXFeed = async (): Promise<XPost[]> => {
+  const data = await api.get<XPost[]>("/x_feed"); // the client maps a 404 to []
+  return Array.isArray(data) ? data.filter((p) => p.url?.startsWith(`${X_PROFILE}/status/`)) : [];
+};
+
 // ── Substack sections shown on Daily Update ──────────────────────────────
 export interface SectionPost extends Video {
   section: string; // Substack section slug

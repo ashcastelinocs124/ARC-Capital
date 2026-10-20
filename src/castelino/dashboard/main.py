@@ -105,6 +105,7 @@ from castelino.dashboard.endpoints import (  # noqa: E402
     videos,
     week_ahead,
     weekly_posts,
+    x_feed,
 )
 from castelino.dashboard.endpoints import sector_sentiment as sector_sentiment_router  # noqa: E402
 from castelino.dashboard.endpoints import themes as themes_ep  # noqa: E402
@@ -127,6 +128,7 @@ app.include_router(videos.router)
 app.include_router(daily_posts.router)
 app.include_router(weekly_posts.router)
 app.include_router(section_posts.router)
+app.include_router(x_feed.router)
 # the private models: the public site gets them only via /api/admin/ (password-gated by middleware.ts)
 for _private in (models.router, adoption.router, cross_asset.router):
     app.include_router(_private, prefix="/admin")

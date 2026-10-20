@@ -7,6 +7,7 @@ import { ZoneBar, zoneOf } from "@/components/FearGreedGauge";
 import { useDailyPosts } from "@/hooks/useDailyPosts";
 import { useSectionPosts } from "@/hooks/useSectionPosts";
 import { useSectorSentiment } from "@/hooks/useSectorSentiment";
+import { XFeedCard } from "@/components/XFeed";
 import { useThemePosts } from "@/hooks/useThemes";
 import { useWeeklyPosts } from "@/hooks/useWeekly";
 import { isNote, weekLabel } from "@/api/endpoints";
@@ -183,6 +184,8 @@ export default function AboutPage() {
           </aside>
         )}
       </section>
+
+      <XFeedCard />
 
       <Pipeline />
 

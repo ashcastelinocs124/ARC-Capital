@@ -44,6 +44,7 @@ PATHS = [
     "/daily_posts",
     "/weekly_posts",
     "/section_posts",
+    "/x_feed",  # Home's "Latest on X" row and About's "On X" feed
     # private: /api/admin/ is password-gated by frontend/middleware.ts
     "/admin/agents/catalog",
     "/admin/models",  # the models are admin-only since 2026-10-15

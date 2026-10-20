@@ -6,6 +6,8 @@ import { useWeeklyPosts } from "@/hooks/useWeekly";
 import { isNote, weekLabel } from "@/api/endpoints";
 import { useSectionPosts } from "@/hooks/useSectionPosts";
 import { useVideos } from "@/hooks/useVideos";
+import { useXFeed } from "@/hooks/useXFeed";
+import { FollowOnX, XCard } from "@/components/XFeed";
 import { useSectorSentiment } from "@/hooks/useSectorSentiment";
 import { useWeekAhead } from "@/hooks/useWeekAhead";
 import { clock } from "@/pages/VideosPage";
@@ -256,7 +258,7 @@ function ResearchIndex() {
   );
   return (
     <section>
-      <Heading n="02" kicker="Research index" title="All research" />
+      <Heading n="03" kicker="Research index" title="All research" />
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {chip("all", "All", items.length)}
         {KINDS.map(([k, label]) => chip(k, label, items.filter((it) => it.kinds.has(k)).length))}
@@ -292,6 +294,22 @@ function ResearchIndex() {
   );
 }
 
+function LatestOnX() {
+  const posts = useXFeed().data ?? [];
+  if (!posts.length) return null;
+  return (
+    <section aria-label="Latest on X">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <Heading n="02" kicker="On X · @AshleynCas46131" title="Latest on X" />
+        <FollowOnX />
+      </div>
+      <div className="mt-4 grid gap-3.5 md:grid-cols-3">
+        {posts.slice(0, 3).map((p) => <XCard key={p.id} p={p} />)}
+      </div>
+    </section>
+  );
+}
+
 function CtaBand() {
   return (
     <section className="flex flex-col gap-5 rounded-[10px] bg-text px-6 py-9 text-surface md:flex-row md:items-center md:justify-between md:px-11">
@@ -314,6 +332,7 @@ export default function HomePage() {
       <Hero />
       <StartHere />
       <Sections />
+      <LatestOnX />
       <ResearchIndex />
       <CtaBand />
     </div>
