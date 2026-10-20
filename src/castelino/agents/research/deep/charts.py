@@ -58,7 +58,10 @@ def chart_errors(c: PointChartDraft, point: Point, by: dict[str, Fact]) -> list[
     for v in c.values:
         if v.fact_id not in point.fact_ids or v.fact_id not in by:
             errs.append(f"{point.id}: {v.fact_id} is not one of this point's facts")
-        elif not any(math.isclose(v.value, n, abs_tol=1e-9) for n in by[v.fact_id].numbers):
+        # rel_tol: the model writes $3,637.292B as 3637.29; anything further off is refused
+        elif not any(
+            math.isclose(v.value, n, rel_tol=1e-5, abs_tol=1e-9) for n in by[v.fact_id].numbers
+        ):
             errs.append(f"{point.id}: {v.value} is not a number of {v.fact_id}")
     return errs
 

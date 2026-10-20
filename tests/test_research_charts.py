@@ -68,6 +68,21 @@ def test_guard_rejects_a_number_not_in_its_fact_an_uncited_fact_and_a_bad_size()
     assert any("bars needs 2-10" in e for e in charts.chart_errors(one, P1, BY))
 
 
+def test_a_large_figure_rounded_in_its_last_decimal_still_counts_as_cited():
+    by = {"G16": fact("G16", "Gartner: $3,637.292 billion in 2027", [2027.0, 3637.292])}
+    pt = Point(id="p16", agent="G", headline="h", body="b", fact_ids=["G16"])
+    c = PointChartDraft(
+        point_id="p16",
+        form="bars",
+        title="t",
+        unit="$",
+        values=[v("G16", "2027", 3637.29), v("G16", "2027 exact", 3637.292)],
+    )
+    assert charts.chart_errors(c, pt, by) == []
+    off = c.model_copy(update={"values": [v("G16", "a", 3637.0), v("G16", "b", 3600.0)]})
+    assert len(charts.chart_errors(off, pt, by)) == 2
+
+
 def test_a_dumbbell_with_two_equal_values_is_refused_because_it_draws_one_dot():
     flat = PointChartDraft(
         point_id="p1",
