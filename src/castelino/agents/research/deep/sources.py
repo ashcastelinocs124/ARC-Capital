@@ -189,8 +189,10 @@ def arc_index(store=None, names: dict[str, str] | None = None) -> list[Fact]:
     cells, rows = st.cells(p), [r for r in st.companies(p) if r.get("score") is not None]
     hl = headline(cells)
 
-    def who(r: dict) -> str:
-        return f"{names.get(r['ticker'], r['ticker'])} ({r['ticker']})"
+    def who(r: dict, extra: str = "") -> str:
+        """ "Name (TICKER)", or the bare ticker when the universe has no name for it."""
+        t, name = r["ticker"], names.get(r["ticker"])
+        return f"{name} ({t}{extra})" if name else f"{t}{f' ({extra[2:]})' if extra else ''}"
 
     def top(key: str, scale: float, fmt: str) -> tuple[list[dict], list[float]]:
         ranked = sorted((r for r in rows if r.get(key)), key=lambda r: -r[key])[:5]
@@ -274,10 +276,7 @@ def arc_index(store=None, names: dict[str, str] | None = None) -> list[Fact]:
             )
         )
     lead = sorted(rows, key=lambda r: -r["score"])[:5]
-    leaders = [
-        f"{names.get(r['ticker'], r['ticker'])} ({r['ticker']}, {r['bucket']}) {r['score']:.1f}"
-        for r in lead
-    ]
+    leaders = [f"{who(r, ', ' + r['bucket'])} {r['score']:.1f}" for r in lead]
     out.append(
         _fact(
             f"{head}: highest overall scores: {', '.join(leaders)}.",
