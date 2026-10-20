@@ -5,18 +5,20 @@ with the SUBSTACK_SID cookie). Dry run (log only) unless X_SCOUT_LIVE=1 and the 
 
 `scout` (the default; every 2 h, 10:15-22:15 ET on weekdays and 08:15-22:15 at weekends): post one
 interesting macro or AI finding with a chart. Code runs one cited web search for the last 6 hours of
-macro and AI news (uncited lines are dropped). The Scout picks the one item worth a post, or nothing,
-and names 1-4 fred:/yahoo: series that chart it; code fetches and draws them with the Morning Note
-renderer. The Writer writes the lead post and one reply from that cited line and the chart's
-code-computed numbers, and names the source; code adds the topic tag and "Source: <name>" to the
-lead. X posts carry no link: X's pay-per-use API charges $0.200 for a post with a URL against $0.015
-for a plain one (docs.x.com, 2026-10-19), and X turns a bare domain ("Investing.com") into a link,
-so check() refuses one anywhere in the posts. The Substack Note keeps the link (Notes are free).
-Every figure must be among those numbers (check()) and each post must fit 280, or the Writer gets
-one retry told what failed, then nothing is posted. The chart is the point, so a chart failure
-posts nothing. At most MAX_PER_DAY posts a day; the Scout sees this account's posts from the last
-MEMORY_DAYS days and today's market alerts, and code refuses a source URL already posted. A run
-within THEME_GAP of today's Theme Charts thread is skipped. Records:
+macro and AI news (uncited lines are dropped). The Scout picks the one item worth a post, or
+nothing, and names 1-4 fred:/yahoo: series that chart it; code fetches and draws them with the
+Morning Note renderer. A pass with nothing to post (no item clears the bar, or the pick can't be
+charted, written or was already posted) is followed by a second one (PASSES): the last 24 hours, and
+the Scout must pick the best item not yet posted. The Writer writes the lead post and one reply from
+that cited line and the chart's code-computed numbers, and names the source; code adds the topic tag
+and "Source: <name>" to the lead. X posts carry no link: X's pay-per-use API charges $0.200 for a
+post with a URL against $0.015 for a plain one (docs.x.com, 2026-10-19), and X turns a bare domain
+("Investing.com") into a link, so check() refuses one anywhere in the posts. The Substack Note keeps
+the link (Notes are free). Every figure must be among those numbers (check()) and each post must fit
+280, or the Writer gets one retry told what failed, then nothing is posted. The chart is the point,
+so a chart failure posts nothing. At most MAX_PER_DAY posts a day; the Scout sees this account's
+posts from the last MEMORY_DAYS days and today's market alerts, and code refuses a source URL
+already posted. A run within THEME_GAP of today's Theme Charts thread is skipped. Records:
 data/x_posts/scout/<YYYY-MM-DD>.json, charts in <YYYY-MM-DD>/<HHMM>.png.
 
 `card` (07:00 ET on weekdays): code reads Week Ahead's data/week_ahead.json, picks the key rows (US
@@ -66,13 +68,14 @@ ET = ZoneInfo("America/New_York")
 MAX_PER_DAY = 8  # one per 2-hourly run (deploy/crontab)
 MEMORY_DAYS = 7
 THEME_GAP = timedelta(hours=1)  # the morning Theme Charts thread gets the feed to itself this long
+PASSES = ((6, False), (24, True))  # (hours searched, must pick): every run posts unless all is old
 TAG = {"macro": "📊 MACRO · ", "ai": "🤖 AI · "}
 
 SCAN_SYSTEM = (
     "You are a markets news desk for ARC Research, a macro research shop. Report only what named "
     "outlets published; quote figures exactly as reported, with a citation on every line."
 )
-SCAN_USER = """It is {now} New York time. List up to 8 items from the last 6 hours that a macro
+SCAN_USER = """It is {now} New York time. List up to 8 items from the last {hours} hours that a macro
 investor would care about, most notable first, one per line starting with MACRO or AI: data
 releases and how they compared with forecasts, central banks and policy, rates, credit, oil and the
 dollar; AI model launches with benchmark or price figures, chip and data-center news, AI capex and
@@ -90,6 +93,9 @@ rebased to 100. Pick series whose level reads on its own (a yield, spread, price
 DGS10, T10YIE, UNRATE), never an index level like CPIAUCSL or INDPRO. names: a reader name per
 series ("Chip stocks (SMH)"). window_days: 30-365. chart_title and headline: short, no figures.
 When post is false, leave item_id, series and names empty and give the reason."""
+MUST = """Nothing cleared the bar in the last 6 hours, and the account posts every run. This time
+pick the best item here that is not already posted and that a chart can show; answer post=false
+only if every item is already posted or none can be charted."""
 
 WRITER = """You write one X post and its single reply for ARC Research, a macro research shop. The
 lead (at most 220 characters) states the finding and what the attached chart shows. The reply (at
@@ -131,10 +137,13 @@ class Scout(StructuredAgent[ScoutPick]):
     def system_prompt(self) -> str:
         return SCOUT
 
-    def user_prompt(self, *, now: str, items: list[Fact], posted: list[dict]) -> str:
+    def user_prompt(
+        self, *, now: str, items: list[Fact], posted: list[dict], must: bool = False
+    ) -> str:
         done = "\n".join(f"- {p['headline']}" for p in posted) or "(nothing yet)"
         lines = "\n".join(f"[{f.id}] {f.text} — {f.source_title}" for f in items)
-        return f"Now: {now} New York time.\n\nAlready posted:\n{done}\n\nCited items:\n{lines}"
+        out = f"Now: {now} New York time.\n\nAlready posted:\n{done}\n\nCited items:\n{lines}"
+        return f"{out}\n\n{MUST}" if must else out
 
 
 class Writer(StructuredAgent[ScoutPost]):
@@ -162,12 +171,12 @@ class Writer(StructuredAgent[ScoutPost]):
         return out
 
 
-def scan(now: datetime) -> list[Fact]:
+def scan(now: datetime, hours: int = 6) -> list[Fact]:
     from castelino.data import web_search
 
     text, cites = web_search.search_cited(
         SCAN_SYSTEM,
-        SCAN_USER.format(now=f"{now:%a %b %d, %H:%M}"),
+        SCAN_USER.format(now=f"{now:%a %b %d, %H:%M}", hours=hours),
         model=get_settings().x_scout.search_model,
     )
     return facts_from_search("N", text, cites)
@@ -290,27 +299,14 @@ def write(
     return None
 
 
-def run(dry: bool = False, now: datetime | None = None, root: Path | None = None) -> dict | None:
-    """One scout; returns the post record when something went out (or would have, in a dry run)."""
-    now = now or datetime.now(ET)
-    base = (root or get_settings().root) / "data" / "x_posts"
-    path = base / "scout" / f"{now:%Y-%m-%d}.json"
-    png = path.parent / f"{now:%Y-%m-%d}" / f"{now:%H%M}.png"
-    day = json.loads(path.read_text()) if path.exists() else {"posts": []}
-    print(f"{now:%Y-%m-%d %H:%M} ET  scout")
-    if len(day["posts"]) >= MAX_PER_DAY:
-        print(f"  already {MAX_PER_DAY} posts today")
-        return None
-    theme = base / "themes" / f"{now:%Y-%m-%d}-am.json"  # rewritten after each thread post
-    if theme.exists():
-        quiet = datetime.fromtimestamp(theme.stat().st_mtime, ET) + THEME_GAP
-        if now < quiet:
-            print(f"  Theme Charts thread posted: quiet until {quiet:%H:%M} ET")
-            return None
-    items = scan(now)
-    print(f"  scan: {len(items)} cited items")
-    posted = recent(base, now)
-    pick = Scout()(now=f"{now:%a %b %d, %H:%M}", items=items, posted=posted) if items else None
+def find(
+    now: datetime, hours: int, must: bool, posted: list[dict], png: Path
+) -> tuple[ScoutPick, Fact, tuple[str, str, str]] | None:
+    """One pass: scan, pick, chart (drawn to `png`) and write. None when it has nothing to post."""
+    items = scan(now, hours)
+    print(f"  scan, last {hours}h{' (must pick)' if must else ''}: {len(items)} cited items")
+    stamp = f"{now:%a %b %d, %H:%M}"
+    pick = Scout()(now=stamp, items=items, posted=posted, must=must) if items else None
     hit = next((f for f in items if pick and pick.post and f.id == pick.item_id), None)
     if hit is None:
         print("  pick: nothing" + (f" ({pick.reason})" if pick else ""))
@@ -333,6 +329,34 @@ def run(dry: bool = False, now: datetime | None = None, root: Path | None = None
     if texts is None:
         print("  still failing after a retry: no post")
         return None
+    return pick, hit, texts
+
+
+def run(dry: bool = False, now: datetime | None = None, root: Path | None = None) -> dict | None:
+    """One scout; returns the post record when something went out (or would have, in a dry run)."""
+    now = now or datetime.now(ET)
+    base = (root or get_settings().root) / "data" / "x_posts"
+    path = base / "scout" / f"{now:%Y-%m-%d}.json"
+    png = path.parent / f"{now:%Y-%m-%d}" / f"{now:%H%M}.png"
+    day = json.loads(path.read_text()) if path.exists() else {"posts": []}
+    print(f"{now:%Y-%m-%d %H:%M} ET  scout")
+    if len(day["posts"]) >= MAX_PER_DAY:
+        print(f"  already {MAX_PER_DAY} posts today")
+        return None
+    theme = base / "themes" / f"{now:%Y-%m-%d}-am.json"  # rewritten after each thread post
+    if theme.exists():
+        quiet = datetime.fromtimestamp(theme.stat().st_mtime, ET) + THEME_GAP
+        if now < quiet:
+            print(f"  Theme Charts thread posted: quiet until {quiet:%H:%M} ET")
+            return None
+    posted = recent(base, now)
+    found = None
+    for hours, must in PASSES:
+        if found := find(now, hours, must, posted, png):
+            break
+    if found is None:
+        return None
+    pick, hit, texts = found
     text, reply, source = texts
     lead = f"{text}\n\nSource: {source}"
     live = not dry and os.getenv("X_SCOUT_LIVE") == "1" and x_post.can_post()

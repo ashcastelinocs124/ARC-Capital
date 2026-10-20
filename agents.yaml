@@ -231,9 +231,10 @@ agents:
       - {key: FRED_API_KEY, required: false, why: "A fred: chart series; falls back to the keyless CSV endpoint when unset"}
     class: castelino.x_scout.Scout
     summary: >-
-      Picks the one cited item a macro investor would stop scrolling for, or nothing (the usual
-      answer), and names 1-4 FRED or Yahoo series to chart it. Code fetches and draws every plotted
-      value; a chart that can't be drawn means no post.
+      Picks the one cited item a macro investor would stop scrolling for and names 1-4 FRED or
+      Yahoo series to chart it. When nothing clears the bar (or the pick can't be charted or
+      written), code searches the last 24 hours and the Scout must pick the best item not yet
+      posted, so a run posts unless everything is old. Code fetches and draws every plotted value.
     tools:
       - {name: "chart() (code)", does: "fetch_series per series, drawn as one line or 2-4 compared (prices rebased to 100) with the Morning Note renderer"}
     memory:
@@ -940,7 +941,7 @@ systems:
       every number and the two writers only add words.
     lanes:
       - title: "Findings"
-        flow: [["Every 2 h"], ["agent:x_scout_search|cited macro + AI"], ["agent:x_scout|1 item or nothing"], ["agent:x_scout_writer|post + reply"], ["end:X + Substack Note|+ chart · or dry-run log"]]
+        flow: [["Every 2 h"], ["agent:x_scout_search|cited macro + AI"], ["agent:x_scout|1 item, 24h retry"], ["agent:x_scout_writer|post + reply"], ["end:X + Substack Note|+ chart · or dry-run log"]]
       - title: "Calendar"
         flow: [["7:00 · every 5 min"], ["code:Week Ahead|pick + card · watch list"], ["agent:x_calendar_writer|week or day read"], ["agent:x_release_writer|one line per release"], ["end:X + Notes|card on both · releases X only ≤4/day"]]
 
@@ -1170,7 +1171,7 @@ pipelines:
       - {id: nasdaq, kind: source, layer: sources, x: 1110, name: Nasdaq calendar, sub: live actuals, does: "Nasdaq's economic and earnings calendars, which show the actual number or EPS within minutes of a release."}
       - {id: schedule, kind: trigger, layer: agents, x: 20, w: 120, name: Findings, sub: every 2 h, does: "Runs every 2 hours, 10:15 to 22:15 New York time on weekdays and 08:15 to 22:15 at weekends, never within an hour of the morning Theme Charts thread."}
       - {id: search, kind: llm, agent: x_scout_search, layer: agents, x: 170, name: Scout search, sub: macro + AI news, does: "Searches the last 6 hours of macro and AI news and keeps only the lines it can cite."}
-      - {id: scout, kind: llm, agent: x_scout, layer: agents, x: 330, name: Scout, sub: 1 item or nothing, does: "Picks the one item worth a post, or nothing, and names the data series that chart it."}
+      - {id: scout, kind: llm, agent: x_scout, layer: agents, x: 330, name: Scout, sub: 1 item, 24h retry, does: "Picks the one item worth a post and names the data series that chart it; if nothing clears the bar, a second search covers 24 hours and the Scout must pick the best item not yet posted."}
       - {id: writer, kind: llm, agent: x_scout_writer, layer: agents, x: 490, name: Writer, sub: post + reply, does: "Writes the post and one reply of analysis from the cited line and the chart's numbers."}
       - {id: calsched, kind: trigger, layer: agents, x: 650, w: 120, name: Calendar, sub: 07:00 · every 5 min, does: "The calendar card goes out at 7:00 New York time on weekdays (the whole week on Mondays); the release watcher checks every 5 minutes from 7:00 to 19:55."}
       - {id: pick, kind: code, layer: agents, x: 790, name: Pick + card, sub: key rows · drawn by code, does: "Plain code picks the key US releases, inflation and jobs abroad and the largest companies reporting, draws the card and saves the four most important releases to watch."}

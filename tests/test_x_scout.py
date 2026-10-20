@@ -45,7 +45,7 @@ def pick(post=True, item_id="N1", series=("yahoo:SMH", "yahoo:^GSPC")):
 
 def fake(monkeypatch, *, items=None, pick_=None, posts=None, chart_ok=True):
     """Scan, Scout, chart and Writer replaced; returns the Writer's calls."""
-    monkeypatch.setattr(x_scout, "scan", lambda now: items or [item()])
+    monkeypatch.setattr(x_scout, "scan", lambda now, hours=6: items or [item()])
     monkeypatch.setattr(x_scout.Scout, "__call__", lambda self, **k: pick_ or pick())
 
     def chart(p, now, png):
@@ -185,6 +185,23 @@ def test_scout_saying_nothing_posts_nothing(monkeypatch, tmp_path):
     assert x_scout.run(now=AT, root=tmp_path) is None and calls == []
 
 
+def test_nothing_over_the_bar_searches_a_day_and_must_pick(monkeypatch, tmp_path):
+    fake(monkeypatch)
+    scans, musts = [], []
+    monkeypatch.setattr(x_scout, "scan", lambda now, hours=6: scans.append(hours) or [item()])
+
+    def scout(self, **k):
+        musts.append(k["must"])
+        return pick() if k["must"] else pick(post=False, item_id="")
+
+    monkeypatch.setattr(x_scout.Scout, "__call__", scout)
+    rec = x_scout.run(dry=True, now=AT, root=tmp_path)
+    assert rec and scans == [6, 24] and musts == [False, True]
+    prompt = x_scout.Scout().user_prompt
+    assert x_scout.MUST in prompt(now="n", items=[], posted=[], must=True)
+    assert x_scout.MUST not in prompt(now="n", items=[], posted=[])
+
+
 def test_no_chart_no_post(monkeypatch, tmp_path):
     calls = fake(monkeypatch, chart_ok=False)
     assert x_scout.run(now=AT, root=tmp_path) is None and calls == []
@@ -198,8 +215,8 @@ def test_an_invented_figure_gets_one_retry_then_no_post(monkeypatch, tmp_path):
     )
     assert len(calls) == 2 and "12%" in " ".join(calls[1]["fix"])
 
-    calls = fake(monkeypatch, posts=[bad])
-    assert x_scout.run(dry=True, now=AT, root=tmp_path / "other") is None and len(calls) == 2
+    calls = fake(monkeypatch, posts=[bad])  # a draft and a retry on each of the two passes
+    assert x_scout.run(dry=True, now=AT, root=tmp_path / "other") is None and len(calls) == 4
 
 
 def test_a_daily_cap_and_never_the_same_source_twice(monkeypatch, tmp_path):
@@ -213,9 +230,9 @@ def test_a_daily_cap_and_never_the_same_source_twice(monkeypatch, tmp_path):
     assert x_scout.run(dry=True, now=AT, root=tmp_path) is None  # same Reuters story again
     assert seen[1][0]["headline"] == "Chip stocks unwind on GPU order reports"
 
-    monkeypatch.setattr(x_scout, "scan", lambda now: [item(url="https://ft.com/b")])
+    monkeypatch.setattr(x_scout, "scan", lambda now, hours=6: [item(url="https://ft.com/b")])
     assert x_scout.run(dry=True, now=AT, root=tmp_path)
-    monkeypatch.setattr(x_scout, "scan", lambda now: [item(url="https://wsj.com/c")])
+    monkeypatch.setattr(x_scout, "scan", lambda now, hours=6: [item(url="https://wsj.com/c")])
     assert x_scout.run(dry=True, now=AT, root=tmp_path) is None  # the cap
 
 
