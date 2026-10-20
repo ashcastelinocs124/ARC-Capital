@@ -13,6 +13,7 @@ import textwrap
 import threading
 from pathlib import Path
 from types import SimpleNamespace
+from urllib.parse import urlparse
 
 from castelino import substack as sb
 from castelino.agents.research.deep import store
@@ -54,7 +55,8 @@ def _line(ex):
                 fontweight="bold",
             )
         ax.set_xticks(x)
-        ax.set_xticklabels([_short(lb, 14) for lb in labels], fontsize=8.5)
+        ax.set_xticklabels([_short(lb, 20) for lb in labels], fontsize=8)
+        ax.set_xlim(-0.35, len(vals) - 0.65)  # room for the end points' labels
         lo, hi = min(vals), max(vals)
         pad = (hi - lo) * 0.25 or abs(hi) * 0.1 or 1
         ax.set_ylim(lo - pad, hi + pad)
@@ -84,12 +86,23 @@ def _stat(ex):
     return draw, ""
 
 
+def _from_zero(draw):
+    """Shares and counts start at 0: drop the weekly bars' room for negatives when there are none."""
+
+    def wrapped(ax):
+        draw(ax)
+        ax.set_xlim(left=0)
+
+    return wrapped
+
+
 def _exhibit(n: int, c: PointChart, data: str, path: Path) -> None:
-    pts = [SimpleNamespace(label=_short(v.label, 30), value=v.value) for v in c.values]
+    pts = [SimpleNamespace(label=_short(v.label, 26), value=v.value) for v in c.values]
     ex = SimpleNamespace(points=pts, unit=c.unit)
     left = 0.1
     if c.form == "bars":
-        (draw, sub), left = wc._bars(ex, diverging=False, keep_order=True, signed=False), 0.3
+        draw, sub = wc._bars(ex, diverging=False, keep_order=True, signed=False)
+        draw, left = (_from_zero(draw) if min(p.value for p in pts) >= 0 else draw), 0.34
     elif c.form == "dumbbell":
         draw, sub = wc._dumbbell(ex)
     elif c.form == "line":
@@ -105,7 +118,8 @@ def render(s: ResearchSession) -> dict[str, Path]:
     for p in s.report.points:
         if not p.chart:
             continue
-        srcs = dict.fromkeys(by[v.fact_id].source_title for v in p.chart.values if v.fact_id in by)
+        urls = [by[v.fact_id].source_url for v in p.chart.values if v.fact_id in by]
+        srcs = dict.fromkeys(urlparse(u).netloc.removeprefix("www.") for u in urls if u)
         path = store.root() / s.id / "charts" / f"{p.id}.png"
         _exhibit(len(out) + 1, p.chart, ", ".join(srcs) or "ARC Research", path)
         out[path.name] = path
