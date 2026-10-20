@@ -31,13 +31,15 @@ export type Proposal = {
 export type Addition = {
   n: number; text: string; round: number; status: "running" | "done" | "failed"; error: string; created_at: string;
 };
+// The report's Substack draft (publish.py); note says why the last push didn't update it.
+export type SubstackDraft = { draft_id: number | null; url: string; sha: string; at: string; note: string };
 export type Report = { title: string; subtitle: string; points: Point[]; caveats: string[]; gaps_remaining: string[] };
 export type Status = "awaiting_answers" | "researching" | "writing" | "complete";
 export type Session = {
   id: string; topic: string; question: string; clarifying_questions: { question: string; why: string }[];
   answers: Record<string, string>; status: Status; job: Job | null; agents: AgentRun[];
   board: { agent: string; note: string; fact_ids: string[] }[]; board_facts: Record<string, Fact>;
-  report: Report | null; proposals: Proposal[]; additions: Addition[]; cost_usd: number; cost_cap_usd: number; fallbacks: string[];
+  report: Report | null; proposals: Proposal[]; additions: Addition[]; substack: SubstackDraft | null; cost_usd: number; cost_cap_usd: number; fallbacks: string[];
   created_at: string; updated_at: string; compacted_at: string | null;
 };
 export type Row = {
@@ -67,6 +69,7 @@ export const research = {
   retry: (id: string) => req<Session>("POST", `/${id}/retry`),
   ask: (id: string, pid: string, text: string) => req<Session>("POST", `/${id}/points/${pid}/ask`, { text }),
   addAngles: (id: string, text: string) => req<Session>("POST", `/${id}/angles`, { text }),
+  draft: (id: string) => req<Session>("POST", `/${id}/substack`),
   approve: (id: string, n: number) => req<Session>("POST", `/${id}/proposals/${n}/approve`),
   reject: (id: string, n: number) => req<Session>("POST", `/${id}/proposals/${n}/reject`),
 };

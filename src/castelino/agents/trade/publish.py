@@ -63,9 +63,9 @@ def doc(idea: TradeIdea, uploaded: dict[str, dict]) -> dict:
     return {"type": "doc", "content": c}
 
 
-def _set_section(draft_id: int) -> None:
+def _set_section(draft_id: int, section: int = SECTION) -> None:
     pub = os.environ["SUBSTACK_PUBLICATION_URL"].rstrip("/")
-    fields = {"draft_section_id": SECTION, "section_chosen": True}
+    fields = {"draft_section_id": section, "section_chosen": True}
     with httpx.Client(cookies={"substack.sid": os.environ["SUBSTACK_SID"]}, timeout=60) as http:
         sb._check(http.put(f"{pub}/api/v1/drafts/{draft_id}", json=fields))
 

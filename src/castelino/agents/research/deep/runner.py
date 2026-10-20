@@ -15,6 +15,7 @@ from castelino.agents.research.deep import (
     critic,
     editor_desk,
     lead,
+    publish,
     store,
     sub_agent,
     synthesizer,
@@ -164,6 +165,7 @@ def _angles(sid: str, meter: llm.Meter) -> None:
 
 
 STEPS = {"run": _run, "compact": compact.compact, "charts": _charts, "add": _angles}
+DRAFTED = {"run", "add"}  # steps that end by updating the Substack draft (publish.py)
 
 
 def _execute(sid: str, step: str) -> None:
@@ -174,6 +176,8 @@ def _execute(sid: str, step: str) -> None:
         meter, state, msg = llm.Meter(), "done", ""
         try:
             STEPS[step](sid, meter)
+            if step in DRAFTED:
+                publish.push(sid)  # never raises; a failure shows on the tab with Push again
         except Exception as e:  # noqa: BLE001 - shown with a Retry button
             log.exception("research %s: %s failed", sid, step)
             state, msg = "failed", str(e)[:400]
@@ -218,6 +222,13 @@ def _ask(sid: str, n: int) -> None:
         x.cost_usd = round(x.cost_usd + meter.total, 4)
         x.fallbacks += meter.fallbacks
         x.proposal(n).trail.append(f"Cost ${meter.total:.2f}")
+
+
+def draft_later(sid: str) -> None:
+    """Update the Substack draft in its own thread (after an approved edit, or Push again)."""
+    threading.Thread(
+        target=publish.push, args=(sid,), daemon=True, name=f"research-{sid}-draft"
+    ).start()
 
 
 def submit_ask(sid: str, n: int, *, sync: bool = False) -> None:

@@ -513,6 +513,39 @@ const PILL_LABEL: Record<Proposal["status"], string> = {
   running: "rechecking", pending: "pending", answered: "answered, no change", approved: "approved", rejected: "rejected", failed: "failed",
 };
 
+// The report's Substack draft in the Artificial Intelligence section (publish.py): made when the report
+// finishes, updated after added angles and approved edits, never over your own edits on Substack.
+function DraftBar({ s, onSession }: { s: Session; onSession: (s: Session) => void }) {
+  const [busy, setBusy] = useState(false);
+  const d = s.substack;
+  const push = () => {
+    setBusy(true);
+    research.draft(s.id)
+      .then(() => setTimeout(() => research.get(s.id).then(onSession).finally(() => setBusy(false)), 12000))
+      .catch(() => setBusy(false));
+  };
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-surface px-4 py-3 text-[12.5px]">
+      <span className="text-muted">
+        <b className="text-text">Substack draft</b> · Artificial Intelligence
+        {d?.at ? ` · ${d.note ? "tried" : "updated"} ${d.at.slice(11, 16)}` : ""}
+      </span>
+      <span className="flex items-center gap-3">
+        {d?.url && (
+          <a href={d.url} target="_blank" rel="noreferrer" className="font-semibold text-accent underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">
+            Open draft ↗<span className="sr-only"> (opens Substack in a new tab)</span>
+          </a>
+        )}
+        <button onClick={push} disabled={busy || live(s)}
+          className="rounded-full border border-border-strong px-3 py-1 text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50">
+          {busy ? "Pushing…" : d?.url ? "Push again" : "Push to Substack"}
+        </button>
+      </span>
+      {d?.note && <p role="status" className="w-full text-[11.5px] text-warning">{d.note}</p>}
+    </div>
+  );
+}
+
 // Angles you ask to add to a finished report: new agents research them, Claude writes new points only.
 function AddAngles({ s, onSession }: { s: Session; onSession: (s: Session) => void }) {
   const [text, setText] = useState("");
@@ -673,6 +706,7 @@ export default function Research() {
               <div className="grid items-start gap-3.5 lg:grid-cols-[1.45fr_1fr]">
                 <ReportView s={s} facts={facts} selected={point} onSelect={setPoint} />
                 <div className="space-y-3.5 lg:sticky lg:top-4">
+                  <DraftBar s={s} onSession={onSession} />
                   {point ? <Desk key={point} s={s} facts={facts} pid={point} onSession={onSession} /> : (
                     <>
                       <div className="rounded-2xl border border-dashed border-border-strong bg-surface p-5 text-sm text-muted">Click any point to question it or tell its agent what to change.</div>

@@ -139,6 +139,14 @@ def angles(sid: str, req: Ask):
 @router.post("/{sid}/proposals/{n}/approve")
 def approve(sid: str, n: int):
     _do(editor_desk.approve, sid, n)
+    runner.draft_later(sid)
+    return _public(store.load(sid))
+
+
+@router.post("/{sid}/substack")
+def substack(sid: str):
+    _do(store.load, sid)
+    runner.draft_later(sid)
     return _public(store.load(sid))
 
 

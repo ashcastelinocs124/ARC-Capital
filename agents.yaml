@@ -885,7 +885,7 @@ systems:
 
   - group: Deep research
     trigger: "You, in /admin → Research"
-    output: "A cited report of points in data/research/; you question any point"
+    output: "A cited report of points in data/research/, drafted on Substack (Artificial Intelligence); you question any point"
     blurb: >-
       Any topic. The Lead invents up to 8 angles, one research agent each (DeepSeek V4.1 Flash, 12 tool calls
       over web, X, FRED, Yahoo, BLS and Polymarket, with a shared board). The Critic checks the findings and
@@ -896,7 +896,7 @@ systems:
       - title: "1 · Clarify and plan"
         flow: [["Your topic"], ["agent:research_clarifier|≤3 questions"], ["gate:You answer|or skip"], ["agent:research_lead|≤8 angles"], ["end:↓ research"]]
       - title: "2 · Research and write"
-        flow: [["agent:research_agent|×8 · 12 tool calls"], ["agent:research_critic|findings enough?"], ["agent:research_writer|Claude · points · number guard"], ["agent:research_charter|a chart per point"], ["end:Report|↓ editor desk"]]
+        flow: [["agent:research_agent|×8 · 12 tool calls"], ["agent:research_critic|findings enough?"], ["agent:research_writer|Claude · points · number guard"], ["agent:research_charter|a chart per point"], ["end:Report + Substack draft|↓ editor desk"]]
         loops: [{from: 1, to: 0, label: "1 gap round"}]
       - title: "3 · Editor desk"
         flow: [["gate:You ask|about one point"], ["agent:research_agent|rethinks in its thread"], ["agent:research_revise|that point only"], ["gate:You approve|or reject"], ["end:Point v2"]]

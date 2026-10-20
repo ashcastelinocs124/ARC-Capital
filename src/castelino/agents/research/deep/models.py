@@ -239,6 +239,17 @@ class Addition(BaseModel):
     created_at: str
 
 
+class SubstackDraft(BaseModel):
+    """The report's Substack draft (publish.py): `sha` hashes the text last pushed, so a draft you edited on
+    Substack is never overwritten; `note` says why the last push didn't update it."""
+
+    draft_id: int | None = None
+    url: str = ""
+    sha: str = ""
+    at: str = ""
+    note: str = ""
+
+
 class Job(BaseModel):
     step: str
     state: Literal["queued", "running", "done", "failed", "interrupted"]
@@ -260,6 +271,7 @@ class ResearchSession(BaseModel):
     report: ResearchReport | None = None
     proposals: list[Proposal] = Field(default_factory=list)
     additions: list[Addition] = Field(default_factory=list)
+    substack: SubstackDraft | None = None
     cost_usd: float = 0.0
     fallbacks: list[str] = Field(default_factory=list)
     created_at: str
