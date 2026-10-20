@@ -100,7 +100,7 @@ function Hero() {
           Independent research<br /><RotatingTagline />
         </h1>
         <p className="mt-5 max-w-xl text-base leading-relaxed text-muted md:text-lg">
-          A daily memo, a Sunday deep dive and a weekly radar on the economy, markets and the AI stack.
+          An AI-driven, thematic research platform: a daily memo, a Sunday deep dive and a weekly radar on the economy, markets and the AI stack.
         </p>
         <div className="mt-7 flex flex-wrap gap-3">
           {daily && isPost(daily.url) ? (
