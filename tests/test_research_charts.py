@@ -68,6 +68,17 @@ def test_guard_rejects_a_number_not_in_its_fact_an_uncited_fact_and_a_bad_size()
     assert any("bars needs 2-10" in e for e in charts.chart_errors(one, P1, BY))
 
 
+def test_a_dumbbell_with_two_equal_values_is_refused_because_it_draws_one_dot():
+    flat = PointChartDraft(
+        point_id="p1",
+        form="dumbbell",
+        title="Flat",
+        unit="%",
+        values=[v("A1", "2025", 20.0), v("A1", "2026", 20.0)],
+    )
+    assert any("draws one dot" in e for e in charts.chart_errors(flat, P1, BY))
+
+
 def test_the_chart_agent_cannot_draw_a_single_figure_tile():
     with pytest.raises(ValidationError):
         PointChartDraft(point_id="p9", form="stat", title="t", unit="%", values=[])

@@ -22,7 +22,7 @@ SYSTEM = """You chart the points of an ARC Research report. For each point you g
 the facts it cites, each with the numbers it holds. Return one chart per point, using only those facts:
 - form: bars to compare 2 to 10 things (labels name the things), line for one measure over 3 to 10 dates
   in time order (labels are the dates), dumbbell for one measure before and after (exactly 2 values,
-  earlier first). Never chart a single figure: put the headline figure beside the facts' figures for the
+  earlier first, and they must differ). Never chart a single figure: put the headline figure beside the facts' figures for the
   same measure in other groups, years or sources, and use as many as the facts hold (3 or more where they
   can). A point whose facts hold fewer than 2 comparable figures gets no chart: leave it out.
 - values: each is {fact_id, label, value}. value must be one of that fact's listed numbers, copied exactly;
@@ -53,6 +53,8 @@ def chart_errors(c: PointChartDraft, point: Point, by: dict[str, Fact]) -> list[
         if lo <= len(c.values) <= hi
         else [f"{point.id}: {c.form} needs {lo}-{hi} values, got {len(c.values)}"]
     )
+    if c.form == "dumbbell" and len({v.value for v in c.values}) == 1:
+        errs.append(f"{point.id}: the dumbbell's two values are equal, so it draws one dot")
     for v in c.values:
         if v.fact_id not in point.fact_ids or v.fact_id not in by:
             errs.append(f"{point.id}: {v.fact_id} is not one of this point's facts")
