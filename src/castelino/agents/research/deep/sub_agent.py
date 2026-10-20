@@ -33,7 +33,8 @@ Rules:
   finding says when its figures are from.
 - Prefer the data tools for anything measurable: the Ramp AI Index (U.S. business AI adoption by vendor,
   industry and size, monthly to the latest month, and weekly token spend by model maker), OpenRouter's
-  rankings (the most-used models now, open-weight or closed), FRED, Yahoo, BLS and Polymarket. Use web
+  rankings (the most-used models now, open-weight or closed), ARC's own AI Adoption Index (52 U.S.
+  companies scored from SEC filings, AI hiring and spend), FRED, Yahoo, BLS and Polymarket. Use web
   search for studies, surveys, causes and context.
 - x_search reaches only the last 7 days of X. A post is what its author said, not a fact: use it as
   "@handle says ...".

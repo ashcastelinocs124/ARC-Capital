@@ -24,6 +24,7 @@ DATA_TOOLS = [
     "web_search",
     "ramp_ai_index",
     "openrouter_rankings",
+    "arc_ai_adoption_index",
     "fred_series",
     "yahoo_prices",
     "bls_series",
@@ -55,6 +56,12 @@ SPECS_R: dict[str, dict] = {
     },
     "openrouter_rankings": {
         "description": "OpenRouter's most-used models right now (by tokens), each tagged open-weight or closed.",
+        "parameters": _obj({}),
+    },
+    "arc_ai_adoption_index": {
+        "description": "ARC's own AI Adoption Index, its latest run: 52 U.S. companies scored from AI claims in "
+        "their SEC filings, the share of their job postings that are AI or ML roles, and capex plus R&D as a "
+        "share of revenue; by sector and size, the three pillars' raw values and the leaders.",
         "parameters": _obj({}),
     },
     "x_search": {
@@ -129,6 +136,9 @@ class ResearchToolBox(TradeToolBox):
 
     def _openrouter_rankings(self) -> list[Fact]:
         return self._renumber(sources.openrouter())
+
+    def _arc_ai_adoption_index(self) -> list[Fact]:
+        return self._renumber(sources.arc_index())
 
     def _x_search(self, query: str) -> list[Fact]:
         left = self.x_budget.left if self.x_budget else 0

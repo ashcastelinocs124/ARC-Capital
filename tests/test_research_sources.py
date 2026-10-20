@@ -166,3 +166,80 @@ def test_the_agents_can_call_both_tools():
     )
     assert b.call("openrouter_rankings", {}).startswith("[A2] OpenRouter")
     assert {s["name"] for s in b.specs()} >= {"ramp_ai_index", "openrouter_rankings"}
+
+
+class FakeIndex:
+    """Shaped like adoption.store.AdoptionStore."""
+
+    def periods(self):
+        return ["2026-10-12", "2026-10-19"]
+
+    def cells(self, period):
+        from castelino.adoption.index import Cell
+
+        return [
+            Cell(None, "large", 2, 51.0, 59.3, False),
+            Cell(None, "small", 1, 47.9, 47.9, False),
+            Cell("Information Technology", "large", 7, 63.3, 64.7, False),
+            Cell("Financials", "small", 2, 38.2, 38.2, True),
+        ]
+
+    def companies(self, period):
+        row = lambda t, b, s, score, talk, hire, spend: dict(  # noqa: E731
+            ticker=t, bucket=b, sector=s, score=score, talk_raw=talk, hire_raw=hire, spend_raw=spend
+        )
+        return [
+            row("SOUN", "small", "Information Technology", 80.8, 0.918, 0.2098, 0.55),
+            row("NVDA", "large", "Information Technology", 70.8, 1.837, 0.0848, 0.102),
+            row("KO", "large", "Consumer Staples", 40.0, 0.0, None, 0.05),
+        ]
+
+    def period_stats(self, period):
+        return {
+            "n_companies": 3,
+            "n_scored": 3,
+            "n_claims": 10,
+            "pillar_coverage": {"talk": 3, "hire": 2, "spend": 3},
+        }
+
+
+NAMES = {"SOUN": "SoundHound AI", "NVDA": "NVIDIA", "KO": "Coca-Cola"}
+
+
+def test_the_arc_index_becomes_dated_facts_from_its_latest_run():
+    facts = sources.arc_index(FakeIndex(), NAMES)
+    text = "\n".join(f.text for f in facts)
+    assert all(f.text.startswith("ARC AI Adoption Index, run of October 19, 2026") for f in facts)
+    assert (
+        "large companies average 51.0 and small companies 47.9" in text and "centred on 50" in text
+    )
+    assert (
+        "Information Technology large 63.3 (7 companies)" in text
+        and "Financials small 38.2 (2, thin)" in text
+    )
+    assert (
+        "SoundHound AI (SOUN) 21.0%" in text
+        and "NVIDIA (NVDA) 1.84" in text
+        and "1 of 3 filings" in text
+    )
+    assert all(f.source_title == "ARC AI Adoption Index" and f.provenance == "data" for f in facts)
+    hiring = next(f for f in facts if "AI and ML roles as a share" in f.text)
+    assert 21.0 in hiring.numbers and 2026 not in hiring.numbers
+
+
+def test_an_empty_index_is_a_tool_error():
+    class Empty(FakeIndex):
+        def periods(self):
+            return []
+
+    with pytest.raises(ToolError, match="no run"):
+        sources.arc_index(Empty(), NAMES)
+
+
+def test_the_agents_can_read_the_arc_index(monkeypatch):
+    one = sources._fact("ARC AI Adoption Index, run of October 19, 2026: x", [1.0], sources.ARC, "")
+    monkeypatch.setattr(sources, "arc_index", lambda: [one])
+    b = box(allowed=["arc_ai_adoption_index"])
+    assert b.call("arc_ai_adoption_index", {}).startswith(
+        "[A1] ARC AI Adoption Index, run of October 19, 2026"
+    )

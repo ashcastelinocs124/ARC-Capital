@@ -8,13 +8,18 @@ from __future__ import annotations
 
 import json
 import re
+import statistics
 from datetime import date
 from functools import lru_cache
 
 import httpx
 
+from castelino.adoption.index import headline
+from castelino.adoption.store import AdoptionStore
+from castelino.adoption.universe import load_universe
 from castelino.agents.update.models import Fact
 from castelino.agents.weekly.tools import ToolError
+from castelino.config import get_settings
 
 RAMP = "https://ramp.com/data/ai-index"
 OPENROUTER = "https://openrouter.ai/rankings"
@@ -159,3 +164,126 @@ def openrouter() -> list[Fact]:
         f"{', '.join(parts)}. {n_open} of the top {len(ranked)} are open-weight."
     )
     return [_fact(text, [float(n_open), float(len(ranked))], "OpenRouter rankings", OPENROUTER)]
+
+
+ARC = "ARC AI Adoption Index"
+
+
+def _universe_names() -> dict[str, str]:
+    cfg = get_settings()
+    path = cfg.root / cfg.adoption.data_dir / "universe.csv"
+    return {c.ticker: c.name for c in load_universe(path)} if path.exists() else {}
+
+
+def arc_index(store=None, names: dict[str, str] | None = None) -> list[Fact]:
+    """ARC's own AI Adoption Index (adoption/), its latest run as dated facts: the overview, sector and size
+    cells, and the three pillars' raw values (AI hiring share, AI claims in filings, capex plus R&D)."""
+    st = store or AdoptionStore()
+    names = _universe_names() if names is None else names
+    periods = st.periods()
+    if not periods:
+        raise ToolError("the AI Adoption Index has no run yet")
+    p = periods[-1]
+    d = date.fromisoformat(p)
+    head = f"{ARC}, run of {d:%B} {d.day}, {d.year}"
+    cells, rows = st.cells(p), [r for r in st.companies(p) if r.get("score") is not None]
+    hl = headline(cells)
+
+    def who(r: dict) -> str:
+        return f"{names.get(r['ticker'], r['ticker'])} ({r['ticker']})"
+
+    def top(key: str, scale: float, fmt: str) -> tuple[list[dict], list[float]]:
+        ranked = sorted((r for r in rows if r.get(key)), key=lambda r: -r[key])[:5]
+        return ranked, [round(r[key] * scale, 2 if fmt == ".2f" else 1) for r in ranked]
+
+    large = sum(r["bucket"] == "large" for r in rows)
+    out = [
+        _fact(
+            f"{head}: {len(rows)} U.S. companies ({large} large, {len(rows) - large} small) scored from what they "
+            "say about AI in their latest SEC filing, the share of their open job postings that are AI or ML "
+            "roles, and their capex plus R&D as a share of revenue. On the equal-weighted score, large companies "
+            f"average {hl['large_ew']:.1f} and small companies {hl['small_ew']:.1f}; scores are centred on 50 "
+            "each run, so they rank companies against each other rather than measure adoption.",
+            [
+                float(len(rows)),
+                float(large),
+                float(len(rows) - large),
+                round(hl["large_ew"], 1),
+                round(hl["small_ew"], 1),
+                50.0,
+            ],
+            ARC,
+            "",
+        )
+    ]
+    by_cell = sorted((c for c in cells if c.sector), key=lambda c: -(c.ew or 0))
+    parts = [
+        f"{c.sector} {c.bucket} {c.ew:.1f} ({c.n}, thin)"
+        if c.thin
+        else f"{c.sector} {c.bucket} {c.ew:.1f} ({c.n} companies)"
+        for c in by_cell
+    ]
+    out.append(
+        _fact(
+            f"{head}: equal-weighted score by sector and size (a cell with fewer than 5 companies is thin): "
+            f"{', '.join(parts)}.",
+            [round(c.ew, 1) for c in by_cell],
+            ARC,
+            "",
+        )
+    )
+    hires = [r["hire_raw"] for r in rows if r.get("hire_raw") is not None]
+    if hires:
+        ranked, nums = top("hire_raw", 100, ".1f")
+        m = round(100 * statistics.median(hires), 1)
+        out.append(
+            _fact(
+                f"{head}: AI and ML roles as a share of open job postings, for the {len(hires)} companies with "
+                f"job-board data: median {m:.1f}%; highest "
+                f"{', '.join(f'{who(r)} {n:.1f}%' for r, n in zip(ranked, nums, strict=True))}.",
+                [m, *nums],
+                ARC,
+                "",
+            )
+        )
+    talk = [r for r in rows if r.get("talk_raw") is not None]
+    if talk:
+        ranked, nums = top("talk_raw", 1, ".2f")
+        none = sum(r["talk_raw"] == 0 for r in talk)
+        out.append(
+            _fact(
+                f"{head}: verified AI claims per 1,000 words of each company's latest SEC filing: {none} of "
+                f"{len(talk)} filings make none; highest "
+                f"{', '.join(f'{who(r)} {n:.2f}' for r, n in zip(ranked, nums, strict=True))}.",
+                [float(none), float(len(talk)), *nums],
+                ARC,
+                "",
+            )
+        )
+    spend = [r["spend_raw"] for r in rows if r.get("spend_raw") is not None]
+    if spend:
+        ranked, nums = top("spend_raw", 100, ".1f")
+        m = round(100 * statistics.median(spend), 1)
+        out.append(
+            _fact(
+                f"{head}: capex plus R&D as a share of revenue: median {m:.1f}%; highest "
+                f"{', '.join(f'{who(r)} {n:.1f}%' for r, n in zip(ranked, nums, strict=True))}.",
+                [m, *nums],
+                ARC,
+                "",
+            )
+        )
+    lead = sorted(rows, key=lambda r: -r["score"])[:5]
+    leaders = [
+        f"{names.get(r['ticker'], r['ticker'])} ({r['ticker']}, {r['bucket']}) {r['score']:.1f}"
+        for r in lead
+    ]
+    out.append(
+        _fact(
+            f"{head}: highest overall scores: {', '.join(leaders)}.",
+            [round(r["score"], 1) for r in lead],
+            ARC,
+            "",
+        )
+    )
+    return out

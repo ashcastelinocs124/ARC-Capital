@@ -611,7 +611,7 @@ agents:
       saved, so on the editor desk it rethinks a point it wrote with 4 more calls.
     tools:
       - {name: "web_search / x_search / fred_series / yahoo_prices / bls_series / polymarket_odds", does: "Facts computed by code or cited lines; X posts are attributed to their author"}
-      - {name: "ramp_ai_index / openrouter_rankings", does: "Live data read from Ramp's AI Index (monthly U.S. business AI adoption, weekly token spend) and OpenRouter's rankings (most-used models, open-weight or closed)"}
+      - {name: "ramp_ai_index / openrouter_rankings / arc_ai_adoption_index", does: "Live data: Ramp's AI Index (monthly U.S. business AI adoption, weekly token spend), OpenRouter's rankings (most-used models, open-weight or closed) and ARC's own AI Adoption Index (52 companies: filings, AI hiring, spend)"}
       - {name: "post_to_board / read_board", does: "The shared board between agents"}
     memory:
       reads: ["Its brief, the board; on the editor desk its own saved thread (or its summary after 14 days)"]
