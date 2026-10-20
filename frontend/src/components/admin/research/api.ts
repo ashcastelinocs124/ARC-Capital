@@ -20,6 +20,7 @@ export type PointChart = {
 export type Point = {
   id: string; agent: string; headline: string; body: string; fact_ids: string[]; version: number; chart: PointChart | null;
   added: number | null; // the Addition that wrote it; null for the original report
+  older: string; // its newest cited figure's year ("2025") or "undated" when older than this year; "" if current
 };
 export type Proposal = {
   n: number; point_id: string; agent: string; text: string; answer: string; base_version: number;

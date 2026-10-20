@@ -198,6 +198,9 @@ class Point(BaseModel):
     version: int = 1
     chart: PointChart | None = None
     added: int | None = None  # the Addition that wrote it; None for the original report
+    older: str = (
+        ""  # its newest cited figure's year ("2025") or "undated", when older than guard.fresh_year
+    )
 
 
 class ResearchReport(BaseModel):

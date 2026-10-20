@@ -48,7 +48,10 @@ def report_session(**extra):
         ),
     ]
     with store.edit(s.id) as x:
-        x.agents = [agent("A"), agent("B", facts=[fact("B1", "27% of large firms", [27.0])])]
+        x.agents = [
+            agent("A"),
+            agent("B", facts=[fact("B1", "27% of large firms in 2026", [27.0])]),
+        ]
         x.report = ResearchReport(title="t", subtitle="s", points=points)
         x.status = "complete"
         for k, v in extra.items():
@@ -80,7 +83,11 @@ class FakeEditor:
 
 def with_new_agent():
     sid = report_session()
-    c = agent("C", facts=[fact("C1", "38% of firms use frontier models via API", [38.0])], round_=3)
+    c = agent(
+        "C",
+        facts=[fact("C1", "38% of firms use frontier models via API in 2026", [38.0])],
+        round_=3,
+    )
     with store.edit(sid) as x:
         x.agents.append(c)
     return store.load(sid)

@@ -31,7 +31,7 @@ def agent(
     letter: str = "A", *, facts=None, findings=None, transcript=None, round_: int = 1
 ) -> AgentRun:
     if facts is None:
-        facts = [fact(f"{letter}1", "AI use reached 9.2% of firms", [9.2])]
+        facts = [fact(f"{letter}1", "AI use reached 9.2% of firms in 2026", [9.2])]
     if findings is None:
         findings = (
             [Finding(id=f"{letter}-f1", claim="9.2% of firms use AI", fact_ids=[facts[0].id])]

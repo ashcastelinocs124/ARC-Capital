@@ -26,7 +26,12 @@ def test_search_asks_for_the_latest_release_and_a_date_on_every_fact():
 
 def test_agents_look_for_the_latest_release_first():
     text = sub_agent._system(AgentRun(letter="A", brief=brief()), "Q?")
-    assert TODAY in text and "latest release" in text and "older than 12 months" in text
+    assert (
+        TODAY in text
+        and "latest release" in text
+        and f"before {date.today().year if date.today().month > 3 else date.today().year - 1}"
+        in text
+    )
 
 
 def test_the_lead_and_critic_know_today(tmp_path, monkeypatch):
@@ -37,11 +42,11 @@ def test_the_lead_and_critic_know_today(tmp_path, monkeypatch):
     critic.review(s, llm.Meter())
     plan_msgs, crit_msgs = c.calls[0][1]["messages"], c.calls[1][1]["messages"]
     assert TODAY in plan_msgs[1]["content"] and "most recent" in plan_msgs[0]["content"]
-    assert TODAY in crit_msgs[1]["content"] and "older than 12 months" in crit_msgs[0]["content"]
+    assert TODAY in crit_msgs[1]["content"] and "newest data" in crit_msgs[0]["content"]
 
 
 def test_the_writer_knows_today_and_prefers_the_newest_figure(tmp_path, monkeypatch):
     s = session(tmp_path, monkeypatch)
     assert synthesizer.brief(s).startswith(TODAY)
     for system in (synthesizer.SYSTEM, synthesizer.MORE):
-        assert "most recent" in system and "older than 12 months" in system
+        assert "most recent" in system and "latest available" in system

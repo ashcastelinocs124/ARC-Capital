@@ -611,6 +611,7 @@ agents:
       saved, so on the editor desk it rethinks a point it wrote with 4 more calls.
     tools:
       - {name: "web_search / x_search / fred_series / yahoo_prices / bls_series / polymarket_odds", does: "Facts computed by code or cited lines; X posts are attributed to their author"}
+      - {name: "ramp_ai_index / openrouter_rankings", does: "Live data read from Ramp's AI Index (monthly U.S. business AI adoption, weekly token spend) and OpenRouter's rankings (most-used models, open-weight or closed)"}
       - {name: "post_to_board / read_board", does: "The shared board between agents"}
     memory:
       reads: ["Its brief, the board; on the editor desk its own saved thread (or its summary after 14 days)"]
@@ -643,6 +644,7 @@ agents:
     summary: "Writes the report as 5 to 10 points, each owned by the agent whose facts it uses; number guard, one retry. Angles you add get new points only, from the new agents."
     tools:
       - {name: "Number guard (code)", does: "Every %, bp or pp must be in the point's cited facts; X figures name their @handle"}
+      - {name: "Latest-data check (code)", does: "Every point needs a figure from this year; one retry, then the point says its data is the latest available and is marked older data"}
     memory:
       reads: ["Every agent's findings and facts"]
       writes: ["The report"]

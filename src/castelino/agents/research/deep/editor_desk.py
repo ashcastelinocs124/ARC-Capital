@@ -5,6 +5,8 @@ nothing else."""
 
 from __future__ import annotations
 
+from datetime import date
+
 from castelino.agents.research.deep import charts, guard, store, sub_agent
 from castelino.agents.research.deep.models import (
     AgentRun,
@@ -129,6 +131,7 @@ def rethink(sid: str, n: int, meter: llm.Meter) -> None:
             )
             trail.append(f"Rewrote {point.id} only · {llm.label(model)} · passed the number check")
             # the new text gets a new chart from its cited facts; a point it can't chart keeps none
+            after = guard.dated(after, by, date.today())  # the rewrite may cite newer or older data
             chart = charts.chart_points([after], by, meter).get(after.id)
             after = after.model_copy(update={"chart": chart})
             how = (

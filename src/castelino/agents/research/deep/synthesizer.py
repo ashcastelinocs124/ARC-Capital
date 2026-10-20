@@ -31,7 +31,8 @@ using only the researchers' findings and facts: every number must be one of the 
 - A fact whose source is "@handle on X" is what that person said, never a fact: write "@handle says ..."
   in the same sentence as any figure from it.
 - Use the most recent figures: when facts measure the same thing, use the newest, and say when each
-  figure is from. A figure older than 12 months needs its year and "the latest available" if it is.
+  figure is from. Back every point with a figure from this year where its researcher found one; when a
+  point's newest figure is older, say in its body that it is the latest available.
 - caveats: the main limits of this evidence.
 Style: plain words, no dashes as punctuation (no "—" or "–"), no fact ids in the prose."""
 MORE = """You are ARC Research's editor. The report is already written; new researchers have now covered
@@ -44,7 +45,8 @@ number must be one of the cited facts' numbers, and never repeat what the report
 - A fact whose source is "@handle on X" is what that person said, never a fact: write "@handle says ..."
   in the same sentence as any figure from it.
 - Use the most recent figures: when facts measure the same thing, use the newest, and say when each
-  figure is from. A figure older than 12 months needs its year and "the latest available" if it is.
+  figure is from. Back every point with a figure from this year where its researcher found one; when a
+  point's newest figure is older, say in its body that it is the latest available.
 Style: plain words, no dashes as punctuation (no "—" or "–"), no fact ids in the prose."""
 
 
@@ -70,11 +72,12 @@ def owner_letter(agent: str) -> str:
 
 
 def _checked(client, system: str, content: str, schema, by, owners: set[str], meter: llm.Meter):
-    """The writer's draft once it passes the number guard: one retry with the errors, then StepError."""
+    """The writer's draft once it passes the number guard: one retry with the errors, then StepError. Points
+    backed only by older data are sent back on the first draft too, but never fail it: dated() marks them."""
     model = get_settings().deep_research.writer_model
     msgs = [{"role": "user", "content": content}]
     errs: list[str] = []
-    for _ in range(2):
+    for attempt in range(2):
         out, _content = client.parse(system=system, messages=msgs, schema=schema)
         meter.tokens(model, *client.last_usage)
         points = [p.model_copy(update={"agent": owner_letter(p.agent)}) for p in out.points]
@@ -84,8 +87,11 @@ def _checked(client, system: str, content: str, schema, by, owners: set[str], me
             if isinstance(out, ReportDraft)
             else ReportDraft(title="", subtitle="", points=points, caveats=[])
         )
-        if not (errs := guard.report_errors(draft, by, owners)):
+        errs = guard.report_errors(draft, by, owners)
+        stale = [] if attempt else guard.stale_errors(points, by, date.today())
+        if not errs and not stale:
             return out
+        errs += stale
         msgs += [
             {"role": "assistant", "content": out.model_dump_json()},
             {
@@ -105,13 +111,17 @@ def _client(client):
 
 def _points(drafts, by, start: int, added: int | None = None) -> list[Point]:
     return [
-        Point(
-            id=f"p{k}",
-            agent=p.agent,
-            headline=guard.strip_ids(p.headline),
-            body=guard.strip_ids(p.body),
-            fact_ids=[i for i in dict.fromkeys(p.fact_ids) if i in by],
-            added=added,
+        guard.dated(
+            Point(
+                id=f"p{k}",
+                agent=p.agent,
+                headline=guard.strip_ids(p.headline),
+                body=guard.strip_ids(p.body),
+                fact_ids=[i for i in dict.fromkeys(p.fact_ids) if i in by],
+                added=added,
+            ),
+            by,
+            date.today(),
         )
         for k, p in enumerate(drafts, start)
     ]

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from castelino.agents.research.deep import guard
 from castelino.agents.research.deep.models import Critique, ResearchSession
 from castelino.agents.trade import llm
 from castelino.config import get_settings
@@ -12,18 +13,23 @@ from castelino.config import get_settings
 SYSTEM = """You are a strict research critic. Given the research question and what each researcher found,
 decide whether the findings answer the question well enough to write a report. If not, list at most {n}
 specific gaps that would materially change the answer. Do not ask for perfection: done is true when the
-remaining gaps are minor. A key figure older than 12 months, where a newer release likely exists, is a
-gap: name the newer release to find."""
+remaining gaps are minor. A finding marked (newest data: <year>) or (undated) rests on older data: it is
+a gap when a newer release likely exists, so name the newer release to find."""
 
 
-def findings_text(s: ResearchSession) -> str:
-    lines: list[str] = []
+def findings_text(s: ResearchSession, today: date | None = None) -> str:
+    """Each finding, marked when its newest cited figure is older than guard.fresh_year."""
+    today = today or date.today()
+    by, fresh, lines = s.fact_map(), guard.fresh_year(today), []
     for a in s.agents:
         if a.error:
             lines.append(f"## {a.letter} · {a.brief.name}: failed ({a.error})")
             continue
         lines.append(f"## {a.letter} · {a.brief.name}\nAngle: {a.brief.angle}")
-        lines += [f"- {f.claim}" for f in a.findings]
+        for f in a.findings:
+            y = guard.newest_year(f.fact_ids, by, today)
+            mark = "" if y >= fresh else f" (newest data: {y})" if y else " (undated)"
+            lines.append(f"- {f.claim}{mark}")
     return "\n".join(lines)
 
 

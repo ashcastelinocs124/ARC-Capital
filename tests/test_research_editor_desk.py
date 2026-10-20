@@ -50,7 +50,7 @@ def saved():
     )
     b = agent(
         "B",
-        facts=[fact("B1", "Large firms: 27% use AI", [27.0])],
+        facts=[fact("B1", "Large firms: 27% use AI in 2026", [27.0])],
         findings=[Finding(id="B-f1", claim="27%", fact_ids=["B1"])],
     )
     points = [
@@ -84,7 +84,7 @@ def saved():
 
 
 def rethink_to(monkeypatch, *, change=True):
-    new = [fact("A2", "October wave: 9.7% of firms use AI", [9.7])]
+    new = [fact("A2", "October 2026 wave: 9.7% of firms use AI", [9.7])]
     ans = AnswerDraft(
         answer="The October wave says 9.7%." if change else "It stands.",
         change=change,

@@ -371,6 +371,7 @@ function ReportView({ s, facts, selected, onSelect }: {
                 <span className="text-[11px] font-bold text-black/40">POINT {i + 1}</span>
                 <Owner a={agentOf(p.agent)} letter={p.agent} />
                 {p.added && <span title={s.additions.find((a) => a.n === p.added)?.text} className="rounded-full bg-info-soft px-2 py-0.5 text-[11px] font-semibold text-info">added</span>}
+                {p.older && <span title="No figure from this year was found; the point says its data is the latest available" className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-semibold text-warning">older data · {p.older}</span>}
                 {p.version > 1 && <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-semibold text-accent">v{p.version} · edited</span>}
                 {openFor(p.id) && <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-semibold text-warning">open question</span>}
               </div>

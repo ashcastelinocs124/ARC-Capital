@@ -7,6 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
+from castelino.agents.research.deep import guard
 from castelino.agents.research.deep.models import (
     AgentRun,
     AnswerDraft,
@@ -28,10 +29,12 @@ Today is {today}.
 Rules:
 - Every number you rely on must come from a tool result, cited by its fact id (like {letter}3).
 - Use the most recent data: search for the latest release of each survey or series first, with the year
-  in the query. Use a figure older than 12 months only when nothing newer exists, and say so. Every
+  in the query. Use a figure from before {fresh} only when nothing newer exists, and say so. Every
   finding says when its figures are from.
-- Prefer data tools (FRED, Yahoo, BLS, Polymarket) for anything measurable; use web search for studies,
-  surveys, causes and context.
+- Prefer the data tools for anything measurable: the Ramp AI Index (U.S. business AI adoption by vendor,
+  industry and size, monthly to the latest month, and weekly token spend by model maker), OpenRouter's
+  rankings (the most-used models now, open-weight or closed), FRED, Yahoo, BLS and Polymarket. Use web
+  search for studies, surveys, causes and context.
 - x_search reaches only the last 7 days of X. A post is what its author said, not a fact: use it as
   "@handle says ...".
 - Read the board before you finish, and post anything other researchers could use.
@@ -90,6 +93,7 @@ def _system(ar: AgentRun, question: str) -> str:
         angle=b.angle,
         brief=b.brief,
         today=date.today(),
+        fresh=guard.fresh_year(date.today()),
         calls=get_settings().deep_research.max_tool_calls,
     )
 

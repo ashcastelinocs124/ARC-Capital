@@ -24,7 +24,7 @@ class FakeEditor:
 def session():
     b = agent(
         "B",
-        facts=[fact("B1", "Large firms: 27% use AI", [27.0])],
+        facts=[fact("B1", "Large firms: 27% use AI in 2026", [27.0])],
         findings=[Finding(id="B-f1", claim="27% of large firms", fact_ids=["B1"])],
     )
     c = agent("C", facts=[], findings=[]).model_copy(update={"error": "boom"})
