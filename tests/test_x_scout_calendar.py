@@ -113,10 +113,10 @@ def test_monday_posts_the_week_and_tuesday_the_day(monkeypatch, tmp_path):
     fake_card(monkeypatch)
     monkeypatch.delenv("X_SCOUT_LIVE", raising=False)
     mon = x_scout.card(now=MON, root=tmp_path)
-    assert mon["kind"] == "week" and mon["text"].startswith("🗓️ WEEK AHEAD · ")
+    assert mon["kind"] == "week" and mon["text"].startswith("WEEK AHEAD · ")
     assert [w["key"] for w in x_scout.day_record(tmp_path, MON)["watch"]] == ["E|FITB"]
     tue = x_scout.card(now=TUE, root=tmp_path)
-    assert tue["kind"] == "day" and tue["text"].startswith("📅 TODAY · ") and tue["dry_run"]
+    assert tue["kind"] == "day" and tue["text"].startswith("TODAY · ") and tue["dry_run"]
     keys = [w["key"] for w in x_scout.day_record(tmp_path, TUE)["watch"]]
     assert set(keys) == {"US|10:00|NAHB Housing Market Index|None", "E|GE", "E|NFLX"}
     assert x_scout.card(now=TUE, root=tmp_path) is None  # once a day
@@ -170,14 +170,14 @@ def test_a_landed_release_posts_once(monkeypatch, tmp_path):
     at = WED.replace(hour=8, minute=35)
     out = x_scout.watch(now=at, root=tmp_path)
     assert [r["text"] for r in out] == [
-        "🚨 US Housing Starts: 1.32M vs 1.3M expected (previous 1.275M).\n\nBuilders are still busy."
+        "US Housing Starts: 1.32M vs 1.3M expected (previous 1.275M).\n\nBuilders are still busy."
     ]
     assert x_scout.watch(now=at, root=tmp_path) == []  # never twice
     feeds["earnings"] = [
         {"symbol": "TSLA", "eps": "$0.25", "epsForecast": "$0.21", "surprise": "19.05"}
     ]
     out = x_scout.watch(now=at.replace(hour=16, minute=20), root=tmp_path)
-    assert out[0]["text"].startswith("💼 Tesla EPS: $0.25 vs $0.21 expected, a 19.05% beat.")
+    assert out[0]["text"].startswith("Tesla EPS: $0.25 vs $0.21 expected, a 19.05% beat.")
 
 
 def test_a_releases_mm_and_yy_are_one_watch_slot_and_one_post(monkeypatch, tmp_path):
@@ -201,7 +201,7 @@ def test_a_releases_mm_and_yy_are_one_watch_slot_and_one_post(monkeypatch, tmp_p
     )
     out = x_scout.watch(now=WED.replace(hour=8, minute=35), root=tmp_path)
     assert [r["text"] for r in out] == [
-        "🚨 US Core PPI: 0.7% m/m vs 0.3% expected (previous 0.2%); 5% y/y vs 4.4% expected (previous 4.8%)."
+        "US Core PPI: 0.7% m/m vs 0.3% expected (previous 0.2%); 5% y/y vs 4.4% expected (previous 4.8%)."
     ]
 
 
@@ -209,7 +209,7 @@ def test_a_sentence_with_a_digit_is_dropped(monkeypatch, tmp_path):
     fake_watch(monkeypatch, tmp_path, [econ_row("Housing Starts", "1.32M", "1.3M", "1.275M")], [],
                sentence="Starts rose 2% on the month.")  # fmt: skip
     out = x_scout.watch(now=WED.replace(hour=8, minute=35), root=tmp_path)
-    assert out[0]["text"] == "🚨 US Housing Starts: 1.32M vs 1.3M expected (previous 1.275M)."
+    assert out[0]["text"] == "US Housing Starts: 1.32M vs 1.3M expected (previous 1.275M)."
 
 
 def test_release_posts_cap_at_four_a_day(monkeypatch, tmp_path):

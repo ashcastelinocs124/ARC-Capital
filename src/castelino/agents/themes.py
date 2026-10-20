@@ -744,7 +744,7 @@ def thread(rec: ThemeRun, url: str | None = None, lines: dict[int, str] | None =
     (chart 1 rides on it), one post per further chart with its code-written subtitle and read, then
     today's calendar (as many entries as fit) and the link to the Substack post. A read that won't
     fit its post is dropped, never cut. Every figure is the guarded pick's, code's or a traced read's."""
-    lines, text, sep = lines or {}, f"Before the open: {rec.theme} 🧵", "\n\n"
+    lines, text, sep = lines or {}, f"Before the open: {rec.theme}", "\n\n"
     if (ln := lines.get(1)) and x_post.xlen(f"{text}{sep}{ln}") <= x_post.LIMIT:
         text = f"{text}{sep}{ln}"
     for s in re.split(r"(?<=[.!?])\s+", rec.why):

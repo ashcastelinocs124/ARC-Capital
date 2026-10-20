@@ -69,7 +69,7 @@ MAX_PER_DAY = 8  # one per 2-hourly run (deploy/crontab)
 MEMORY_DAYS = 7
 THEME_GAP = timedelta(hours=1)  # the morning Theme Charts thread gets the feed to itself this long
 PASSES = ((6, False), (24, True))  # (hours searched, must pick): every run posts unless all is old
-TAG = {"macro": "📊 MACRO · ", "ai": "🤖 AI · "}
+TAG = {"macro": "MACRO · ", "ai": "AI · "}
 
 SCAN_SYSTEM = (
     "You are a markets news desk for ARC Research, a macro research shop. Report only what named "
@@ -417,7 +417,7 @@ TIERS = [  # US releases by importance; a release outside every tier never makes
 ]
 ABROAD = 1.5  # inflation and jobs abroad rank between the US second and third tiers
 COUNTRY = {"CN": ("China", "Chinese"), "DE": ("Germany", "German"), "JP": ("Japan", "Japanese"), "IN": ("India", "Indian")}  # fmt: skip
-CAL_TAG = {"week": "🗓️ WEEK AHEAD · ", "day": "📅 TODAY · "}
+CAL_TAG = {"week": "WEEK AHEAD · ", "day": "TODAY · "}
 FALLBACK = {
     "week": CAL_TAG["week"] + "The data and earnings that matter this week, by day.",
     "day": CAL_TAG["day"] + "What's out today and when.",
@@ -771,7 +771,7 @@ def _money(v: float) -> str:
 
 
 def _data_line(hits: list[tuple[dict, dict]]) -> str:
-    """'🚨 US Core PPI: 0.7% m/m vs 0.3% expected (previous 0.2%); 5% y/y vs ...' for one release."""
+    """'US Core PPI: 0.7% m/m vs 0.3% expected (previous 0.2%); 5% y/y vs ...' for one release."""
     one = len(hits) == 1
     parts = []
     for w, e in hits:
@@ -783,7 +783,7 @@ def _data_line(hits: list[tuple[dict, dict]]) -> str:
         p += f" (previous {fmt(prev, u)})" if prev is not None else ""
         parts.append(p)
     head = label(hits[0][0] if one else {**hits[0][0], "measure": None})
-    return f"🚨 {head}: " + "; ".join(parts) + "."
+    return f"{head}: " + "; ".join(parts) + "."
 
 
 def landed(todo: list[dict], day: date) -> list[tuple[list[dict], str]]:
@@ -808,7 +808,7 @@ def landed(todo: list[dict], day: date) -> list[tuple[list[dict], str]]:
                 continue
             est = parse_num(r.get("epsForecast"))[0]
             est = est if est is not None else w.get("eps_est")
-            line = f"💼 {company(w)} EPS: {_money(eps)}" + (f" vs {_money(est)} expected" if est is not None else "")  # fmt: skip
+            line = f"{company(w)} EPS: {_money(eps)}" + (f" vs {_money(est)} expected" if est is not None else "")  # fmt: skip
             surprise = parse_num(r.get("surprise"))[0]
             if est is not None and surprise is not None:
                 line += f", a {abs(surprise):g}% {'beat' if surprise >= 0 else 'miss'}"

@@ -126,8 +126,7 @@ def headline(m: Move, today: date) -> str:
         when = f"since {m.since:%b} {m.since.day}" + (
             "" if m.since.year == today.year else f", {m.since.year}"
         )
-    arrow = "📈" if up else "📉"
-    return f"{arrow} {m.name} {fmt(m)} today{level}, its biggest one-day {word} {when} (a {abs(m.z):.1f}σ move)."
+    return f"{m.name} {fmt(m)} today{level}, its biggest one-day {word} {when} (a {abs(m.z):.1f}σ move)."
 
 
 def compose(moves: list[Move], why: str | None, today: date) -> str:

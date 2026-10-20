@@ -49,7 +49,7 @@ def mv(name="Nasdaq 100", change=-3.4, z=-2.9, unit="%", since=date(2026, 4, 10)
 def test_compose_keeps_the_why_only_if_the_post_fits():
     post = x_moves.compose([mv(), mv("S&P 500", -2.6, -2.7)], "Chipmakers sold off.", TODAY)
     assert post.startswith(
-        "📉 Nasdaq 100 −3.4% today, its biggest one-day drop since Apr 10 (a 2.9σ move)."
+        "Nasdaq 100 −3.4% today, its biggest one-day drop since Apr 10 (a 2.9σ move)."
     )
     assert "Also moving: S&P 500 −2.6%." in post and "Why: Chipmakers sold off." in post
     long = x_moves.compose([mv()], "x" * 250, TODAY)

@@ -250,7 +250,7 @@ def test_morning_run_posts_a_thread_once_and_resumes_a_broken_chain(tmp_path):
     (t1, r1, m1), (t2, r2, m2), (t3, r3, m3) = sent
     assert (
         t1
-        == "Before the open: Oil's run revives the inflation scare 🧵\n\nBrent rose 4.1% on the week."
+        == "Before the open: Oil's run revives the inflation scare\n\nBrent rose 4.1% on the week."
     )
     assert t2.startswith("2/ ") and (r1, m1, r2, m2) == (None, "m1", "id1", "m2")
     assert t2.endswith("\n→ Oil leads. Brent is doing the work.")
@@ -280,7 +280,7 @@ def test_reads_may_quote_the_charts_own_levels_and_nothing_else_and_never_block(
         2: "→ Oil leads. Brent's 4.1% week tops the S&P 500's slip.",  # a fact's number; an index
     }
     assert themes.thread(rec, lines=got)[0].startswith(  # chart 1's read sits under the header
-        f"Before the open: {rec.theme} 🧵\n\n→ Level to watch."
+        f"Before the open: {rec.theme}\n\n→ Level to watch."
     )
 
     def boom(**kw):

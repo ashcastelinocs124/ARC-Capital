@@ -1,3 +1,5 @@
+import json
+
 from fastapi.testclient import TestClient
 
 from castelino import x_post
@@ -33,11 +35,20 @@ def test_xlen_counts_links_as_23_and_emoji_as_2():
     assert x_post.xlen("ab 🧵") == 5
 
 
+def test_no_emoji_drops_emoji_but_keeps_text_symbols():
+    assert (
+        x_post.no_emoji("🗓️ WEEK AHEAD · Oil 📈 up 2% → 4.1σ 🇺🇸") == "WEEK AHEAD · Oil up 2% → 4.1σ "
+    )
+    assert x_post.no_emoji("Nasdaq −3.4% today…") == "Nasdaq −3.4% today…"
+    doc = json.dumps({"text": "🚨 CPI: 0.4%"}, ensure_ascii=False)
+    assert json.loads(x_post.no_emoji(doc)) == {"text": "CPI: 0.4%"}  # what substack.push() sends
+
+
 def test_drafts_are_threads_for_daily_and_weekly():
     d = x_post.drafts("daily", "Oil up", ["a", "b", "c"], URL)
-    assert d == ["Oil up 🧵", "1/ a", "2/ b", "3/ c", f"Full note on Substack → {URL}"]
+    assert d == ["Oil up", "1/ a", "2/ b", "3/ c", f"Full note on Substack → {URL}"]
     w = x_post.drafts("weekly", "Week 41", [str(i) for i in range(12)], URL)
-    assert w[0] == "Week 41 🧵" and w[1] == "1/ 0" and len(w) == 7 and URL in w[-1]
+    assert w[0] == "Week 41" and w[1] == "1/ 0" and len(w) == 7 and URL in w[-1]
 
 
 def _setup(tmp_path, monkeypatch, fail_at=None):

@@ -117,7 +117,7 @@ def test_dry_run_records_without_posting(monkeypatch, tmp_path):
     monkeypatch.setattr(x_post, "post", lambda *a, **k: (_ for _ in ()).throw(AssertionError))
     rec = x_scout.run(now=AT, root=tmp_path)
     assert rec["dry_run"] and rec["ids"] == [] and rec["chart"] == "2026-10-16/1215.png"
-    assert rec["lead"].startswith("🤖 AI · Chip stocks") and rec["lead"].endswith(
+    assert rec["lead"].startswith("AI · Chip stocks") and rec["lead"].endswith(
         "\n\nSource: Reuters"
     )
     assert rec["reply"] == GOOD.reply and rec["source"] == "Reuters"  # no link on X: $0.200 a post
@@ -142,7 +142,7 @@ def test_live_posts_the_lead_with_its_chart_then_the_reply(monkeypatch, tmp_path
     monkeypatch.setattr(substack, "post_note", lambda text, png: notes.append((text, png)) or "n1")
     rec = x_scout.run(now=AT, root=tmp_path)
     lead, reply = sent
-    assert lead[1:] == (None, "m1") and lead[0].startswith("🤖 AI · ")
+    assert lead[1:] == (None, "m1") and lead[0].startswith("AI · ")
     assert lead[0].endswith("\n\nSource: Reuters") and "http" not in lead[0] + reply[0]
     assert reply == (GOOD.reply, "id1", None)
     assert rec["ids"] == ["id1", "id2"] and not rec["dry_run"]

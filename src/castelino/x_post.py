@@ -22,6 +22,11 @@ TWEETS = "https://api.x.com/2/tweets"
 MEDIA = "https://api.x.com/2/media/upload"
 LIMIT = 280
 _URL = re.compile(r"https?://\S+")
+# Emoji and pictographs (plus the variation selector, joiner and keycap that build them) and one space after;
+# arrows like → are text and stay.
+_EMOJI = re.compile(
+    "[\U0001f000-\U0001faff\u2600-\u27bf\u2b00-\u2bff\u231a\u231b\u23e9-\u23fa\ufe0f\u200d\u20e3] ?"
+)
 KEYS = ("X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_SECRET")
 
 
@@ -35,15 +40,20 @@ def xlen(text: str) -> int:
     return sum(1 if ord(c) <= 4351 or 8192 <= ord(c) <= 8247 else 2 for c in text)
 
 
+def no_emoji(text: str) -> str:
+    """No emoji in any X or Substack post (the user's rule, 2026-10-20): post() and substack.py apply it."""
+    return _EMOJI.sub("", text)
+
+
 def drafts(kind: str, title: str, takeaways: list[str], url: str) -> list[str]:
-    """A thread for both kinds: the title 🧵, one post per takeaway (≤5), then the link."""
+    """A thread for both kinds: the title, one post per takeaway (≤5), then the link."""
     end = (
         "Full note on Substack"
         if kind == "daily"
         else "The full deep dive, with charts and sources"
     )
     return [
-        f"{title} 🧵",
+        title,
         *(f"{i}/ {t}" for i, t in enumerate(takeaways[:5], 1)),
         f"{end} → {url}",
     ]
@@ -110,7 +120,7 @@ def upload_image(data: bytes) -> str:
 
 def post(text: str, reply_to: str | None = None, media_id: str | None = None) -> str:
     """One post; returns its id. Raises with X's message on failure."""
-    body: dict = {"text": text}
+    body: dict = {"text": no_emoji(text).strip()}
     if reply_to:
         body["reply"] = {"in_reply_to_tweet_id": reply_to}
     if media_id:
