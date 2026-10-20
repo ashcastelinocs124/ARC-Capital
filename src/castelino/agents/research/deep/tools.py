@@ -7,6 +7,7 @@ from __future__ import annotations
 import threading
 from datetime import UTC, datetime, timedelta
 
+from castelino.agents.research.deep import sources
 from castelino.agents.trade.tools import TradeToolBox
 from castelino.agents.update.facts import numbers_in
 from castelino.agents.update.models import Fact
@@ -19,7 +20,15 @@ SEARCH_SYSTEM = (
     "figures exactly. One bullet per fact: start it with the date or period the figure covers (e.g. "
     "'Q2 2026:' or 'Published March 2026:'), and end it with its citation."
 )
-DATA_TOOLS = ["web_search", "fred_series", "yahoo_prices", "bls_series", "polymarket_odds"]
+DATA_TOOLS = [
+    "web_search",
+    "ramp_ai_index",
+    "openrouter_rankings",
+    "fred_series",
+    "yahoo_prices",
+    "bls_series",
+    "polymarket_odds",
+]
 _START = {"type": "string", "description": "Window start, YYYY-MM-DD"}
 SPECS_R: dict[str, dict] = {
     **SPECS,
@@ -37,6 +46,16 @@ SPECS_R: dict[str, dict] = {
         "description": "A cited web search on any question. Each cited line becomes a fact you can "
         "cite.",
         "parameters": _obj({"query": {"type": "string"}}),
+    },
+    "ramp_ai_index": {
+        "description": "The Ramp AI Index, from Ramp's card and bill-pay data, to its latest month: the share of "
+        "U.S. businesses paying for AI (overall: the last six months), by vendor, industry or size, or the latest "
+        "week's share of AI tokens and token spend by model maker (tokens).",
+        "parameters": _obj({"view": {"type": "string", "enum": list(sources.RAMP_VIEWS)}}),
+    },
+    "openrouter_rankings": {
+        "description": "OpenRouter's most-used models right now (by tokens), each tagged open-weight or closed.",
+        "parameters": _obj({}),
     },
     "x_search": {
         "description": "Posts on X from the last 7 days only, for an X search query (e.g. 'enterprise "
@@ -104,6 +123,12 @@ class ResearchToolBox(TradeToolBox):
         ]
         top = max(own, default=0)
         return [f"{self.prefix}{top + i + 1}" for i in range(n)]
+
+    def _ramp_ai_index(self, view: str) -> list[Fact]:
+        return self._renumber(sources.ramp(view))
+
+    def _openrouter_rankings(self) -> list[Fact]:
+        return self._renumber(sources.openrouter())
 
     def _x_search(self, query: str) -> list[Fact]:
         left = self.x_budget.left if self.x_budget else 0
