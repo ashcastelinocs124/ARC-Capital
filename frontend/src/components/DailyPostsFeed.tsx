@@ -1,4 +1,4 @@
-import type { DailyPost } from "@/api/endpoints";
+import { isNote, type DailyPost } from "@/api/endpoints";
 
 const DAY = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 const day = (d: string) => new Date(`${d}T00:00:00Z`);
@@ -44,15 +44,15 @@ export function DailyPostsFeed({ posts, loading }: { posts: DailyPost[]; loading
     <div className="space-y-5 p-4 md:p-8">
       <div>
         <h2 className="text-xl font-semibold tracking-tight text-text">Memo</h2>
-        <p className="mt-0.5 text-xs text-muted">Daily Notes from the ARC Research Substack. Each one opens the post.</p>
+        <p className="mt-0.5 text-xs text-muted">Daily Notes and Theme Charts from the ARC Research Substack. Each one opens the post.</p>
       </div>
       {loading && <div className="text-sm text-muted">Loading…</div>}
       {!loading && posts.length === 0 && (
-        <div className="card p-6 text-sm text-muted">No published daily notes yet. They appear here once a note is published on Substack.</div>
+        <div className="card p-6 text-sm text-muted">No published posts yet. They appear here once a note or Theme Charts post is published on Substack.</div>
       )}
       <div className="space-y-4">
         {posts.map((p, i) => (
-          <PostCard key={p.url} p={p} latest={i === 0} eyebrow={DAY.format(day(p.date))} />
+          <PostCard key={p.url} p={p} latest={i === 0} eyebrow={`${isNote(p) ? "" : "Theme Charts · "}${DAY.format(day(p.date))}`} />
         ))}
       </div>
     </div>

@@ -83,27 +83,32 @@ def _published() -> list[dict]:
     from castelino.dashboard.endpoints.daily_posts import daily_posts
     from castelino.dashboard.endpoints.weekly_posts import weekly_posts
 
-    rows = [
-        {
-            "kind": "daily",
-            "when": p["date"],
-            "title": p["title"],
-            "takeaways": p.get("takeaways", []),
-            "url": p["url"],
-            "image": p.get("image"),
-        }
-        for p in daily_posts()[:14]
-    ] + [
-        {
-            "kind": "weekly",
-            "when": p["start"],
-            "title": p["title"],
-            "takeaways": p.get("takeaways", []),
-            "url": p["url"],
-            "image": p.get("image"),
-        }
-        for p in weekly_posts()[:4]
-    ]
+    rows = (
+        [
+            {
+                "kind": "daily",
+                "when": p["date"],
+                "title": p["title"],
+                "takeaways": p.get("takeaways", []),
+                "url": p["url"],
+                "image": p.get("image"),
+            }
+            for p in [p for p in daily_posts() if p["kind"] == "note"][
+                :14
+            ]  # Theme Charts threads post themselves
+        ]
+        + [
+            {
+                "kind": "weekly",
+                "when": p["start"],
+                "title": p["title"],
+                "takeaways": p.get("takeaways", []),
+                "url": p["url"],
+                "image": p.get("image"),
+            }
+            for p in weekly_posts()[:4]
+        ]
+    )
     out = []
     for r in sorted(rows, key=lambda r: r["when"], reverse=True):
         if not r["url"].startswith(_SUBSTACK):

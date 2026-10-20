@@ -235,14 +235,16 @@ export const fetchVideos = async (): Promise<Video[]> => {
   return Array.isArray(data) ? data : [];
 };
 
-// ── Daily Note posts (Substack) ──────────────────────────────────────────
+// ── Daily Note and Theme Charts posts (Substack) ─────────────────────────
 export interface DailyPost {
   date: string; // the note's day, YYYY-MM-DD
   title: string;
   takeaways: string[];
   image: string | null;
   url: string; // post on archresearch.substack.com
+  kind?: "note" | "charts"; // "charts" = the 08:00 Theme Charts post; snapshots before 2026-10-20 have no kind
 }
+export const isNote = (p: Pick<DailyPost, "kind">) => p.kind !== "charts";
 export const fetchDailyPosts = async (): Promise<DailyPost[]> => {
   const data = await api.get<DailyPost[]>("/daily_posts"); // the client maps a 404 to []
   return Array.isArray(data) ? data : [];

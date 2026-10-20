@@ -9,7 +9,7 @@ import { useSectionPosts } from "@/hooks/useSectionPosts";
 import { useSectorSentiment } from "@/hooks/useSectorSentiment";
 import { useThemePosts } from "@/hooks/useThemes";
 import { useWeeklyPosts } from "@/hooks/useWeekly";
-import { weekLabel } from "@/api/endpoints";
+import { isNote, weekLabel } from "@/api/endpoints";
 
 // /about: who's behind ARC (profile + a live "Latest from ARC" desk), how a Memo is made, and what ARC publishes.
 // The desk reads feeds the site already exports, so the public snapshot needs nothing new; an empty feed hides its row.
@@ -54,7 +54,7 @@ type Row = { label: string; color: string; when: string; title: string; href: st
 function useDesk(): Row[] {
   const theme = useThemePosts().data?.[0];
   const fg = useSectorSentiment().data?.fear_greed;
-  const memo = useDailyPosts().data?.[0];
+  const memo = useDailyPosts().data?.find(isNote);
   const deep = useWeeklyPosts().data?.[0];
   const ai = useSectionPosts().data?.find((p) => p.section in AI_LABEL); // newest first
   const rows: (Row | false | null | undefined)[] = [

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, ArrowUpRight, Search } from "lucide-react";
 import { useDailyPosts } from "@/hooks/useDailyPosts";
 import { useWeeklyPosts } from "@/hooks/useWeekly";
-import { weekLabel } from "@/api/endpoints";
+import { isNote, weekLabel } from "@/api/endpoints";
 import { useSectionPosts } from "@/hooks/useSectionPosts";
 import { useVideos } from "@/hooks/useVideos";
 import { useSectorSentiment } from "@/hooks/useSectorSentiment";
@@ -80,7 +80,7 @@ function Splash() {
 }
 
 function Hero() {
-  const daily = useDailyPosts().data?.[0];
+  const daily = useDailyPosts().data?.find(isNote);
   const weekly = useWeeklyPosts().data?.[0];
   const video = useVideos().data?.find((v) => isPost(v.url));
   const fg = useSectorSentiment().data?.fear_greed;
@@ -146,7 +146,7 @@ function Heading({ n, kicker, title }: { n?: string; kicker: string; title: stri
 }
 
 function StartHere() {
-  const daily = useDailyPosts().data?.[0];
+  const daily = useDailyPosts().data?.find(isNote);
   const weekly = useWeeklyPosts().data?.[0];
   const video = useVideos().data?.find((v) => isPost(v.url));
   const reads = [
@@ -214,8 +214,8 @@ function Sections() {
   );
 }
 
-type Kind = "memo" | "deep" | "ai" | "special" | "video";
-const KINDS: [Kind, string][] = [["memo", "Memo"], ["deep", "Deep Dive"], ["ai", "AI"], ["special", "Special Topics"], ["video", "Videos"]];
+type Kind = "memo" | "charts" | "deep" | "ai" | "special" | "video";
+const KINDS: [Kind, string][] = [["memo", "Memo"], ["charts", "Charts"], ["deep", "Deep Dive"], ["ai", "AI"], ["special", "Special Topics"], ["video", "Videos"]];
 const SECTION_KIND: Record<string, Kind> = { "ai-models": "ai", "semis-chips": "ai", "artificial-intelligence-update": "ai", "special-topics": "special" };
 interface Item { url: string; title: string; date: string; when: string; image: string | null; kinds: Set<Kind>; duration: number | null }
 
@@ -230,7 +230,7 @@ function useResearch(): Item[] {
       cur.duration ??= it.duration;
       byUrl.set(it.url, cur);
     };
-    daily?.forEach((p) => add({ url: p.url, title: p.title, date: p.date, when: short(p.date), image: p.image, duration: null }, "memo"));
+    daily?.forEach((p) => add({ url: p.url, title: p.title, date: p.date, when: short(p.date), image: p.image, duration: null }, isNote(p) ? "memo" : "charts"));
     weekly?.forEach((p) => add({ url: p.url, title: p.title, date: p.end, when: weekLabel(p), image: p.image, duration: null }, "deep"));
     sections?.forEach((p) => {
       const k: Kind[] = [SECTION_KIND[p.section], ...(p.video !== false && p.duration ? (["video"] as Kind[]) : [])].filter(Boolean);
