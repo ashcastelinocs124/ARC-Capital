@@ -4,15 +4,23 @@ from castelino import cover, substack
 
 
 def test_prompt_clamps_title_and_scene_and_keeps_only_people_the_post_names():
-    daly = cover.Person(name="Mary Daly", role="SF Fed President", look="thoughtful")
-    ghost = cover.Person(name="Someone Invented", role="CEO", look="grim")
+    daly = cover.Person(name="Mary Daly", role="SF Fed President", org="SF Fed", look="thoughtful")
+    huang = cover.Person(name="Jensen Huang", role="NVIDIA CEO", org="NVIDIA", look="stern")
+    ghost = cover.Person(name="Someone Invented", role="CEO", org="Acme", look="grim")
+    firm = cover.Person(name="NVIDIA", role="chipmaker", org="NVIDIA", look="stern")  # not a person
     brief = cover.CoverBrief(
-        title="inflation heats up again today", people=[daly, ghost], scene=list("abcdefg")
+        title="inflation heats up again today",
+        people=[daly, ghost, firm, huang],
+        scene=list("abcdefg"),
     )
-    text = cover.prompt(brief, "Mary Daly said the Fed can wait.")
+    text = cover.prompt(brief, "Mary Daly said the Fed can wait as NVIDIA fell.")
     assert '"INFLATION HEATS UP"' in text
     assert "a; b; c; d; e." in text
-    assert "Mary Daly (SF Fed President), thoughtful" in text and "Someone Invented" not in text
+    who = text.split("portraits of")[1]  # named in the post, or leads a company it names
+    assert who.lstrip().startswith(
+        "Mary Daly (SF Fed President), thoughtful; Jensen Huang (NVIDIA CEO)"
+    )
+    assert "Someone Invented" not in text and "NVIDIA (chipmaker)" not in text
     generic = cover.prompt(brief, "Mary Daly said the Fed can wait.", people=False)
     assert "Mary Daly" not in generic and "generic businesspeople" in generic
 
@@ -84,3 +92,14 @@ def test_cover_is_set_only_on_a_draft_without_one(tmp_path, monkeypatch):
     assert sent["cover_image"] == "https://img/cover.png" and calls == [1]
     sent, calls = _push(tmp_path, monkeypatch, {"cover_image": "https://mine.png"})
     assert "cover_image" not in sent and calls == []  # your own cover is kept, nothing is drawn
+
+
+def test_a_person_the_post_does_not_name_is_whoever_holds_the_role_today(monkeypatch):
+    from castelino.data import web_search
+
+    powell = cover.Person(name="Jerome Powell", role="Chair", org="Fed", look="grim")
+    for answer, who in [("Someone Else", "Someone Else"), ("Jensen Huang.", "Jensen Huang"),
+                        ("Jensen Huang ([nvidia.com](https://x))", "Jensen Huang"),
+                        ("I could not find that.", None)]:  # fmt: skip
+        monkeypatch.setattr(web_search, "search", lambda system, user, a=answer: (a, []))
+        assert cover.holder(powell) == who

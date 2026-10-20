@@ -565,7 +565,7 @@ KEEP_DAYS = 7  # Radar's day chips span one week; today's run replaces the same 
 
 
 def prune(d: Path, today: datetime) -> list[str]:
-    """Delete runs (JSON + chart PNGs) dated KEEP_DAYS or more before today. The Substack and X
+    """Delete runs (JSON + chart PNGs + Substack cover) dated KEEP_DAYS or more before today. The Substack and X
     records (substack/, x_posts/) stay: they're tiny and keep a post from going out twice."""
     cut = f"{today - timedelta(days=KEEP_DAYS):%Y-%m-%d}"
     gone = []
@@ -573,6 +573,7 @@ def prune(d: Path, today: datetime) -> list[str]:
         if p.name[:10] <= cut:
             p.unlink()
             shutil.rmtree(d / "charts" / p.stem, ignore_errors=True)
+            (d / "covers" / f"{p.stem}.png").unlink(missing_ok=True)
             gone.append(p.stem)
     return sorted(gone)
 
@@ -725,6 +726,7 @@ def publish_substack(rec: ThemeRun, commentator=None) -> str:
     """Draft and publish the run on Substack, web only (no email), with commentary() under each
     chart. Returns the post's URL; the marker in data/themes/substack/ makes a rerun return it
     instead of posting again (push skips a published draft before calling body)."""
+    from castelino import cover
     from castelino import substack as sb
 
     charts = _dir() / "charts" / rec.run_id
@@ -735,6 +737,7 @@ def publish_substack(rec: ThemeRun, commentator=None) -> str:
         pngs={e.file: charts / e.file for e in rec.exhibits},
         body=lambda up: substack_doc(rec, up, commentary(rec, commentator)),
         label=rec.run_id,
+        cover=lambda: cover.for_theme(rec.model_dump()),  # the Morning Note's cover style
     )
     return sb.publish(_marker(rec.run_id), section_id=SECTION)
 

@@ -4,6 +4,7 @@ from datetime import datetime
 import pandas as pd
 import pytest
 
+from castelino import cover
 from castelino.agents import themes
 from castelino.agents.update.models import Fact, SeriesRef
 from castelino.agents.weekly.models import BarPoint
@@ -132,10 +133,14 @@ def test_a_saved_run_prunes_last_weeks_same_day_and_older_but_keeps_post_records
         (tmp_path / "charts" / run_id / "exhibit_1.png").write_bytes(b"png")
     (tmp_path / "substack").mkdir()
     (tmp_path / "substack" / "2026-10-07-am.json").write_text('{"url": "u"}')
+    (tmp_path / "covers").mkdir()
+    for run_id in ("2026-10-07-am", "2026-10-08-am"):
+        (tmp_path / "covers" / f"{run_id}.png").write_bytes(b"png")
     themes.run(NOW, gather_fn=lambda now: FACTS, fetch=fetch, picker=lambda **kw: pick())  # Wed 14
     left = sorted(p.stem for p in tmp_path.glob("*.json"))
     assert left == ["2026-10-08-am", "2026-10-14-am"]  # last Wednesday's (and older) went
     assert sorted(p.name for p in (tmp_path / "charts").iterdir()) == left
+    assert [p.stem for p in (tmp_path / "covers").iterdir()] == ["2026-10-08-am"]
     assert themes.post_url("2026-10-07-am") == "u"  # the never-post-twice record stays
 
 
@@ -386,9 +391,9 @@ def test_published_run_is_a_substack_card_and_the_thread_links_its_post(tmp_path
     assert themes_posts() == []  # drawn but not on Substack: no card
     got = {}
 
-    def push(*, marker, title, subtitle, pngs, body, label):
+    def push(*, marker, title, subtitle, pngs, body, label, cover):
         got["doc"] = body({f: {"url": f"https://cdn/{f}"} for f in pngs})
-        got["title"], got["subtitle"] = title, subtitle
+        got["title"], got["subtitle"], got["cover"] = title, subtitle, cover
         marker.parent.mkdir(parents=True, exist_ok=True)
         marker.write_text(json.dumps({"draft_id": 7}))
 
@@ -405,6 +410,11 @@ def test_published_run_is_a_substack_card_and_the_thread_links_its_post(tmp_path
     assert url == "https://archresearch.substack.com/p/oils-run"
     assert got["title"] == rec.theme and got["subtitle"].startswith("ARC Theme Charts · Wednesday")
     assert (got["section"], got["send"]) == (themes.SECTION, False)
+    drawn = {}  # the cover: the Morning Note's style, from the theme, its why and its signals
+    monkeypatch.setattr(cover, "make", lambda path, headline, stories, **kw: drawn.update(locals()))
+    got["cover"]()
+    assert drawn["headline"] == rec.theme and drawn["stories"][0] == rec.why
+    assert len(drawn["stories"]) == 4 and drawn["path"].name == f"{rec.run_id}.png"
     content = got["doc"]["content"]
     images = [i for i, c in enumerate(content) if c["type"] == "captionedImage"]
     assert len(images) == len(rec.exhibits)

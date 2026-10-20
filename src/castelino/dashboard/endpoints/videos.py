@@ -34,6 +34,11 @@ THUMB_OVERRIDES = {
     "overview-of-nvidias-open-agent-safety": "/thumbs/nvidia-openagent.jpg",
     "fed-officials-kept-another-hike-in": "/thumbs/fed-officials-another-hike.jpg",
     "september-inflation-accelerated-as": "/thumbs/inflation-heats-up.jpg",
+    # Theme Charts posts published before they got a drawn cover (2026-10-20)
+    "ai-rout-sends-investors-toward-treasuries": "/thumbs/theme-charts-2026-10-15.jpg",
+    "hot-ppi-fails-to-shake-fed-hold-bets": "/thumbs/theme-charts-2026-10-16.jpg",
+    "ai-stocks-rebound-but-last-weeks": "/thumbs/theme-charts-2026-10-19.jpg",
+    "oil-supply-fears-lift-crude-and-test": "/thumbs/theme-charts-2026-10-20.jpg",
 }
 
 

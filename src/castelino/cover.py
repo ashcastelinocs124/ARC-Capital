@@ -1,4 +1,4 @@
-"""Cover art for the Morning Note and Weekly Deep Dive Substack drafts.
+"""Cover art for the Morning Note, Weekly Deep Dive and Theme Charts Substack drafts.
 
 The Cover Artist (fast tier) turns the finished post into a 2-3 word title, the public figures
 it names (Fed officials, CEOs) and a few things to draw; code keeps only people whose name is in
@@ -8,8 +8,8 @@ generic people. The PNG is cached next to the post's data, so a rerun never pays
 twice. substack.push() asks for a cover only when the draft has none, so a cover set by hand in
 Substack is never replaced. The site and X read Substack's cover, so nothing else changes.
 
-Redo one: `uv run python -m castelino.cover <YYYY-MM-DD | YYYY-Www>` redraws it and replaces
-the draft's cover (an unpublished draft only).
+Redo one: `uv run python -m castelino.cover <YYYY-MM-DD | YYYY-Www | YYYY-MM-DD-am>` redraws it and
+replaces the draft's cover (an unpublished draft only).
 """
 
 from __future__ import annotations
@@ -17,8 +17,10 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import re
 import sys
 import time
+from datetime import date
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -30,8 +32,9 @@ log = logging.getLogger(__name__)
 
 
 class Person(BaseModel):
-    name: str  # exactly as the post writes it
+    name: str  # full name: "Jensen Huang"
     role: str  # "San Francisco Fed President", "Nvidia CEO"
+    org: str  # the company or institution exactly as the post writes it: "NVIDIA", "Fed", "TSMC"
     look: str  # "thoughtful, studying a report"
 
 
@@ -45,11 +48,15 @@ BRIEF = """You design the cover image for an ARC Research markets newsletter pos
 From its headline and stories, return:
 - title: 2 or 3 punchy words naming the main story, like a magazine cover ("INFLATION HEATS UP",
   "MIXED SIGNALS", "PRICE PRESSURE"). No numbers, tickers or punctuation.
-- people: up to 3 public figures at the centre of the main stories (Fed officials, central
-  bankers, CEOs, finance ministers), the most newsworthy first. Only people the post names: copy
-  each name exactly as written there, never add one from your own knowledge. Give their public
-  role and a dignified, newsroom look ("thoughtful, hand on chin", "studying a report",
-  "speaking at a podium"). Empty if the post names nobody.
+- people: up to 3 public figures who put a face on the main stories, the most newsworthy first:
+  anyone the post names (Fed officials, central bankers, CEOs, ministers), then the leader of a
+  company or institution the post covers (NVIDIA -> its CEO Jensen Huang, the Fed -> its chair or
+  the official who spoke, TSMC -> its CEO, Congress -> the Speaker). Only someone who holds that
+  role on the date given; leave out anyone you are not sure of. People only, by full name: never
+  a company, fund or index (those go in the scene). For each: role, org (the company or
+  institution exactly as the post writes it, e.g. "NVIDIA", "Fed") and a dignified, newsroom
+  look ("thoughtful, hand on chin", "studying a report", "speaking at a podium"). Empty if
+  nobody fits.
 - scene: 3 to 5 concrete things to draw, one per main story, naming the companies the post
   covers so their logos or nameplates show: a labelled market screen with a rising or falling
   trend line ("a screen labelled TREASURY YIELDS with a falling blue line"), a place ("the
@@ -78,13 +85,15 @@ class CoverArtist(StructuredAgent[CoverBrief]):
         return BRIEF
 
     def user_prompt(self, *, headline: str, stories: list[str]) -> str:
-        return f"Headline: {headline}\n\nStories:\n\n" + "\n\n".join(stories)
+        return f"Date: {date.today():%B %-d, %Y}\n\nHeadline: {headline}\n\nStories:\n\n" + "\n\n".join(stories)  # fmt: skip
 
 
 def prompt(brief: CoverBrief, text: str, *, people: bool = True) -> str:
-    """The image prompt. Code keeps only people the post's `text` names (so the model can't add
-    someone) and clamps the title so a chatty brief can't fill the cover with words."""
-    named = [p for p in brief.people if p.name.strip() and p.name in text][:3] if people else []
+    """The image prompt. Code keeps only people tied to the post's `text`: named in it, or leading
+    a company or institution it names (its CEO for NVIDIA), by full name (so a company listed as a
+    person can't become a face), and clamps the title so a chatty brief can't fill the cover."""
+    tied = [p for p in brief.people if p.name in text or (p.org.strip() and p.org in text)]
+    named = [p for p in tied if len(p.name.split()) >= 2][:3] if people else []
     who = "; ".join(f"{p.name} ({p.role}), {p.look}" for p in named)
     title = " ".join(brief.title.upper().split()[:3])[:28]
     return STYLE.format(
@@ -92,6 +101,26 @@ def prompt(brief: CoverBrief, text: str, *, people: bool = True) -> str:
         people=PEOPLE.format(who=who) if named else GENERIC,
         title=title,
     )
+
+
+_NAME = re.compile(r"[A-Z][\w.'-]*(?: [A-Z][\w.'-]*){1,3}")  # "Jensen Huang", "Lisa D. Cook"
+
+
+def holder(p: Person) -> str | None:
+    """Who holds `p`'s role today, by one web search: for people the post doesn't name, because the
+    brief model's knowledge can be out of date (it picked Jerome Powell as Fed chair in October
+    2026, after his term as chair ended). None when the search fails or answers with no name."""
+    from castelino.data import web_search
+
+    try:
+        answer, _ = web_search.search(
+            "Answer with the person's full name only.",
+            f"As of {date.today():%B %-d, %Y}, who is the {p.role} of {p.org}?",
+        )
+    except Exception:
+        return None
+    m = _NAME.fullmatch(answer.split("(")[0].strip().rstrip("."))  # drop an inline citation
+    return m.group(0) if m else None
 
 
 def draw(text: str, path: Path) -> None:
@@ -124,6 +153,11 @@ def make(path: Path, headline: str, stories: list[str], *, force: bool = False) 
     try:
         brief = CoverArtist()(headline=headline, stories=stories)
         text = "\n".join([headline, *stories])
+        brief.people = [  # named in the post as is; anyone else by who holds the role today
+            p if p.name in text else p.model_copy(update={"name": who})
+            for p in brief.people
+            if p.name in text or (who := holder(p))
+        ]
         try:
             draw(prompt(brief, text), path)
         except Exception:  # e.g. the image model refused a real person: redraw with generic people
@@ -156,16 +190,32 @@ def for_week(week: str, *, force: bool = False) -> Path | None:
     return make(deep / "covers" / f"{week}.png", report["title"], stories, force=force)
 
 
+def for_theme(run: dict, *, force: bool = False) -> Path | None:
+    """A Theme Charts run (agents/themes.py): the theme, its why and its three signals."""
+    cfg = get_settings()
+    stories = [run["why"], *(f"{s['headline']}\n{s['note']}" for s in run.get("signals", []))]
+    path = cfg.root / cfg.themes.data_dir / "covers" / f"{run['run_id']}.png"
+    return make(path, run["theme"], stories, force=force)
+
+
 if __name__ == "__main__":
     from castelino import substack
 
     logging.basicConfig(level=logging.INFO)
     key = sys.argv[1]
-    weekly = "-W" in key
-    png = (for_week if weekly else for_note)(key, force=True)
+    cfg = get_settings()
+    kind = "week" if "-W" in key else "theme" if key.endswith(("-am", "-pm")) else "note"
+    dirs = {
+        "week": cfg.deep_dive.data_dir,
+        "theme": cfg.themes.data_dir,
+        "note": cfg.update_agent.updates_dir,
+    }
+    base = cfg.root / dirs[kind]
+    if kind == "theme":
+        png = for_theme(json.loads((base / f"{key}.json").read_text()), force=True)
+    else:
+        png = (for_week if kind == "week" else for_note)(key, force=True)
     if not png:
         sys.exit("cover: failed (see the log above)")
-    cfg = get_settings()
-    base = cfg.root / (cfg.deep_dive.data_dir if weekly else cfg.update_agent.updates_dir)
     print("cover:", png)
     print("substack:", substack.set_cover(base / "substack" / f"{key}.json", png))
