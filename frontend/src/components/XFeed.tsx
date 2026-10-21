@@ -38,7 +38,7 @@ export function FollowOnX() {
 // decoration (no counts: the cache only asks X for new posts, so counts would go stale).
 function XPostRow({ p, clamp }: { p: XPost; clamp?: boolean }) {
   return (
-    <a href={p.url} target="_blank" rel="noopener noreferrer" className="flex min-w-0 gap-3 px-4 py-3 hover:bg-surface-3/45">
+    <a href={p.url} target="_blank" rel="noopener noreferrer" className="flex h-full min-w-0 gap-3 px-4 py-3 hover:bg-surface-3/45">
       <img src="/team/ashleyn.png" alt="" className="h-10 w-10 shrink-0 rounded-full object-cover object-[40%_30%]" />
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1 text-[15px] leading-5">
@@ -62,32 +62,48 @@ function XPostRow({ p, clamp }: { p: XPost; clamp?: boolean }) {
   );
 }
 
-// Home: the 3 newest side by side in one bordered strip, split by dividers.
-export function XStrip({ posts }: { posts: XPost[] }) {
+const COLS = ["", "md:grid-cols-1", "md:grid-cols-2", "md:grid-cols-3"];
+
+// Posts side by side, 3 to a row, split by 1px lines (the gap shows the border colour). Blank cells
+// finish a short last row so it never shows as a grey block; fewer than 3 posts get their own columns.
+function XGrid({ posts }: { posts: XPost[] }) {
+  const cols = Math.min(posts.length, 3);
+  if (!cols) return null;
+  const fill = (cols - (posts.length % cols)) % cols;
   return (
-    <div className="grid overflow-hidden rounded-2xl border border-border bg-background divide-y divide-border md:grid-cols-3 md:divide-x md:divide-y-0">
-      {posts.slice(0, 3).map((p) => <XPostRow key={p.id} p={p} clamp />)}
+    <div className={cn("grid gap-px bg-border", COLS[cols])}>
+      {posts.map((p) => (
+        <div key={p.id} className="min-w-0 bg-background"><XPostRow p={p} clamp /></div>
+      ))}
+      {Array.from({ length: fill }, (_, i) => <div key={`fill-${i}`} aria-hidden="true" className="hidden bg-background md:block" />)}
     </div>
   );
 }
 
-// About: the 5 newest as a timeline as wide as X's own column, then "Show more" (the export keeps 10).
+// Home: the 3 newest side by side in one bordered strip.
+export function XStrip({ posts }: { posts: XPost[] }) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border">
+      <XGrid posts={posts.slice(0, 3)} />
+    </div>
+  );
+}
+
+// About: the 6 newest side by side, 3 to a row, then "Show more" for a third row (the export keeps 10).
 export function XFeedCard() {
   const posts = useXFeed().data ?? [];
   const [open, setOpen] = useState(false);
   if (!posts.length) return null;
   return (
-    <section aria-label="On X" className="max-w-[640px] overflow-hidden rounded-2xl border border-border bg-background">
+    <section aria-label="On X" className="overflow-hidden rounded-2xl border border-border bg-background">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3.5">
         <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-accent">
           <XLogo className="h-3.5 w-3.5" />On X · @AshleynCas46131
         </div>
         <FollowOnX />
       </div>
-      <div className="divide-y divide-border">
-        {posts.slice(0, open ? 10 : 5).map((p) => <XPostRow key={p.id} p={p} />)}
-      </div>
-      {posts.length > 5 && (
+      <XGrid posts={posts.slice(0, open ? 9 : 6)} />
+      {posts.length > 6 && (
         <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}
           className="block w-full border-t border-border px-4 py-3.5 text-left text-[15px] text-accent hover:bg-surface-3/45">
           {open ? "Show fewer" : "Show more"}
