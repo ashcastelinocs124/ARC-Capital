@@ -76,18 +76,32 @@ def test_pick_keeps_key_releases_with_a_consensus_and_the_biggest_reporters():
     assert [r["ticker"] for r in rows if r["kind"] == "earnings"] == ["META", "TSLA"]
 
 
-def test_watch_list_is_the_days_four_most_important_rows():
+def test_watch_list_is_the_days_six_most_important_rows_ai_names_first():
+    spacex = {**earn("2026-10-21", "SPCX", "SpaceX", None, 0.13, None), "group": "ai_extra"}
     rows = x_scout.pick(EVENTS, "2026-10-21", data=4, earnings=5) + [
         us("2026-10-21", "08:30", "CPI", 0.3, 0.4, "%", "inflation"),
         earn("2026-10-21", "LRCX", "Lam Research", 3.47e11, 2.17, "post"),
         earn("2026-10-21", "PM", "Philip Morris", 3.12e11, 2.3, "pre"),
+        spacex,  # no market value from Yahoo's date, but an AI name: first among companies
     ]
     assert [x_scout.key(r) for r in x_scout.watch_rows(rows)] == [
         "US|08:30|CPI|None",
+        "E|SPCX",
         "E|META",
         "E|TSLA",
         "E|LRCX",
+        "E|PM",
     ]
+
+
+def test_earnings_are_searched_in_their_session_at_most_every_15_minutes():
+    pre, post = {"session": "pre"}, {"session": "post"}
+    at = WED.replace(hour=16, minute=10)
+    assert x_scout.earnings_due(post, at, []) and not x_scout.earnings_due(pre, at, [])
+    assert not x_scout.earnings_due(post, at, ["2026-10-21T16:05-04:00"])  # 5 minutes ago
+    assert x_scout.earnings_due(post, at, ["2026-10-21T15:50-04:00"])
+    assert x_scout.earnings_due({"session": None}, WED.replace(hour=7), [])  # unknown: both windows
+    assert not x_scout.earnings_due(post, at, ["2026-10-21T06:00-04:00"] * 12)  # a day's searches
 
 
 def test_a_release_already_out_is_left_off_todays_card(monkeypatch, tmp_path):
@@ -157,6 +171,8 @@ def fake_watch(monkeypatch, tmp_path, econ, earnings, sentence="Builders are sti
     monkeypatch.setattr(
         x_scout.ReleaseWriter, "__call__", lambda self, **k: ReleaseRead(sentence=sentence)
     )
+    # earnings by ticker: the line a cited search found, or None while it hasn't reported
+    monkeypatch.setattr(x_scout, "earnings_result", lambda w, day: feeds["earnings"].get(w["ticker"]))  # fmt: skip
     return feeds
 
 
@@ -165,7 +181,7 @@ def test_a_landed_release_posts_once(monkeypatch, tmp_path):
         monkeypatch, tmp_path,
         [econ_row("Housing Starts", "1.32M", "1.3M", "1.275M"),
          econ_row("Pending Home Sales", "&nbsp;", "-0.4%", "0.3%", "10:00")],
-        [{"symbol": "TSLA", "eps": "", "epsForecast": "$0.21", "surprise": "N/A"}],
+        {"TSLA": None},
     )  # fmt: skip
     at = WED.replace(hour=8, minute=35)
     out = x_scout.watch(now=at, root=tmp_path)
@@ -173,11 +189,9 @@ def test_a_landed_release_posts_once(monkeypatch, tmp_path):
         "US Housing Starts: 1.32M vs 1.3M expected (previous 1.275M).\n\nBuilders are still busy."
     ]
     assert x_scout.watch(now=at, root=tmp_path) == []  # never twice
-    feeds["earnings"] = [
-        {"symbol": "TSLA", "eps": "$0.25", "epsForecast": "$0.21", "surprise": "19.05"}
-    ]
+    feeds["earnings"] = {"TSLA": "Tesla (TSLA) Q3: EPS $0.25 vs $0.21 expected."}
     out = x_scout.watch(now=at.replace(hour=16, minute=20), root=tmp_path)
-    assert out[0]["text"].startswith("Tesla EPS: $0.25 vs $0.21 expected, a 19.05% beat.")
+    assert out[0]["text"].startswith("Tesla (TSLA) Q3: EPS $0.25 vs $0.21 expected.")
 
 
 def test_a_releases_mm_and_yy_are_one_watch_slot_and_one_post(monkeypatch, tmp_path):
@@ -186,8 +200,8 @@ def test_a_releases_mm_and_yy_are_one_watch_slot_and_one_post(monkeypatch, tmp_p
     rows = x_scout.pick(EVENTS + ppi, "2026-10-21", data=4, earnings=5)
     keys = [x_scout.key(r) for r in x_scout.watch_rows(rows)]
     assert (
-        keys[:2] == ["US|08:30|Core PPI|m/m", "US|08:30|Core PPI|y/y"] and len(keys) == 5
-    )  # 4 slots
+        keys[:2] == ["US|08:30|Core PPI|m/m", "US|08:30|Core PPI|y/y"] and len(keys) == 6
+    )  # 5 groups fit the 6 slots: the pair is one
     week_file(tmp_path)
     p = tmp_path / "data" / "week_ahead.json"
     p.write_text(json.dumps({**json.loads(p.read_text()), "events": EVENTS + ppi}))
@@ -206,28 +220,28 @@ def test_a_releases_mm_and_yy_are_one_watch_slot_and_one_post(monkeypatch, tmp_p
 
 
 def test_a_sentence_with_a_digit_is_dropped(monkeypatch, tmp_path):
-    fake_watch(monkeypatch, tmp_path, [econ_row("Housing Starts", "1.32M", "1.3M", "1.275M")], [],
+    fake_watch(monkeypatch, tmp_path, [econ_row("Housing Starts", "1.32M", "1.3M", "1.275M")], {},
                sentence="Starts rose 2% on the month.")  # fmt: skip
     out = x_scout.watch(now=WED.replace(hour=8, minute=35), root=tmp_path)
     assert out[0]["text"] == "US Housing Starts: 1.32M vs 1.3M expected (previous 1.275M)."
 
 
-def test_release_posts_cap_at_four_a_day(monkeypatch, tmp_path):
+def test_release_posts_cap_at_six_a_day(monkeypatch, tmp_path):
     fake_watch(
         monkeypatch, tmp_path,
         [econ_row("Housing Starts", "1.32M", "1.3M", "1.275M"),
          econ_row("Pending Home Sales", "0.1%", "-0.4%", "0.3%", "10:00")],
-        [{"symbol": "META", "eps": "$7.01", "surprise": "5.1"},
-         {"symbol": "TSLA", "eps": "$0.25", "surprise": "19.05"}],
+        {"META": "Meta Platforms (META) Q3: EPS $7.01 vs $6.67 expected.",
+         "TSLA": "Tesla (TSLA) Q3: EPS $0.25 vs $0.21 expected."},
     )  # fmt: skip
     rec = x_scout.day_record(tmp_path, WED)
-    rec["releases"] = [{"key": "earlier", "text": "x"}]  # one already out today
+    rec["releases"] = [{"key": f"earlier{i}", "text": "x"} for i in range(4)]  # four already out
     x_scout.save_day(tmp_path, WED, rec)
-    assert len(x_scout.watch(now=WED.replace(hour=16, minute=30), root=tmp_path)) == 3
+    assert len(x_scout.watch(now=WED.replace(hour=16, minute=30), root=tmp_path)) == 2
 
 
 def test_live_watch_posts_on_x(monkeypatch, tmp_path):
-    fake_watch(monkeypatch, tmp_path, [econ_row("Housing Starts", "1.32M", "1.3M", "1.275M")], [])
+    fake_watch(monkeypatch, tmp_path, [econ_row("Housing Starts", "1.32M", "1.3M", "1.275M")], {})
     monkeypatch.setenv("X_SCOUT_LIVE", "1")
     monkeypatch.setattr(x_post, "can_post", lambda: True)
     sent = []
@@ -253,3 +267,29 @@ def test_live_card_also_posts_a_note_with_the_card(monkeypatch, tmp_path):
     rec = x_scout.card(now=TUE, root=tmp_path)
     assert rec["id"] == "x1" and rec["note_id"] == "n1"
     assert notes == [(rec["text"], tmp_path / "data/x_posts/calendar/2026-10-20/card.png")]
+
+
+def test_an_earnings_line_needs_today_and_every_figure_from_a_cited_line(monkeypatch):
+    from castelino.agents.update.models import Fact
+    from castelino.data import web_search
+    from castelino.x_scout import EarningsRead
+
+    fact = Fact(id="E1", text="SpaceX posted EPS of $0.35 vs $0.13 expected [Reuters]",
+                numbers=[0.35, 0.13], provenance="reported", source_title="Reuters", source_url="u")  # fmt: skip
+    monkeypatch.setattr(web_search, "search_cited", lambda *a, **k: ("text", []))
+    monkeypatch.setattr(x_scout, "facts_from_search", lambda *a: [fact])
+    monkeypatch.setattr(x_scout, "trades", lambda t: True)
+    w = {**earn("2026-10-20", "SPCX", "SpaceX", None, 0.13, None), "group": "ai_extra"}
+    reads = {
+        "not yet": EarningsRead(reported=False, line=""),
+        "invented": EarningsRead(
+            reported=True, line="SpaceX (SPCX) Q3: EPS $0.41 vs $0.13 expected"
+        ),
+        "good": EarningsRead(reported=True, line="SpaceX (SPCX) Q3: EPS $0.35 vs $0.13 expected"),
+    }
+    for case, read in reads.items():
+        monkeypatch.setattr(x_scout.EarningsReader, "__call__", lambda self, read=read, **k: read)
+        got = x_scout.earnings_result(w, TUE.date())
+        assert got == (
+            "SpaceX (SPCX) Q3: EPS $0.35 vs $0.13 expected." if case == "good" else None
+        ), case

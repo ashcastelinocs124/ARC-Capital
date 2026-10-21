@@ -205,7 +205,7 @@ def test_scout_saying_nothing_posts_nothing(monkeypatch, tmp_path):
     assert x_scout.run(now=AT, root=tmp_path) is None and calls == []
 
 
-def test_nothing_over_the_bar_searches_a_day_and_must_pick(monkeypatch, tmp_path):
+def test_nothing_over_the_bar_searches_since_midnight_and_must_pick(monkeypatch, tmp_path):
     fake(monkeypatch)
     scans, musts = [], []
     monkeypatch.setattr(x_scout, "scan", lambda now, hours=6: scans.append(hours) or [item()])
@@ -216,7 +216,7 @@ def test_nothing_over_the_bar_searches_a_day_and_must_pick(monkeypatch, tmp_path
 
     monkeypatch.setattr(x_scout.Scout, "__call__", scout)
     rec = x_scout.run(dry=True, now=AT, root=tmp_path)
-    assert rec and scans == [6, 24] and musts == [False, True]
+    assert rec and scans == [6, 13] and musts == [False, True]
     prompt = x_scout.Scout().user_prompt
     assert x_scout.MUST in prompt(now="n", items=[], posted=[], forms="- dial", must=True)
     assert x_scout.MUST not in prompt(now="n", items=[], posted=[], forms="- dial")

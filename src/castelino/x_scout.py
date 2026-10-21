@@ -42,6 +42,7 @@ Run by deploy/crontab: python -m castelino.x_scout [scout|card|watch] [--dry-run
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import sys
@@ -64,13 +65,14 @@ from castelino.agents.update.guard import _FIG, _supported, unsupported
 from castelino.agents.update.models import Fact
 from castelino.config import get_settings
 from castelino.week_ahead import econ, nasdaq
-from castelino.week_ahead.econ import parse_num
 
 ET = ZoneInfo("America/New_York")
 MAX_PER_DAY = 8  # one per 2-hourly run (deploy/crontab)
 MEMORY_DAYS = 7
 THEME_GAP = timedelta(hours=1)  # the morning Theme Charts thread gets the feed to itself this long
-PASSES = ((6, False), (24, True))  # (hours searched, must pick): every run posts unless all is old
+# (hours searched, must pick): every run posts unless all is old; None = since midnight ET, so a
+# story from yesterday (SpaceX's Q3, posted the next morning on 2026-10-21) never goes out a day late
+PASSES = ((6, False), (None, True))
 
 SCAN_SYSTEM = (
     "You are a markets news desk for ARC Research, a macro research shop. Report only what named "
@@ -242,6 +244,12 @@ def recent(base: Path, now: datetime) -> list[dict]:
                 {"headline": p["headline"], "url": p["source_url"]}
                 for p in json.loads(f.read_text())["posts"]
             ]
+        cal = base / "calendar" / f"{now - timedelta(days=d):%Y-%m-%d}.json"
+        if cal.exists():  # the release watcher's posts: the scout never repeats one
+            out += [
+                {"headline": r["text"].split("\n")[0], "url": ""}
+                for r in json.loads(cal.read_text()).get("releases", [])
+            ]
     moves = base / "moves" / f"{now:%Y-%m-%d}.json"
     if moves.exists():
         out += [
@@ -395,6 +403,22 @@ def chart_numbers(
 _LINK = re.compile(r"https?://|\bwww\.|\w\.[a-z]{2,}\b", re.I)  # what X would turn into a link
 
 
+def _untraced(texts: list[str], nums: set[float]) -> list[str]:
+    """Figures no source gave: unit figures (%, bp, pp) through the Morning Note guard, any other
+    number against `nums` too, except a year or a plain count up to 31 (dates, "3 weeks", "Q3")."""
+    bad = [f"{t} is not in the source line or the chart data" for t in unsupported(texts, nums)]
+    for text in texts:
+        for m in _NUM.finditer(_FIG.sub(" ", text)):
+            tok = m.group(0)
+            v = float(tok.replace(",", "").replace("−", "-"))
+            if v.is_integer() and (abs(v) <= 31 or ("," not in tok and 1900 <= v <= 2100)):
+                continue
+            decimals = len(tok.split(".")[1]) if "." in tok else 0
+            if not _supported(v, decimals, False, nums):
+                bad.append(f"{tok} is not in the source line or the chart data")
+    return bad
+
+
 def thread(posts: list[str]) -> list[str]:
     """The analysis posts as they go out on X: "2/ …", "3/ …", "4/ …" (the lead is 1)."""
     return [f"{i}/ {p}" for i, p in enumerate(posts, 2)]
@@ -407,16 +431,7 @@ def check(lead: str, posts: list[str], source: str, nums: set[float]) -> list[st
     except a year or a plain count up to 31 (dates, "3 weeks"). The lead is measured with the source
     line code adds, each analysis post with its number."""
     texts = [lead, *posts]
-    bad = [f"{t} is not in the source line or the chart data" for t in unsupported(texts, nums)]
-    for text in texts:
-        for m in _NUM.finditer(_FIG.sub(" ", text)):
-            tok = m.group(0)
-            v = float(tok.replace(",", "").replace("−", "-"))
-            if v.is_integer() and (abs(v) <= 31 or ("," not in tok and 1900 <= v <= 2100)):
-                continue
-            decimals = len(tok.split(".")[1]) if "." in tok else 0
-            if not _supported(v, decimals, False, nums):
-                bad.append(f"{tok} is not in the source line or the chart data")
+    bad = _untraced(texts, nums)
     if len(posts) != POSTS:
         bad.append(f"write exactly {POSTS} analysis posts, not {len(posts)}")
     for name, text in (("lead", lead), *((f"post {i}", p) for i, p in enumerate(posts, 2))):
@@ -547,7 +562,9 @@ def run(dry: bool = False, now: datetime | None = None, root: Path | None = None
     posted = recent(base, now)
     allowed = allowed_forms(day["posts"])
     found = None
+    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
     for hours, must in PASSES:
+        hours = hours or max(1, math.ceil((now - midnight).total_seconds() / 3600))
         if found := find(now, hours, must, posted, png, allowed):
             break
     if found is None:
@@ -600,7 +617,13 @@ def run(dry: bool = False, now: datetime | None = None, root: Path | None = None
 
 # ── the calendar: the week's or today's card each weekday morning, each release as it lands ──
 
-MAX_RELEASES = 4
+MAX_RELEASES = 6  # watched releases a day, each posted once it lands (user, 2026-10-21)
+# Nasdaq's day calendar never fills reported EPS, so a watched company is found by a cited search:
+# from its session's start, at most every EARN_EVERY and EARN_CHECKS times a day.
+EARN_WINDOWS = {"pre": (("06:30", "12:00"),), "post": (("16:05", "20:00"),)}
+EARN_ANY = (("06:30", "12:00"), ("16:05", "20:00"))  # no session known (a name from Yahoo's date)
+EARN_EVERY = timedelta(minutes=15)
+EARN_CHECKS = 12
 TIERS = [  # US releases by importance; a release outside every tier never makes the card
     re.compile(
         r"^(Core )?(CPI|PCE Price Index)\b|Nonfarm Payrolls|Unemployment Rate|Fed Interest Rate Decision|^GDP",
@@ -636,6 +659,22 @@ hashtags, emoji or links."""
 RELEASE = """You add one plain sentence, at most 150 characters, under an ARC Research post on X that
 reports an economic release or an earnings result. Say what it means for markets or the economy. Use
 no number or digit at all: the line above already gives them. No advice, hashtags or emoji."""
+
+
+EARN_SEARCH = """Has {company} ({ticker}) reported quarterly results today, {day}? If it has, give, each on
+its own line with a citation and exactly as reported: the quarter, earnings per share against the
+analysts' estimate, and revenue against the estimate. If it has not reported today, say only that."""
+
+EARN_READ = """You read cited news lines about one company's quarterly report and write the numbers
+line of an X post. reported: true only if a line says the company reported its results on the date
+given. line: "<Company> (<TICKER>) <quarter>: EPS $X vs $Y expected; revenue $A billion vs $B billion
+expected", every figure exactly as a line gives it; leave out any part the lines don't give (an
+estimate, revenue). An empty line when reported is false. No other words."""
+
+
+class EarningsRead(BaseModel):  # LLM output (closed schema: no defaults)
+    reported: bool
+    line: str
 
 
 class CardRead(BaseModel):  # LLM output (closed schema: no defaults)
@@ -679,6 +718,21 @@ class ReleaseWriter(StructuredAgent[ReleaseRead]):
         return f"The post: {release}"
 
 
+class EarningsReader(StructuredAgent[EarningsRead]):
+    name = "x_earnings_reader"
+    output_schema = EarningsRead
+    tier = "fast"
+
+    def __init__(self) -> None:
+        self.model = get_settings().x_scout.writer_model
+
+    def system_prompt(self) -> str:
+        return EARN_READ
+
+    def user_prompt(self, *, company: str, ticker: str, day: str, lines: str) -> str:
+        return f"Company: {company} ({ticker})\nDate: {day}\n\nCited lines:\n{lines}"
+
+
 # ── picking and drawing ─────────────────────────────────────────────────────
 
 
@@ -703,8 +757,13 @@ def pick(events: list[dict], day: str, data: int, earnings: int) -> list[dict]:
     econ_rows = [e for e in rows if e["kind"] != "earnings" and _rank(e) is not None]
     econ_rows = sorted(econ_rows, key=lambda e: (_rank(e), e.get("time_et") or ""))[:data]
     earn = [e for e in rows if e["kind"] == "earnings"]
-    earn = sorted(earn, key=lambda e: -(e.get("market_cap") or 0))[:earnings]
+    earn = sorted(earn, key=_earn_rank)[:earnings]
     return econ_rows + earn
+
+
+def _earn_rank(e: dict) -> tuple[bool, float]:
+    """Big AI names first (SpaceX has no market value on Yahoo's date), then by market value."""
+    return e.get("group") != "ai_extra", -(e.get("market_cap") or 0)
 
 
 def fmt(v: float | None, unit: str = "") -> str:
@@ -743,11 +802,11 @@ def watch_rows(rows: list[dict]) -> list[dict]:
     """The rows release posts follow: top-tier US data (CPI, payrolls, PPI ...), then the largest
     companies, then the rest; MAX_RELEASES groups, so the cap never crowds out the big names."""
 
-    def prio(e: dict) -> tuple[int, float]:
+    def prio(e: dict) -> tuple[int, bool, float]:
         if e["kind"] == "earnings":
-            return 1, -(e.get("market_cap") or 0)
+            return 1, *_earn_rank(e)
         r = _rank(e)
-        return (0 if r is not None and r <= 1 else 2), r or 0.0
+        return (0 if r is not None and r <= 1 else 2), False, r or 0.0
 
     groups: dict[str, list[dict]] = {}
     for e in rows:
@@ -986,8 +1045,46 @@ def _data_line(hits: list[tuple[dict, dict]]) -> str:
     return f"{head}: " + "; ".join(parts) + "."
 
 
-def landed(todo: list[dict], day: date) -> list[tuple[list[dict], str]]:
-    """Watched releases whose number is out, in watch order: (their watch rows, the numbers line)."""
+def earnings_due(w: dict, now: datetime, checks: list[str]) -> bool:
+    """Whether to search for a watched company's report now: inside its session's window, at most
+    every EARN_EVERY and EARN_CHECKS times a day."""
+    if len(checks) >= EARN_CHECKS or (
+        checks and now - datetime.fromisoformat(checks[-1]) < EARN_EVERY
+    ):
+        return False
+    hm = f"{now:%H:%M}"
+    return any(a <= hm < b for a, b in EARN_WINDOWS.get(w.get("session") or "", EARN_ANY))
+
+
+def earnings_result(w: dict, day: date) -> str | None:
+    """The numbers line of a watched company's report today, from one cited search and the Earnings
+    Reader; None until it's out. Every figure must be a cited line's and the ticker must trade."""
+    from castelino.data import web_search
+
+    when = f"{day:%A, %B %-d, %Y}"
+    text, cites = web_search.search_cited(
+        SCAN_SYSTEM,
+        EARN_SEARCH.format(company=company(w), ticker=w["ticker"], day=when),
+        model=get_settings().x_scout.search_model,
+    )
+    facts = facts_from_search("E", text, cites)
+    if not facts:
+        return None
+    lines = "\n".join(f"- {f.text}" for f in facts)
+    r = EarningsReader()(company=company(w), ticker=w["ticker"], day=when, lines=lines)
+    line = r.line.strip().rstrip(".")
+    if not r.reported or not line:
+        return None
+    if bad := _untraced([line], {n for f in facts for n in f.numbers}) + ticker_errors([line]):
+        print(f"  {w['ticker']}: not posted, {'; '.join(bad)}")
+        return None
+    return line + "."
+
+
+def landed(todo: list[dict], now: datetime, rec: dict) -> list[tuple[list[dict], str]]:
+    """Watched releases whose number is out, in watch order: (their watch rows, the numbers line).
+    Data from Nasdaq's live calendar; earnings by earnings_result, its searches logged in rec."""
+    day = now.date()
     out: list[tuple[list[dict], str]] = []
     if any(w["kind"] != "earnings" for w in todo):
         live = {
@@ -999,20 +1096,19 @@ def landed(todo: list[dict], day: date) -> list[tuple[list[dict], str]]:
             if e and e["actual"] is not None:
                 hits.setdefault(group(w), []).append((w, e))
         out += [([w for w, _ in h], _data_line(h)) for h in hits.values()]
-    if any(w["kind"] == "earnings" for w in todo):
-        rows = {(r.get("symbol") or "").upper(): r for r in nasdaq.fetch_day("earnings", day)}
-        for w in todo:
-            r = rows.get(w["ticker"].upper()) if w["kind"] == "earnings" else None
-            eps = parse_num(r.get("eps"))[0] if r else None
-            if eps is None:
-                continue
-            est = parse_num(r.get("epsForecast"))[0]
-            est = est if est is not None else w.get("eps_est")
-            line = f"{company(w)} EPS: {_money(eps)}" + (f" vs {_money(est)} expected" if est is not None else "")  # fmt: skip
-            surprise = parse_num(r.get("surprise"))[0]
-            if est is not None and surprise is not None:
-                line += f", a {abs(surprise):g}% {'beat' if surprise >= 0 else 'miss'}"
-            out.append(([w], line + "."))
+    checks = rec.setdefault("checks", {})
+    for w in [w for w in todo if w["kind"] == "earnings"]:
+        seen = checks.setdefault(w["key"], [])
+        if not earnings_due(w, now, seen):
+            continue
+        seen.append(now.isoformat(timespec="minutes"))
+        try:
+            line = earnings_result(w, day)
+        except Exception as e:  # noqa: BLE001 - the next check tries again
+            print(f"  {w['ticker']}: search failed: {e}")
+            continue
+        if line:
+            out.append(([w], line))
     order = {w["key"]: i for i, w in enumerate(todo)}
     return sorted(out, key=lambda t: order[t[0][0]["key"]])
 
@@ -1037,7 +1133,9 @@ def watch(now: datetime | None = None, root: Path | None = None, dry: bool = Fal
     if not todo or room <= 0:
         return []
     out = []
-    for ws, line in landed(todo, now.date())[:room]:
+    hits = landed(todo, now, rec)
+    save_day(root, now, rec)  # the earnings searches just made, so the throttle holds
+    for ws, line in hits[:room]:
         sentence = explain(line)
         text = line + (f"\n\n{sentence}" if sentence else "")
         live = _live(dry)
