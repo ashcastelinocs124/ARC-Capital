@@ -13,9 +13,14 @@ from castelino.x_scout import ET, ScoutPick, ScoutPost
 AT = datetime(2026, 10, 16, 12, 15, tzinfo=ET)
 GOOD = ScoutPost(
     lead="Chip stocks sit at 116.3 (start = 100).",
-    reply="An unwind of the AI trade, not the market.",
+    posts=[
+        "An unwind of the AI trade, not the market.",
+        "Orders still outrun supply, so the selloff is about price, not demand.",
+        "Watch the next earnings for whether margins hold.",
+    ],
     source="Reuters",
 )
+FINE = ["Fine.", "Fine.", "Fine."]
 
 
 def item(n=1, url="https://reuters.com/a"):
@@ -35,9 +40,11 @@ def pick(post=True, item_id="N1", series=("yahoo:SMH", "yahoo:^GSPC")):
         item_id=item_id,
         topic="ai",
         headline="Chip stocks unwind on GPU order reports",
+        form="compare",
         series=list(series),
         names=["Chip stocks (SMH)", "S&P 500"],
         window_days=180,
+        threshold=None,
         chart_title="Chip stocks vs the S&P 500",
         reason="r",
     )
@@ -48,13 +55,14 @@ def fake(monkeypatch, *, items=None, pick_=None, posts=None, chart_ok=True):
     monkeypatch.setattr(x_scout, "scan", lambda now, hours=6: items or [item()])
     monkeypatch.setattr(x_scout.Scout, "__call__", lambda self, **k: pick_ or pick())
 
-    def chart(p, now, png):
+    def chart(p, now, png, allowed=None):
         if not chart_ok:
             raise RuntimeError("no such series")
         png.write_bytes(b"png")
-        return [], "Chip stocks (SMH) leads, 116.3 (start = 100)"
+        return [], "Chip stocks (SMH) leads, 116.3 (start = 100)", p.form, []
 
     monkeypatch.setattr(x_scout, "chart", chart)
+    monkeypatch.setattr(x_scout, "context", lambda item: [])  # no follow-up search in tests
     outs, calls = list(posts or [GOOD]), []
     monkeypatch.setattr(
         x_scout.Writer,
@@ -69,31 +77,38 @@ def test_check_allows_only_source_and_chart_numbers():
     src = "Reuters"
     assert (
         x_scout.check(
-            "SMH is at 116.3 vs 107.7 in Q3 after 3 weeks.", "Claims rose 2.1%.", src, nums
+            "SMH is at 116.3 vs 107.7 in Q3 after 3 weeks.",
+            ["Claims rose 2.1%.", "a", "b"],
+            src,
+            nums,
         )
         == []
     )
-    bad = " ".join(x_scout.check("A $40bn order book, up 12% this year.", "Fine.", src, nums))
+    bad = " ".join(x_scout.check("A $40bn order book, up 12% this year.", FINE, src, nums))
     assert "40" in bad and "12%" in bad
-    assert any("280" in p for p in x_scout.check("x" * 300, "Fine.", src, nums))
-    # the lead's room is 280 less the "Source: <name>" line code adds; the reply has all 280
-    assert x_scout.check("x" * 263, "y" * 280, src, nums) == []
-    assert x_scout.check("x" * 264, "Fine.", src, nums) == [
+    assert any("280" in p for p in x_scout.check("x" * 300, FINE, src, nums))
+    # the lead's room is 280 less the "Source: <name>" line code adds; a post's, less its "2/ "
+    assert x_scout.check("x" * 263, ["y" * 277] * 3, src, nums) == []
+    assert x_scout.check("x" * 264, FINE, src, nums) == [
         "the lead post with its source line is 281 characters; X allows 280"
     ]
+    assert x_scout.check("Fine.", ["y" * 278, "Fine.", "Fine."], src, nums) == [
+        "post 2 is 281 characters with its number; X allows 280"
+    ]
+    assert x_scout.check("Fine.", ["Fine."], src, nums) == ["write exactly 3 analysis posts, not 1"]
 
 
 def test_check_refuses_links_and_domains_x_would_bill_as_a_link():
     nums = {7.4}
-    assert x_scout.check("Rates hit 7.40 in the U.S. at 9 a.m.", "Fine.", "S&P Global", nums) == []
-    for lead, reply, src in [
-        ("Per Investing.com, rates rose.", "Fine.", "Investing"),
-        ("Fine.", "See https://nahb.org/x", "NAHB"),
-        ("Fine.", "Fine.", "Investing.com"),
-        ("Fine.", "Fine.", "www.reuters"),
-        ("Fine.", "Fine.", ""),
+    assert x_scout.check("Rates hit 7.40 in the U.S. at 9 a.m.", FINE, "S&P Global", nums) == []
+    for lead, posts, src in [
+        ("Per Investing.com, rates rose.", FINE, "Investing"),
+        ("Fine.", ["Fine.", "See https://nahb.org/x", "Fine."], "NAHB"),
+        ("Fine.", FINE, "Investing.com"),
+        ("Fine.", FINE, "www.reuters"),
+        ("Fine.", FINE, ""),
     ]:
-        assert x_scout.check(lead, reply, src, nums), (lead, reply, src)
+        assert x_scout.check(lead, posts, src, nums), (lead, posts, src)
 
 
 def test_chart_numbers_give_the_writer_rebased_and_off_high_figures():
@@ -120,12 +135,13 @@ def test_dry_run_records_without_posting(monkeypatch, tmp_path):
     assert rec["lead"].startswith("AI · Chip stocks") and rec["lead"].endswith(
         "\n\nSource: Reuters"
     )
-    assert rec["reply"] == GOOD.reply and rec["source"] == "Reuters"  # no link on X: $0.200 a post
+    assert rec["thread"] == ["2/ " + GOOD.posts[0], "3/ " + GOOD.posts[1], "4/ " + GOOD.posts[2]]
+    assert rec["source"] == "Reuters"  # no link on X: $0.200 a post
     saved = json.loads((tmp_path / "data/x_posts/scout/2026-10-16.json").read_text())
     assert saved["posts"][0]["source_url"] == "https://reuters.com/a"
 
 
-def test_live_posts_the_lead_with_its_chart_then_the_reply(monkeypatch, tmp_path):
+def test_live_posts_the_lead_with_its_chart_then_the_thread(monkeypatch, tmp_path):
     fake(monkeypatch)
     monkeypatch.setenv("X_SCOUT_LIVE", "1")
     monkeypatch.setattr(x_post, "can_post", lambda: True)
@@ -141,16 +157,21 @@ def test_live_posts_the_lead_with_its_chart_then_the_reply(monkeypatch, tmp_path
     monkeypatch.setattr(substack, "can_note", lambda: True)
     monkeypatch.setattr(substack, "post_note", lambda text, png: notes.append((text, png)) or "n1")
     rec = x_scout.run(now=AT, root=tmp_path)
-    lead, reply = sent
+    lead, *rest = sent
     assert lead[1:] == (None, "m1") and lead[0].startswith("AI · ")
-    assert lead[0].endswith("\n\nSource: Reuters") and "http" not in lead[0] + reply[0]
-    assert reply == (GOOD.reply, "id1", None)
-    assert rec["ids"] == ["id1", "id2"] and not rec["dry_run"]
-    # the same finding as one Substack Note: lead, the analysis, then the source with its link
+    assert lead[0].endswith("\n\nSource: Reuters") and not any("http" in t for t, _, _ in sent)
+    assert rest == [  # each analysis post replies to the one before
+        ("2/ " + GOOD.posts[0], "id1", None),
+        ("3/ " + GOOD.posts[1], "id2", None),
+        ("4/ " + GOOD.posts[2], "id3", None),
+    ]
+    assert rec["ids"] == ["id1", "id2", "id3", "id4"] and not rec["dry_run"]
+    # the same finding as one Substack Note: lead, the analysis as paragraphs, the source's link
     text = lead[0].removesuffix("\n\nSource: Reuters")
+    paras = "\n\n".join(GOOD.posts)
     assert notes == [
         (
-            f"{text}\n\n{GOOD.reply}\n\nSource: Reuters (https://reuters.com/a)",
+            f"{text}\n\n{paras}\n\nSource: Reuters (https://reuters.com/a)",
             tmp_path / "data/x_posts/scout/2026-10-16/1215.png",
         )
     ]
@@ -170,7 +191,7 @@ def test_a_failed_note_never_blocks_x(monkeypatch, tmp_path):
 
     monkeypatch.setattr(substack, "post_note", boom)
     rec = x_scout.run(now=AT, root=tmp_path)
-    assert rec["ids"] == ["x1", "x1"] and rec["note_id"] is None and "expired" in rec["note_error"]
+    assert rec["ids"] == ["x1"] * 4 and rec["note_id"] is None and "expired" in rec["note_error"]
 
 
 def test_a_dry_run_never_touches_substack(monkeypatch, tmp_path):
@@ -198,8 +219,8 @@ def test_nothing_over_the_bar_searches_a_day_and_must_pick(monkeypatch, tmp_path
     rec = x_scout.run(dry=True, now=AT, root=tmp_path)
     assert rec and scans == [6, 24] and musts == [False, True]
     prompt = x_scout.Scout().user_prompt
-    assert x_scout.MUST in prompt(now="n", items=[], posted=[], must=True)
-    assert x_scout.MUST not in prompt(now="n", items=[], posted=[])
+    assert x_scout.MUST in prompt(now="n", items=[], posted=[], forms="- dial", must=True)
+    assert x_scout.MUST not in prompt(now="n", items=[], posted=[], forms="- dial")
 
 
 def test_no_chart_no_post(monkeypatch, tmp_path):
@@ -208,7 +229,7 @@ def test_no_chart_no_post(monkeypatch, tmp_path):
 
 
 def test_an_invented_figure_gets_one_retry_then_no_post(monkeypatch, tmp_path):
-    bad = ScoutPost(lead="Chips are down 12% this month.", reply="Fine.", source="Reuters")
+    bad = ScoutPost(lead="Chips are down 12% this month.", posts=FINE, source="Reuters")
     calls = fake(monkeypatch, posts=[bad, GOOD])
     assert x_scout.run(dry=True, now=AT, root=tmp_path)["lead"].endswith(
         f"{GOOD.lead}\n\nSource: Reuters"
@@ -258,3 +279,26 @@ def test_scout_sees_a_week_of_its_posts_and_todays_market_alerts(tmp_path):
         (base / sub / f"{day}.json").write_text(json.dumps({"posts": posts}))
     seen = x_scout.recent(base, AT)
     assert [p["headline"] for p in seen] == ["Fed minutes", "📉 Nasdaq 100 −3.4% today."]
+
+
+def test_forms_never_repeat_and_lines_stop_after_two_a_day():
+    assert "line" in x_scout.allowed_forms([]) and "dial" in x_scout.allowed_forms([])
+    assert "dial" not in x_scout.allowed_forms([{"form": "dial"}])  # never twice in a row
+    two = x_scout.allowed_forms(
+        [{}, {"form": "dial"}, {"form": "compare"}]
+    )  # {} = before forms: a line
+    assert "line" not in two and "compare" not in two and "dial" in two and "bars" in two
+
+
+def test_a_post_records_its_form_for_the_next_runs_rules(monkeypatch, tmp_path):
+    fake(monkeypatch, pick_=pick().model_copy(update={"form": "underwater"}))
+    rec = x_scout.run(dry=True, now=AT, root=tmp_path)
+    assert rec["form"] == "underwater"
+
+
+def test_chart_numbers_carry_a_forms_own_figures():
+    text, nums = x_scout.chart_numbers([], "", "dial", [("Brent crude (BZ=F) range_pos", 85.2)])
+    assert text.startswith("Chart form: dial (") and "range_pos: 85.2" in text
+    assert {85.2} <= nums and x_scout.check(
+        "MACRO · Brent sits at 85.2% of its range.", FINE, "Reuters", nums
+    ) == []

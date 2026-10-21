@@ -6,11 +6,12 @@ with the SUBSTACK_SID cookie). Dry run (log only) unless X_SCOUT_LIVE=1 and the 
 `scout` (the default; every 2 h, 10:15-22:15 ET on weekdays and 08:15-22:15 at weekends): post one
 interesting macro or AI finding with a chart. Code runs one cited web search for the last 6 hours of
 macro and AI news (uncited lines are dropped). The Scout picks the one item worth a post, or
-nothing, and names 1-4 fred:/yahoo: series that chart it; code fetches and draws them with the
-Morning Note renderer. A pass with nothing to post (no item clears the bar, or the pick can't be
+nothing, and names a chart form (allowed_forms) and the fred:/yahoo: series it needs; code fetches
+and draws them. A pass with nothing to post (no item clears the bar, or the pick can't be
 charted, written or was already posted) is followed by a second one (PASSES): the last 24 hours, and
-the Scout must pick the best item not yet posted. The Writer writes the lead post and one reply from
-that cited line and the chart's code-computed numbers, and names the source; code adds the topic tag
+the Scout must pick the best item not yet posted. One cited follow-up search adds context, and the
+Writer writes the lead and a 3-post analysis thread from that line, the context and the chart's
+code-computed numbers (the Note gets the same text as paragraphs), and names the source; code adds the topic tag
 and "Source: <name>" to the lead. X posts carry no link: X's pay-per-use API charges $0.200 for a
 post with a URL against $0.015 for a plain one (docs.x.com, 2026-10-19), and X turns a bare domain
 ("Investing.com") into a link, so check() refuses one anywhere in the posts. The Substack Note keeps
@@ -86,25 +87,44 @@ analysis. Post only what a macro investor would stop scrolling for: a data surpr
 record, a policy shift, a model or chip launch with hard numbers, a big AI capex or earnings figure.
 Routine, in-line or already-posted stories are a no: answer post=false, which should be the usual
 answer. Never pick a story listed under "Already posted", including a market that today's alerts
-already covered. If you post, name the chart that best shows the story: 1-4 series, each
-"fred:SERIES_ID" for economic data (FRED lags a day or more) or "yahoo:TICKER" for anything that
-trades (NVDA, SMH, ^TNX, CL=F, DX-Y.NYB). One series draws a line; 2-4 are compared, with prices
-rebased to 100. Pick series whose level reads on its own (a yield, spread, price or rate such as
-DGS10, T10YIE, UNRATE), never an index level like CPIAUCSL or INDPRO. names: a reader name per
-series ("Chip stocks (SMH)"). window_days: 30-365. chart_title and headline: short, no figures.
-When post is false, leave item_id, series and names empty and give the reason."""
+already covered. If you post, name the chart that best shows the story: a form from the list in
+the message and the series it needs, each "fred:SERIES_ID" for economic data (FRED lags a day or
+more) or "yahoo:TICKER" for anything that trades (NVDA, SMH, ^TNX, CL=F, DX-Y.NYB). Pick the form
+that tells the story at a glance, not a line by habit: a dial for how stretched a market is, bars
+for which markets moved most, underwater for a selloff or recovery, calendar for one stock against
+its sector, slope for whether a hedge held on the worst days, scatter for whether two things move
+together; a line or compare only when the story is a series' path. Pick series whose level reads
+on its own (a yield, spread, price or rate such as DGS10, T10YIE, UNRATE), never an index level
+like CPIAUCSL or INDPRO. names: a reader name per series ("Chip stocks (SMH)"). window_days:
+30-365. threshold: a number for threshold_band, else null. chart_title and headline: short, no
+figures. When post is false, leave item_id, series and names empty and give the reason."""
 MUST = """Nothing cleared the bar in the last 6 hours, and the account posts every run. This time
 pick the best item here that is not already posted and that a chart can show; answer post=false
 only if every item is already posted or none can be charted."""
 
-WRITER = """You write one X post and its single reply for ARC Research, a macro research shop. The
-lead (at most 220 characters) states the finding and what the attached chart shows. The reply (at
-most 240 characters) is 2-3 plain sentences of analysis: why it matters and what to watch next.
-Use only figures from the source line and the chart data you are given, written as given; any
-other number gets the post dropped. Write a change in words ("up 10bp", "down 2.1%"), never with a
-+ sign. No hashtags, no emoji, no links or web addresses, no advice: code adds the topic tag and
-the source. source: the name of the outlet or body that published the source line, as readers know
-it ("Reuters", "NAHB", "AP"), never a link or a domain: write "Investing", not "Investing.com"."""
+WRITER = """You write one X thread for ARC Research, a macro research shop: a lead and exactly 3
+analysis posts. The same text also goes out as a Substack Note, so make the analysis worth reading.
+- lead (at most 220 characters): the finding and what the attached chart shows. For a chart that is
+  not a line, say what its form shows with its own numbers (the "The chart shows" lines), such as
+  "beat chip stocks on 63 of 130 days" or "85% of the way up its 1-year range".
+- posts: exactly 3, each at most 260 characters, 2-3 plain sentences, no numbering (code adds it):
+  1. What happened in detail: the figures against forecasts or the prior reading, and what the
+     chart adds (the trend, how stretched it is, how it compares).
+  2. Why it matters: the cause and the chain from it to rates, equities, the dollar or AI spending,
+     drawn from the context lines.
+  3. What to watch: the next data, event or level that would confirm or break the story.
+Use only figures from the source line, the context lines and the chart data you are given, written
+as given; any other number gets the post dropped. Write a change in words ("up 10bp", "down 2.1%"),
+never with a + sign. No hashtags, no emoji, no links or web addresses, no advice: code adds the topic
+tag and the source. source: the name of the outlet or body that published the source line, as
+readers know it ("Reuters", "NAHB", "AP"), never a link or a domain: write "Investing", not
+"Investing.com"."""
+CONTEXT = """Background for an X post about this news item: {item}
+In up to 6 lines, each with a citation, give the context an analyst would add: why it happened, the
+prior readings or the trend it continues or breaks, how markets reacted, and what comes next (the
+next release, meeting, report or deadline). Quote figures exactly as reported. Nothing older than a
+year unless it is the comparison that matters."""
+POSTS = 3
 
 
 class ScoutPick(BaseModel):  # LLM output (closed schema: no defaults)
@@ -112,16 +132,18 @@ class ScoutPick(BaseModel):  # LLM output (closed schema: no defaults)
     item_id: str  # "N3"; "" when post is false
     topic: Literal["macro", "ai"]
     headline: str  # a short label of the story, no figures: the log and the next runs' memory
-    series: list[str]  # 1-4 of "fred:SERIES_ID" / "yahoo:TICKER"
+    form: str  # a Trade Lab form (agents/trade/forms.py FORMS) from the run's allowed list
+    series: list[str]  # "fred:SERIES_ID" / "yahoo:TICKER", as many as the form takes
     names: list[str]  # a reader name per series, the chart's legend
     window_days: int
+    threshold: float | None  # threshold_band only
     chart_title: str
     reason: str
 
 
 class ScoutPost(BaseModel):  # LLM output (closed schema: no defaults)
     lead: str
-    reply: str
+    posts: list[str]  # the POSTS analysis posts: what happened, why it matters, what to watch
     source: str  # the publisher's name, never a link or domain
 
 
@@ -138,11 +160,14 @@ class Scout(StructuredAgent[ScoutPick]):
         return SCOUT
 
     def user_prompt(
-        self, *, now: str, items: list[Fact], posted: list[dict], must: bool = False
+        self, *, now: str, items: list[Fact], posted: list[dict], forms: str, must: bool = False
     ) -> str:
         done = "\n".join(f"- {p['headline']}" for p in posted) or "(nothing yet)"
         lines = "\n".join(f"[{f.id}] {f.text} — {f.source_title}" for f in items)
-        out = f"Now: {now} New York time.\n\nAlready posted:\n{done}\n\nCited items:\n{lines}"
+        out = (
+            f"Now: {now} New York time.\n\nAlready posted:\n{done}\n\nCited items:\n{lines}"
+            f"\n\nChart forms you may use this run:\n{forms}"
+        )
         return f"{out}\n\n{MUST}" if must else out
 
 
@@ -158,10 +183,17 @@ class Writer(StructuredAgent[ScoutPost]):
         return WRITER
 
     def user_prompt(
-        self, *, item: Fact, chart_title: str, numbers: str, fix: list[str] | None = None
+        self,
+        *,
+        item: Fact,
+        chart_title: str,
+        numbers: str,
+        context: str = "",
+        fix: list[str] | None = None,
     ) -> str:
         out = (
             f"Source line ({item.source_title}, {item.source_url}): {item.text}\n\n"
+            f"Context lines (cited):\n{context or '(none found)'}\n\n"
             f"The chart: {chart_title}\n{numbers}"
         )
         if fix:
@@ -169,6 +201,21 @@ class Writer(StructuredAgent[ScoutPost]):
                 f"- {e}" for e in fix
             )
         return out
+
+
+def context(item: Fact) -> list[Fact]:
+    """One cited follow-up search on the picked story, as facts (K1…) the analysis may use: the
+    why, the trend, the market reaction and what comes next. [] on any failure."""
+    from castelino.data import web_search
+
+    try:
+        text, cites = web_search.search_cited(
+            SCAN_SYSTEM, CONTEXT.format(item=item.text), model=get_settings().x_scout.search_model
+        )
+    except Exception as e:  # noqa: BLE001 - the post goes out on the source line alone
+        print(f"  context search failed: {e}")
+        return []
+    return facts_from_search("K", text, cites)
 
 
 def scan(now: datetime, hours: int = 6) -> list[Fact]:
@@ -201,22 +248,102 @@ def recent(base: Path, now: datetime) -> list[dict]:
     return out
 
 
-def chart(pick: ScoutPick, now: datetime, path: Path) -> tuple[list[Fact], str]:
-    """Fetch the picked series and draw them to `path` (one as a line, 2-4 compared). Returns the
-    series facts and the chart's code-written subtitle; raises when it can't be drawn."""
-    from castelino.agents import themes
-    from castelino.agents.weekly.charts import make_weekly_exhibits
-    from castelino.agents.weekly.models import ExhibitPick
+PLAIN_PER_DAY = 2  # line or compare charts a day; the rest use the other forms (user, 2026-10-20)
+LINES = ("line", "compare")
+FALLBACK = (
+    "dial",
+    "bars",
+    "line",
+)  # tried in turn, if allowed, when the picked form can't be drawn
 
-    specs = [themes.SERIES.match(s) for s in pick.series[:4]]
+
+def allowed_forms(today: list[dict]) -> list[str]:
+    """The forms this run may use: never the previous post's, and a line or compare only while
+    fewer than PLAIN_PER_DAY went out today. Posts from before forms existed count as lines."""
+    from castelino.agents.trade.forms import FORMS
+
+    used = [p.get("form", "line") for p in today]
+    lines_left = sum(f in LINES for f in used) < PLAIN_PER_DAY
+    return [
+        f for f in FORMS if f != (used[-1] if used else None) and (lines_left or f not in LINES)
+    ]
+
+
+def chart(
+    pick: ScoutPick, now: datetime, path: Path, allowed: list[str] | None = None
+) -> tuple[list[Fact], str, str, list[tuple[str, float]]]:
+    """Draw the pick to `path` in its form, else the first allowed FALLBACK that draws. Returns the
+    series facts, the line chart's subtitle ("" for other forms), the form drawn and the numbers a
+    non-line form computed; raises when nothing can be drawn."""
+    from castelino.agents import themes
+    from castelino.agents.trade.forms import FORMS
+
+    specs = [themes.SERIES.match(s) for s in pick.series[:12]]
     if not specs or not all(specs):
         raise ValueError(f"not fred:/yahoo: series: {pick.series!r}")
-    days = min(365, max(30, pick.window_days))
+    allowed = list(FORMS) if allowed is None else allowed
+    for form in [f for f in dict.fromkeys([pick.form, *FALLBACK]) if f in allowed and f in FORMS]:
+        n = FORMS[form].max_series
+        if len(pick.series) < FORMS[form].min_series or (
+            form == "compare" and len(pick.series) < 2
+        ):
+            continue
+        try:
+            if form in LINES:
+                return (
+                    *_line_chart(pick, now, path, specs[: 1 if form == "line" else 4]),
+                    form,
+                    [],
+                )
+            facts, sub, shown = _form_chart(pick, form, now, path, specs[:n])
+            return facts, sub, form, shown
+        except Exception as e:  # noqa: BLE001 - try the next form
+            print(f"  {form} chart failed: {e}")
+    raise RuntimeError(f"{pick.series} could not be drawn in any allowed form")
+
+
+def _series_facts(pick: ScoutPick, now: datetime, specs: list, days: int) -> list[Fact]:
+    from castelino.agents import themes
+
     start = now - timedelta(days=days)
     facts = [themes.fetch_series(*m.groups(), f"S{i}", start) for i, m in enumerate(specs, 1)]
     for f, name in zip(facts, pick.names, strict=False):
         if name.strip() and not unsupported([name], set()):  # a legend never carries a figure
             f.series.label = name.strip()
+    return facts
+
+
+def _form_chart(
+    pick: ScoutPick, form: str, now: datetime, path: Path, specs: list
+) -> tuple[list[Fact], str, list[tuple[str, float]]]:
+    """A Trade Lab form (dial, bars, underwater…) drawn by its code; the first 4 series' facts
+    still give the Writer their levels."""
+    from castelino.agents.trade import forms
+    from castelino.agents.trade.models import ChartSpec
+
+    series = [m.group(0) for m in specs]
+    spec = ChartSpec(
+        section="intro",
+        form=form,
+        series=series,
+        names=pick.names[: len(series)] or None,
+        window_days=min(730, max(30, pick.window_days)),
+        threshold=pick.threshold,
+        title=pick.chart_title[:60],
+        why="",
+        agent_pick=True,
+    )
+    nums = forms.render(spec, forms.Sources.live(), path, 1, kicker=pick.topic.upper())
+    return _series_facts(pick, now, specs[:4], min(365, max(30, pick.window_days))), "", nums
+
+
+def _line_chart(pick: ScoutPick, now: datetime, path: Path, specs: list) -> tuple[list[Fact], str]:
+    """One series as a line, 2-4 compared: the Morning Note renderer, with its subtitle."""
+    from castelino.agents.weekly.charts import make_weekly_exhibits
+    from castelino.agents.weekly.models import ExhibitPick
+
+    days = min(365, max(30, pick.window_days))
+    facts = _series_facts(pick, now, specs, days)
     ex = ExhibitPick(
         kind="line" if len(facts) == 1 else "compare",
         title=pick.chart_title,
@@ -235,11 +362,20 @@ def chart(pick: ScoutPick, now: datetime, path: Path) -> tuple[list[Fact], str]:
     return facts, drawn[0].subtitle
 
 
-def chart_numbers(facts: list[Fact], subtitle: str) -> tuple[str, set[float]]:
+def chart_numbers(
+    facts: list[Fact], subtitle: str, form: str = "line", shown: list[tuple[str, float]] = ()
+) -> tuple[str, set[float]]:
     """The chart's numbers as the Writer reads them, and the set its figures must come from: each
     series' last, first, change, last week, high and low (series_fact), its distance below the
-    window high and, for prices, its level rebased to 100; plus the chart's own subtitle."""
-    lines, nums = [f"Chart subtitle: {subtitle}"], set(numbers_in(subtitle))
+    window high and, for prices, its level rebased to 100; plus the chart's own subtitle, or the
+    numbers a non-line form computed (an RSI, a place in the 52-week range, a drawdown)."""
+    from castelino.agents.trade.forms import FORMS
+
+    lines = [f"Chart form: {form} ({FORMS[form].description})" if form in FORMS else ""]
+    lines += [f"Chart subtitle: {subtitle}"] if subtitle else []
+    lines += [f"The chart shows {label}: {v:g}" for label, v in shown]
+    nums = set(numbers_in(subtitle)) | {x for _, v in shown for x in (v, abs(v))}
+    lines = [x for x in lines if x]
     for f in facts:
         last, first, _chg, _week, high, _low = f.numbers
         below = round((last / high - 1) * 100, 1)
@@ -256,12 +392,18 @@ def chart_numbers(facts: list[Fact], subtitle: str) -> tuple[str, set[float]]:
 _LINK = re.compile(r"https?://|\bwww\.|\w\.[a-z]{2,}\b", re.I)  # what X would turn into a link
 
 
-def check(lead: str, reply: str, source: str, nums: set[float]) -> list[str]:
+def thread(posts: list[str]) -> list[str]:
+    """The analysis posts as they go out on X: "2/ …", "3/ …", "4/ …" (the lead is 1)."""
+    return [f"{i}/ {p}" for i, p in enumerate(posts, 2)]
+
+
+def check(lead: str, posts: list[str], source: str, nums: set[float]) -> list[str]:
     """What's wrong with a draft: a figure no source gave, a link or domain (X bills a post with a
-    URL at $0.200), a source that isn't a name, or a post over 280. Unit figures (%, bp, pp) go
-    through the Morning Note guard; any other number must be in `nums` too, except a year or a plain
-    count up to 31 (dates, "3 weeks"). The lead is measured with the source line code adds."""
-    texts = [lead, reply]
+    URL at $0.200), a source that isn't a name, a post over 280 or not POSTS analysis posts. Unit
+    figures (%, bp, pp) go through the Morning Note guard; any other number must be in `nums` too,
+    except a year or a plain count up to 31 (dates, "3 weeks"). The lead is measured with the source
+    line code adds, each analysis post with its number."""
+    texts = [lead, *posts]
     bad = [f"{t} is not in the source line or the chart data" for t in unsupported(texts, nums)]
     for text in texts:
         for m in _NUM.finditer(_FIG.sub(" ", text)):
@@ -272,64 +414,79 @@ def check(lead: str, reply: str, source: str, nums: set[float]) -> list[str]:
             decimals = len(tok.split(".")[1]) if "." in tok else 0
             if not _supported(v, decimals, False, nums):
                 bad.append(f"{tok} is not in the source line or the chart data")
-    for name, text in (("lead", lead), ("reply", reply)):
+    if len(posts) != POSTS:
+        bad.append(f"write exactly {POSTS} analysis posts, not {len(posts)}")
+    for name, text in (("lead", lead), *((f"post {i}", p) for i, p in enumerate(posts, 2))):
         if _LINK.search(text):
             bad.append(f"the {name} has a link or web address; X posts here carry none")
     if not source.strip() or len(source) > 40 or _LINK.search(source):
         bad.append(f"the source {source!r} must be a short name, not a link or domain")
     if (n := x_post.xlen(f"{lead}\n\nSource: {source}")) > x_post.LIMIT:
         bad.append(f"the lead post with its source line is {n} characters; X allows 280")
-    if (n := x_post.xlen(reply)) > x_post.LIMIT:
-        bad.append(f"the reply is {n} characters; X allows 280")
+    for i, p in enumerate(thread(posts), 2):
+        if (n := x_post.xlen(p)) > x_post.LIMIT:
+            bad.append(f"post {i} is {n} characters with its number; X allows 280")
     return bad
 
 
 def write(
-    pick: ScoutPick, item: Fact, numbers: str, nums: set[float]
-) -> tuple[str, str, str] | None:
-    """The tagged lead, the reply and the source's name; one retry told what failed, then None."""
+    pick: ScoutPick, item: Fact, numbers: str, nums: set[float], ctx: str = ""
+) -> tuple[str, list[str], str] | None:
+    """The tagged lead, the analysis posts and the source's name; one retry told what failed, then
+    None."""
     writer, fix = Writer(), None
     for _ in range(2):
-        d = writer(item=item, chart_title=pick.chart_title, numbers=numbers, fix=fix)
-        lead, reply, source = TAG[pick.topic] + d.lead.strip(), d.reply.strip(), d.source.strip()
-        fix = check(lead, reply, source, nums)
+        d = writer(item=item, chart_title=pick.chart_title, numbers=numbers, context=ctx, fix=fix)
+        lead, source = TAG[pick.topic] + d.lead.strip(), d.source.strip()
+        posts = [p.strip() for p in d.posts if p.strip()]
+        fix = check(lead, posts, source, nums)
         if not fix:
-            return lead, reply, source
+            return lead, posts, source
         print("  guard: " + "; ".join(fix))
     return None
 
 
 def find(
-    now: datetime, hours: int, must: bool, posted: list[dict], png: Path
-) -> tuple[ScoutPick, Fact, tuple[str, str, str]] | None:
+    now: datetime, hours: int, must: bool, posted: list[dict], png: Path, allowed: list[str]
+) -> tuple[ScoutPick, Fact, tuple[str, str, str], str] | None:
     """One pass: scan, pick, chart (drawn to `png`) and write. None when it has nothing to post."""
     items = scan(now, hours)
     print(f"  scan, last {hours}h{' (must pick)' if must else ''}: {len(items)} cited items")
     stamp = f"{now:%a %b %d, %H:%M}"
-    pick = Scout()(now=stamp, items=items, posted=posted, must=must) if items else None
+    from castelino.agents.trade.forms import FORMS
+
+    catalog = "\n".join(f"- {f}: {FORMS[f].description} Series: {FORMS[f].min_series} to {FORMS[f].max_series}." for f in allowed)  # fmt: skip
+    pick = (
+        Scout()(now=stamp, items=items, posted=posted, forms=catalog, must=must) if items else None
+    )
     hit = next((f for f in items if pick and pick.post and f.id == pick.item_id), None)
     if hit is None:
         print("  pick: nothing" + (f" ({pick.reason})" if pick else ""))
         return None
     print(
         f"  pick: {pick.topic.upper()} · {pick.headline} ({hit.id}, {hit.source_title})"
-        f" → {', '.join(pick.series)} {pick.window_days}d"
+        f" → {pick.form}: {', '.join(pick.series)} {pick.window_days}d"
     )
     if hit.source_url in {p["url"] for p in posted}:
         print("  already posted this story")
         return None
     png.parent.mkdir(parents=True, exist_ok=True)
     try:
-        series, subtitle = chart(pick, now, png)
+        series, subtitle, form, shown = chart(pick, now, png, allowed)
     except Exception as e:  # the chart is the point: no chart, no post
         print(f"  no chart, no post: {e}")
         return None
-    numbers, nums = chart_numbers(series, subtitle)
-    texts = write(pick, hit, numbers, nums | set(hit.numbers))
+    numbers, nums = chart_numbers(series, subtitle, form, shown)
+    ctx = context(hit)
+    print(f"  context: {len(ctx)} cited lines")
+    lines = "\n".join(f"- {f.text} ({f.source_title})" for f in ctx)
+    texts = write(
+        pick, hit, numbers, nums | set(hit.numbers) | {n for f in ctx for n in f.numbers}, lines
+    )
     if texts is None:
         print("  still failing after a retry: no post")
         return None
-    return pick, hit, texts
+    return pick, hit, texts, form
 
 
 def run(dry: bool = False, now: datetime | None = None, root: Path | None = None) -> dict | None:
@@ -350,14 +507,15 @@ def run(dry: bool = False, now: datetime | None = None, root: Path | None = None
             print(f"  Theme Charts thread posted: quiet until {quiet:%H:%M} ET")
             return None
     posted = recent(base, now)
+    allowed = allowed_forms(day["posts"])
     found = None
     for hours, must in PASSES:
-        if found := find(now, hours, must, posted, png):
+        if found := find(now, hours, must, posted, png, allowed):
             break
     if found is None:
         return None
-    pick, hit, texts = found
-    text, reply, source = texts
+    pick, hit, texts, form = found
+    text, posts, source = texts
     lead = f"{text}\n\nSource: {source}"
     live = not dry and os.getenv("X_SCOUT_LIVE") == "1" and x_post.can_post()
     ids: list[str] = []
@@ -365,12 +523,14 @@ def run(dry: bool = False, now: datetime | None = None, root: Path | None = None
         # ponytail: a failed upload or lead post raises and isn't recorded, so the next run retries
         ids.append(x_post.post(lead, media_id=x_post.upload_image(png.read_bytes())))
         try:
-            ids.append(x_post.post(reply, reply_to=ids[0]))
+            for p in thread(posts):  # each replies to the one before
+                ids.append(x_post.post(p, reply_to=ids[-1]))
         except Exception as e:  # the lead is out: record it anyway so it never goes twice
-            print(f"  reply failed: {e}")
-    # one Note reads better than a lead + reply: the lead, the analysis, then the source with its
-    # link (free on Substack), with the chart
-    noted = note(f"{text}\n\n{reply}\n\nSource: {source} ({hit.source_url})", png, live)
+            print(f"  thread stopped after {len(ids)} posts: {e}")
+    # one Note reads better than a thread: the lead, the analysis as paragraphs, then the source
+    # with its link (free on Substack), with the chart
+    body = "\n\n".join([text, *posts, f"Source: {source} ({hit.source_url})"])
+    noted = note(body, png, live)
     rec = {
         "at": now.isoformat(timespec="minutes"),
         "topic": pick.topic,
@@ -380,9 +540,10 @@ def run(dry: bool = False, now: datetime | None = None, root: Path | None = None
         "source_url": hit.source_url,
         "source": source,
         "series": pick.series,
+        "form": form,  # allowed_forms() reads it back
         "chart": f"{png.parent.name}/{png.name}",
         "lead": lead,
-        "reply": reply,
+        "thread": thread(posts),
         "dry_run": not live,
         "ids": ids,
         **noted,
@@ -391,10 +552,11 @@ def run(dry: bool = False, now: datetime | None = None, root: Path | None = None
     atomic_write_text(path, json.dumps(day, indent=2, ensure_ascii=False))
     print(
         ("  POSTED " + " ".join(ids) if live else "  DRY RUN would post")
-        + f" ({x_post.xlen(lead)}/280) + reply ({x_post.xlen(reply)}/280):"
+        + f" ({x_post.xlen(lead)}/280) + {len(posts)} thread posts:"
     )
     print("    " + lead.replace("\n", "\n    "))
-    print("    ↳ " + reply.replace("\n", "\n      "))
+    for t in thread(posts):
+        print(f"    ↳ {t} ({x_post.xlen(t)}/280)")
     return rec
 
 
