@@ -11,8 +11,8 @@ and draws them. A pass with nothing to post (no item clears the bar, or the pick
 charted, written or was already posted) is followed by a second one (PASSES): the last 24 hours, and
 the Scout must pick the best item not yet posted. One cited follow-up search adds context, and the
 Writer writes the lead and a 3-post analysis thread from that line, the context and the chart's
-code-computed numbers (the Note gets the same text as paragraphs), and names the source; code adds the topic tag
-and "Source: <name>" to the lead. X posts carry no link: X's pay-per-use API charges $0.200 for a
+code-computed numbers (the Note gets the same text as paragraphs), and names the source; code adds
+"Source: <name>" to the lead (no "MACRO"/"AI" tag: user rule, 2026-10-21). X posts carry no link: X's pay-per-use API charges $0.200 for a
 post with a URL against $0.015 for a plain one (docs.x.com, 2026-10-19), and X turns a bare domain
 ("Investing.com") into a link, so check() refuses one anywhere in the posts. The Substack Note keeps
 the link (Notes are free). Every figure must be among those numbers (check()) and each post must fit
@@ -47,6 +47,7 @@ import re
 import sys
 import textwrap
 from datetime import date, datetime, timedelta
+from functools import lru_cache
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Literal
@@ -70,7 +71,6 @@ MAX_PER_DAY = 8  # one per 2-hourly run (deploy/crontab)
 MEMORY_DAYS = 7
 THEME_GAP = timedelta(hours=1)  # the morning Theme Charts thread gets the feed to itself this long
 PASSES = ((6, False), (24, True))  # (hours searched, must pick): every run posts unless all is old
-TAG = {"macro": "MACRO · ", "ai": "AI · "}
 
 SCAN_SYSTEM = (
     "You are a markets news desk for ARC Research, a macro research shop. Report only what named "
@@ -80,13 +80,16 @@ SCAN_USER = """It is {now} New York time. List up to 8 items from the last {hour
 investor would care about, most notable first, one per line starting with MACRO or AI: data
 releases and how they compared with forecasts, central banks and policy, rates, credit, oil and the
 dollar; AI model launches with benchmark or price figures, chip and data-center news, AI capex and
-earnings. One sentence each, with the key figures exactly as reported."""
+earnings. One sentence each, with the key figures exactly as reported. Write each public company
+with its stock ticker as it trades today, e.g. "SpaceX (SPCX)", "NVIDIA (NVDA)"."""
 
 SCOUT = """You pick at most one item for ARC Research's X account to post with a chart and a short
 analysis. Post only what a macro investor would stop scrolling for: a data surprise, a first or a
 record, a policy shift, a model or chip launch with hard numbers, a big AI capex or earnings figure.
 Routine, in-line or already-posted stories are a no: answer post=false, which should be the usual
-answer. Never pick a story listed under "Already posted", including a market that today's alerts
+answer. A company written with a ticker in its line is listed and trades: never call it private or
+untradable from memory, which is older than some listings (SpaceX has traded as SPCX since its
+2026 IPO); chart it with yahoo:<that ticker>. Never pick a story listed under "Already posted", including a market that today's alerts
 already covered. If you post, name the chart that best shows the story: a form from the list in
 the message and the series it needs, each "fred:SERIES_ID" for economic data (FRED lags a day or
 more) or "yahoo:TICKER" for anything that trades (NVDA, SMH, ^TNX, CL=F, DX-Y.NYB). Pick the form
@@ -115,8 +118,8 @@ analysis posts. The same text also goes out as a Substack Note, so make the anal
   3. What to watch: the next data, event or level that would confirm or break the story.
 Use only figures from the source line, the context lines and the chart data you are given, written
 as given; any other number gets the post dropped. Write a change in words ("up 10bp", "down 2.1%"),
-never with a + sign. No hashtags, no emoji, no links or web addresses, no advice: code adds the topic
-tag and the source. source: the name of the outlet or body that published the source line, as
+never with a + sign. No hashtags, no emoji, no links or web addresses, no advice, no "MACRO" or "AI"
+label: code adds the source. source: the name of the outlet or body that published the source line, as
 readers know it ("Reuters", "NAHB", "AP"), never a link or a domain: write "Investing", not
 "Investing.com"."""
 CONTEXT = """Background for an X post about this news item: {item}
@@ -429,17 +432,52 @@ def check(lead: str, posts: list[str], source: str, nums: set[float]) -> list[st
     return bad
 
 
+# Tickers as posts write them, "NVIDIA (NVDA)" or "$NVDA"; acronyms that aren't companies are skipped.
+_TICKER = re.compile(r"\(([A-Z]{1,5}(?:[.-][A-Z]{1,2})?)\)|\$([A-Z]{1,5}(?:[.-][A-Z]{1,2})?)\b")
+NOT_TICKERS = {
+    "AI", "API", "BLS", "BOJ", "CEO", "CFO", "CPI", "ECB", "EPS", "ET", "ETF", "EU", "FDA", "FED",
+    "FOMC", "GDP", "GPU", "HBM", "IMF", "IPO", "ISM", "LLM", "NAHB", "OPEC", "PCE", "PMI", "PPI",
+    "SEC", "UK", "US", "USD", "WTI", "YOY",
+}  # fmt: skip
+
+
+@lru_cache(maxsize=256)
+def trades(ticker: str) -> bool:
+    """True if Yahoo Finance has a close for `ticker` in the last 10 days. An error (Yahoo down)
+    counts as True: an outage never blocks a post."""
+    import yfinance as yf
+
+    try:
+        return not yf.Ticker(ticker).history(period="10d").empty
+    except Exception as e:  # noqa: BLE001
+        print(f"  ticker check for {ticker} failed: {e}")
+        return True
+
+
+def ticker_errors(texts: list[str], lookup=None) -> list[str]:
+    """Every stock ticker a post names must trade (user rule, 2026-10-20, after the picker called a
+    listed SpaceX private): checked against Yahoo before anything is published."""
+    lookup = lookup or trades
+    found = {a or b for t in texts for a, b in _TICKER.findall(t)} - NOT_TICKERS
+    return [
+        f"{t} is not a ticker that trades on Yahoo Finance; use the right ticker or write the "
+        "company's name without one"
+        for t in sorted(found)
+        if not lookup(t)
+    ]
+
+
 def write(
     pick: ScoutPick, item: Fact, numbers: str, nums: set[float], ctx: str = ""
 ) -> tuple[str, list[str], str] | None:
     """The tagged lead, the analysis posts and the source's name; one retry told what failed, then
-    None."""
+    None. Its figures, links and length (check) and its tickers (ticker_errors) are checked."""
     writer, fix = Writer(), None
     for _ in range(2):
         d = writer(item=item, chart_title=pick.chart_title, numbers=numbers, context=ctx, fix=fix)
-        lead, source = TAG[pick.topic] + d.lead.strip(), d.source.strip()
+        lead, source = d.lead.strip(), d.source.strip()
         posts = [p.strip() for p in d.posts if p.strip()]
-        fix = check(lead, posts, source, nums)
+        fix = check(lead, posts, source, nums) + ticker_errors([lead, *posts])
         if not fix:
             return lead, posts, source
         print("  guard: " + "; ".join(fix))

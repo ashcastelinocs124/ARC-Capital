@@ -63,6 +63,7 @@ def fake(monkeypatch, *, items=None, pick_=None, posts=None, chart_ok=True):
 
     monkeypatch.setattr(x_scout, "chart", chart)
     monkeypatch.setattr(x_scout, "context", lambda item: [])  # no follow-up search in tests
+    monkeypatch.setattr(x_scout, "trades", lambda t: True)  # no Yahoo lookups in tests
     outs, calls = list(posts or [GOOD]), []
     monkeypatch.setattr(
         x_scout.Writer,
@@ -132,9 +133,7 @@ def test_dry_run_records_without_posting(monkeypatch, tmp_path):
     monkeypatch.setattr(x_post, "post", lambda *a, **k: (_ for _ in ()).throw(AssertionError))
     rec = x_scout.run(now=AT, root=tmp_path)
     assert rec["dry_run"] and rec["ids"] == [] and rec["chart"] == "2026-10-16/1215.png"
-    assert rec["lead"].startswith("AI · Chip stocks") and rec["lead"].endswith(
-        "\n\nSource: Reuters"
-    )
+    assert rec["lead"].startswith("Chip stocks") and rec["lead"].endswith("\n\nSource: Reuters")
     assert rec["thread"] == ["2/ " + GOOD.posts[0], "3/ " + GOOD.posts[1], "4/ " + GOOD.posts[2]]
     assert rec["source"] == "Reuters"  # no link on X: $0.200 a post
     saved = json.loads((tmp_path / "data/x_posts/scout/2026-10-16.json").read_text())
@@ -158,7 +157,7 @@ def test_live_posts_the_lead_with_its_chart_then_the_thread(monkeypatch, tmp_pat
     monkeypatch.setattr(substack, "post_note", lambda text, png: notes.append((text, png)) or "n1")
     rec = x_scout.run(now=AT, root=tmp_path)
     lead, *rest = sent
-    assert lead[1:] == (None, "m1") and lead[0].startswith("AI · ")
+    assert lead[1:] == (None, "m1") and lead[0].startswith("Chip stocks")
     assert lead[0].endswith("\n\nSource: Reuters") and not any("http" in t for t, _, _ in sent)
     assert rest == [  # each analysis post replies to the one before
         ("2/ " + GOOD.posts[0], "id1", None),
@@ -300,5 +299,19 @@ def test_chart_numbers_carry_a_forms_own_figures():
     text, nums = x_scout.chart_numbers([], "", "dial", [("Brent crude (BZ=F) range_pos", 85.2)])
     assert text.startswith("Chart form: dial (") and "range_pos: 85.2" in text
     assert {85.2} <= nums and x_scout.check(
-        "MACRO · Brent sits at 85.2% of its range.", FINE, "Reuters", nums
+        "Brent sits at 85.2% of its range.", FINE, "Reuters", nums
     ) == []
+
+
+def test_every_ticker_a_post_names_must_trade_before_it_goes_out(monkeypatch, tmp_path):
+    listed = {"SPCX", "NVDA"}
+    texts = ["SpaceX (SPCX) beat; $NVDA fell.", "2/ CPI (CPI) and GDP (GDP) are not tickers."]
+    assert x_scout.ticker_errors(texts, lookup=lambda t: t in listed) == []
+    bad = x_scout.ticker_errors(["Taiwan Semiconductor (TSMC) rose."], lookup=lambda t: t in listed)
+    assert bad and bad[0].startswith("TSMC is not a ticker")  # TSM trades, TSMC doesn't
+
+    wrong = ScoutPost(lead="SpaceX (SPCXX) beat.", posts=FINE, source="Reuters")
+    calls = fake(monkeypatch, posts=[wrong, GOOD])
+    monkeypatch.setattr(x_scout, "trades", lambda t: t in listed)
+    assert x_scout.run(dry=True, now=AT, root=tmp_path)  # the retry, told why, goes out
+    assert len(calls) == 2 and "SPCXX is not a ticker" in " ".join(calls[1]["fix"])
