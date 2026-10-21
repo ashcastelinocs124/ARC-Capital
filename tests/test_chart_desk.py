@@ -109,3 +109,45 @@ def test_charts_routes_are_not_taken_by_the_daily_desk_day_route(monkeypatch):
     assert body["compare_default"][0] == "gpt-6-luna"
     assert c.get("/admin/desk/charts/0123456789").status_code == 404
     assert c.get("/admin/desk/charts/../../etc").status_code == 404
+
+
+def test_data_fred_and_yahoo_lack_comes_from_cited_searches_and_every_point_is_checked(monkeypatch):
+    from castelino.agents.update.models import Fact
+
+    def fact(i, text, *nums):
+        return Fact(id=f"W{i}", text=text, numbers=list(nums), provenance="reported",
+                    source_title="Trading Economics", source_url="u")  # fmt: skip
+
+    found = [fact(1, "Indonesia IDX Composite trailing P/E 12.4 (Oct 2026)", 12.4),
+             fact(2, "IDX Composite 5-year average P/E 15.1", 15.1),
+             fact(3, "India Nifty 50 P/E 22.1", 50.0, 22.1)]  # fmt: skip
+    searched = []
+    monkeypatch.setattr(desk, "_search", lambda qs: searched.extend(qs) or found)
+
+    def pts(*p):
+        return [desk.CitedPoint(label=lb, value=v, fact_id=f) for lb, v, f in p]
+
+    good = desk.ChartIdea(form="cited_bars", series=[], window_days=365, threshold=None, unit="x",
+                          title="Indonesia is cheap against India", why="w",
+                          points=pts(("Indonesia", 12.4, "W1"), ("5-year average", 15.1, "W2"), ("India", 22.1, "W3")))  # fmt: skip
+    invented = good.model_copy(update={"title": "Indonesia vs EM", "points": pts(("Indonesia", 12.4, "W1"), ("EM", 13.0, "W2"))})  # fmt: skip
+    ask = desk.Proposal(
+        reply="", charts=[], searches=["Indonesia IDX Composite P/E, latest and 5-year average"]
+    )
+    answer = desk.Proposal(
+        reply="Indonesia trades below its average.",
+        charts=[good, chart("line", "yahoo:EWJ"), invented],
+    )
+    retry = desk.Proposal(reply="", charts=[])
+    sent = fake_llm(monkeypatch, {"gpt-6-luna": [ask, answer, retry]})
+
+    reply = desk.chat("Indonesia and P/E", None, None, sync=True, src=FAKE).turns[0].replies[0]
+    assert searched == ["Indonesia IDX Composite P/E, latest and 5-year average"]
+    assert any(
+        "[W1] Indonesia IDX Composite trailing P/E 12.4" in m["content"] for m in sent[1][1]
+    )  # lines go back
+    drawn = [c for c in reply.charts if c.file]
+    assert [c.form for c in drawn] == ["cited_bars", "line"]  # mixed with Yahoo in one reply
+    assert drawn[0].series == ["web:W1", "web:W2", "web:W3"]  # the UI's chips
+    bad = next(c for c in reply.charts if c.error)
+    assert "13 is not in [W2]" in bad.error  # a value no cited line gives is never drawn

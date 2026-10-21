@@ -1,8 +1,10 @@
 """Chart desk (admin → Charts): talk to the chart agent about any idea, or run one prompt on several
 models side by side and vote for the best.
 
-The model only names forms and fred:/yahoo: series (Trade Lab's 12 forms); code fetches the data and
-draws every chart (agents/trade/forms.py), so it never supplies a plotted number. Only for direct use:
+The model names forms and fred:/yahoo: series (Trade Lab's 12 forms); code fetches the data and draws
+every chart (agents/trade/forms.py). For data FRED and Yahoo lack (a country's market P/E), it asks for
+up to MAX_SEARCHES cited web searches and charts what they return with two cited forms (bars, a line):
+every plotted value must be a number of the cited line it names, or the chart isn't drawn. Only for direct use:
 its models live in config.yaml `chart_desk` and never change another workflow's model.
 
 Each chat thread or compare run is one file, data/chart_desk/<id>/run.json, with its PNGs beside it.
@@ -10,6 +12,7 @@ A chat turn has one reply; a compare run has one turn with a reply per model."""
 
 from __future__ import annotations
 
+import math
 import os
 import re
 import threading
@@ -26,12 +29,33 @@ from pydantic import BaseModel
 
 from castelino import benchmark
 from castelino.agents.trade import forms, llm
+from castelino.agents.update.facts import facts_from_search
 from castelino.agents.update.fsio import atomic_write_text
 from castelino.agents.update.guard import unsupported
+from castelino.agents.update.models import Fact
 from castelino.config import get_settings
 
 MAX_CHARTS = 4
 MAX_MODELS = 8
+MAX_SEARCHES = (
+    3  # cited web searches per reply (user ask 2026-10-21: Indonesia's P/E wasn't on FRED/Yahoo)
+)
+CITED = {
+    "cited_bars": (
+        "Values from cited web lines side by side, as bars: a snapshot such as a market's P/E "
+        "against peers or its own 5-year average. points: 2 to 12.",
+        2,
+        12,
+    ),
+    "cited_line": (
+        "Dated values from cited web lines as a line, in time order (label = the date or year): "
+        "how a figure FRED/Yahoo lack has moved. points: 3 to 30.",
+        3,
+        30,
+    ),
+}
+SEARCH = """You are a markets data desk. Report only figures that named sources published, one per line,
+each with a citation and the date or period it refers to, exactly as published."""
 KICKER = "CHART DESK"
 MODEL_ID = re.compile(r"^[a-z0-9][a-z0-9._-]*(/[a-z0-9][a-z0-9._:-]*)?$")
 
@@ -42,8 +66,22 @@ yahoo:TICKER, subject first), names (each series' full name in the same order, e
 Japan ETF, 10-year Treasury yield), a window in days and, for threshold_band, the threshold. Titles are short
 claims with no figures and no dashes. `why` says in one sentence what the chart shows for the idea.
 `reply` is one or two sentences on what the set shows together, or what you changed.
+FRED and Yahoo don't have everything (a country's stock market P/E, survey readings, a company's
+segment figures). For data they lack, list up to 3 `searches`, each a precise data request ("Indonesia
+IDX Composite trailing P/E ratio, latest and 5-year average", "MSCI Emerging Markets forward P/E,
+latest"), and propose no chart from them yet: the cited lines come back as [W1], [W2] ..., and then you
+chart them with cited_bars or cited_line, each point's value copied exactly from the line it cites
+(fact_id) and `unit` its unit ("x" for a multiple, "%"). A reply can mix cited charts with FRED/Yahoo
+ones; cited charts take no series. Leave `searches` empty when FRED/Yahoo have the data.
 Forms:
-{catalog}"""
+{catalog}
+{cited}"""
+
+
+class CitedPoint(BaseModel):
+    label: str  # "Indonesia", "5-year average", "2023"
+    value: float
+    fact_id: str  # the [W#] line the value is copied from
 
 
 class ChartIdea(BaseModel):  # what the model emits; forms.render reads the same fields as ChartSpec
@@ -56,11 +94,14 @@ class ChartIdea(BaseModel):  # what the model emits; forms.render reads the same
     threshold: float | None
     title: str
     why: str
+    points: list[CitedPoint] | None = None  # cited forms only
+    unit: str | None = None  # cited forms: "x", "%", "$"
 
 
 class Proposal(BaseModel):
     reply: str
     charts: list[ChartIdea]
+    searches: list[str] = []  # data requests FRED/Yahoo can't answer; cited lines come back
 
 
 class Chart(ChartIdea):
@@ -186,10 +227,118 @@ def _history(turns: list[Turn]) -> list[dict]:
     return msgs
 
 
-def _draw(ideas: list[ChartIdea], src: forms.Sources, out: Path, prefix: str, k0: int):
-    charts = []
+def _search(queries: list[str]) -> list[Fact]:
+    """The cited lines of up to MAX_SEARCHES web searches, as facts W1, W2 ... (uncited lines dropped)."""
+    from castelino.data import web_search
+
+    facts: list[Fact] = []
+    for q in queries[:MAX_SEARCHES]:
+        try:
+            text, cites = web_search.search_cited(SEARCH, q)
+        except Exception:  # noqa: BLE001 - a failed search just gives the model fewer lines
+            continue
+        facts += facts_from_search("W", text, cites)
+    return [f.model_copy(update={"id": f"W{i}"}) for i, f in enumerate(facts, 1)]
+
+
+def _cited_msg(facts: list[Fact]) -> str:
+    if not facts:
+        return "The searches found no cited figures; chart what FRED and Yahoo have instead."
+    lines = "\n".join(f"[{f.id}] {f.text} ({f.source_title})" for f in facts)
+    return (
+        f"Cited lines from your searches:\n{lines}\n\nNow propose the charts (searches empty). "
+        "Each cited_bars or cited_line point copies its value exactly from the line it cites."
+    )
+
+
+def _cited_errors(c: Chart, facts: dict[str, Fact]) -> list[str]:
+    _, lo, hi = CITED[c.form]
+    pts = c.points or []
+    errs = [] if lo <= len(pts) <= hi else [f"{c.form} needs {lo} to {hi} points, got {len(pts)}"]
+    for p in pts:
+        f = facts.get(p.fact_id)
+        if f is None:
+            errs.append(f"{p.label}: {p.fact_id} is not one of the cited lines")
+        elif not any(math.isclose(p.value, n, rel_tol=1e-9, abs_tol=1e-9) for n in f.numbers):
+            errs.append(f"{p.label}: {p.value:g} is not in [{f.id}] {f.text[:80]}")
+    return errs
+
+
+def _draw_cited(c: Chart, facts: dict[str, Fact], path: Path, k: int) -> list[tuple[str, float]]:
+    """A cited chart in the house frame: bars (a snapshot) or a line (dated points)."""
+    from castelino.agents.trade.forms import GREEN, INK2, SLATE, _wrap
+    from castelino.agents.weekly.charts import _frame
+
+    pts, unit = c.points or [], c.unit or ""
+    labels, vals = [p.label for p in pts], [p.value for p in pts]
+    fmt = lambda v: f"{v:,.2f}".rstrip("0").rstrip(".") + unit  # noqa: E731
+
+    def bars(ax):
+        y = list(range(len(vals)))[::-1]
+        ax.barh(y, vals, color=[GREEN] + [SLATE] * (len(vals) - 1), height=0.6)
+        for yi, v in zip(y, vals, strict=True):
+            ax.text(v, yi, " " + fmt(v), va="center", ha="left" if v >= 0 else "right",
+                    fontsize=8.5, fontweight="bold")  # fmt: skip
+        ax.set_yticks(y)
+        ax.set_yticklabels([_wrap(lb) for lb in labels], fontsize=8.5)
+        ax.axvline(0, color=INK2, lw=1)
+        ax.set_xticks([])
+        ax.margins(x=0.25)
+
+    def line(ax):
+        x = list(range(len(vals)))
+        ax.plot(x, vals, color=GREEN, lw=2, marker="o", ms=3.5)
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels, fontsize=8)
+        ax.annotate(fmt(vals[-1]), (x[-1], vals[-1]), xytext=(4, 0), textcoords="offset points",
+                    fontsize=8.5, color=GREEN, fontweight="bold", va="center")  # fmt: skip
+
+    ids = dict.fromkeys(p.fact_id for p in pts)
+    sources = "; ".join(dict.fromkeys(facts[i].source_title for i in ids))
+    sub = (
+        "Cited values" + (f" ({unit})" if unit else "")
+        if c.form == "cited_bars"
+        else f"{labels[0]} to {labels[-1]}"
+    )
+    is_bars = c.form == "cited_bars"
+    _frame(k, c.title, sub, f"web search, cited: {sources}", path, bars if is_bars else line,
+           left=0.25 if is_bars else 0.1, kicker=KICKER)  # fmt: skip
+    return [(p.label, p.value) for p in pts]
+
+
+def _draw(
+    ideas: list[ChartIdea],
+    src: forms.Sources,
+    out: Path,
+    prefix: str,
+    k0: int,
+    facts: dict[str, Fact] | None = None,
+):
+    charts, facts = [], facts or {}
     for k, idea in enumerate(ideas, k0):
         c = Chart(**idea.model_dump())
+        if c.form in CITED:
+            c.series = list(
+                dict.fromkeys(f"web:{p.fact_id}" for p in c.points or [])
+            )  # the UI's chips
+            if errs := _cited_errors(c, facts):
+                c.error = "; ".join(errs)
+                charts.append(c)
+                continue
+            name = f"{prefix}-{k}.png"
+            try:
+                nums = _draw_cited(c, facts, out / name, k)
+            except Exception as e:  # noqa: BLE001
+                c.error = str(e)[:200]
+            else:
+                bad = unsupported([c.title], {v for _, v in nums})
+                c.error, c.file = (
+                    (f"title figure {', '.join(bad)} isn't in the chart", None)
+                    if bad
+                    else (None, name)
+                )
+            charts.append(c)
+            continue
         if errs := forms.spec_errors(c):
             c.error = "; ".join(errs)
         else:
@@ -214,17 +363,29 @@ def propose(
     meter = llm.Meter()
     started = time.monotonic()
     reply = Reply(model=model)
+    cited = "\n".join(f"- {n}: {d} Points: {lo} to {hi}." for n, (d, lo, hi) in CITED.items())
     msgs = [
-        {"role": "system", "content": SYSTEM.format(catalog=forms.catalog_text())},
+        {"role": "system", "content": SYSTEM.format(catalog=forms.catalog_text(), cited=cited)},
         *_history(history),
         {"role": "user", "content": ask},
     ]
+    facts: dict[str, Fact] = {}
     try:
         for attempt in range(2):
             p = llm.structured("chart_desk", model, msgs, Proposal, meter)
+            if (
+                p.searches and not facts and not attempt
+            ):  # fetch the data FRED/Yahoo lack, then re-ask
+                found = _search(p.searches)
+                facts = {f.id: f for f in found}
+                msgs += [
+                    {"role": "assistant", "content": p.model_dump_json()},
+                    {"role": "user", "content": _cited_msg(found)},
+                ]
+                p = llm.structured("chart_desk", model, msgs, Proposal, meter)
             reply.text = reply.text or p.reply
             room = MAX_CHARTS - sum(c.file is not None for c in reply.charts)
-            new = _draw(p.charts[:room], src, out, prefix, len(reply.charts) + 1)
+            new = _draw(p.charts[:room], src, out, prefix, len(reply.charts) + 1, facts)
             reply.charts += new
             failed = [c for c in new if c.error]
             if not failed or attempt:
