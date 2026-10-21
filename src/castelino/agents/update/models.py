@@ -258,3 +258,6 @@ class DailyRecordV2(BaseModel):
     rounds: int
     data_gaps: list[str]
     backfilled: bool = False  # rebuilt later 'as of' this date (scripts/backfill_updates.py)
+    calendar: list[
+        str
+    ] = []  # "On the calendar today" lines (agents/update/calendar.py), since 2026-10-20

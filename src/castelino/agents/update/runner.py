@@ -34,6 +34,8 @@ AgentFn = Callable[[str, str | None], AgentOutput]
 BackgroundFn = Callable[
     [list[Finding], list[Fact], str, Path], tuple[list[Finding], list[Fact], list[str]]
 ]
+# (findings, facts, day) -> (findings and facts with the day's calendar results, its lines)
+CalendarFn = Callable[[list[Finding], list[Fact], str], tuple[list[Finding], list[Fact], list[str]]]
 
 
 def read_status(data_dir: Path) -> dict:
@@ -66,6 +68,7 @@ class UpdateRunner:
         chart_fn: Callable[[MorningNote, list[Finding], list[Fact], Path], list[Exhibit]],
         today_fn: Callable[[], date] = date.today,
         background_fn: BackgroundFn | None = None,
+        calendar_fn: CalendarFn | None = None,
     ):
         self.data_dir, self.updates_dir = Path(data_dir), Path(updates_dir)
         self.memory = memory
@@ -73,6 +76,8 @@ class UpdateRunner:
         self.plan_fn, self.review_fn, self.agent_fns = plan_fn, review_fn, agent_fns
         self.editor_fn, self.chart_fn, self.today_fn = editor_fn, chart_fn, today_fn
         self.background_fn = background_fn
+        self.calendar_fn = calendar_fn
+        self._calendar: list[str] = []  # the note's "On the calendar today" lines
         self._day = ""
         self._gaps: list[str] = []
 
@@ -180,6 +185,7 @@ class UpdateRunner:
             releases=snap.releases if snap else [],
             rounds=rounds,
             data_gaps=self._gaps + (snap.data_gaps if snap else []),
+            calendar=self._calendar,
         )
         # written last: its existence is what marks the day done
         atomic_write_text(self.updates_dir / f"{self._day}.json", record.model_dump_json(indent=2))
@@ -198,6 +204,12 @@ class UpdateRunner:
             except Exception as exc:  # noqa: BLE001 — background is never load-bearing
                 log.warning("background step failed; writing without it", exc_info=True)
                 self._gaps.append(f"background step failed: {exc}")
+        if self.calendar_fn is not None:
+            try:
+                findings, facts, self._calendar = self.calendar_fn(findings, facts, self._day)
+            except Exception as exc:  # noqa: BLE001 — the calendar is never load-bearing
+                log.warning("calendar step failed; writing without it", exc_info=True)
+                self._gaps.append(f"calendar step failed: {exc}")
         errors: list[str] | None = None
         for _attempt in range(self.max_retries + 1):
             self._set(Stage.WRITING)
@@ -248,6 +260,7 @@ class UpdateRunner:
                 "findings": findings,
                 "note": note,
                 "exhibits": exhibits,
+                "calendar": self._calendar or old.calendar,  # a failed fetch keeps the old lines
                 "generated_at": datetime.now().isoformat(timespec="seconds"),
             }
         )
@@ -264,6 +277,7 @@ def build_default_runner() -> UpdateRunner:
         ai,
         alt,
         background,
+        calendar,
         editor,
         exhibits,
         macro,
@@ -293,4 +307,5 @@ def build_default_runner() -> UpdateRunner:
         editor_fn=editor.write_note,
         chart_fn=exhibits.make_note_exhibits,
         background_fn=background.enrich,
+        calendar_fn=calendar.add,
     )

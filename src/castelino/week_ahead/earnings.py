@@ -90,8 +90,9 @@ def fetch_week(
     for i in range(5):
         d = monday + timedelta(days=i)
         out += from_nasdaq(fetch("earnings", d), d, universe)
+    listed = {e["ticker"] for e in out}
     for t, (name, group) in universe.items():
-        if group != "ai_extra" or "." not in t:
+        if group != "ai_extra" or t in listed:  # Nasdaq has no SPCX, nor the non-US listings
             continue
         try:
             d, eps = yf(t)

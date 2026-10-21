@@ -15,6 +15,7 @@ AI_EXTRA = [  # big non-S&P AI names; tickers with a '.' come from yfinance (no 
     ("ASML", "ASML Holding"),
     ("005930.KS", "Samsung Electronics"),
     ("9984.T", "SoftBank Group"),
+    ("SPCX", "SpaceX"),  # public since 2026; its earnings are AI news (2026-10-20)
 ]
 OUT = Path(__file__).resolve().parents[1] / "data" / "week_ahead" / "universe.csv"
 

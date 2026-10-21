@@ -17,6 +17,9 @@ macro investors. From the findings, write:
   finding ids marked [chartable] as a fallback line chart, or null. Spread items across macro,
   news and alt; on a quiet day use smaller stories rather than fewer items.
 - If there are any (ai) findings, at least one item must cite one: the day's AI models and chips.
+- Findings that start "On today's calendar:" are the day's scheduled data releases and earnings
+  results (the full list runs under the note). Give a big miss or beat its own item, or fold it
+  into the item it moves.
 - Each item body is about 400 words (380 to 420): three paragraphs separated by a blank line,
   then a closing "**What to watch:**" line as its own short paragraph. Never label or head the
   paragraphs; the order carries the structure:

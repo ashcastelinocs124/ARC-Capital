@@ -111,6 +111,16 @@ def build_doc(record: dict, uploaded: dict[str, dict]) -> dict:
         ex = by_item.get(item["rank"]) or exhibits.get(item.get("chart") or "")
         if ex and ex["file"] in uploaded:
             content.append(_image(uploaded[ex["file"]], ex["title"]))
+    if record.get("calendar"):  # code-written: every release and earnings report of the day
+        content.append(_heading("On the calendar today"))
+        content.append(
+            {
+                "type": "bullet_list",
+                "content": [
+                    {"type": "list_item", "content": [_p(_text(t))]} for t in record["calendar"]
+                ],
+            }
+        )
     url = f"{SITE}/updates?date={day}"
     content.append(
         _p(_text("Interactive charts and every source: "), _text(url.removeprefix("https://"), url))
