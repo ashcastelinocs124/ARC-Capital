@@ -14,6 +14,7 @@ import os
 import re
 import secrets
 import time
+from functools import lru_cache
 from urllib.parse import quote
 
 import httpx
@@ -38,6 +39,42 @@ def xlen(text: str) -> int:
     """X's weighted length: a link counts 23, most Latin text 1 per character, emoji and CJK 2."""
     text = _URL.sub("x" * 23, text)
     return sum(1 if ord(c) <= 4351 or 8192 <= ord(c) <= 8247 else 2 for c in text)
+
+
+# Acronyms written in brackets that are not tickers, so never turned into cashtags or checked as one.
+NOT_TICKERS = {
+    "AI", "API", "BLS", "BOJ", "CEO", "CFO", "CPI", "ECB", "EPS", "ET", "ETF", "EU", "FDA", "FED",
+    "FOMC", "GDP", "GPU", "HBM", "IMF", "IPO", "ISM", "LLM", "NAHB", "OPEC", "PCE", "PMI", "PPI",
+    "SEC", "UK", "US", "USD", "WTI", "YOY",
+}  # fmt: skip
+# "SpaceX (SPCX)" or "Taiwan Semiconductor (TSM)": up to 5 capitalised words, then the ticker in brackets
+_NAMED = re.compile(r"(?:\b[A-Z][\w&.'’-]*\s+){0,5}\(([A-Z]{1,5}(?:[.-][A-Z]{1,2})?)\)")
+
+
+@lru_cache(maxsize=256)
+def trades(ticker: str) -> bool:
+    """True if Yahoo Finance has a close for `ticker` in the last 10 days. An error (Yahoo down)
+    counts as True: an outage never blocks a post."""
+    import yfinance as yf
+
+    try:
+        return not yf.Ticker(ticker).history(period="10d").empty
+    except Exception as e:  # noqa: BLE001
+        print(f"  ticker check for {ticker} failed: {e}")
+        return True
+
+
+def cashtags(text: str, lookup=None) -> str:
+    """Stocks as X cashtags only (user rule, 2026-10-21): "SpaceX (SPCX) beat" -> "$SPCX beat", the
+    capitalised name before the brackets going with them. Only a ticker that trades is turned, so
+    "(CPI)" or a wrong "(TSMC)" stays as written; "Energy stocks (XLE)" keeps its lower-case words."""
+    lookup = lookup or trades
+
+    def sub(m: re.Match) -> str:
+        t = m.group(1)
+        return f"${t}" if t not in NOT_TICKERS and lookup(t) else m.group(0)
+
+    return _NAMED.sub(sub, text)
 
 
 def no_emoji(text: str) -> str:
@@ -125,7 +162,7 @@ def upload_image(data: bytes) -> str:
 
 def post(text: str, reply_to: str | None = None, media_id: str | None = None) -> str:
     """One post; returns its id. Raises with X's message on failure."""
-    body: dict = {"text": no_emoji(text).strip()}
+    body: dict = {"text": cashtags(no_emoji(text)).strip()}
     if reply_to:
         body["reply"] = {"in_reply_to_tweet_id": reply_to}
     if media_id:

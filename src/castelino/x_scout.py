@@ -48,7 +48,6 @@ import re
 import sys
 import textwrap
 from datetime import date, datetime, timedelta
-from functools import lru_cache
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Literal
@@ -65,6 +64,7 @@ from castelino.agents.update.guard import _FIG, _supported, unsupported
 from castelino.agents.update.models import Fact
 from castelino.config import get_settings
 from castelino.week_ahead import econ, nasdaq
+from castelino.x_post import NOT_TICKERS, trades  # also used by ticker_errors
 
 ET = ZoneInfo("America/New_York")
 MAX_PER_DAY = 8  # one per 2-hourly run (deploy/crontab)
@@ -120,8 +120,9 @@ analysis posts. The same text also goes out as a Substack Note, so make the anal
   3. What to watch: the next data, event or level that would confirm or break the story.
 Use only figures from the source line, the context lines and the chart data you are given, written
 as given; any other number gets the post dropped. Write a change in words ("up 10bp", "down 2.1%"),
-never with a + sign. No hashtags, no emoji, no links or web addresses, no advice, no "MACRO" or "AI"
-label: code adds the source. source: the name of the outlet or body that published the source line, as
+never with a + sign. Write every stock or fund as its X cashtag only, the ticker it trades under today
+("$SPCX beat forecasts", "$NVDA fell", "$XLE"), never with the company's name. No hashtags, no emoji,
+no links or web addresses, no advice, no "MACRO" or "AI" label: code adds the source. source: the name of the outlet or body that published the source line, as
 readers know it ("Reuters", "NAHB", "AP"), never a link or a domain: write "Investing", not
 "Investing.com"."""
 CONTEXT = """Background for an X post about this news item: {item}
@@ -449,24 +450,6 @@ def check(lead: str, posts: list[str], source: str, nums: set[float]) -> list[st
 
 # Tickers as posts write them, "NVIDIA (NVDA)" or "$NVDA"; acronyms that aren't companies are skipped.
 _TICKER = re.compile(r"\(([A-Z]{1,5}(?:[.-][A-Z]{1,2})?)\)|\$([A-Z]{1,5}(?:[.-][A-Z]{1,2})?)\b")
-NOT_TICKERS = {
-    "AI", "API", "BLS", "BOJ", "CEO", "CFO", "CPI", "ECB", "EPS", "ET", "ETF", "EU", "FDA", "FED",
-    "FOMC", "GDP", "GPU", "HBM", "IMF", "IPO", "ISM", "LLM", "NAHB", "OPEC", "PCE", "PMI", "PPI",
-    "SEC", "UK", "US", "USD", "WTI", "YOY",
-}  # fmt: skip
-
-
-@lru_cache(maxsize=256)
-def trades(ticker: str) -> bool:
-    """True if Yahoo Finance has a close for `ticker` in the last 10 days. An error (Yahoo down)
-    counts as True: an outage never blocks a post."""
-    import yfinance as yf
-
-    try:
-        return not yf.Ticker(ticker).history(period="10d").empty
-    except Exception as e:  # noqa: BLE001
-        print(f"  ticker check for {ticker} failed: {e}")
-        return True
 
 
 def ticker_errors(texts: list[str], lookup=None) -> list[str]:
@@ -667,8 +650,8 @@ analysts' estimate, and revenue against the estimate. If it has not reported tod
 
 EARN_READ = """You read cited news lines about one company's quarterly report and write the numbers
 line of an X post. reported: true only if a line says the company reported its results on the date
-given. line: "<Company> (<TICKER>) <quarter>: EPS $X vs $Y expected; revenue $A billion vs $B billion
-expected", every figure exactly as a line gives it; leave out any part the lines don't give (an
+given. line: "$<TICKER> <quarter>: EPS $X vs $Y expected; revenue $A billion vs $B billion expected"
+(the ticker as an X cashtag, no company name), every figure exactly as a line gives it; leave out any part the lines don't give (an
 estimate, revenue). An empty line when reported is false. No other words."""
 
 

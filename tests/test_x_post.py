@@ -158,3 +158,22 @@ def test_as_jpeg_shrinks_wide_images():
     Image.new("RGBA", (3000, 1500), (0, 135, 68, 255)).save(buf, "PNG")
     out = Image.open(io.BytesIO(x_post.as_jpeg(buf.getvalue())))
     assert out.format == "JPEG" and out.size == (1600, 800)
+
+
+def test_stocks_go_out_on_x_as_cashtags_only():
+    ok = {"SPCX", "TSM", "NVDA", "XLE", "SPY"}.__contains__
+    assert (
+        x_post.cashtags("SpaceX (SPCX) beat; Nvidia (NVDA) fell.", ok) == "$SPCX beat; $NVDA fell."
+    )
+    assert (
+        x_post.cashtags("Taiwan Semiconductor (TSMC) rose.", ok)
+        == "Taiwan Semiconductor (TSMC) rose."
+    )
+    assert (
+        x_post.cashtags("Energy stocks (XLE) and the S&P 500 (SPY)", ok)
+        == "Energy stocks $XLE and the S&P 500 $SPY"
+    )
+    assert (
+        x_post.cashtags("Consumer prices (CPI) rose.", lambda t: True)
+        == "Consumer prices (CPI) rose."
+    )
