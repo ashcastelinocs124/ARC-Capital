@@ -8,6 +8,12 @@ def _benchmark_dir(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _consultants_dir(tmp_path, monkeypatch):
+    """Topic consultants live in a temp dir: no test reads or writes data/consultants/."""
+    monkeypatch.setenv("ARC_CONSULTANTS_DIR", str(tmp_path / "consultants"))
+
+
+@pytest.fixture(autouse=True)
 def _no_substack(monkeypatch):
     """No test reaches the real Substack: a push without these is skipped. Tests that need them set their own."""
     for k in ("SUBSTACK_SID", "SUBSTACK_CONNECT_SID", "SUBSTACK_PUBLICATION_URL"):

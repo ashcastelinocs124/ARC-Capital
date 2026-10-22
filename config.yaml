@@ -106,6 +106,25 @@ deep_research:
   keep_full_days: 14
   cost_cap_usd: 8.0
 
+consultants:
+  # Topic consultants (agents/consultants/, /admin → Consultants): one per typed topic. Each builds a daily
+  # file of cited facts, keeps a two-part thesis (analysis, not data points), advises the Daily Update and
+  # answers consult() for Weekly / Research / Trade Lab. Reviews run through the Decisions API.
+  enabled: true
+  data_dir: data/consultants
+  planner_model: gpt-6-sol
+  thesis_model: gpt-6-sol
+  note_model: gpt-6-luna
+  answer_model: gpt-6-luna
+  build_tool_calls: 8      # research-loop tool calls per daily build (news + alt data)
+  x_posts_per_day: 20
+  threshold: 0.5           # every Decisions API question, daily and weekly
+  cost_cap_usd: 1.0        # per consultant per day; consult() answers are charged to the caller
+  long_term_notes: 20
+  view_max_words: 100      # ARC view: ~80 words asked, rejected above this
+  view_max_figures: 2
+  note_facts: 15           # consultant facts handed to the Daily Update's Editor
+
 paths:
   data_dir: "data"
   reports_dir: "reports"

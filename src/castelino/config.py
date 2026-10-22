@@ -182,6 +182,26 @@ class DeepResearchCfg(BaseModel):
     cost_cap_usd: float = 8.0
 
 
+class ConsultantsCfg(BaseModel):
+    """Topic consultants (agents/consultants/, /admin → Consultants): one per typed topic, a daily file of
+    cited facts and a two-part thesis that advises the Daily Update and answers consult()."""
+
+    enabled: bool = True
+    data_dir: str = "data/consultants"
+    planner_model: str = "gpt-6-sol"
+    thesis_model: str = "gpt-6-sol"
+    note_model: str = "gpt-6-luna"
+    answer_model: str = "gpt-6-luna"
+    build_tool_calls: int = 8
+    x_posts_per_day: int = 20
+    threshold: float = 0.5
+    cost_cap_usd: float = 1.0
+    long_term_notes: int = 20
+    view_max_words: int = 100
+    view_max_figures: int = 2
+    note_facts: int = 15
+
+
 class DeepDiveCfg(BaseModel):
     """Weekly Deep Dive (agents/weekly/): Lead + tool-using sub-agents + Claude Deep Editor."""
 
@@ -293,6 +313,7 @@ class Settings(BaseModel):
     openbb: OpenBBCfg = OpenBBCfg()
     web_search: WebSearchCfg = WebSearchCfg()
     deep_research: DeepResearchCfg = DeepResearchCfg()
+    consultants: ConsultantsCfg = ConsultantsCfg()
     deep_dive: DeepDiveCfg = DeepDiveCfg()
     trade_lab: TradeLabCfg = TradeLabCfg()
     chart_desk: ChartDeskCfg = ChartDeskCfg()
