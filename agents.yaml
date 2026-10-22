@@ -814,6 +814,111 @@ agents:
       writes: ["sector.explanation.prose in data/sector_sentiment.json"]
       persists: "None of its own."
 
+  # ── Topic consultants (/admin only) ────────────────────────────────────
+  - id: consultant_planner
+    name: Consultants · Planner
+    group: Consultants
+    family: Topic consultants
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-sol"}
+    prompt: "castelino.agents.consultants.planner:SYSTEM"
+    schema: "castelino.agents.consultants.models:Watchlist"
+    summary: "Turns the topic you type into a suggested watchlist (companies with tickers, FRED/Yahoo series, news queries) you can trim before Start; code drops tickers Yahoo can't price."
+    tools: []
+    memory:
+      reads: ["The topic"]
+      writes: ["The suggested watchlist"]
+      persists: "consultant.json once you press Start."
+
+  - id: consultant_builder
+    name: Consultants · Daily build
+    group: Consultants
+    family: Topic consultants
+    dependencies:
+      - {key: OPENROUTER_API_KEY, required: false, why: "DeepSeek V4.1 Flash; unset = gpt-6-luna"}
+      - {key: OPENAI_API_KEY, required: true, why: "Web search and the fallback model"}
+      - {key: X_BEARER_TOKEN, required: false, why: "x_search; unset = X chatter through web search"}
+    prompt: "castelino.agents.research.deep.sub_agent:SYSTEM"
+    schema: "castelino.agents.research.deep.models:FindingDrafts"
+    summary: >-
+      Before each Daily Update: code fetches the watchlist (prices, latest quarter, series), then Deep
+      Research's tool loop covers news and alt data in up to 8 calls. Only the facts are kept, as
+      {code}-{yyyymmdd}-{n}.
+    tools:
+      - {name: "Watchlist fetch (code)", does: "Yahoo price history and earnings, FRED/Yahoo series"}
+      - {name: "web_search / fred_series / yahoo_prices / polymarket_odds / ramp_ai_index / openrouter_rankings / arc_ai_adoption_index", does: "Deep Research's tools"}
+    memory:
+      reads: ["The watchlist and the thesis's 'what to watch'"]
+      writes: ["facts/<day>.json"]
+      persists: "data/consultants/<slug>/."
+
+  - id: consultant_thesis
+    name: Consultants · Thesis writer
+    group: Consultants
+    family: Topic consultants
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-sol"}
+    prompt: "castelino.agents.consultants.thesis:SYSTEM"
+    schema: "castelino.agents.consultants.models:ThesisDraft"
+    summary: >-
+      Writes the thesis as analysis, not data points: what is happening, then what could happen (the path
+      it leans to, the other path, what would change its mind). Every figure must be a cited fact's, at most
+      two in all; one retry, then the old thesis stands.
+    tools: []
+    memory:
+      reads: ["Its facts, memory, the old thesis, the Daily Update's findings as context"]
+      writes: ["thesis.json"]
+      persists: "data/consultants/<slug>/thesis.json; every change is in history.jsonl."
+
+  - id: consultant_note
+    name: Consultants · Memory note
+    group: Consultants
+    family: Topic consultants
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-luna"}
+    prompt: "castelino.agents.consultants.review:NOTE_SYSTEM"
+    schema: "castelino.agents.consultants.models:MemoryNoteDraft"
+    summary: "When the evening review says something is worth remembering, writes one note into this week's short-term memory."
+    tools: []
+    memory:
+      reads: ["The thesis, memory, today's findings and facts"]
+      writes: ["MEMORY.md (short-term, this week)"]
+      persists: "data/consultants/<slug>/MEMORY.md."
+
+  - id: consultant_decide
+    name: Consultants · Decisions
+    group: Consultants
+    family: Topic consultants
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "OpenAI Decisions API (gpt-6-luna), structured yes/no fallback"}
+    prompt: "castelino.agents.consultants.review:THESIS_Q"
+    schema: "castelino.agents.trade.decide:YesNo"
+    summary: >-
+      Evening: one call asks whether today changes the thesis and whether anything is worth remembering
+      (0.5 or more = yes). Sunday: one call per note: keep a short-term note for long-term, drop an out-of-date
+      long-term note; short-term is then cleared.
+    tools:
+      - {name: "decide.predicates (code)", does: "One Decisions API call, several named questions"}
+    memory:
+      reads: ["The thesis, memory, the Daily Update's findings (never its own advice), the week's reviews"]
+      writes: ["history.jsonl: probabilities and what changed"]
+      persists: "data/consultants/<slug>/history.jsonl."
+
+  - id: consultant_answer
+    name: Consultants · Consult answer
+    group: Consultants
+    family: Topic consultants
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-luna"}
+    prompt: "castelino.agents.consultants.consult:ANSWER_SYSTEM"
+    schema: "castelino.agents.consultants.models:Answer"
+    summary: "Answers a Weekly, Deep Research or Trade Lab agent's consult() call from its file only (no live research), as analysis with the facts behind it; the caller's guard checks any number it borrows."
+    tools: []
+    memory:
+      reads: ["The thesis, memory, the last 30 days of facts"]
+      writes: ["The ask, in that day's log"]
+      persists: "data/consultants/<slug>/days/<day>.json."
+
   # ── Weekly deep dive ────────────────────────────────────────────────────
   - id: weekly_lead
     name: Deep Lead
@@ -986,6 +1091,24 @@ systems:
         flow: [["code:Open or list|older than 14 days"], ["agent:research_compact|summary per agent"], ["end:Transcripts dropped|report kept"]]
       - title: "5 · Add angles"
         flow: [["gate:You add angles|to a finished report"], ["agent:research_lead|≤3 angles"], ["agent:research_agent|new agents only"], ["agent:research_writer|new points, charted"], ["end:Points appended|old points unchanged"]]
+
+  - group: Consultants
+    trigger: "You, in /admin → Consultants; then every 17:00 ET run"
+    output: "A thesis per topic that the Daily Update turns into an ARC view paragraph, and consult() answers"
+    blurb: >-
+      One consultant per topic you type. Each day it gathers cited facts (watchlist data by code, news and alt
+      data by Deep Research's tools), the Daily Update uses its thesis for an ARC view under the items it
+      covers, and in the evening the Decisions API decides whether the day changes the thesis or is worth
+      remembering. On Sundays it moves notes worth keeping to long-term memory and clears the week.
+    lanes:
+      - title: "1 · Start"
+        flow: [["Your topic"], ["agent:consultant_planner|watchlist"], ["gate:You trim it|Start"], ["agent:consultant_builder|first build"], ["agent:consultant_thesis|first thesis"]]
+      - title: "2 · Every day"
+        flow: [["code:Watchlist data|prices, earnings, series"], ["agent:consultant_builder|news + alt · 8 calls"], ["system:Briefings|uses the thesis"], ["agent:consultant_decide|thesis? memory?"], ["agent:consultant_thesis|rewrite if yes"]]
+      - title: "3 · Memory"
+        flow: [["agent:consultant_decide|evening: memory?"], ["agent:consultant_note|short-term note"], ["agent:consultant_decide|Sunday: per note"], ["code:Move / delete|long-term ≤ 20"], ["end:Short-term cleared"]]
+      - title: "4 · Consult"
+        flow: [["Weekly / Research / Trade Lab agent"], ["agent:consultant_answer|from its file"], ["end:Facts copied to the caller"]]
 
   - group: Theme Charts
     trigger: "Cron on the Fly server at 08:00 ET, weekdays"
