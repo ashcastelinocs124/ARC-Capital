@@ -112,6 +112,6 @@ def test_desk_brief_carries_the_weeks_notes_and_their_facts():
         notes_md="## 2026-10-05: Yields jump",
         notes=[fact("N1", text="2026-10-05: DGS10 +5bp")],
     )
-    assert "## This week's Morning Notes" in md and "## 2026-10-05: Yields jump" in md
+    assert "## This week's Daily Updates" in md and "## 2026-10-05: Yields jump" in md
     assert "[N1] 2026-10-05: DGS10 +5bp" in md
-    assert md.index("Morning Notes") < md.index("Trends the Lead picked")
+    assert md.index("Daily Updates") < md.index("Trends the Lead picked")

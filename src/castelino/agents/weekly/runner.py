@@ -127,7 +127,7 @@ class WeeklyRunner:
             spec.name: self.session_fn(spec, PREFIXES[i], board, inp.end)
             for i, spec in enumerate(plan.agents[: len(PREFIXES)])
         }
-        brief = f"This week's Morning Notes, for context:\n\n{week_md}"
+        brief = f"This week's Daily Updates, for context:\n\n{week_md}"
         runs: dict[str, AgentRun] = self._gather(
             {n: (lambda s=s: s.run(brief)) for n, s in sessions.items()}
         )

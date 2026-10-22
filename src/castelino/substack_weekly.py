@@ -84,7 +84,7 @@ PARTS = [  # each trend: the high level from our notes, then the desk's deep res
 ]
 
 COUNT_LABELS = [
-    ("notes", "Morning Notes read"),
+    ("notes", "Daily Updates read"),
     ("agents", "Specialist agents"),
     ("data_pulls", "Data pulls"),
     ("board_posts", "Board posts shared"),
@@ -142,7 +142,7 @@ def build_weekly_doc(record: dict, uploaded: dict[str, dict]) -> dict:
     c.append(
         _p(
             _text(
-                "A Lead agent read the week's Morning Notes and staffed specialist desks that "
+                "A Lead agent read the week's Daily Updates and staffed specialist desks that "
                 "pulled their own data; an editor (Claude Opus 5.5) challenged every finding "
                 "before writing. Every figure is checked against the cited data."
             )

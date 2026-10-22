@@ -42,7 +42,7 @@ export default function DeepResearchPage() {
     <div className="space-y-5 p-4 md:p-8">
       <PageIntro kicker="Deep Research" title="A deep dive into what happened in the markets this week"
         when={{ label: "Next report", value: nextSunday(), note: "Covers Monday–Friday" }}>
-        Every Sunday morning, ARC's research desk reads the week's Morning Notes, picks the 10 to 12 stories that
+        Every Sunday morning, ARC's research desk reads the week's Daily Updates, picks the 10 to 12 stories that
         mattered, and splits them across five specialist agents that pull the data behind each one. An editor then challenges every
         finding before writing it up. Every number in the report traces back to a cited data series.
       </PageIntro>

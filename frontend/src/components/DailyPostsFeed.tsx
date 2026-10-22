@@ -44,7 +44,7 @@ export function DailyPostsFeed({ posts, loading }: { posts: DailyPost[]; loading
     <div className="space-y-5 p-4 md:p-8">
       <div>
         <h2 className="text-xl font-semibold tracking-tight text-text">Memo</h2>
-        <p className="mt-0.5 text-xs text-muted">Daily Notes and Theme Charts from the ARC Research Substack. Each one opens the post.</p>
+        <p className="mt-0.5 text-xs text-muted">Daily Updates and Theme Charts from the ARC Research Substack. Each one opens the post.</p>
       </div>
       {loading && <div className="text-sm text-muted">Loading…</div>}
       {!loading && posts.length === 0 && (

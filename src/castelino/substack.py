@@ -130,7 +130,7 @@ def build_doc(record: dict, uploaded: dict[str, dict]) -> dict:
 
 
 def _subtitle(day: str) -> str:
-    return f"ARC Morning Note · {date.fromisoformat(day):%A, %B %-d, %Y}"
+    return f"ARC Daily Update · {date.fromisoformat(day):%A, %B %-d, %Y}"
 
 
 def _check(r: httpx.Response) -> httpx.Response:

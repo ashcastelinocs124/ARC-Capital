@@ -96,7 +96,7 @@ agents:
       - {key: OPENAI_API_KEY, required: true, why: "LLM call (gpt-6-sol)"}
     class: castelino.agents.update.editor.UpdateEditor
     summary: >-
-      Writes the Morning Note (headline, 3 key takeaways, 5 ranked items of about 400 words that
+      Writes the Daily Update (headline, 3 key takeaways, 5 ranked items of about 400 words that
       run what happened, why, then how it came about from code-pulled background) and picks each
       item's chart form. A number guard checks every figure.
     tools:
@@ -203,7 +203,7 @@ agents:
       a text-only post.
     tools:
       - {name: "intraday_chart() (code)", does: "Yahoo 5-minute bars, change since yesterday's close, one line per market of the lead's unit"}
-      - {name: "context_chart() (code)", does: "One fred:/yahoo: series over 30-365 days via Theme Charts' fetch_series, drawn with the Morning Note's line chart"}
+      - {name: "context_chart() (code)", does: "One fred:/yahoo: series over 30-365 days via Theme Charts' fetch_series, drawn with the Daily Update's line chart"}
     memory:
       reads: ["The post being made: its markets, moves and Why line"]
       writes: ["data/x_posts/moves/<date>/<HHMM>.png"]
@@ -236,7 +236,7 @@ agents:
       written), code searches the last 24 hours and the Scout must pick the best item not yet
       posted, so a run posts unless everything is old. Code fetches and draws every plotted value.
     tools:
-      - {name: "chart() (code)", does: "fetch_series per series, drawn as one line or 2-4 compared (prices rebased to 100) with the Morning Note renderer"}
+      - {name: "chart() (code)", does: "fetch_series per series, drawn as one line or 2-4 compared (prices rebased to 100) with the Daily Update renderer"}
     memory:
       reads: ["The cited items", "This account's posts from the last 7 days (data/x_posts/scout/)", "Today's market alerts (data/x_posts/moves/)"]
       writes: ["data/x_posts/scout/<date>/<HHMM>.png"]
@@ -256,7 +256,7 @@ agents:
       posted. It names the source; code adds the topic tag and "Source: <name>" to the lead (no link:
       X bills a post with one at $0.200, a plain post $0.015).
     tools:
-      - {name: "check() (code)", does: "Every figure must be in the source line or the chart data (unit figures via the Morning Note guard); no link or domain anywhere; each post ≤280"}
+      - {name: "check() (code)", does: "Every figure must be in the source line or the chart data (unit figures via the Daily Update guard); no link or domain anywhere; each post ≤280"}
       - {name: "x_post (code)", does: "Uploads the chart, posts the lead, then the reply under it; dry-run log until X_SCOUT_LIVE=1"}
     memory:
       reads: ["The picked cited line", "The chart's numbers: last, change, high, low, below the high, rebased level"]
@@ -342,7 +342,7 @@ agents:
       - {key: SUBSTACK_SID, required: false, why: "Sets the image as the draft's cover; unset = no draft, no cover"}
     class: castelino.cover.CoverArtist
     summary: >-
-      Gives each Morning Note and Weekly Deep Dive Substack draft a cover image. One fast call turns
+      Gives each Daily Update and Weekly Deep Dive Substack draft a cover image. One fast call turns
       the headline and stories into a 2-3 word title, the public figures the post names (Fed
       officials, CEOs) and a few things to draw, with the companies' logos; code keeps only people
       the post names, wraps it in a fixed style and the image model draws a 16:9 cover (redrawn
@@ -802,12 +802,12 @@ agents:
       - {key: OPENAI_API_KEY, required: true, why: "LLM call (gpt-6-sol)"}
     class: castelino.agents.weekly.lead.DeepLead
     summary: >-
-      Sunday morning: reads Monday–Friday's Morning Notes, picks the 10-12 trends that mattered and
+      Sunday morning: reads Monday–Friday's Daily Updates, picks the 10-12 trends that mattered and
       staffs 5 specialist desks, each owning 2-3 named trends with a goal and the tools it may use.
     tools:
       - {name: "plan()", does: "Trends + desk specs {name, description, goal, tools, related}"}
     memory:
-      reads: ["The week's Morning Notes (data/updates/<day>.json)", "MEMORY.md — top 5 themes"]
+      reads: ["The week's Daily Updates (data/updates/<day>.json)", "MEMORY.md — top 5 themes"]
       writes: []
       persists: "Nothing; the plan is saved in data/deep/<week>.json."
 
@@ -831,7 +831,7 @@ agents:
       - {name: "fred_series / yahoo_prices / bls_series", does: "A series over a chosen window → one fact with levels and changes"}
       - {name: "polymarket_odds / web_search", does: "Odds and moves; cited search lines → facts"}
       - {name: "post_to_board / read_board", does: "Share facts with related desks"}
-    memory: {reads: ["Its goal and trends from the Lead", "The week's Morning Notes"], writes: [], persists: "Nothing."}
+    memory: {reads: ["Its goal and trends from the Lead", "The week's Daily Updates"], writes: [], persists: "Nothing."}
 
   - id: deep_editor
     name: Deep Editor
@@ -843,7 +843,7 @@ agents:
     schema: "castelino.agents.weekly.models:WeeklyReport"
     summary: >-
       Claude Opus 5.5 in one append-only conversation: grills every desk's research against the
-      week's Morning Notes for up to 2 rounds, then writes each trend as a high level (from our
+      week's Daily Updates for up to 2 rounds, then writes each trend as a high level (from our
       notes) plus deep research (why, under the surface, what it means for markets, what to
       watch). A number guard checks every figure, including chart values.
     tools:
@@ -907,17 +907,17 @@ agents:
 systems:
   - group: Briefings
     trigger: "Top-bar Refresh button (once a day)"
-    output: "The /updates Morning Note and the Fear & Greed · Sector Sentiment card on Radar"
+    output: "The /updates Daily Update and the Fear & Greed · Sector Sentiment card on Radar"
     blurb: >-
       An Orchestrator briefs four research agents and reviews what they find; an Editor writes
-      the Morning Note. Code supplies every number, and a guard checks each figure before saving.
+      the Daily Update. Code supplies every number, and a guard checks each figure before saving.
     lanes:
       - title: "Daily Update 1 · Research"
         flow: [["Refresh"], ["agent:update_orchestrator|plan briefs"], ["agent:macro_agent|FRED · BLS · Yahoo", "agent:news_agent|web_search", "agent:alt_agent|Polymarket · X", "agent:ai_agent|AI models · chips"], ["agent:update_orchestrator|review"], ["end:↓ to stage 2"]]
         regions: [{from: 1, to: 3, label: "Loop · max 2 follow-up rounds"}]
         loops: [{from: 3, to: 2, label: "follow-ups"}]
       - title: "Daily Update 2 · Write"
-        flow: [["code:Background|stock · data · past notes", "code:Day's calendar|releases · earnings"], ["agent:update_editor|Morning Note"], ["code:Number guard|1 retry"], ["code:Chart agent|8 chart forms", "agent:cover_artist|Substack cover"], ["end:/updates|+ 2-tier memory"]]
+        flow: [["code:Background|stock · data · past notes", "code:Day's calendar|releases · earnings"], ["agent:update_editor|Daily Update"], ["code:Number guard|1 retry"], ["code:Chart agent|8 chart forms", "agent:cover_artist|Substack cover"], ["end:/updates|+ 2-tier memory"]]
         loops: [{from: 2, to: 1, label: "retry with errors"}]
       - title: "Admin · Daily desk"
         flow: [["Your question on /admin"], ["agent:desk_chat|one day · one agent"], ["end:Answer with fact ids"]]
@@ -1026,7 +1026,7 @@ systems:
       board. Claude Opus 5.5 grills every desk, then writes the report; code checks each figure.
     lanes:
       - title: "Weekly Deep Dive 1 · Research"
-        flow: [["Week's Morning Notes"], ["agent:weekly_lead|trends + desks"], ["agent:deep_trend_agent|desk 1", "agent:deep_trend_agent|desk 2", "agent:deep_trend_agent|5 desks, shared board"], ["end:↓ to stage 2"]]
+        flow: [["Week's Daily Updates"], ["agent:weekly_lead|trends + desks"], ["agent:deep_trend_agent|desk 1", "agent:deep_trend_agent|desk 2", "agent:deep_trend_agent|5 desks, shared board"], ["end:↓ to stage 2"]]
       - title: "Weekly Deep Dive 2 · Grill & write"
         flow: [["agent:deep_editor|grill"], ["agent:deep_trend_agent|answers"], ["agent:deep_editor|write"], ["code:Number guard + charts", "agent:cover_artist|Substack cover"], ["end:/deep-research|+ Substack draft"]]
         regions: [{from: 0, to: 1, label: "Loop · max 2 grill rounds"}]
@@ -1044,10 +1044,10 @@ systems:
 # tests/test_agent_catalog.py checks every reference and that each agent is drawn (desk_chat is admin-only).
 pipelines:
   - id: morning-note
-    name: Morning Note
+    name: Daily Update
     trigger: "cron · 17:00 ET · every day"
     guardrails: "number check · charts drawn by code"
-    delivery: "Morning Note on Substack"
+    delivery: "Daily Update on Substack"
     groups:
       - {id: tools, label: ANALYST TOOLS, nodes: [fred, bls, yahoo, web, polymarket, x]}
       - {id: analysts, label: 4 ANALYSTS, note: RUN IN PARALLEL, nodes: [macro, news, alt, ai]}
@@ -1071,7 +1071,7 @@ pipelines:
       - {id: guard, kind: guard, layer: guardrails, x: 884, w: 140, name: Number guard, sub: figures vs facts, does: "Plain code compares every number in the draft with the facts. A number that isn't in the data sends the draft back to the Editor."}
       - {id: charts, kind: code, layer: guardrails, x: 660, w: 160, name: Chart renderer, sub: from source data, does: "Draws each chart straight from the source data. The Editor picks the chart type, never the numbers."}
       - {id: cover, kind: llm, agent: cover_artist, layer: guardrails, x: 440, w: 160, name: Cover Artist, sub: cover image, does: "Turns the note's headline and stories into a short title and a scene, and an image model draws the post's cover."}
-      - {id: substack, kind: out, layer: delivery, x: 660, w: 160, name: Substack, sub: Morning Note, does: "The finished Morning Note is published on Substack."}
+      - {id: substack, kind: out, layer: delivery, x: 660, w: 160, name: Substack, sub: Daily Update, does: "The finished Daily Update is published on Substack."}
       - {id: memo, kind: out, layer: delivery, x: 440, w: 160, name: Memo page, sub: lists every note, does: "The Memo page on this site lists every published note and links to it."}
     edges:
       - schedule > orch
@@ -1106,14 +1106,14 @@ pipelines:
       - {id: tools, label: DESK TOOLS, nodes: [fred, bls, yahoo, polymarket, web]}
       - {id: desks, label: 5 DESKS, note: SHARED BOARD, nodes: [desk1, desk2]}
     nodes:
-      - {id: notes, kind: source, layer: sources, x: 316, w: 150, name: Morning Notes, sub: Monday to Friday, does: "The week's five Morning Notes: the starting point for picking the week's trends."}
+      - {id: notes, kind: source, layer: sources, x: 316, w: 150, name: Daily Updates, sub: Monday to Friday, does: "The week's five Daily Updates: the starting point for picking the week's trends."}
       - {id: fred, kind: source, layer: sources, x: 516, dy: -18, w: 64, name: FRED, does: "Federal Reserve economic data."}
       - {id: bls, kind: source, layer: sources, x: 588, dy: -18, w: 64, name: BLS, does: "Bureau of Labor Statistics data."}
       - {id: yahoo, kind: source, layer: sources, x: 660, dy: -18, w: 64, name: Yahoo, does: "Market prices from Yahoo Finance."}
       - {id: polymarket, kind: source, layer: sources, x: 516, dy: 18, w: 100, name: Polymarket, does: "Prediction-market odds."}
       - {id: web, kind: source, layer: sources, x: 624, dy: 18, w: 100, name: web search, does: "A web search that returns cited sources."}
       - {id: schedule, kind: trigger, layer: agents, x: 150, w: 120, name: Schedule, sub: Sunday, does: "The report is due once the week is over: the first 5 pm New York run from Sunday builds it, and later runs skip it."}
-      - {id: lead, kind: llm, agent: weekly_lead, layer: agents, x: 316, w: 150, name: Deep Lead, sub: trends · desks, does: "Reads the week's Morning Notes, picks the 10-12 trends that mattered and splits them across five research desks."}
+      - {id: lead, kind: llm, agent: weekly_lead, layer: agents, x: 316, w: 150, name: Deep Lead, sub: trends · desks, does: "Reads the week's Daily Updates, picks the 10-12 trends that mattered and splits them across five research desks."}
       - {id: desk1, kind: llm, agent: deep_trend_agent, layer: agents, x: 520, dy: -40, w: 204, name: Desk 1, sub: 2-3 trends · own tools, does: "One of five desk agents: researches its trends with its own tools and shares facts with related desks on a board."}
       - {id: desk2, kind: llm, agent: deep_trend_agent, layer: agents, x: 520, dy: 40, w: 204, name: Desks 2-5, sub: "same, in parallel", does: "The other four desks, running at the same time."}
       - {id: editor, kind: llm, agent: deep_editor, layer: agents, x: 790, w: 160, name: Deep Editor, sub: Claude Opus, does: "Claude Opus questions every desk's research, then writes each trend: what happened, why, what's under the surface, what it means for markets."}
@@ -1136,8 +1136,8 @@ pipelines:
       - cover > substack
       - substack > page
     steps:
-      - {title: Trigger, nodes: [schedule], edges: [schedule > lead], io: ["in: a finished week", "out: start run"], text: "Once Monday to Friday's Morning Notes are in, the first scheduled run from Sunday builds the report."}
-      - {title: Plan, nodes: [lead, notes], edges: [lead > desks, notes > lead], io: ["in: 5 Morning Notes", "out: 10-12 trends · 5 desks"], text: "The Deep Lead reads the week's Morning Notes, picks the 10-12 trends that mattered and splits them across five research desks."}
+      - {title: Trigger, nodes: [schedule], edges: [schedule > lead], io: ["in: a finished week", "out: start run"], text: "Once Monday to Friday's Daily Updates are in, the first scheduled run from Sunday builds the report."}
+      - {title: Plan, nodes: [lead, notes], edges: [lead > desks, notes > lead], io: ["in: 5 Daily Updates", "out: 10-12 trends · 5 desks"], text: "The Deep Lead reads the week's Daily Updates, picks the 10-12 trends that mattered and splits them across five research desks."}
       - {title: Research in parallel, nodes: [tools, desks], edges: [tools > desks], io: ["in: trends + tools", "out: findings + facts"], text: "Five desk agents research their trends at the same time, each with its own tools (official data, prices, prediction markets, a cited web search), and share facts on a common board. Code turns every result into a numbered fact."}
       - {title: Grill, nodes: [editor, desks], edges: [desks > editor, editor > desks], io: ["in: desk findings", "out: questions + answers"], text: "Claude, as the Deep Editor, questions every desk's research for up to two rounds, and the desks answer with fresh data."}
       - {title: Write and check, nodes: [editor, guard], edges: [editor > guard, guard > editor], io: ["in: report draft", "out: pass or errors"], text: "The Editor writes the report. Plain code checks every figure, chart values included, against the facts, and sends the draft back once if one doesn't match."}

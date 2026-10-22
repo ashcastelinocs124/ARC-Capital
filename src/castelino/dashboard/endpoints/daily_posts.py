@@ -16,11 +16,12 @@ from castelino.dashboard.endpoints.videos import _CONTENT, POST_PREFIX, THUMB_OV
 
 router = APIRouter()
 
-# Substack's subtitle is "ARC Morning Note · Monday, October 12, 2026" (set by castelino/substack.py);
-# early posts were renamed "ARC Daily Note · …" by hand, so both count. "ARC Theme Charts · …" (agents/themes.py)
+# Substack's subtitle is "ARC Daily Update · Monday, October 12, 2026" (set by castelino/substack.py
+# since 2026-10-21); older posts say "ARC Morning Note · …" or, renamed by hand, "ARC Daily Note · …" or
+# "ARC Note · …" (Oct 21), so all four count. "ARC Theme Charts · …" (agents/themes.py)
 # is the 08:00 charts post, listed beside the notes with kind "charts".
 _SUBTITLE = re.compile(
-    r"^ARC (Daily Note|Morning Note|Theme Charts)\s*\S*\s*\w+, (\w+ \d{1,2}, \d{4})"
+    r"^ARC (Daily Update|Daily Note|Morning Note|Note|Theme Charts)\s*\S*\s*\w+, (\w+ \d{1,2}, \d{4})"
 )
 
 

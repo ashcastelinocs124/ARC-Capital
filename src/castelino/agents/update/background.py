@@ -366,13 +366,13 @@ def note_facts(
                     facts.append(
                         Fact(
                             id=fid,
-                            text=f"Background, ARC Morning Note {d:%b %-d, %Y}, item "
+                            text=f"Background, ARC Daily Update {d:%b %-d, %Y}, item "
                             f'"{it.get("title", "")}": {sentence}',
                             numbers=[
                                 float(m.group(1) + m.group(2)) for m in _FIG.finditer(sentence)
                             ],
                             provenance="reported",
-                            source_title=f"ARC Morning Note {d:%b %-d}",
+                            source_title=f"ARC Daily Update {d:%b %-d}",
                             source_url=f"{SITE}/updates?date={d.isoformat()}",
                         )
                     )

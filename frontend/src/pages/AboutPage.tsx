@@ -167,7 +167,7 @@ export default function AboutPage() {
               from the source, the reasoning is written out, and the methods are documented on this site.
             </p>
             <p>
-              I also build the systems behind it: the AI agents that gather the day's data and write the Morning Note and
+              I also build the systems behind it: the AI agents that gather the day's data and write the Daily Update and
               the Sunday deep dive, and the machine-learning models behind them.
             </p>
           </div>

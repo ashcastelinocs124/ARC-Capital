@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 import { STATIC } from "@/api/client";
 
-// Admin Daily desk: one day's Morning Note agents — read, question, re-run, rebuild, send to Substack.
+// Admin Daily desk: one day's Daily Update agents — read, question, re-run, rebuild, send to Substack.
 // Locally it talks to `ckm serve`; on the public site /api/admin/live/* is forwarded to the Fly machine
 // (frontend/vercel.json), behind the same admin password.
 export const BASE = STATIC ? "/api/admin/live" : "/api/admin/desk";
@@ -109,7 +109,7 @@ export default function DailyDesk() {
 
       <div className="flex flex-wrap gap-1.5">
         {days === null && <span className="text-sm text-muted">Loading days…</span>}
-        {days?.length === 0 && <span className="text-sm text-muted">No Morning Notes yet.</span>}
+        {days?.length === 0 && <span className="text-sm text-muted">No Daily Updates yet.</span>}
         {days?.map((d) => (
           <button key={d.date} onClick={() => setDay(d.date)}
             className={cn("rounded-lg border bg-surface px-3 py-1.5 text-left text-xs",
@@ -131,7 +131,7 @@ export default function DailyDesk() {
         <>
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-5 py-4">
             <div className="min-w-0">
-              <div className="text-[11px] uppercase tracking-wider text-muted">Morning Note · {detail.date}</div>
+              <div className="text-[11px] uppercase tracking-wider text-muted">Daily Update · {detail.date}</div>
               <h3 className="font-serif text-lg font-semibold leading-snug">{detail.note.headline}</h3>
               <div className="text-xs text-muted">
                 Written {detail.generated_at.replace("T", " ").slice(0, 16)} ·{" "}

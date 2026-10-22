@@ -30,7 +30,7 @@ from castelino.agents.weekly.charts import (
 )
 
 log = logging.getLogger(__name__)
-KICKER = "MORNING NOTE"
+KICKER = "DAILY UPDATE"
 
 
 def _range(ex: ItemExhibit):

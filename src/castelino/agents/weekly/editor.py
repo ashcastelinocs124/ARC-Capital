@@ -23,12 +23,12 @@ log = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
 
 SYSTEM = """You are the Deep Editor of ARC Research's Weekly Deep Dive, a sell-side style report
-on what happened in US markets this week, read by investors. You get this week's Morning Notes
+on what happened in US markets this week, read by investors. You get this week's Daily Updates
 (ARC's own daily notes, with their facts N1, N2, ...) and the deep research of specialist desks;
 every finding rests on numbered facts (data pulls or cited sources).
 
 GRILL: challenge each desk's research like a sceptical senior editor. Test it against what our
-Morning Notes reported: does the desk's explanation account for what we saw? Ask about the
+Daily Updates reported: does the desk's explanation account for what we saw? Ask about the
 evidence behind a claim, the strongest counter-case, a breakdown that is missing, numbers that
 don't match their facts, and moves that may be market-wide rather than specific. Ask only
 questions whose answers could change the report, and address each to the desk that owns the
@@ -45,7 +45,7 @@ WRITE (only when asked): the report, for an investor deciding what the week mean
 - watch: one or two sentences on what to watch next week.
 - sections: one per trend (10 to 12), each with:
   - title, and the desk (agent) that researched it.
-  - HIGH LEVEL — what_happened: 1 paragraph, what we saw this week, from our Morning Notes
+  - HIGH LEVEL — what_happened: 1 paragraph, what we saw this week, from our Daily Updates
     (N facts) and headline data. Plain and factual.
   - DEEP RESEARCH, from the desk:
     - why: 1-2 paragraphs on the drivers. Explain the mechanism as a chain (cause, how it
@@ -150,8 +150,8 @@ def desk_brief(
     goals = {a.name: a.goal for a in plan.agents}
     parts = [f"# Week {week}"]
     if notes_md or notes:
-        parts.append(f"## This week's Morning Notes (our data, for the high level)\n{notes_md}")
-        parts.append("### Morning Note facts")
+        parts.append(f"## This week's Daily Updates (our data, for the high level)\n{notes_md}")
+        parts.append("### Daily Update facts")
         parts += [f"[{x.id}] {x.text} — {x.source_title}" for x in notes]
     parts.append("## Trends the Lead picked")
     parts += [f"- {t.title}: {t.why}" for t in plan.trends]

@@ -1,4 +1,4 @@
-"""Deep Lead: reads the week's Morning Notes, picks the trends, and staffs the desk."""
+"""Deep Lead: reads the week's Daily Updates, picks the trends, and staffs the desk."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from castelino.agents.base import StructuredAgent
 from castelino.agents.weekly.models import DeepPlan
 from castelino.config import get_settings
 
-SYSTEM = """You lead ARC Research's Weekly Deep Dive. You get the week's Morning Notes (headlines,
+SYSTEM = """You lead ARC Research's Weekly Deep Dive. You get the week's Daily Updates (headlines,
 takeaways, items and findings) and the desk's memory themes.
 1. Pick the {min_trends}-{max_trends} trends of the week that mattered for a US macro investor:
    stories that moved markets or built across several days, from rates, inflation and labour to
@@ -48,7 +48,7 @@ class DeepLead(StructuredAgent[DeepPlan]):
     def user_prompt(self, *, week: str, week_md: str, memory_md: str, retry: str = "") -> str:
         parts = [
             f"# Week {week}",
-            f"## Morning Notes\n{week_md}",
+            f"## Daily Updates\n{week_md}",
             f"## Memory themes\n{memory_md or '(empty)'}",
         ]
         if retry:
