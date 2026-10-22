@@ -23,12 +23,19 @@ class Skipped(Exception):  # noqa: N818 - an outcome, not an error
 
 
 def job_update_agent() -> str:
+    from datetime import date
+
     from castelino import config
+    from castelino.agents.consultants import runner as consultants
     from castelino.agents.update import runner as update_runner
 
-    if not config.get_settings().update_agent.enabled:
+    cfg = config.get_settings()
+    if not cfg.update_agent.enabled:
         raise Skipped("disabled in config.yaml (update_agent.enabled)")
+    day = date.today()
+    consultants.before_note(day)  # topic consultants build first, so the note can use their theses
     result = update_runner.build_default_runner().run_if_due()
+    consultants.after_note(day, cfg.root / cfg.update_agent.updates_dir)  # then they review it
     if result == "skipped":
         raise Skipped("today's briefing already exists")
     if result == "locked":
