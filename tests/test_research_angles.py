@@ -103,7 +103,7 @@ def test_write_more_writes_only_new_points_for_the_new_agents():
         ]
     )
     ed = FakeEditor(good)
-    pts = synthesizer.write_more(s, ["C"], 1, llm.Meter(), client=ed)
+    pts, _ = synthesizer.write_more(s, ["C"], 1, llm.Meter(), client=ed)
     assert [(p.id, p.agent, p.added, p.body) for p in pts] == [("p3", "C", 1, "38%.")]
     system, msgs, schema = ed.calls[0]
     assert (
@@ -142,8 +142,8 @@ def test_the_add_step_researches_the_angles_and_appends_charted_points(monkeypat
 
     monkeypatch.setattr(sub_agent, "research", research)
 
-    def more(s, letters, added, meter):
-        assert letters == ["C", "D"]
+    def more(s, letters, added, meter, ask=""):
+        assert letters == ["C", "D"] and ask == TOPICS
         return [
             Point(
                 id="p3",
@@ -153,7 +153,7 @@ def test_the_add_step_researches_the_angles_and_appends_charted_points(monkeypat
                 fact_ids=["C1"],
                 added=added,
             )
-        ]
+        ], "end"
 
     monkeypatch.setattr(synthesizer, "write_more", more)
     one = [ChartValue(fact_id="C1", label="firms", value=38.0)]
@@ -235,3 +235,39 @@ def test_a_restart_fails_a_running_addition():
     sid = report_session(additions=[Addition(n=1, text=TOPICS, round=3, created_at="x")])
     runner.recover_interrupted()
     assert store.load(sid).additions[0].status == "failed"
+
+
+def test_write_more_sees_the_ask_and_says_where_the_points_go():
+    s = with_new_agent()
+    first = MorePoints(
+        points=[PointDraft(agent="C", headline="What it is.", body="38% [C1].", fact_ids=["C1"])],
+        place="start",
+    )
+    ed = FakeEditor(first)
+    ask = "I want a point at the start explaining what frontier models are"
+    pts, place = synthesizer.write_more(s, ["C"], 1, llm.Meter(), ask=ask, client=ed)
+    assert place == "start" and [p.id for p in pts] == ["p3"]
+    assert ask in ed.calls[0][1][0]["content"]  # the writer reads the analyst's own words
+
+
+def test_an_addition_asked_for_at_the_start_opens_the_report(monkeypatch):
+    sid = report_session(
+        additions=[Addition(n=1, text="a point at the start", round=3, created_at="x")]
+    )
+    before = [p.id for p in store.load(sid).report.points]
+    monkeypatch.setattr(lead, "plan_angles", lambda s, text, m: [brief("Definition")])
+
+    def research(ar, question, board, budget, meter):
+        f = fact(f"{ar.letter}1", "38% of firms", [38.0])
+        return ar.model_copy(
+            update={"facts": [f], "findings": [Finding(id="f", claim="c", fact_ids=[f.id])]}
+        )
+
+    monkeypatch.setattr(sub_agent, "research", research)
+    new = Point(id="p3", agent="C", headline="What it is.", body="38%.", fact_ids=["C1"], added=1)
+    monkeypatch.setattr(
+        synthesizer, "write_more", lambda s, letters, added, meter, ask="": ([new], "start")
+    )
+    monkeypatch.setattr(charts, "chart_points", lambda pts, by, m: {})
+    runner.submit(sid, "add", sync=True)
+    assert [p.id for p in store.load(sid).report.points] == ["p3", *before]

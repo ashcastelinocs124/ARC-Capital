@@ -139,8 +139,10 @@ def _charts(sid: str, meter: llm.Meter) -> None:
 
 
 def _angles(sid: str, meter: llm.Meter) -> None:
-    """The last addition: plan its agents (round 2 + n), research, write new points, chart them, append.
-    The points already in the report are never rewritten; a Retry keeps agents that have findings."""
+    """The last addition: plan its agents (round 2 + n), research, write new points, chart them, and put
+    them where the analyst asked (first or last; "a point at the start" was appended last until
+    2026-10-21). The points already in the report are never rewritten; a Retry keeps agents that have
+    findings."""
     add = store.load(sid).additions[-1]
     with store.edit(sid) as x:
         x.additions[-1].status, x.additions[-1].error = "running", ""
@@ -153,10 +155,13 @@ def _angles(sid: str, meter: llm.Meter) -> None:
         if not any(a.findings for a in new):
             first = next((a.error for a in new if a.error), "no findings")
             raise StepError(f"Every new research agent failed. First error: {first}")
-        points = synthesizer.write_more(s, [a.letter for a in new], add.n, meter)
+        points, place = synthesizer.write_more(
+            s, [a.letter for a in new], add.n, meter, ask=add.text
+        )
         points = _charted(points, s, meter)
         with store.edit(sid) as x:
-            x.report.points += points
+            old = x.report.points
+            x.report.points = points + old if place == "start" else old + points
             x.additions[-1].status = "done"
     except Exception as e:
         with store.edit(sid) as x:

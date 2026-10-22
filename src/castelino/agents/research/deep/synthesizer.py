@@ -45,7 +45,10 @@ Style: plain words, no dashes as punctuation (no "—" or "–"), no fact ids in
 MORE = f"""You are ARC Research's editor. The report is already written; new researchers have now covered
 angles the analyst asked to add. Write NEW points from the new researchers' findings and facts only: every
 number must be one of the cited facts' numbers, and never repeat what the report already says.
-- points: 1 to 3 per new researcher, in the order a reader needs them. Each point belongs to ONE new
+- place: "start" when the analyst asks for these points to open the report (an introduction, a
+  definition, background a reader needs first), else "end".
+- points: 1 to 3 per new researcher, or exactly as many as the analyst asked for (one when they ask
+  for "a point"), in the order a reader needs them. Each point belongs to ONE new
   researcher: agent is that researcher's letter, and the point uses only facts that researcher lists.
   headline: one sentence stating the finding. body: {BODY}
   fact_ids: every fact the point uses.
@@ -147,12 +150,20 @@ def write(s: ResearchSession, meter: llm.Meter, *, client=None) -> ResearchRepor
 
 
 def write_more(
-    s: ResearchSession, letters: list[str], added: int, meter: llm.Meter, *, client=None
-) -> list[Point]:
-    """New points from these researchers only, numbered after the report's last point."""
+    s: ResearchSession,
+    letters: list[str],
+    added: int,
+    meter: llm.Meter,
+    *,
+    ask: str = "",
+    client=None,
+) -> tuple[list[Point], str]:
+    """New points from these researchers only, numbered after the report's last point, and where
+    they go ("start" or "end"), read from the analyst's own words in `ask`."""
     by = s.fact_map()
     owners = {a.letter for a in s.agents if a.letter in letters and a.findings}
     says = "\n".join(f"- {p.headline}" for p in s.report.points)
-    content = f"The report already says:\n{says}\n\n{brief(s, letters)}"
+    asked = f"The analyst asked: {ask}\n\n" if ask else ""
+    content = f"{asked}The report already says:\n{says}\n\n{brief(s, letters)}"
     out = _checked(_client(client), MORE, content, MorePoints, by, owners, meter)
-    return _points(out.points, by, len(s.report.points) + 1, added)
+    return _points(out.points, by, len(s.report.points) + 1, added), out.place

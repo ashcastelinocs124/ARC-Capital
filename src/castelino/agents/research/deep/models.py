@@ -115,6 +115,7 @@ class MorePoints(BaseModel):
     """The writer's new points for an addition: only the new researchers' findings."""
 
     points: list[PointDraft]
+    place: Literal["start", "end"] = "end"  # where the analyst asked for them; the runner obeys
 
 
 class AnswerDraft(BaseModel):
