@@ -103,3 +103,29 @@ def test_a_person_the_post_does_not_name_is_whoever_holds_the_role_today(monkeyp
                         ("I could not find that.", None)]:  # fmt: skip
         monkeypatch.setattr(web_search, "search", lambda system, user, a=answer: (a, []))
         assert cover.holder(powell) == who
+
+
+def test_nobody_on_the_last_covers_comes_back_unless_named(tmp_path, monkeypatch):
+    monkeypatch.setattr(cover, "_log", lambda: tmp_path / "cover_people.json")
+    for key, who in [("a.png", ["Kevin Warsh"]), ("b.png", ["Jensen Huang"]), ("c.png", [])]:
+        cover._remember(key, who)
+    assert cover.recent_people("d.png") == ["Kevin Warsh", "Jensen Huang"]
+    cover._remember("d.png", ["Lisa Su"])  # a 4th cover pushes the 1st out of the last 3
+    assert cover.recent_people("e.png") == ["Jensen Huang", "Lisa Su"]
+    assert "Lisa Su" not in cover.recent_people("d.png")  # a redraw doesn't count against itself
+
+    warsh = cover.Person(name="Kevin Warsh", role="Fed Chair", org="Fed", look="grim")
+    musk = cover.Person(name="Elon Musk", role="Tesla CEO", org="Tesla", look="calm")
+    asks, drawn = [], []
+    monkeypatch.setattr(cover.CoverArtist, "__call__", lambda self, **kw: asks.append(kw) or
+                        cover.CoverBrief(title="T", people=[warsh, musk], scene=["s"]))  # fmt: skip
+    monkeypatch.setattr(
+        cover, "draw", lambda text, path: drawn.append(text) or path.write_bytes(b"x")
+    )
+    cover._remember("e.png", ["Kevin Warsh"])
+    cover.make(tmp_path / "f.png", "Warsh speaks as Tesla reports", ["The Fed and Tesla"])
+    assert asks[-1]["avoid"] == ["Lisa Su", "Kevin Warsh"] and asks[-1]["use"] == []
+    assert "Elon Musk" in drawn[-1] and "Kevin Warsh" not in drawn[-1]
+
+    cover.make(tmp_path / "g.png", "Warsh speaks", ["The Fed"], force=True, use=["Kevin Warsh"])
+    assert asks[-1]["avoid"] == [] and "Kevin Warsh" in drawn[-1]  # the analyst's pick wins

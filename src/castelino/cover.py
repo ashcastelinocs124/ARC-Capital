@@ -4,12 +4,13 @@ The Cover Artist (fast tier) turns the finished post into a 2-3 word title, the 
 it names (Fed officials, CEOs) and a few things to draw; code keeps only people whose name is in
 the post, wraps it all in one fixed style (the look of the hand-made covers of October 2026) and
 the image model draws it once. If the image model refuses a real person, it redraws once with
-generic people. The PNG is cached next to the post's data, so a rerun never pays
-twice. substack.push() asks for a cover only when the draft has none, so a cover set by hand in
+generic people. Nobody on the last 3 covers appears again (`RECENT`, logged in
+`data/cover_people.json`), so one face doesn't top every post. The PNG is cached next to the
+post's data, so a rerun never pays twice. substack.push() asks for a cover only when the draft has none, so a cover set by hand in
 Substack is never replaced. The site and X read Substack's cover, so nothing else changes.
 
-Redo one: `uv run python -m castelino.cover <YYYY-MM-DD | YYYY-Www | YYYY-MM-DD-am>` redraws it and
-replaces the draft's cover (an unpublished draft only).
+Redo one: `uv run python -m castelino.cover <YYYY-MM-DD | YYYY-Www | YYYY-MM-DD-am> ["Name, Name"]`
+redraws it and replaces the draft's cover (an unpublished draft only); names given pick the people.
 """
 
 from __future__ import annotations
@@ -48,10 +49,12 @@ BRIEF = """You design the cover image for an ARC Research markets newsletter pos
 From its headline and stories, return:
 - title: 2 or 3 punchy words naming the main story, like a magazine cover ("INFLATION HEATS UP",
   "MIXED SIGNALS", "PRICE PRESSURE"). No numbers, tickers or punctuation.
-- people: up to 3 public figures who put a face on the main stories, the most newsworthy first:
-  anyone the post names (Fed officials, central bankers, CEOs, ministers), then the leader of a
-  company or institution the post covers (NVIDIA -> its CEO Jensen Huang, the Fed -> its chair or
-  the official who spoke, TSMC -> its CEO, Congress -> the Speaker). Only someone who holds that
+- people: 2 or 3 public figures who put a face on the main stories, the most newsworthy first.
+  Look at the companies and data the stories cover and take the people linked to them: anyone
+  the post names, then the leader of a company it covers (Tesla -> Elon Musk, Meta -> Mark
+  Zuckerberg, NVIDIA -> Jensen Huang, TSMC -> its CEO). A central banker or minister only when a
+  story is about that institution's own decision or that person's own words, not when the post
+  only mentions rate expectations. Only someone who holds that
   role on the date given; leave out anyone you are not sure of. People only, by full name: never
   a company, fund or index (those go in the scene). For each: role, org (the company or
   institution exactly as the post writes it, e.g. "NVIDIA", "Fed") and a dignified, newsroom
@@ -84,8 +87,17 @@ class CoverArtist(StructuredAgent[CoverBrief]):
     def system_prompt(self) -> str:
         return BRIEF
 
-    def user_prompt(self, *, headline: str, stories: list[str]) -> str:
-        return f"Date: {date.today():%B %-d, %Y}\n\nHeadline: {headline}\n\nStories:\n\n" + "\n\n".join(stories)  # fmt: skip
+    def user_prompt(
+        self, *, headline: str, stories: list[str], avoid: list[str], use: list[str]
+    ) -> str:
+        ask = (
+            f"People: exactly {', '.join(use)}.\n\n"
+            if use
+            else f"Not these people, who were on the last covers: {', '.join(avoid)}.\n\n"
+            if avoid
+            else ""
+        )
+        return f"Date: {date.today():%B %-d, %Y}\n\n{ask}Headline: {headline}\n\nStories:\n\n" + "\n\n".join(stories)  # fmt: skip
 
 
 def prompt(brief: CoverBrief, text: str, *, people: bool = True) -> str:
@@ -123,6 +135,34 @@ def holder(p: Person) -> str | None:
     return m.group(0) if m else None
 
 
+RECENT = 3  # covers back whose people can't appear again (user rule 2026-10-21: new faces)
+
+
+def _log() -> Path:
+    return get_settings().root / "data" / "cover_people.json"
+
+
+def _rows() -> list[dict]:
+    try:
+        return json.loads(_log().read_text())
+    except (OSError, ValueError):
+        return []
+
+
+def recent_people(key: str) -> list[str]:
+    """Everyone on the last RECENT covers but `key`'s own (a redraw doesn't count against itself)."""
+    rows = [r for r in _rows() if r["key"] != key][-RECENT:]
+    return list(dict.fromkeys(n for r in rows for n in r["people"]))
+
+
+def _remember(key: str, people: list[str]) -> None:
+    from castelino.agents.update.fsio import atomic_write_text
+
+    rows = [r for r in _rows() if r["key"] != key] + [{"key": key, "people": people}]
+    _log().parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_text(_log(), json.dumps(rows[-20:]))
+
+
 def draw(text: str, path: Path) -> None:
     from openai import OpenAI
 
@@ -145,19 +185,24 @@ def draw(text: str, path: Path) -> None:
     path.write_bytes(base64.b64decode(r.data[0].b64_json))
 
 
-def make(path: Path, headline: str, stories: list[str], *, force: bool = False) -> Path | None:
-    """The cover PNG at `path`, drawn if missing (or `force`). None on any failure: a draft
-    without a cover is today's behaviour, so the cover must never break the draft."""
+def make(
+    path: Path, headline: str, stories: list[str], *, force: bool = False, use: list[str] = ()
+) -> Path | None:
+    """The cover PNG at `path`, drawn if missing (or `force`). `use` names the people (the
+    analyst's pick); otherwise the brief picks, minus anyone on the last covers. None on any
+    failure: a draft without a cover is today's behaviour, so the cover must never break the draft."""
     if path.exists() and not force:
         return path
     try:
-        brief = CoverArtist()(headline=headline, stories=stories)
-        text = "\n".join([headline, *stories])
+        avoid = [] if use else recent_people(path.name)
+        brief = CoverArtist()(headline=headline, stories=stories, avoid=avoid, use=list(use))
+        text = "\n".join([headline, *stories, *use])  # a name the analyst gave counts as tied
         brief.people = [  # named in the post as is; anyone else by who holds the role today
             p if p.name in text else p.model_copy(update={"name": who})
             for p in brief.people
             if p.name in text or (who := holder(p))
         ]
+        brief.people = [p for p in brief.people if p.name not in avoid]
         try:
             draw(prompt(brief, text), path)
         except Exception:  # e.g. the image model refused a real person: redraw with generic people
@@ -168,34 +213,35 @@ def make(path: Path, headline: str, stories: list[str], *, force: bool = False) 
         log.info(
             "cover: %s drew %r with %s", path.name, brief.title, [p.name for p in brief.people]
         )
+        _remember(path.name, [p.name for p in brief.people])
         return path
     except Exception:
         log.warning("cover: %s failed; the draft goes out without one", path.name, exc_info=True)
         return None
 
 
-def for_note(day: str, *, force: bool = False) -> Path | None:
+def for_note(day: str, *, force: bool = False, use: list[str] = ()) -> Path | None:
     cfg = get_settings()
     updates = cfg.root / cfg.update_agent.updates_dir
     note = json.loads((updates / f"{day}.json").read_text())["note"]
     stories = [f"{i['title']}\n{i['body']}" for i in note.get("items", [])]
-    return make(updates / "covers" / f"{day}.png", note["headline"], stories, force=force)
+    return make(updates / "covers" / f"{day}.png", note["headline"], stories, force=force, use=use)
 
 
-def for_week(week: str, *, force: bool = False) -> Path | None:
+def for_week(week: str, *, force: bool = False, use: list[str] = ()) -> Path | None:
     cfg = get_settings()
     deep = cfg.root / cfg.deep_dive.data_dir
     report = json.loads((deep / f"{week}.json").read_text())["report"]
     stories = [f"{s['title']}\n" + " ".join(s.get("what_happened", [])) for s in report["sections"]]
-    return make(deep / "covers" / f"{week}.png", report["title"], stories, force=force)
+    return make(deep / "covers" / f"{week}.png", report["title"], stories, force=force, use=use)
 
 
-def for_theme(run: dict, *, force: bool = False) -> Path | None:
+def for_theme(run: dict, *, force: bool = False, use: list[str] = ()) -> Path | None:
     """A Theme Charts run (agents/themes.py): the theme, its why and its three signals."""
     cfg = get_settings()
     stories = [run["why"], *(f"{s['headline']}\n{s['note']}" for s in run.get("signals", []))]
     path = cfg.root / cfg.themes.data_dir / "covers" / f"{run['run_id']}.png"
-    return make(path, run["theme"], stories, force=force)
+    return make(path, run["theme"], stories, force=force, use=use)
 
 
 if __name__ == "__main__":
@@ -203,6 +249,7 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO)
     key = sys.argv[1]
+    use = [n.strip() for n in sys.argv[2].split(",") if n.strip()] if len(sys.argv) > 2 else []
     cfg = get_settings()
     kind = "week" if "-W" in key else "theme" if key.endswith(("-am", "-pm")) else "note"
     dirs = {
@@ -212,9 +259,9 @@ if __name__ == "__main__":
     }
     base = cfg.root / dirs[kind]
     if kind == "theme":
-        png = for_theme(json.loads((base / f"{key}.json").read_text()), force=True)
+        png = for_theme(json.loads((base / f"{key}.json").read_text()), force=True, use=use)
     else:
-        png = (for_week if kind == "week" else for_note)(key, force=True)
+        png = (for_week if kind == "week" else for_note)(key, force=True, use=use)
     if not png:
         sys.exit("cover: failed (see the log above)")
     print("cover:", png)
