@@ -85,7 +85,7 @@ def _box(
     return box
 
 
-def _system(ar: AgentRun, question: str) -> str:
+def _system(ar: AgentRun, question: str, calls: int | None = None) -> str:
     b = ar.brief
     return SYSTEM.format(
         letter=ar.letter,
@@ -95,7 +95,7 @@ def _system(ar: AgentRun, question: str) -> str:
         brief=b.brief,
         today=date.today(),
         fresh=guard.fresh_year(date.today()),
-        calls=get_settings().deep_research.max_tool_calls,
+        calls=calls or get_settings().deep_research.max_tool_calls,
     )
 
 
@@ -106,18 +106,25 @@ def _model_used(meter: llm.Meter, agent: str) -> str:
 
 
 def research(
-    ar: AgentRun, question: str, board: Board, x_budget: XBudget, meter: llm.Meter
+    ar: AgentRun,
+    question: str,
+    board: Board,
+    x_budget: XBudget,
+    meter: llm.Meter,
+    max_calls: int | None = None,
 ) -> AgentRun:
-    """Research one brief. Never raises: a failure comes back as the run's error."""
+    """Research one brief. Never raises: a failure comes back as the run's error. `max_calls` overrides the
+    configured cap (topic consultants' daily build uses fewer)."""
     cfg = get_settings().deep_research
     agent = f"research_agent:{ar.letter}"
-    box = _box(ar, board, meter, max_calls=cfg.max_tool_calls, x_budget=x_budget)
+    calls = max_calls or cfg.max_tool_calls
+    box = _box(ar, board, meter, max_calls=calls, x_budget=x_budget)
     try:
         out, msgs = loop.run(
             agent=agent,
             model=cfg.agent_model,
             fallback=cfg.agent_fallback_model,
-            system=_system(ar, question),
+            system=_system(ar, question, calls),
             user="Start your research.",
             box=box,
             meter=meter,
