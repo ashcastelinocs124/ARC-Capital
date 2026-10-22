@@ -602,8 +602,10 @@ def run(dry: bool = False, now: datetime | None = None, root: Path | None = None
 # ── the calendar: the week's or today's card each weekday morning, each release as it lands ──
 
 MAX_RELEASES = 6  # watched releases a day, each posted once it lands (user, 2026-10-21)
-# Nasdaq's day calendar never fills reported EPS, so a watched company is found by a cited search:
-# from its session's start, at most every EARN_EVERY and EARN_CHECKS times a day.
+# Nasdaq's day calendar never fills reported EPS, so a watched company is found by a cited search. The
+# search must give the report's date: the reader only posts results a line dates to today, and without
+# that line it missed 7 of 8 reports on 2026-10-21 and 22 (P&G, Meta, Tesla ...). Searched from its
+# session's start, at most every EARN_EVERY and EARN_CHECKS times a day.
 EARN_WINDOWS = {"pre": (("06:30", "12:00"),), "post": (("16:05", "20:00"),)}
 EARN_ANY = (("06:30", "12:00"), ("16:05", "20:00"))  # no session known (a name from Yahoo's date)
 EARN_EVERY = timedelta(minutes=15)
@@ -646,8 +648,9 @@ no number or digit at all: the line above already gives them. No advice, hashtag
 
 
 EARN_SEARCH = """Has {company} ({ticker}) reported quarterly results today, {day}? If it has, give, each on
-its own line with a citation and exactly as reported: the quarter, earnings per share against the
-analysts' estimate, and revenue against the estimate. If it has not reported today, say only that."""
+its own line with a citation and exactly as reported: the date it reported ("Reported on <weekday, month
+day, year>"), the quarter, earnings per share against the analysts' estimate, and revenue against the
+estimate. If it has not reported today, say only that."""
 
 EARN_READ = """You read cited news lines about one company's quarterly report and write the numbers
 line of an X post. reported: true only if a line says the company reported its results on the date
