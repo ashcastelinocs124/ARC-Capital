@@ -113,15 +113,22 @@ def _exhibit(n: int, c: PointChart, data: str, path: Path) -> None:
 
 
 def render(s: ResearchSession) -> dict[str, Path]:
-    """One exhibit PNG per charted point, numbered in report order: {"p3.png": path}."""
+    """One exhibit PNG per point with a chart or a diagram, numbered in report order: {"p3.png": path}."""
+    from castelino.agents.research.deep import diagrams
+
     by, out = s.fact_map(), {}
     for p in s.report.points:
-        if not p.chart:
+        if not (p.chart or p.diagram):
             continue
-        urls = [by[v.fact_id].source_url for v in p.chart.values if v.fact_id in by]
+        ids = [v.fact_id for v in p.chart.values] if p.chart else p.fact_ids
+        urls = [by[i].source_url for i in ids if i in by]
         srcs = dict.fromkeys(urlparse(u).netloc.removeprefix("www.") for u in urls if u)
         path = store.root() / s.id / "charts" / f"{p.id}.png"
-        _exhibit(len(out) + 1, p.chart, ", ".join(srcs) or "ARC Research", path)
+        data = ", ".join(srcs) or "ARC Research"
+        if p.diagram:
+            diagrams.render_png(len(out) + 1, p.diagram, data, path)
+        else:
+            _exhibit(len(out) + 1, p.chart, data, path)
         out[path.name] = path
     return out
 
@@ -158,7 +165,7 @@ def doc(s: ResearchSession, uploaded: dict[str, dict]) -> dict:
     for p in rep.points:
         c += [sb._heading(p.headline), *(sb._p(sb._text(t)) for t in _paras(p.body))]
         if f"{p.id}.png" in uploaded:
-            c.append(sb._image(uploaded[f"{p.id}.png"], p.chart.title))
+            c.append(sb._image(uploaded[f"{p.id}.png"], (p.diagram or p.chart).title))
     for head, items in (("Caveats", rep.caveats), ("Still open", rep.gaps_remaining)):
         if items:
             c += [sb._heading(head), _bullets(items)]

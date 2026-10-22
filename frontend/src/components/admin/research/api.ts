@@ -17,8 +17,15 @@ export type PointChart = {
   form: "bars" | "line" | "dumbbell" | "stat"; title: string; unit: "%" | "$" | "bp" | "pp" | "level" | "";
   values: ChartValue[]; fallback: boolean;
 };
+// A point's diagram (diagrams.py): how its ideas relate, when that explains it better than a chart (visuals.py)
+export type DiagramBox = { title: string; lines: string[]; note: string };
+export type PointDiagram = {
+  point_id: string; layout: "branches" | "flow"; title: string; root: string; root_note: string;
+  boxes: DiagramBox[]; caption: string;
+};
 export type Point = {
   id: string; agent: string; headline: string; body: string; fact_ids: string[]; version: number; chart: PointChart | null;
+  diagram?: PointDiagram | null; // a chart or a diagram, never both
   added: number | null; // the Addition that wrote it; null for the original report
   older: string; // its newest cited figure's year ("2025") or "undated" when older than this year; "" if current
 };

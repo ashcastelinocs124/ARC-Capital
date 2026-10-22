@@ -10,7 +10,6 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 
 from castelino.agents.research.deep import (
-    charts,
     compact,
     critic,
     editor_desk,
@@ -19,6 +18,7 @@ from castelino.agents.research.deep import (
     store,
     sub_agent,
     synthesizer,
+    visuals,
 )
 from castelino.agents.research.deep.models import (
     AgentRun,
@@ -121,21 +121,25 @@ def _run(sid: str, meter: llm.Meter) -> None:
         x.status = "complete"
 
 
-def _charted(points: list[Point], s: ResearchSession, meter: llm.Meter) -> list[Point]:
-    """The points with a chart from their cited facts (charts.py); a point it can't chart keeps none."""
-    drawn = charts.chart_points(points, s.fact_map(), meter)
-    return [p.model_copy(update={"chart": drawn.get(p.id, p.chart)}) for p in points]
+def _charted(
+    points: list[Point], s: ResearchSession, meter: llm.Meter, ask: str = ""
+) -> list[Point]:
+    """The points with a chart or a diagram (visuals.py: the analyst's words, else a Decisions API pick);
+    a point that gets neither keeps none."""
+    return visuals.visualize(points, s.fact_map(), meter, ask)
 
 
 def _charts(sid: str, meter: llm.Meter) -> None:
     """Chart the points that have none yet: reports written before point charts, or a failed chart call."""
     s = store.load(sid)
-    todo = [p for p in (s.report.points if s.report else []) if p.chart is None]
+    todo = [
+        p for p in (s.report.points if s.report else []) if p.chart is None and p.diagram is None
+    ]
     if not todo:
         return
     new = {p.id: p for p in _charted(todo, s, meter)}
     with store.edit(sid) as x:
-        x.report.points = [new.get(p.id, p) if p.chart is None else p for p in x.report.points]
+        x.report.points = [new.get(p.id, p) for p in x.report.points]
 
 
 def _angles(sid: str, meter: llm.Meter) -> None:
@@ -158,7 +162,7 @@ def _angles(sid: str, meter: llm.Meter) -> None:
         points, place = synthesizer.write_more(
             s, [a.letter for a in new], add.n, meter, ask=add.text
         )
-        points = _charted(points, s, meter)
+        points = _charted(points, s, meter, ask=add.text)
         with store.edit(sid) as x:
             old = x.report.points
             x.report.points = points + old if place == "start" else old + points

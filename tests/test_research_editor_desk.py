@@ -155,7 +155,7 @@ def test_the_rewrite_carries_its_redrawn_chart_and_approve_swaps_both(monkeypatc
     sid = asked_and_rethought(monkeypatch, fake)
     p = store.load(sid).proposal(1)
     assert p.after.chart.values[0].fact_id == "A2" and p.after.chart.values[0].value == 9.7
-    assert any(t.startswith("Redrew p1's chart") for t in p.trail)
+    assert any(t.startswith("Redrew p1's visual") for t in p.trail)
     editor_desk.approve(sid, 1)
     assert store.load(sid).report.points[0].chart.values[0].value == 9.7
 

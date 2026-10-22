@@ -236,6 +236,8 @@ RESEARCH = {
     "research_revise",
     "research_compact",
     "research_charter",
+    "research_visual",
+    "research_diagrammer",
 }
 
 

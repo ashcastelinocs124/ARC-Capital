@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from castelino.agents.research.deep import charts, guard, store, sub_agent
+from castelino.agents.research.deep import guard, store, sub_agent, visuals
 from castelino.agents.research.deep.models import (
     AgentRun,
     AnswerDraft,
@@ -131,12 +131,11 @@ def rethink(sid: str, n: int, meter: llm.Meter) -> None:
                 }
             )
             trail.append(f"Rewrote {point.id} only · {llm.label(model)} · passed the number check")
-            # the new text gets a new chart from its cited facts; a point it can't chart keeps none
+            # the new text gets a new visual: your words decide chart or diagram, else visuals.py picks
             after = guard.dated(after, by, date.today())  # the rewrite may cite newer or older data
-            chart = charts.chart_points([after], by, meter).get(after.id)
-            after = after.model_copy(update={"chart": chart})
-            how = "no chartable figures" if chart is None else chart.form
-            trail.append(f"Redrew {point.id}'s chart · {how}")
+            after = visuals.visualize([after], by, meter, ask=prop.text)[0]
+            how = "a diagram" if after.diagram else after.chart.form if after.chart else "no visual"
+            trail.append(f"Redrew {point.id}'s visual · {how}")
     with store.edit(sid) as x:
         owner = x.agent(prop.agent)
         owner.facts += (

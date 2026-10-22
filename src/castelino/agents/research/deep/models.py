@@ -158,6 +158,28 @@ class ChartSet(BaseModel):
     charts: list[PointChartDraft]
 
 
+class DiagramBox(BaseModel):
+    title: str  # "Weight update"
+    lines: list[str]  # up to 4 short lines: "Changes: the model's parameters"
+    note: str  # one short bottom line, or "": "Cost paid up front"
+
+
+class DiagramDraft(BaseModel):  # LLM output (diagrams.py); code checks counts and figures
+    point_id: str
+    layout: Literal[
+        "branches", "flow"
+    ]  # branches: one idea split into its kinds; flow: steps in order
+    title: str
+    root: str  # branches: the idea at the top ("Continual learning"); flow: ""
+    root_note: str  # a short line under it, or ""
+    boxes: list[DiagramBox]  # branches 2 to 4, flow 2 to 5
+    caption: str  # one short line under the diagram, or ""
+
+
+class DiagramSet(BaseModel):
+    diagrams: list[DiagramDraft]
+
+
 # ── the session ──────────────────────────────────────────────────────────────
 class Finding(BaseModel):
     id: str
@@ -199,6 +221,9 @@ class Point(BaseModel):
     fact_ids: list[str]
     version: int = 1
     chart: PointChart | None = None
+    diagram: DiagramDraft | None = (
+        None  # a point's visual is a chart or a diagram (visuals.py), never both
+    )
     added: int | None = None  # the Addition that wrote it; None for the original report
     older: str = (
         ""  # its newest cited figure's year ("2025") or "undated", when older than guard.fresh_year

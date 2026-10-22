@@ -706,6 +706,45 @@ agents:
       writes: ["Point.chart"]
       persists: "The session file."
 
+  - id: research_visual
+    name: Deep Research · Chart or diagram
+    group: Deep research
+    family: Deep Research
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "OpenAI Decisions API (gpt-6-luna), structured yes/no fallback"}
+    prompt: "castelino.agents.research.deep.visuals:PROMPT"
+    schema: "castelino.agents.trade.decide:YesNo"
+    summary: >-
+      Decides, per point, whether a diagram of how its ideas relate explains it better than a chart of its
+      numbers (a definition, the kinds of something, steps or a mechanism with several technical parts). Only
+      asked when the analyst didn't name one: "with a diagram" or "chart it" decides on its own.
+    tools:
+      - {name: "decide.predicates (code)", does: "One Decisions API call per point; a probability of 0.5 or more means a diagram"}
+    memory:
+      reads: ["The point's headline and body"]
+      writes: ["Which points get a diagram"]
+      persists: "Nothing."
+
+  - id: research_diagrammer
+    name: Deep Research · Diagram agent
+    group: Deep research
+    family: Deep Research
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-luna"}
+    prompt: "castelino.agents.research.deep.diagrams:SYSTEM"
+    schema: "castelino.agents.research.deep.models:DiagramSet"
+    summary: >-
+      Draws a diagram for each point picked for one: branches (an idea split into its kinds) or a flow
+      (steps in order), in the point's own words. Code checks the box counts and that any figure is one of
+      the point's cited facts, one retry; a point that still fails gets a chart instead. Code draws it, as
+      HTML in the Research tab and as a PNG in the Substack draft.
+    tools:
+      - {name: "Diagram guard (code)", does: "Branches 2-4 boxes, flow 2-5, at most 4 lines a box; every figure is a cited fact's"}
+    memory:
+      reads: ["Each point's headline, body and cited facts"]
+      writes: ["Point.diagram"]
+      persists: "The session file."
+
   - id: research_compact
     name: Deep Research · Compactor
     group: Deep research
@@ -918,7 +957,7 @@ systems:
       - title: "1 · Clarify and plan"
         flow: [["Your topic"], ["agent:research_clarifier|≤3 questions"], ["gate:You answer|or skip"], ["agent:research_lead|≤8 angles"], ["end:↓ research"]]
       - title: "2 · Research and write"
-        flow: [["agent:research_agent|×8 · 12 tool calls"], ["agent:research_critic|findings enough?"], ["agent:research_writer|Claude · points · number guard"], ["agent:research_charter|a chart per point"], ["end:Report + Substack draft|↓ editor desk"]]
+        flow: [["agent:research_agent|×8 · 12 tool calls"], ["agent:research_critic|findings enough?"], ["agent:research_writer|Claude · points · number guard"], ["agent:research_visual|chart or diagram?", "agent:research_charter|a chart per point", "agent:research_diagrammer|or a diagram"], ["end:Report + Substack draft|↓ editor desk"]]
         loops: [{from: 1, to: 0, label: "1 gap round"}]
       - title: "3 · Editor desk"
         flow: [["gate:You ask|about one point"], ["agent:research_agent|rethinks in its thread"], ["agent:research_revise|that point only"], ["gate:You approve|or reject"], ["end:Point v2"]]

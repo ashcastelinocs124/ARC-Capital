@@ -41,16 +41,18 @@ def _post(body: dict) -> dict:
     return r.json()
 
 
-def decide(
-    context: str, message: str, names: list[str], meter: llm.Meter, *, post=None
+def predicates(
+    text: str, questions: dict[str, str], meter: llm.Meter, *, agent: str, post=None
 ) -> dict[str, float]:
+    """The probability each predicate holds for `text`: one Decisions API call; any error falls back to a
+    structured yes/no per question on the same model."""
     model = get_settings().trade_lab.decide_model
-    text = f"{context}\nUser's latest message: {message}"
+    names = list(questions)
     body = {
         "model": model,
         "input": text,
         "questions": [
-            {"type": "predicate", "name": n, "instructions": QUESTIONS[n]} for n in names
+            {"type": "predicate", "name": n, "instructions": q} for n, q in questions.items()
         ],
     }
     started = time.monotonic()
@@ -60,18 +62,27 @@ def decide(
         if set(out) != set(names):
             raise ValueError(f"answers for {sorted(out)}, asked {sorted(names)}")
         tin = r.get("usage", {}).get("input_tokens")
-        benchmark.record_call("trade_decide", model, body, r, started=started, tokens=(tin, 0))
+        benchmark.record_call(agent, model, body, r, started=started, tokens=(tin, 0))
         meter.tokens(model, tin, 0)
         return out
-    except Exception as e:  # noqa: BLE001 - beta endpoint: fall back, never break the talk
-        benchmark.record_call("trade_decide", model, body, started=started, error=str(e)[:500])
+    except Exception as e:  # noqa: BLE001 - beta endpoint: fall back, never break the caller
+        benchmark.record_call(agent, model, body, started=started, error=str(e)[:500])
         log.warning("Decisions API failed (%s); asking %s instead", str(e)[:120], model)
     out = {}
-    for n in names:
+    for n, q in questions.items():
         msgs = [
-            {"role": "system", "content": f"Answer yes or no. Statement: {QUESTIONS[n]}"},
+            {"role": "system", "content": f"Answer yes or no. Statement: {q}"},
             {"role": "user", "content": text},
         ]
-        yn = llm.structured("trade_decide_fallback", model, msgs, YesNo, meter)
+        yn = llm.structured(f"{agent}_fallback", model, msgs, YesNo, meter)
         out[n] = 1.0 if yn.yes else 0.0
     return out
+
+
+def decide(
+    context: str, message: str, names: list[str], meter: llm.Meter, *, post=None
+) -> dict[str, float]:
+    text = f"{context}\nUser's latest message: {message}"
+    return predicates(
+        text, {n: QUESTIONS[n] for n in names}, meter, agent="trade_decide", post=post
+    )

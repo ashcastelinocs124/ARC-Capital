@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/cn";
 import {
-  research, type AgentRun, type ChartValue, type Fact, type PointChart as PointChartT, type Proposal, type Row,
-  type Session,
+  research, type AgentRun, type ChartValue, type DiagramBox, type Fact, type PointChart as PointChartT,
+  type PointDiagram as PointDiagramT, type Proposal, type Row, type Session,
 } from "./api";
 
 // /admin → Research: a topic → the clarifier → up to 8 research agents → Claude writes the points → you question
@@ -121,6 +121,50 @@ const INK = "#008744";
 function fmt(v: number, unit: PointChartT["unit"], decimals: number): string {
   const n = v.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   return unit === "%" ? `${n}%` : unit === "$" ? `$${n}` : unit === "bp" || unit === "pp" ? `${n} ${unit}` : n;
+}
+
+// Diagram boxes on the white report page: green, amber, slate, blue (the Substack PNG uses the same order)
+const TONES = [["#047857", "#E6F4EC"], ["#B45309", "#FEF3C7"], ["#475569", "#F1F5F9"], ["#1D4ED8", "#DBEAFE"]];
+
+function DiagramCard({ b, tone }: { b: DiagramBox; tone: string[] }) {
+  return (
+    <div className="flex min-w-0 flex-1 flex-col rounded-lg border-[1.5px] p-3" style={{ borderColor: tone[0], background: tone[1] }}>
+      <div className="text-center text-[13px] font-bold leading-tight" style={{ color: tone[0] }}>{b.title}</div>
+      <ul className="mt-2 space-y-1 text-[12px] leading-snug text-black/80">{b.lines.map((l) => <li key={l}>{l}</li>)}</ul>
+      {b.note && <div className="mt-auto pt-2 text-[12px] font-bold" style={{ color: tone[0] }}>{b.note}</div>}
+    </div>
+  );
+}
+
+// Branches: one idea split into its kinds; flow: steps left to right. Plain HTML so the words wrap.
+function PointDiagram({ d }: { d: PointDiagramT }) {
+  return (
+    <figure className="mt-3" aria-label={`Diagram: ${d.title}`}>
+      <figcaption className="mb-2 text-[13px] font-bold text-black/80">{d.title}</figcaption>
+      {d.layout === "branches" ? (
+        <div>
+          <div className="mx-auto w-fit rounded-lg bg-[#0f172a] px-4 py-2 text-center">
+            <div className="text-[14px] font-bold text-white">{d.root}</div>
+            {d.root_note && <div className="text-[11px] text-white/70">{d.root_note}</div>}
+          </div>
+          <div className="mx-auto h-3 w-px bg-black/30" />
+          <div className="grid gap-3 border-t border-black/30 pt-3" style={{ gridTemplateColumns: `repeat(${d.boxes.length}, minmax(0, 1fr))` }}>
+            {d.boxes.map((b, i) => <DiagramCard key={b.title} b={b} tone={TONES[i % TONES.length]} />)}
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-stretch gap-1.5">
+          {d.boxes.map((b, i) => (
+            <div key={b.title} className="flex min-w-0 flex-1 items-center gap-1.5">
+              <DiagramCard b={b} tone={i < d.boxes.length - 1 ? TONES[0] : TONES[2]} />
+              {i < d.boxes.length - 1 && <span aria-hidden="true" className="text-lg text-black/40">→</span>}
+            </div>
+          ))}
+        </div>
+      )}
+      {d.caption && <p className="mt-2 text-[12px] text-black/50">{d.caption}</p>}
+    </figure>
+  );
 }
 
 function PointChart({ c, facts }: { c: PointChartT; facts: Record<string, Fact> }) {
@@ -380,7 +424,7 @@ function ReportView({ s, facts, selected, onSelect }: {
             </div>
             <h4 className="mt-2 font-serif text-[18px] font-bold leading-snug">{p.headline}</h4>
             <p className="my-1.5 whitespace-pre-line font-serif text-base leading-relaxed">{p.body}<Chips ids={p.fact_ids} facts={facts} /></p>
-            {p.chart && <PointChart c={p.chart} facts={facts} />}
+            {p.diagram ? <PointDiagram d={p.diagram} /> : p.chart && <PointChart c={p.chart} facts={facts} />}
           </section>
         ))}
         {r.caveats.length > 0 && (
@@ -415,8 +459,8 @@ function ProposalCard({ x, facts, n, onDecide }: {
       </div>
       <p className="mt-2 font-serif text-[15px] font-bold leading-relaxed text-text"><Diff a={a.headline} b={b.headline} /></p>
       <p className="mt-1 whitespace-pre-line font-serif text-[15px] leading-relaxed text-text-2"><Diff a={a.body} b={b.body} /><Chips ids={b.fact_ids} facts={facts} /></p>
-      {b.chart && <div className="mt-2 text-[11px] font-semibold text-muted">The chart after the edit</div>}
-      {b.chart && <PointChart c={b.chart} facts={facts} />}
+      {(b.chart || b.diagram) && <div className="mt-2 text-[11px] font-semibold text-muted">The {b.diagram ? "diagram" : "chart"} after the edit</div>}
+      {b.diagram ? <PointDiagram d={b.diagram} /> : b.chart && <PointChart c={b.chart} facts={facts} />}
       {x.new_facts.length > 0 && (
         <div className="mt-2 rounded-lg bg-surface-2 px-3 py-2 text-[12px] text-muted">
           New: {x.new_facts.map((f) => <span key={f.id} className="mr-2"><b className="text-text-2">{f.source_title}</b> <Chip id={f.id} facts={facts} /></span>)}
