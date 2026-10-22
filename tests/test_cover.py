@@ -122,6 +122,7 @@ def test_nobody_on_the_last_covers_comes_back_unless_named(tmp_path, monkeypatch
     monkeypatch.setattr(
         cover, "draw", lambda text, path: drawn.append(text) or path.write_bytes(b"x")
     )
+    monkeypatch.setattr(cover, "holder", lambda p: p.name)  # no live web search in tests
     cover._remember("e.png", ["Kevin Warsh"])
     cover.make(tmp_path / "f.png", "Warsh speaks as Tesla reports", ["The Fed and Tesla"])
     assert asks[-1]["avoid"] == ["Lisa Su", "Kevin Warsh"] and asks[-1]["use"] == []
