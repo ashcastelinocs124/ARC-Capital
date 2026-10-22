@@ -52,6 +52,12 @@ class Thesis(ThesisDraft):
     version: int
 
 
+class MemoryNoteDraft(BaseModel):  # LLM output: one note for this week's short-term memory
+    title: str
+    text: str
+    importance: int  # 1-5
+
+
 class HistoryLine(BaseModel):
     day: str
     kind: Literal["start", "daily", "weekly"]

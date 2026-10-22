@@ -54,9 +54,15 @@ def errors(d: ThesisDraft, facts: dict[str, Fact]) -> list[str]:
     return errs
 
 
-def _user(topic: str, facts: list[Fact], memory_md: str, old: Thesis | None, today: str) -> str:
+def _user(
+    topic: str, facts: list[Fact], memory_md: str, old: Thesis | None, today: str, context: str
+) -> str:
     lines = "\n".join(f"[{f.id}] {f.text} — {f.source_title}" for f in facts)
     parts = [f"Topic: {topic}\nToday: {today}", f"## Facts\n{lines or '(none)'}"]
+    if context:
+        parts.append(
+            f"## What today's Daily Update found (context; cite only the facts above)\n{context}"
+        )
     parts.append(f"## Memory\n{memory_md or '(empty)'}")
     if old:
         parts.append("## Old thesis\n" + "\n".join(f"{p}: {getattr(old, p).text}" for p in PARTS))
@@ -70,13 +76,15 @@ def write(
     old: Thesis | None,
     today: str,
     meter: llm.Meter,
+    context: str = "",
 ) -> Thesis:
-    """Write (or rewrite) the thesis; one retry with the check's errors, then ValueError."""
+    """Write (or rewrite) the thesis; one retry with the check's errors, then ValueError. `context` is
+    background text (the evening review passes the Daily Update's findings), never a citable fact."""
     model = get_settings().consultants.thesis_model
     by_id = {f.id: f for f in facts}
     msgs = [
         {"role": "system", "content": SYSTEM},
-        {"role": "user", "content": _user(topic, facts, memory_md, old, today)},
+        {"role": "user", "content": _user(topic, facts, memory_md, old, today, context)},
     ]
     errs: list[str] = []
     for attempt in range(2):

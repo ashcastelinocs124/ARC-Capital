@@ -85,6 +85,14 @@ def test_write_raises_after_second_failure(monkeypatch):
         thesis.write("AI", list(FACTS.values()), "", None, "2026-10-15", llm.Meter())
 
 
+def test_write_shows_context_in_prompt(monkeypatch):
+    calls = _stub(monkeypatch, [draft()])
+    thesis.write(
+        "AI", list(FACTS.values()), "", None, "2026-10-15", llm.Meter(), context="Listings pulled."
+    )
+    assert "Listings pulled." in calls[0][-1]["content"]
+
+
 def test_system_prompt_rules():
     s = thesis.SYSTEM.lower()
     for phrase in ("what is happening", "what could happen", "no buy or sell", "not data points"):
