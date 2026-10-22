@@ -115,3 +115,19 @@ def test_post_note_uploads_attaches_then_posts(monkeypatch, tmp_path):
     assert calls[2][2]["attachmentIds"] == ["att-9"]
     # without a browser's Origin, Substack answers the Note with a 403 (2026-10-19)
     assert calls[2][3]["origin"] == "https://substack.com" and calls[2][3]["referer"]
+
+
+def test_view_renders_as_blockquote_after_item():
+    rec = json.loads(json.dumps(REC))
+    rec["note"]["items"][1]["view"] = {
+        "consultant": "ai",
+        "topic": "AI models and chips",
+        "text": "The squeeze is moving to financing.",
+        "fact_ids": [],
+    }
+    doc = build_doc(rec, {"exhibit_1.png": {"url": "u", "imageWidth": 10}})
+    kinds = [n["type"] for n in doc["content"]]
+    assert kinds[1:5] == ["heading", "paragraph", "captionedImage", "blockquote"]
+    bq = doc["content"][4]
+    assert bq["content"][0]["content"][0]["text"] == "ARC view · AI models and chips"
+    assert bq["content"][1]["content"][0]["text"] == "The squeeze is moving to financing."

@@ -99,7 +99,7 @@ def build(tmp_path, *, agents=None, review=None, editor=None, max_rounds=2):
         calls.reviews += 1
         return review(round_no) if review else Review(done=True, followups=[])
 
-    def editor_fn(findings, facts, mem, long, errors):
+    def editor_fn(findings, facts, mem, long, errors, consultants_md=""):
         calls.editor.append(errors)
         return editor(len(calls.editor)) if editor else make_note()
 
@@ -118,7 +118,7 @@ def build(tmp_path, *, agents=None, review=None, editor=None, max_rounds=2):
         max_rounds=max_rounds,
         max_retries=1,
         max_items=5,
-        plan_fn=lambda mem, long, today: Briefs(macro="m", news="n", alt="a"),
+        plan_fn=lambda mem, long, today, watch="": Briefs(macro="m", news="n", alt="a"),
         review_fn=review_fn,
         agent_fns=agents or {a: agent_fn(a) for a in ("macro", "news", "alt")},
         editor_fn=editor_fn,

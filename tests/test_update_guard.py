@@ -1,5 +1,5 @@
-from castelino.agents.update.guard import check_note, unsupported
-from castelino.agents.update.models import Fact, Finding, MorningNote, NoteItem
+from castelino.agents.update.guard import check_note, drop_views, unsupported, view_errors
+from castelino.agents.update.models import Fact, Finding, ItemView, MorningNote, NoteItem
 
 
 def fact(fid, nums, text="t"):
@@ -108,3 +108,42 @@ def test_ai_findings_need_an_ai_item():
     with_ai = [*OK_ITEMS[:4], item(5, "A new model launched.", ["ai-1"])]
     assert check_note(note(with_ai), [*FINDS, ai], FACTS) == []
     assert check_note(note(OK_ITEMS), FINDS, FACTS) == []  # quiet AI day: no rule
+
+
+# ── ARC view (topic consultants) ──
+KF = [fact("K1-20261015-1", [41.2]), fact("K2-20261015-1", [6.3])]
+CODES = {"ai": "K1", "india": "K2"}
+
+
+def view_item(rank, text, consultant="ai", fids=("K1-20261015-1",)):
+    it = item(rank, "Body.", ["macro-1"])
+    return it.model_copy(
+        update={"view": ItemView(consultant=consultant, text=text, fact_ids=list(fids))}
+    )
+
+
+def test_view_errors_unknown_slug_foreign_fact_and_invented_figure():
+    items = [
+        view_item(1, "Funding is the squeeze.", consultant="nope"),
+        view_item(2, "Funding is the squeeze.", fids=("K2-20261015-1",)),
+        view_item(3, "Revenue grew 9%, so the squeeze moves to financing."),
+        view_item(4, "Revenue grew 41.2%; the squeeze moves to financing."),
+        item(5, "Quiet.", ["macro-1"]),
+    ]
+    errs = view_errors(note(items), FACTS + KF, CODES, max_words=100, max_figures=2)
+    assert set(errs) == {1, 2, 3}
+    assert "nope" in errs[1][0] and "K2-20261015-1" in errs[2][0] and "9%" in errs[3][0]
+
+
+def test_view_errors_too_long_and_too_many_figures():
+    long_text = " ".join(["word"] * 101)
+    figs = "Up 41.2%, then 41.2%, then 41.2% again."
+    n = note([view_item(1, long_text), view_item(2, figs), *OK_ITEMS[2:]])
+    assert set(view_errors(n, FACTS + KF, CODES, max_words=100, max_figures=2)) == {1, 2}
+
+
+def test_drop_views_keeps_everything_else():
+    n = note([view_item(1, "a"), view_item(2, "b"), *OK_ITEMS[2:]])
+    out = drop_views(n, {1})
+    assert out.items[0].view is None and out.items[1].view.text == "b"
+    assert out.items[0].body == n.items[0].body and out.headline == n.headline

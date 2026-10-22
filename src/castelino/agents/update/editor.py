@@ -68,7 +68,17 @@ Rules:
 - Write about today's findings. Memory is background for comparison only, never a topic on
   its own: don't revive an old theme unless today's findings move it.
 - Give a reasoned read (what the move implies, what to watch), never a recommendation: no
-  buy/sell, positioning or price targets. No investment advice."""
+  buy/sell, positioning or price targets. No investment advice.
+ARC view (only if a "Consultants" section is present): ARC's topic consultants follow one topic
+every day. Under each item a consultant's topic covers, set `view`; leave it null elsewhere.
+- Write ONE paragraph of about 80 words with no labels: the consultant's reading of what is
+  happening, then what could happen next, connected to this item.
+- It is analysis, not data points: do not repeat the item's numbers. Use a figure only if the
+  argument needs it, and only from that consultant's facts. An outlook carries no made-up figure.
+  No buy or sell advice.
+- Set view.consultant to the consultant's slug and view.fact_ids to that consultant's facts the
+  paragraph rests on. Never cite another consultant's facts or the findings' facts in a view.
+- The item body itself stays as above: what happened, from the findings."""
 
 # ARC house voice for item bodies, distilled from the ARC Research Substack. Edit the file to retune.
 STYLE = Path(__file__).with_name("style.md").read_text()
@@ -110,6 +120,7 @@ class UpdateEditor(StructuredAgent[MorningNote]):
         memory_md: str,
         long_term_md: str,
         guard_errors: list[str] | None = None,
+        consultants_md: str = "",
     ) -> str:
         by_id = {f.id: f for f in facts}
         blocks = []
@@ -127,6 +138,8 @@ class UpdateEditor(StructuredAgent[MorningNote]):
             f"## Short-term memory (MEMORY.md)\n{memory_md or '(empty)'}",
             f"## Long-term memory (long-term.md)\n{long_term_md or '(empty)'}",
         ]
+        if consultants_md:
+            parts.append(f"## Consultants (for the ARC view)\n{consultants_md}")
         if guard_errors:
             parts.append(
                 "## Correction\nYour previous draft failed these checks: "
@@ -141,6 +154,7 @@ def write_note(
     memory_md: str,
     long_term_md: str,
     guard_errors: list[str] | None = None,
+    consultants_md: str = "",
 ) -> MorningNote:
     return UpdateEditor()(
         findings=findings,
@@ -148,4 +162,5 @@ def write_note(
         memory_md=memory_md,
         long_term_md=long_term_md,
         guard_errors=guard_errors,
+        consultants_md=consultants_md,
     )

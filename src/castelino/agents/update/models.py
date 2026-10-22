@@ -221,6 +221,16 @@ class ItemExhibit(BaseModel):
     unit: Literal["%", "bp", "pp", "level", "$", ""]
 
 
+class ItemView(BaseModel):
+    """A topic consultant's ARC view under an item: one paragraph of analysis — what is happening, then
+    what could happen — resting on that consultant's facts (agents/consultants/)."""
+
+    consultant: str  # the consultant's slug
+    text: str
+    fact_ids: list[str]
+    topic: str = ""  # filled by code from the consultant, for the "ARC view · <topic>" label
+
+
 class NoteItem(BaseModel):
     rank: int
     title: str
@@ -228,6 +238,7 @@ class NoteItem(BaseModel):
     finding_ids: list[str]
     chart: str | None  # fallback line chart: one of its own chartable findings
     exhibit: ItemExhibit | None = None  # the Editor's chart pick (older notes have none)
+    view: ItemView | None = None  # a consultant's ARC view (notes before 2026-10-22 have none)
 
 
 class MorningNote(BaseModel):

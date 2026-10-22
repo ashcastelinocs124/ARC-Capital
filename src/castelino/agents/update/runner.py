@@ -8,8 +8,9 @@ from collections.abc import Callable
 from datetime import date, datetime
 from pathlib import Path
 
+from castelino.agents.consultants.models import NoteConsult
 from castelino.agents.update.fsio import acquire_lock, atomic_write_text, release_lock
-from castelino.agents.update.guard import check_note, clean_picks
+from castelino.agents.update.guard import check_note, clean_picks, drop_views, view_errors
 from castelino.agents.update.memory import MemoryStore
 from castelino.agents.update.models import (
     AgentOutput,
@@ -36,6 +37,8 @@ BackgroundFn = Callable[
 ]
 # (findings, facts, day) -> (findings and facts with the day's calendar results, its lines)
 CalendarFn = Callable[[list[Finding], list[Fact], str], tuple[list[Finding], list[Fact], list[str]]]
+# (day, updates_dir) -> the topic consultants' input for that day (saved per day, so rebuilds reuse it)
+ConsultFn = Callable[[str, Path], NoteConsult]
 
 
 def read_status(data_dir: Path) -> dict:
@@ -61,14 +64,19 @@ class UpdateRunner:
         max_rounds: int,
         max_retries: int,
         max_items: int,
-        plan_fn: Callable[[str, str, str], Briefs],
+        plan_fn: Callable[[str, str, str, str], Briefs],
         review_fn: Callable[[list[Finding], int], Review],
         agent_fns: dict[str, AgentFn],
-        editor_fn: Callable[[list[Finding], list[Fact], str, str, list[str] | None], MorningNote],
+        editor_fn: Callable[
+            [list[Finding], list[Fact], str, str, list[str] | None, str], MorningNote
+        ],
         chart_fn: Callable[[MorningNote, list[Finding], list[Fact], Path], list[Exhibit]],
         today_fn: Callable[[], date] = date.today,
         background_fn: BackgroundFn | None = None,
         calendar_fn: CalendarFn | None = None,
+        consult_fn: ConsultFn | None = None,
+        view_max_words: int = 100,
+        view_max_figures: int = 2,
     ):
         self.data_dir, self.updates_dir = Path(data_dir), Path(updates_dir)
         self.memory = memory
@@ -77,6 +85,9 @@ class UpdateRunner:
         self.editor_fn, self.chart_fn, self.today_fn = editor_fn, chart_fn, today_fn
         self.background_fn = background_fn
         self.calendar_fn = calendar_fn
+        self.consult_fn = consult_fn
+        self.view_max_words, self.view_max_figures = view_max_words, view_max_figures
+        self._consulted: NoteConsult | None = None  # this run's consultant input
         self._calendar: list[str] = []  # the note's "On the calendar today" lines
         self._day = ""
         self._gaps: list[str] = []
@@ -129,12 +140,26 @@ class UpdateRunner:
         results = asyncio.run(main())
         return {n: o for n, o in zip(jobs, results, strict=True) if o is not None}
 
+    def _consult(self) -> NoteConsult:
+        """The topic consultants' input for this day, fetched once per run. Never load-bearing: a
+        failure is a data gap and the note is written without ARC views."""
+        if self._consulted is None:
+            self._consulted = NoteConsult()
+            if self.consult_fn is not None:
+                try:
+                    self._consulted = self.consult_fn(self._day, self.updates_dir)
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("consultants step failed; writing without them", exc_info=True)
+                    self._gaps.append(f"consultants step failed: {exc}")
+        return self._consulted
+
     def _run(self, today: date) -> None:
         self._gaps = []
+        self._consulted = None
         mem, long = self.memory.read_short(), self.memory.read_long()
 
         self._set(Stage.PLANNING)
-        briefs = self.plan_fn(mem, long, self._day)
+        briefs = self.plan_fn(mem, long, self._day, self._consult().watch_md)
         # kept so the admin Daily desk can re-run an agent on its original brief
         atomic_write_text(
             self.updates_dir / "briefs" / f"{self._day}.json", briefs.model_dump_json(indent=1)
@@ -210,16 +235,51 @@ class UpdateRunner:
             except Exception as exc:  # noqa: BLE001 — the calendar is never load-bearing
                 log.warning("calendar step failed; writing without it", exc_info=True)
                 self._gaps.append(f"calendar step failed: {exc}")
-        errors: list[str] | None = None
+        consult = self._consult()
+        if consult.facts:  # a rebuild's raw facts already hold them: never twice
+            ids = {f.id for f in consult.facts}
+            facts = [f for f in facts if f.id not in ids] + consult.facts
+        feedback: list[str] | None = None
+        errors: list[str] = []
+        views: dict[int, list[str]] = {}
         for _attempt in range(self.max_retries + 1):
             self._set(Stage.WRITING)
-            note = self.editor_fn(findings, facts, mem, long, errors)
+            note = self.editor_fn(findings, facts, mem, long, feedback, consult.prompt_md)
             self._set(Stage.GUARDING)
             errors = check_note(note, findings, facts, items=self.max_items)
-            if not errors:
+            views = view_errors(
+                note,
+                facts,
+                consult.codes,
+                max_words=self.view_max_words,
+                max_figures=self.view_max_figures,
+            )
+            if not errors and not views:
                 break
+            feedback = errors + [f"item {r} ARC view: {'; '.join(e)}" for r, e in views.items()]
         if errors:
             raise RuntimeError(f"guard failed: {errors}")
+        if views:  # a bad ARC view is dropped, never fatal: the note goes out without that box
+            note = drop_views(note, set(views))
+            self._gaps += [
+                f"ARC view dropped on item {r}: {'; '.join(e)}" for r, e in views.items()
+            ]
+        note = note.model_copy(
+            update={
+                "items": [
+                    it.model_copy(
+                        update={
+                            "view": it.view.model_copy(
+                                update={"topic": consult.names.get(it.view.consultant, "")}
+                            )
+                        }
+                    )
+                    if it.view
+                    else it
+                    for it in note.items
+                ]
+            }
+        )
 
         note = clean_picks(note, findings, facts)
         self._set(Stage.CHARTING)
@@ -248,6 +308,7 @@ class UpdateRunner:
             shutil.copytree(charts, backup / "charts" / day)
 
         self._day = day
+        self._consulted = None  # reload that day's saved consultant input, not today's theses
         note, exhibits, findings, facts = self._compose(
             old.findings, facts, self.memory.read_short(), self.memory.read_long()
         )
@@ -273,6 +334,7 @@ class UpdateRunner:
 
 
 def build_default_runner() -> UpdateRunner:
+    from castelino.agents.consultants import consult
     from castelino.agents.update import (
         ai,
         alt,
@@ -308,4 +370,7 @@ def build_default_runner() -> UpdateRunner:
         chart_fn=exhibits.make_note_exhibits,
         background_fn=background.enrich,
         calendar_fn=calendar.add,
+        consult_fn=consult.for_note,
+        view_max_words=cfg.consultants.view_max_words,
+        view_max_figures=cfg.consultants.view_max_figures,
     )

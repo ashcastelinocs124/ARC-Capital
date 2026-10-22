@@ -111,6 +111,11 @@ def build_doc(record: dict, uploaded: dict[str, dict]) -> dict:
         ex = by_item.get(item["rank"]) or exhibits.get(item.get("chart") or "")
         if ex and ex["file"] in uploaded:
             content.append(_image(uploaded[ex["file"]], ex["title"]))
+        if view := item.get("view"):  # a topic consultant's analysis, after what happened
+            label = f"**ARC view · {view.get('topic') or view['consultant']}**"
+            content.append(
+                {"type": "blockquote", "content": [_p(*_rich(label)), _p(_text(view["text"]))]}
+            )
     if record.get("calendar"):  # code-written: every release and earnings report of the day
         content.append(_heading("On the calendar today"))
         content.append(

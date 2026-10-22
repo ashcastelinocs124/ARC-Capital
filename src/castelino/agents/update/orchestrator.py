@@ -36,15 +36,22 @@ class UpdateOrchestrator(StructuredAgent[Briefs]):
     def system_prompt(self) -> str:
         return PLAN_SYSTEM
 
-    def user_prompt(self, *, memory_md: str, long_term_md: str, today: str) -> str:
-        return (
+    def user_prompt(
+        self, *, memory_md: str, long_term_md: str, today: str, watch_md: str = ""
+    ) -> str:
+        out = (
             f"Date: {today}\n\n## Short-term memory\n{memory_md or '(empty)'}"
             f"\n\n## Long-term memory\n{long_term_md or '(empty)'}"
         )
+        if watch_md:  # ARC's topic consultants: what each is watching (briefs may chase it)
+            out += f"\n\n## Consultants are watching\n{watch_md}"
+        return out
 
 
-def plan(memory_md: str, long_term_md: str, today: str) -> Briefs:
-    return UpdateOrchestrator()(memory_md=memory_md, long_term_md=long_term_md, today=today)
+def plan(memory_md: str, long_term_md: str, today: str, watch_md: str = "") -> Briefs:
+    return UpdateOrchestrator()(
+        memory_md=memory_md, long_term_md=long_term_md, today=today, watch_md=watch_md
+    )
 
 
 def review(findings: list[Finding], round_no: int) -> Review:

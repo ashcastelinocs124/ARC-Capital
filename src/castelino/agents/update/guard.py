@@ -153,6 +153,46 @@ def pick_errors(it: NoteItem, findings: list[Finding], facts: list[Fact]) -> lis
     return errs
 
 
+def view_errors(
+    note: MorningNote,
+    facts: list[Fact],
+    codes: dict[str, str],
+    *,
+    max_words: int,
+    max_figures: int,
+) -> dict[int, list[str]]:
+    """Errors per item rank for its ARC view: a known consultant, only that consultant's facts, every
+    figure backed by them, short, and analysis rather than data points (few figures)."""
+    fact_by = {f.id: f for f in facts}
+    out: dict[int, list[str]] = {}
+    for it in note.items:
+        v = it.view
+        if v is None:
+            continue
+        errs: list[str] = []
+        if v.consultant not in codes:
+            errs.append(f"unknown consultant {v.consultant!r}")
+        else:
+            prefix = codes[v.consultant] + "-"
+            if wrong := [i for i in v.fact_ids if not i.startswith(prefix) or i not in fact_by]:
+                errs.append(f"facts not from consultant {v.consultant}: {wrong}")
+            nums = {n for i in v.fact_ids if i in fact_by for n in fact_by[i].numbers}
+            if bad := unsupported([v.text], nums):
+                errs.append(f"figures not in its facts: {bad}")
+        if (words := len(v.text.split())) > max_words:
+            errs.append(f"{words} words (at most {max_words})")
+        if (figs := count_figures([v.text])) > max_figures:
+            errs.append(f"analysis, not data points: {figs} figures (at most {max_figures})")
+        if errs:
+            out[it.rank] = errs
+    return out
+
+
+def drop_views(note: MorningNote, ranks: set[int]) -> MorningNote:
+    items = [it.model_copy(update={"view": None}) if it.rank in ranks else it for it in note.items]
+    return note.model_copy(update={"items": items})
+
+
 def clean_picks(note: MorningNote, findings: list[Finding], facts: list[Fact]) -> MorningNote:
     items = []
     for it in note.items:
