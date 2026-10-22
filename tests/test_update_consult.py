@@ -32,7 +32,7 @@ def with_view(text, fids=("K1-20261007-1",)):
     return n.model_copy(update={"items": items})
 
 
-def wire(runner, consult_fn=lambda day, d: NC):
+def wire(runner, consult_fn=lambda day, d, create=True: NC):
     runner.consult_fn = consult_fn
     seen: dict = {"calls": []}
 
@@ -84,7 +84,7 @@ def test_bad_view_is_dropped_and_note_still_written(tmp_path):
 def test_consult_fn_failure_is_a_gap(tmp_path):
     runner, _ = build(tmp_path)
 
-    def boom(day, updates_dir):
+    def boom(day, updates_dir, create=True):
         raise RuntimeError("store down")
 
     seen, plans = wire(runner, boom)
@@ -112,6 +112,38 @@ def test_rebuild_uses_saved_day_consult(tmp_path):
     runner.rebuild(DAY.isoformat())
     md = seen["calls"][-1][1]
     assert "Funding is the squeeze." in md and "Changed later." not in md
+
+
+def test_view_retry_that_breaks_the_guard_falls_back_to_the_passing_draft(tmp_path):
+    # final review, Critical: the view's retry must never cost the day its note
+    runner, _ = build(tmp_path)
+    wire(runner)
+    drafts = [
+        with_view("Revenue grew 9%, so the squeeze moves to financing."),  # passes check_note
+        make_note(body="CPI at 9.99%."),  # the rewrite breaks the note's own guard
+    ]
+    calls = []
+
+    def editor_fn(*a):
+        calls.append(a)
+        return drafts[min(len(calls), 2) - 1]
+
+    runner.editor_fn = editor_fn
+    assert runner.run_if_due() == "done"
+    r = record(tmp_path)
+    assert r.note.items[0].body == "CPI at 3.71%." and r.note.items[0].view is None
+    assert any("ARC view dropped on item 1" in g for g in r.data_gaps)
+
+
+def test_rebuild_of_a_day_without_saved_consult_gets_no_views(tmp_path):
+    # final review: a rebuild of an old day never borrows today's theses
+    runner, _ = build(tmp_path)
+    seen, _ = wire(runner, lambda day, d, create=True: NC if create else NoteConsult())
+    seen["note"] = make_note()
+    assert runner.run_if_due() == "done"
+    seen["calls"].clear()
+    runner.rebuild(DAY.isoformat())
+    assert seen["calls"][-1][1] == ""
 
 
 def test_system_prompt_view_rules():

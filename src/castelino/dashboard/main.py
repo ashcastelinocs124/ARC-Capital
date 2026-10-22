@@ -66,12 +66,14 @@ def _warm_openbb_adapter() -> None:
 def _recover_trade_lab() -> None:
     """Trade Lab and Research steps and chart desk replies running when the server stopped can't finish."""
     from castelino.agents import chart_desk as charts
+    from castelino.agents.consultants import runner as consultants_runner
     from castelino.agents.research.deep import runner as research_runner
     from castelino.agents.trade import runner
 
     runner.recover_interrupted()
     research_runner.recover_interrupted()
     charts.recover_interrupted()
+    consultants_runner.recover_interrupted()
 
 
 # Update Agent and Sector Sentiment refreshes run from the dashboard Refresh button

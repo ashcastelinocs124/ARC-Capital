@@ -37,8 +37,9 @@ BackgroundFn = Callable[
 ]
 # (findings, facts, day) -> (findings and facts with the day's calendar results, its lines)
 CalendarFn = Callable[[list[Finding], list[Fact], str], tuple[list[Finding], list[Fact], list[str]]]
-# (day, updates_dir) -> the topic consultants' input for that day (saved per day, so rebuilds reuse it)
-ConsultFn = Callable[[str, Path], NoteConsult]
+# (day, updates_dir, create=) -> the topic consultants' input for that day (saved per day, so rebuilds
+# reuse it; only the daily run creates it)
+ConsultFn = Callable[..., NoteConsult]
 
 
 def read_status(data_dir: Path) -> dict:
@@ -140,14 +141,15 @@ class UpdateRunner:
         results = asyncio.run(main())
         return {n: o for n, o in zip(jobs, results, strict=True) if o is not None}
 
-    def _consult(self) -> NoteConsult:
-        """The topic consultants' input for this day, fetched once per run. Never load-bearing: a
-        failure is a data gap and the note is written without ARC views."""
+    def _consult(self, create: bool = False) -> NoteConsult:
+        """The topic consultants' input for this day, fetched once per run. Only the daily run may
+        create it (`create`); a rebuild reloads the day's saved input or gets none, never today's
+        theses. Never load-bearing: a failure is a data gap and the note goes out without ARC views."""
         if self._consulted is None:
             self._consulted = NoteConsult()
             if self.consult_fn is not None:
                 try:
-                    self._consulted = self.consult_fn(self._day, self.updates_dir)
+                    self._consulted = self.consult_fn(self._day, self.updates_dir, create=create)
                 except Exception as exc:  # noqa: BLE001
                     log.warning("consultants step failed; writing without them", exc_info=True)
                     self._gaps.append(f"consultants step failed: {exc}")
@@ -159,7 +161,7 @@ class UpdateRunner:
         mem, long = self.memory.read_short(), self.memory.read_long()
 
         self._set(Stage.PLANNING)
-        briefs = self.plan_fn(mem, long, self._day, self._consult().watch_md)
+        briefs = self.plan_fn(mem, long, self._day, self._consult(create=True).watch_md)
         # kept so the admin Daily desk can re-run an agent on its original brief
         atomic_write_text(
             self.updates_dir / "briefs" / f"{self._day}.json", briefs.model_dump_json(indent=1)
@@ -239,26 +241,37 @@ class UpdateRunner:
         if consult.facts:  # a rebuild's raw facts already hold them: never twice
             ids = {f.id for f in consult.facts}
             facts = [f for f in facts if f.id not in ids] + consult.facts
-        feedback: list[str] | None = None
-        errors: list[str] = []
-        views: dict[int, list[str]] = {}
-        for _attempt in range(self.max_retries + 1):
-            self._set(Stage.WRITING)
-            note = self.editor_fn(findings, facts, mem, long, feedback, consult.prompt_md)
-            self._set(Stage.GUARDING)
-            errors = check_note(note, findings, facts, items=self.max_items)
-            views = view_errors(
-                note,
+
+        def bad_views(n: MorningNote) -> dict[int, list[str]]:
+            return view_errors(
+                n,
                 facts,
                 consult.codes,
                 max_words=self.view_max_words,
                 max_figures=self.view_max_figures,
             )
-            if not errors and not views:
-                break
+
+        feedback: list[str] | None = None
+        errors: list[str] = []
+        views: dict[int, list[str]] = {}
+        passed: MorningNote | None = None  # the last draft that passed the note's own guard
+        for _attempt in range(self.max_retries + 1):
+            self._set(Stage.WRITING)
+            note = self.editor_fn(findings, facts, mem, long, feedback, consult.prompt_md)
+            self._set(Stage.GUARDING)
+            errors = check_note(note, findings, facts, items=self.max_items)
+            views = bad_views(note)
+            if not errors:
+                passed = note
+                if not views:
+                    break
             feedback = errors + [f"item {r} ARC view: {'; '.join(e)}" for r, e in views.items()]
         if errors:
-            raise RuntimeError(f"guard failed: {errors}")
+            if passed is None:
+                raise RuntimeError(f"guard failed: {errors}")
+            # a retry asked only for a view's sake broke the note: ship the draft that passed
+            note, errors = passed, []
+            views = bad_views(note)
         if views:  # a bad ARC view is dropped, never fatal: the note goes out without that box
             note = drop_views(note, set(views))
             self._gaps += [

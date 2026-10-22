@@ -107,3 +107,25 @@ def test_job_update_agent_calls_before_and_after_even_when_skipped(monkeypatch):
     with pytest.raises(ep.Skipped):
         ep.job_update_agent()
     assert hooks == ["before", "note", "after"]
+
+
+def test_build_exception_marks_failed(monkeypatch):
+    c = store.create("AI", WL)
+
+    def boom(slug, day, m):
+        raise ValueError("bad series id")
+
+    monkeypatch.setattr(build, "build", boom)
+    crunner.before_note(MONDAY)
+    x = store.load(c.slug)
+    assert x.status == "failed" and "bad series id" in x.error
+
+
+def test_recover_interrupted_marks_building_failed():
+    a = store.create("AI", WL)  # status building: its first build was running
+    b = store.create("India", WL)
+    with store.edit(b.slug) as x:
+        x.status = "active"
+    crunner.recover_interrupted()
+    assert store.load(a.slug).status == "failed" and "Build now" in store.load(a.slug).error
+    assert store.load(b.slug).status == "active"

@@ -81,9 +81,11 @@ app.include_router(admin_desk.router)
 def _recover_trade_lab() -> None:
     """A deploy restarts the machine: steps that were running can't finish, so mark them for Retry."""
     from castelino.agents import chart_desk as charts
+    from castelino.agents.consultants import runner as consultants_runner
     from castelino.agents.research.deep import runner as research_runner
     from castelino.agents.trade import runner
 
     runner.recover_interrupted()
     research_runner.recover_interrupted()
     charts.recover_interrupted()
+    consultants_runner.recover_interrupted()

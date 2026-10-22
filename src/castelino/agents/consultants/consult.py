@@ -46,6 +46,8 @@ def _thesis_md(t: Thesis) -> str:
 def spec() -> dict | None:
     from castelino.agents.weekly.tools import _obj
 
+    if not get_settings().consultants.enabled:  # the kill switch
+        return None
     cs = _with_thesis()
     if not cs:
         return None
@@ -119,11 +121,17 @@ def answer(
     return text, cited
 
 
-def for_note(day: str, updates_dir: Path) -> NoteConsult:
-    """The consultants' input to `day`'s Daily Update, saved on first use and reused after."""
+def for_note(day: str, updates_dir: Path, create: bool = True) -> NoteConsult:
+    """The consultants' input to `day`'s Daily Update, saved on first use and reused after. Only the
+    daily run creates it (`create`): a rebuild of a day with no saved input gets none, never today's
+    theses."""
+    if not get_settings().consultants.enabled:  # the kill switch
+        return NoteConsult()
     path = Path(updates_dir) / "consult" / f"{day}.json"
     if path.exists():
         return NoteConsult.model_validate_json(path.read_text())
+    if not create:
+        return NoteConsult()
     cap = get_settings().consultants.note_facts
     out = NoteConsult()
     watch, blocks = [], []

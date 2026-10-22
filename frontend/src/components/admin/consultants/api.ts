@@ -29,6 +29,7 @@ export type Detail = {
   consultant: Consultant; thesis: Thesis | null; history: HistoryLine[]; // newest first
   today: { day: string; facts: Fact[]; asks: Ask[]; notes: string[] };
   memory: { short: Note[]; long: Note[] };
+  log: { day: string; cost_usd: number; notes: string[] }; // today's own log: cost-cap skips, failures
 };
 
 async function req<T>(method: string, path: string, body?: unknown): Promise<T> {

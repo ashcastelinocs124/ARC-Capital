@@ -118,3 +118,11 @@ def test_lock_blocks_a_second_process_writer():
 
 def test_root_uses_env(tmp_path):
     assert store.root() == tmp_path / "consultants"
+
+
+def test_all_skips_unreadable_folders():
+    good = store.create("AI", WL)
+    bad = store.root() / "broken"
+    bad.mkdir()
+    (bad / "consultant.json").write_text("{not json")
+    assert [c.slug for c in store.all()] == [good.slug]

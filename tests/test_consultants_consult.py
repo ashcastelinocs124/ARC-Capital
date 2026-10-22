@@ -148,3 +148,36 @@ def test_trade_and_research_boxes_offer_consult():
     research = _box(ResearchToolBox, meter=llm.Meter())
     assert "consult" in [s["name"] for s in trade.specs()]
     assert "consult" in [s["name"] for s in research.specs()]
+
+
+def test_for_note_does_not_create_for_a_past_day(tmp_path):
+    consultant()
+    out = consult.for_note("2020-01-01", tmp_path / "updates", create=False)
+    assert out == consult.NoteConsult()
+    assert not (tmp_path / "updates" / "consult" / "2020-01-01.json").exists()
+
+
+def test_disabled_is_a_kill_switch(monkeypatch, tmp_path):
+    from castelino.config import get_settings
+
+    consultant()
+    monkeypatch.setattr(get_settings().consultants, "enabled", False)
+    assert consult.for_note(TODAY.isoformat(), tmp_path / "updates").prompt_md == ""
+    assert consult.spec() is None
+
+
+def test_box_without_consult_offers_no_tool_and_refuses(monkeypatch):
+    c = consultant()
+    box = _box()
+    box.consult_ok = False
+    assert "consult" not in [s["name"] for s in box.specs()]
+    out = box.call("consult", {"topic": c.slug, "question": "q"})
+    assert out.startswith("Error:") and box.facts == []
+
+
+def test_consult_specs_never_break_the_box(monkeypatch):
+    def boom():
+        raise KeyError("half-deleted folder")
+
+    monkeypatch.setattr(consult, "spec", boom)
+    assert [s["name"] for s in _box().specs()] == ["post_to_board", "read_board"]

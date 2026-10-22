@@ -159,8 +159,9 @@ def weekly(slug: str, week_end: date, meter: llm.Meter) -> HistoryLine | None:
     cleared = [n for n in short if n not in kept]
     dropped = [n for j, n in enumerate(long) if p.get(f"drop_l{j}", 0.0) >= cfg.threshold]
     moved = [Note(n.title, n.text, n.importance, week_end, n.type) for n in kept]
-    new_long = [n for n in long if n not in dropped] + moved
-    new_long = rebalance(new_long, week_end, short_cap=0, long_cap=cfg.long_term_notes)[1]
+    merged = [n for n in long if n not in dropped] + moved
+    new_long = rebalance(merged, week_end, short_cap=0, long_cap=cfg.long_term_notes)[1]
+    evicted = [n for n in merged if n not in new_long]  # over the cap: traced like any deletion
     store.write_memory(slug, [], new_long)
     reason = f"{len(cleared)} short-term notes cleared"
     if cleared:
@@ -170,8 +171,8 @@ def weekly(slug: str, week_end: date, meter: llm.Meter) -> HistoryLine | None:
         kind="weekly",
         verdict="week",
         reason=reason + ".",
-        moved=[n.title for n in kept],
-        deleted=[n.title for n in dropped],
+        moved=[n.title for n in moved if n in new_long],
+        deleted=[n.title for n in dropped + evicted],
     )
     store.append_history(slug, line)
     return line

@@ -159,6 +159,12 @@ function ConsultantView({ d, onChange, onDeleted }: { d: Detail; onChange: () =>
       {c.status === "failed" && c.error && <div role="alert" className="rounded-xl border border-danger bg-danger-soft px-4 py-2.5 text-sm text-danger">Last build failed: {c.error}</div>}
       {c.status === "building" && <div className="rounded-xl bg-warning-soft px-4 py-2.5 text-sm text-warning">First build running. This page updates by itself.</div>}
       {error && <div role="alert" className="rounded-xl border border-danger bg-danger-soft px-4 py-2.5 text-sm text-danger">{error}</div>}
+      {d.log.notes.length > 0 && (
+        <div className="rounded-xl border border-warning/50 bg-warning-soft px-4 py-2.5 text-sm">
+          <b className="text-warning">Today ({d.log.day}, ${d.log.cost_usd.toFixed(2)} spent):</b>
+          <ul className="mt-1 list-disc pl-5 text-text-2">{d.log.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>
+        </div>
+      )}
       <div className="grid items-start gap-3.5 lg:grid-cols-[1fr_1.15fr]">
         <Timeline history={d.history} />
         <div className="space-y-3.5">

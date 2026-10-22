@@ -76,7 +76,7 @@ def _thesis() -> Thesis:
 
 
 def _research(new: list[Fact], calls: list):
-    def fake(ar, question, board, x_budget, meter, max_calls=None):
+    def fake(ar, question, board, x_budget, meter, max_calls=None, consult=True):
         calls.append((ar, max_calls))
         return ar.model_copy(update={"facts": [*ar.facts, *new], "error": None})
 
@@ -141,6 +141,7 @@ def test_research_max_calls_param(monkeypatch):
 
     def fake_run(**kw):
         seen["max_calls"] = kw["box"].max_calls
+        seen["consult_ok"] = getattr(kw["box"], "consult_ok", None)
         seen["system"] = kw["system"]
         return FindingDrafts(findings=[]), []
 
@@ -148,3 +149,32 @@ def test_research_max_calls_param(monkeypatch):
     ar = AgentRun(letter="A", brief=Brief(name="n", angle="a", brief="b"))
     sub_agent.research(ar, "q", Board(), XBudget(10), llm.Meter(), max_calls=3)
     assert seen["max_calls"] == 3 and "at most 3 tool calls" in seen["system"]
+    sub_agent.research(ar, "q", Board(), XBudget(10), llm.Meter(), consult=False)
+    assert seen["consult_ok"] is False
+
+
+def test_build_research_has_no_consult_tool(monkeypatch):
+    # final review: a consultant's own build must not consult itself (or another consultant)
+    c = store.create("Private credit", EMPTY)
+    seen = {}
+
+    def fake(ar, question, board, x_budget, meter, max_calls=None, consult=True):
+        seen["consult"] = consult
+        return ar.model_copy(update={"facts": [fact("K1-20261015-1")]})
+
+    monkeypatch.setattr(sub_agent, "research", fake)
+    monkeypatch.setattr(thesis, "write", lambda *a, **k: _thesis())
+    build.build(c.slug, DAY, llm.Meter())
+    assert seen["consult"] is False
+
+
+def test_build_reruns_when_status_building(monkeypatch):
+    c = store.create("Private credit", EMPTY)
+    calls: list = []
+    monkeypatch.setattr(sub_agent, "research", _research([fact("K1-20261015-1")], calls))
+    monkeypatch.setattr(thesis, "write", lambda *a, **k: _thesis())
+    build.build(c.slug, DAY, llm.Meter())
+    with store.edit(c.slug) as x:
+        x.status = "building"  # Build now pressed
+    build.build(c.slug, DAY, llm.Meter())
+    assert len(calls) == 2

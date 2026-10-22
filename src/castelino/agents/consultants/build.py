@@ -98,7 +98,13 @@ def research_facts(
         facts=prior,
     )
     out = sub_agent.research(
-        ar, c.topic, Board(), XBudget(cfg.x_posts_per_day), meter, max_calls=cfg.build_tool_calls
+        ar,
+        c.topic,
+        Board(),
+        XBudget(cfg.x_posts_per_day),
+        meter,
+        max_calls=cfg.build_tool_calls,
+        consult=False,  # its own file must come from fresh sources, never a consult answer
     )
     return out.facts, out.error
 
@@ -108,7 +114,7 @@ def build(slug: str, day: date, meter: llm.Meter) -> list[str]:
     data or model failure — the consultant is marked failed with the reason instead."""
     c = store.load(slug)
     ds = day.isoformat()
-    if store.day_log(slug, ds).built and c.status != "failed":
+    if store.day_log(slug, ds).built and c.status not in ("failed", "building"):  # Build now reruns
         return []
     facts, gaps = watchlist_facts(c, day)
     th = store.read_thesis(slug)

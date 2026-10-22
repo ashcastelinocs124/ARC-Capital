@@ -153,15 +153,26 @@ class ToolBox:
         specs = [{"type": "function", "name": n, "strict": True, **SPECS[n]} for n in names]
         return specs + self.consult_specs()
 
+    consult_ok = True  # a consultant's own daily build turns this off: it never consults itself
+
     def consult_specs(self) -> list[dict]:
-        """The topic consultants' `consult` tool, offered only once a consultant has a thesis."""
+        """The topic consultants' `consult` tool, offered only once a consultant has a thesis. A broken
+        consultant folder must never break the agent asking, so any error means no tool."""
         from castelino.agents.consultants import consult
 
-        return [s] if (s := consult.spec()) else []
+        if not self.consult_ok:
+            return []
+        try:
+            return [s] if (s := consult.spec()) else []
+        except Exception:  # noqa: BLE001
+            log.warning("%s: consult tool unavailable", self.agent, exc_info=True)
+            return []
 
     def _consult(self, topic: str, question: str) -> str:
         from castelino.agents.consultants import consult
 
+        if not self.consult_ok:
+            return "Error: consult is not one of your tools"
         try:
             text, facts = consult.answer(
                 topic, question, asker=self.agent, meter=getattr(self, "meter", None)

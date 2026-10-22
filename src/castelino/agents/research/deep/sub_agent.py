@@ -112,13 +112,15 @@ def research(
     x_budget: XBudget,
     meter: llm.Meter,
     max_calls: int | None = None,
+    consult: bool = True,
 ) -> AgentRun:
-    """Research one brief. Never raises: a failure comes back as the run's error. `max_calls` overrides the
-    configured cap (topic consultants' daily build uses fewer)."""
+    """Research one brief. Never raises: a failure comes back as the run's error. A topic consultant's
+    daily build passes fewer `max_calls` and `consult=False` (it never consults itself)."""
     cfg = get_settings().deep_research
     agent = f"research_agent:{ar.letter}"
     calls = max_calls or cfg.max_tool_calls
     box = _box(ar, board, meter, max_calls=calls, x_budget=x_budget)
+    box.consult_ok = consult
     try:
         out, msgs = loop.run(
             agent=agent,

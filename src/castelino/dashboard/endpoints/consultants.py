@@ -81,6 +81,8 @@ def get(slug: str):
             "notes": store.day_log(slug, day).notes,
         },
         "memory": {"short": _notes(short), "long": _notes(long)},
+        # today's own log: a cost-cap skip or a failure shows even on a day with no facts
+        "log": store.day_log(slug, date.today().isoformat()).model_dump(),
     }
 
 
@@ -103,8 +105,11 @@ def resume(slug: str):
 
 @router.post("/{slug}/build")
 def build_now(slug: str):
-    """Build now: the retry for a consultant whose first build failed."""
-    runner.submit_start(_load(slug).slug)
+    """Build now: the retry for a consultant whose build failed. Shows as building (the tab polls)."""
+    _load(slug)
+    with store.edit(slug) as x:
+        x.status, x.error = "building", None
+    runner.submit_start(slug)
     return _row(store.load(slug))
 
 

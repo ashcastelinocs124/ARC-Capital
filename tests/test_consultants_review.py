@@ -141,6 +141,18 @@ def test_weekly_once_per_week_and_not_before_created(monkeypatch):
     assert review.weekly(c.slug, date(2026, 10, 11), llm.Meter()) is None
 
 
+def test_weekly_traces_notes_evicted_by_the_cap(monkeypatch):
+    c, _ = setup(monkeypatch, {f"keep_s{i}": 0.9 for i in range(2)})
+    longs = [note(f"l{j}", 5) for j in range(20)]
+    store.write_memory(c.slug, [note("s0", 1), note("s1", 1)], longs)
+    line = review.weekly(c.slug, date(2026, 10, 18), llm.Meter())
+    kept = {n.title for n in store.read_memory(c.slug)[1]}
+    assert len(kept) == 20
+    gone = {"s0", "s1", *(f"l{j}" for j in range(20))} - kept
+    assert gone <= set(line.deleted)  # nothing lost without a trace
+    assert set(line.moved) <= kept
+
+
 def test_last_sunday():
     assert review.last_sunday(date(2026, 10, 22)) == date(2026, 10, 18)
     assert review.last_sunday(date(2026, 10, 18)) == date(2026, 10, 18)

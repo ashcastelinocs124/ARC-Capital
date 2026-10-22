@@ -84,7 +84,12 @@ def all() -> list[Consultant]:  # noqa: A001 - mirrors research store.all()
     r = root()
     if not r.exists():
         return []
-    out = [load(p.name) for p in r.iterdir() if (p / "consultant.json").exists()]
+    out = []
+    for p in r.iterdir():
+        try:
+            out.append(load(p.name))
+        except Exception:  # noqa: BLE001 - not a consultant, unreadable, or deleted mid-listing
+            continue
     return sorted(out, key=lambda c: (c.created, c.slug))
 
 

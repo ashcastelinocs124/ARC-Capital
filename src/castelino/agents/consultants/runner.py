@@ -51,6 +51,10 @@ def run_step(slug: str, day: str, step: str, fn: Callable[[llm.Meter], T]) -> T 
         log.warning("consultant %s: %s failed", slug, step, exc_info=True)
         with store.edit_day(slug, day) as d:
             d.notes.append(f"{step} failed: {str(e)[:200]}")
+        if step == "build":  # the tab shows it with Build now, instead of "building" forever
+            with store.edit(slug) as x:
+                if x.status != "paused":
+                    x.status, x.error = "failed", f"build failed: {str(e)[:200]}"
         return None
     finally:
         if meter.total:
@@ -108,6 +112,15 @@ def after_note(day: date, updates_dir: Path) -> None:
                 run_step(c.slug, ds, "weekly", lambda m, s=c.slug: review.weekly(s, we, m))
         except Exception:  # noqa: BLE001
             log.warning("consultant %s: review failed", c.slug, exc_info=True)
+
+
+def recover_interrupted() -> None:
+    """At desk-app startup (a deploy restarts the machine): a build that was running can't finish, so
+    mark it failed with a Build now hint, like Research and Trade Lab steps."""
+    for c in store.all():
+        if c.status == "building":
+            with store.edit(c.slug) as x:
+                x.status, x.error = "failed", "Interrupted by a restart; press Build now to retry."
 
 
 def submit_start(slug: str) -> None:

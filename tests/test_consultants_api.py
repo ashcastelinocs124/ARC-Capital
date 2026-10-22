@@ -62,6 +62,23 @@ def test_unknown_slug_is_404(client):
     assert client.post("/admin/desk/consultants/nope/pause").status_code == 404
 
 
+def test_get_returns_todays_log_notes(client):
+    from datetime import date
+
+    client.post("/admin/desk/consultants", json={"topic": "India", "watchlist": WL})
+    with store.edit_day("india", date.today().isoformat()) as d:
+        d.notes.append("cost cap: skipped build")
+    log = client.get("/admin/desk/consultants/india").json()["log"]
+    assert log["notes"] == ["cost cap: skipped build"]
+
+
+def test_build_now_shows_building(client):
+    client.post("/admin/desk/consultants", json={"topic": "India", "watchlist": WL})
+    with store.edit("india") as x:
+        x.status = "failed"
+    assert client.post("/admin/desk/consultants/india/build").json()["status"] == "building"
+
+
 def test_short_topic_is_422(client):
     r = client.post("/admin/desk/consultants", json={"topic": "AI", "watchlist": WL})
     assert r.status_code == 422
