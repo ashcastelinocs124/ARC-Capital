@@ -1,5 +1,6 @@
-"""GET /x_feed: the newest posts on @AshleynCas46131 (no replies or reposts) for Home's "Latest on X"
-row and About's "On X" feed, newest first.
+"""GET /x_feed: the newest posts on @AshleynCas46131 (no replies to others, no reposts) for Home's
+"Latest on X" row and About's "On X" feed, newest first. Each post carries the rest of its own thread
+(the analysis and chart posts) and the ARC report on Substack the thread links, if any.
 
 X's API bills each post it returns (about $0.005), so data/x_feed.json keeps the last KEEP posts and
 asks X only for posts newer than its newest (since_id), at most every TTL_S: an export with nothing
@@ -24,8 +25,11 @@ router = APIRouter()
 HANDLE = "AshleynCas46131"
 USER_ID = "1702425364474044416"  # GET /2/users/me with Fly's X keys, 2026-10-20
 TIMELINE = f"https://api.x.com/2/users/{USER_ID}/tweets"
-KEEP = 10  # About shows 5, then "Show 5 more"
+KEEP = 10  # top-level posts, each with its thread; About shows 6, then "Show more"
 TTL_S = 600
+PER_CALL = 50  # a thread's posts count too; since_id keeps each one billed once
+REPORT_PREFIX = "https://archresearch.substack.com/p/"  # the only report link a card may carry
+VERSION = 2  # 2: posts carry `thread` + `report`; an older file is rebuilt once
 # ponytail: a post deleted on X stays here until KEEP newer ones push it out
 
 
@@ -33,33 +37,64 @@ def _path():
     return get_settings().root / "data" / "x_feed.json"
 
 
-def parse(reply: dict) -> list[dict]:
-    """X's timeline reply -> posts: id, time, text, the first image and the link. A photo's t.co link
-    is dropped (the image shows it) and any other is written as its display text; emoji go, as on
-    every ARC post."""
+def _post(t: dict, media: dict) -> dict:
+    """One X post -> id, time, text, the first image, its link and any ARC report it links. A photo's
+    t.co link is dropped (the image shows it), a Substack report's too (the card shows it), and any
+    other is written as its display text; emoji go, as on every ARC post."""
+    text, report = t.get("text", ""), None
+    for u in t.get("entities", {}).get("urls", []):
+        target = (u.get("expanded_url") or "").split("?")[0].split("#")[0]
+        if u.get("media_key") or target.startswith(REPORT_PREFIX):  # with the space before it
+            text = text.replace(f" {u.get('url')}", "").replace(u.get("url", ""), "")
+            if not u.get("media_key") and report is None:
+                slug = target.removeprefix(REPORT_PREFIX).strip("/").replace("-", " ")
+                title = x_post.no_emoji(html.unescape(u.get("title") or "")).strip()
+                report = {"url": target, "title": title or slug.capitalize()}
+        else:
+            text = text.replace(u.get("url", ""), u.get("display_url", ""))
+    imgs = [media.get(k, {}) for k in t.get("attachments", {}).get("media_keys", [])]
+    img = next((m.get("url") or m.get("preview_image_url") for m in imgs if m), None)
+    return {
+        "id": t["id"],
+        "at": t.get("created_at", ""),
+        "text": x_post.no_emoji(html.unescape(text)).strip(),
+        "image": img if img and img.startswith("https://pbs.twimg.com/") else None,
+        "url": f"https://x.com/{HANDLE}/status/{t['id']}",
+        "report": report,
+    }
+
+
+def parse(reply: dict, cached: list[dict] | None = None) -> list[dict]:
+    """X's timeline reply (+ the posts already kept) -> your top-level posts, newest first, each with
+    the rest of its own thread (`thread`, in order: X Scout's 2/ 3/ 4/, Theme Charts' chart posts) and
+    the ARC report any of them links (`report`). Replies to other people never show."""
     media = {m.get("media_key"): m for m in reply.get("includes", {}).get("media", [])}
-    out = []
+    leads = {
+        p["id"]: {**p, "thread": list(p.get("thread", [])), "report": p.get("report")}
+        for p in cached or []
+    }
+    later: list[tuple[str, dict]] = []
     for t in reply.get("data", []):
-        if not str(t.get("id", "")).isdigit() or t.get("in_reply_to_user_id"):
-            continue  # the id becomes a link; exclude=replies still sends a thread's own replies
-        text = t.get("text", "")
-        for u in t.get("entities", {}).get("urls", []):
-            if u.get("media_key"):  # with the space before it
-                text = text.replace(f" {u.get('url')}", "").replace(u.get("url", ""), "")
-            else:
-                text = text.replace(u.get("url", ""), u.get("display_url", ""))
-        imgs = [media.get(k, {}) for k in t.get("attachments", {}).get("media_keys", [])]
-        img = next((m.get("url") or m.get("preview_image_url") for m in imgs if m), None)
-        out.append(
-            {
-                "id": t["id"],
-                "at": t.get("created_at", ""),
-                "text": x_post.no_emoji(html.unescape(text)).strip(),
-                "image": img if img and img.startswith("https://pbs.twimg.com/") else None,
-                "url": f"https://x.com/{HANDLE}/status/{t['id']}",
-            }
-        )
-    return out
+        if not str(t.get("id", "")).isdigit():
+            continue  # the id becomes a link
+        to = t.get("in_reply_to_user_id")
+        if to and to != USER_ID:
+            continue  # a reply to someone else
+        p = _post(t, media)
+        if to:  # exclude=replies still sends a thread's own posts: keep them under their lead
+            if (conv := str(t.get("conversation_id", ""))) and conv != p["id"]:
+                later.append((conv, p))
+            continue
+        leads.setdefault(p["id"], {**p, "thread": []})
+    for conv, p in later:
+        lead = leads.get(conv)
+        if lead is None or any(x["id"] == p["id"] for x in lead["thread"]):
+            continue  # its lead is older than the feed keeps, or it's already here
+        lead["thread"].append({k: p[k] for k in ("id", "text", "image", "url")})
+        lead["report"] = lead["report"] or p["report"]
+    for lead in leads.values():
+        lead["thread"].sort(key=lambda x: int(x["id"]))
+    return sorted(leads.values(), key=lambda p: int(p["id"]), reverse=True)
 
 
 def refresh(now: float | None = None, get=httpx.get) -> list[dict]:
@@ -69,20 +104,32 @@ def refresh(now: float | None = None, get=httpx.get) -> list[dict]:
     if not x_post.can_post() or now - cache.get("checked", 0) < TTL_S:
         return cache["posts"]
     params = {
-        "max_results": str(KEEP),
+        "max_results": str(PER_CALL),
         "exclude": "replies,retweets",
-        "tweet.fields": "created_at,attachments,entities,in_reply_to_user_id",
+        "tweet.fields": "created_at,attachments,entities,in_reply_to_user_id,conversation_id",
         "expansions": "attachments.media_keys",
         "media.fields": "url,preview_image_url",
     }
-    if cache["posts"]:
-        params["since_id"] = cache["posts"][0]["id"]
+    fresh = cache.get("v") == VERSION
+    if fresh and cache.get("newest"):  # an older file never kept threads: fetch them once
+        params["since_id"] = cache["newest"]
     auth = x_post._auth_header("GET", TIMELINE, params)
     r = get(TIMELINE, params=params, headers={"Authorization": auth}, timeout=20)
     r.raise_for_status()
-    posts = (parse(r.json()) + cache["posts"])[:KEEP]
+    reply = r.json()
+    posts = parse(reply, cache["posts"] if fresh else None)[:KEEP]
+    if not fresh:  # keep older posts the refetch didn't reach
+        seen = {x["id"] for x in posts}
+        posts += [
+            {**x, "thread": [], "report": None} for x in cache["posts"] if x["id"] not in seen
+        ]
+        posts = posts[:KEEP]
+    ids = [str(t["id"]) for t in reply.get("data", []) if str(t.get("id", "")).isdigit()]
+    newest = max([*ids, cache.get("newest") or "0"] if fresh else [*ids, "0"], key=int)
     p.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write_text(p, json.dumps({"posts": posts, "checked": now}))
+    atomic_write_text(
+        p, json.dumps({"v": VERSION, "posts": posts, "checked": now, "newest": newest})
+    )
     return posts
 
 

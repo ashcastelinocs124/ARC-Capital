@@ -252,10 +252,23 @@ export const fetchDailyPosts = async (): Promise<DailyPost[]> => {
 
 // ── X posts (@AshleynCas46131, newest first, no replies; dashboard/endpoints/x_feed.py) ──
 export const X_PROFILE = "https://x.com/AshleynCas46131";
-export interface XPost { id: string; at: string; text: string; image: string | null; url: string }
+// The rest of a post's own thread (X Scout's 2/ 3/ 4/ analysis, Theme Charts' chart posts) and the ARC
+// report on Substack the thread links, if any (x_feed.py).
+export interface XThreadPost { id: string; text: string; image: string | null; url: string }
+export interface XReport { url: string; title: string }
+export interface XPost {
+  id: string; at: string; text: string; image: string | null; url: string;
+  thread?: XThreadPost[]; report?: XReport | null;
+}
+const isStatus = (u?: string) => !!u?.startsWith(`${X_PROFILE}/status/`);
 export const fetchXFeed = async (): Promise<XPost[]> => {
   const data = await api.get<XPost[]>("/x_feed"); // the client maps a 404 to []
-  return Array.isArray(data) ? data.filter((p) => p.url?.startsWith(`${X_PROFILE}/status/`)) : [];
+  if (!Array.isArray(data)) return [];
+  return data.filter((p) => isStatus(p.url)).map((p) => ({
+    ...p,
+    thread: Array.isArray(p.thread) ? p.thread.filter((t) => isStatus(t.url)) : [],
+    report: p.report?.url?.startsWith("https://archresearch.substack.com/p/") ? p.report : null,
+  }));
 };
 
 // ── Substack sections shown on Daily Update ──────────────────────────────

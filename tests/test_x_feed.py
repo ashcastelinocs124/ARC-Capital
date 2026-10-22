@@ -67,3 +67,135 @@ def test_refresh_asks_only_for_newer_posts_and_not_twice_in_ten_minutes(tmp_path
     monkeypatch.delenv("X_API_KEY")  # the Mac: no keys, serve the file
     assert [p["id"] for p in x_feed.refresh(now=9999, get=get)] == ["102", "101"]
     assert len(asked) == 2
+
+
+ME = "1702425364474044416"
+REPORT = "https://archresearch.substack.com/p/the-squeeze-moves-to-financing"
+THREAD = {
+    "data": [
+        # newest first, as X sends them; the thread's own posts reply to the lead (same conversation)
+        {
+            "id": "903",
+            "text": "4/ What to watch: cloud budgets. Full report: https://t.co/rep",
+            "conversation_id": "900",
+            "in_reply_to_user_id": ME,
+            "entities": {
+                "urls": [
+                    {
+                        "url": "https://t.co/rep",
+                        "expanded_url": REPORT + "?utm_source=x",
+                        "display_url": "archresearch.substack.com/p/the-squ…",
+                        "title": "The squeeze moves to financing",
+                    }
+                ]
+            },
+        },
+        {
+            "id": "901",
+            "text": "2/ What happened",
+            "conversation_id": "900",
+            "in_reply_to_user_id": ME,
+        },
+        {
+            "id": "950",
+            "text": "@someone thanks!",
+            "conversation_id": "777",
+            "in_reply_to_user_id": "42",
+        },
+        {
+            "id": "902",
+            "text": "3/ Why it matters",
+            "conversation_id": "900",
+            "in_reply_to_user_id": ME,
+            "attachments": {"media_keys": ["3_9"]},
+        },
+        {
+            "id": "900",
+            "created_at": "2026-10-22T14:00:00.000Z",
+            "text": "AI funding is the new squeeze",
+            "conversation_id": "900",
+        },
+    ],
+    "includes": {"media": [{"media_key": "3_9", "url": "https://pbs.twimg.com/media/c.png"}]},
+}
+
+
+def test_parse_groups_own_thread_posts_under_their_lead():
+    (lead,) = x_feed.parse(THREAD)  # a reply to someone else never shows
+    assert lead["id"] == "900" and lead["text"] == "AI funding is the new squeeze"
+    assert [t["id"] for t in lead["thread"]] == ["901", "902", "903"]  # in thread order
+    assert lead["thread"][1]["image"] == "https://pbs.twimg.com/media/c.png"
+    assert lead["thread"][0]["url"] == "https://x.com/AshleynCas46131/status/901"
+
+
+def test_a_substack_report_link_becomes_the_posts_report_card():
+    (lead,) = x_feed.parse(THREAD)
+    assert lead["report"] == {"url": REPORT, "title": "The squeeze moves to financing"}
+    assert lead["thread"][2]["text"] == "4/ What to watch: cloud budgets. Full report:"
+
+
+def test_a_report_link_off_substack_is_not_a_card():
+    bad = {
+        "data": [
+            {
+                "id": "5",
+                "text": "see https://t.co/x",
+                "entities": {
+                    "urls": [
+                        {
+                            "url": "https://t.co/x",
+                            "expanded_url": "https://evil.example/p/a",
+                            "display_url": "evil.example/p/a",
+                        }
+                    ]
+                },
+            }
+        ]
+    }
+    (p,) = x_feed.parse(bad)
+    assert p["report"] is None and p["text"] == "see evil.example/p/a"
+
+
+def test_new_thread_posts_attach_to_a_cached_lead():
+    cached = [
+        {
+            "id": "900",
+            "at": "",
+            "text": "lead",
+            "image": None,
+            "url": "u",
+            "thread": [],
+            "report": None,
+        }
+    ]
+    later = {
+        "data": [
+            {
+                "id": "904",
+                "text": "5/ one more",
+                "conversation_id": "900",
+                "in_reply_to_user_id": ME,
+            }
+        ]
+    }
+    (lead,) = x_feed.parse(later, cached)
+    assert [t["id"] for t in lead["thread"]] == ["904"]
+
+
+def test_an_old_cache_is_rebuilt_once_with_threads(tmp_path, monkeypatch):
+    p = tmp_path / "x_feed.json"
+    p.write_text('{"posts": [{"id": "900", "text": "lead"}], "checked": 0}')  # before threads
+    monkeypatch.setattr(x_feed, "_path", lambda: p)
+    for k in x_post.KEYS:
+        monkeypatch.setenv(k, "k")
+    asked = []
+
+    def get(url, params, headers, timeout):
+        asked.append(params)
+        return Reply(THREAD)
+
+    posts = x_feed.refresh(now=1000, get=get)
+    assert "since_id" not in asked[0]  # refetch the threads it never kept
+    assert [t["id"] for t in posts[0]["thread"]] == ["901", "902", "903"]
+    x_feed.refresh(now=2000, get=get)
+    assert asked[1]["since_id"] == "950"  # the newest post seen, replies included

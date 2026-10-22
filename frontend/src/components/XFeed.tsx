@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ArrowUpRight, BarChart2, Heart, MessageCircle, Repeat2 } from "lucide-react";
-import { X_PROFILE, type XPost } from "@/api/endpoints";
+import { X_PROFILE, type XPost, type XReport } from "@/api/endpoints";
 import { useXFeed } from "@/hooks/useXFeed";
 import { cn } from "@/lib/cn";
 
@@ -34,31 +34,75 @@ export function FollowOnX() {
   );
 }
 
-// One post as X draws it in a timeline. The whole post opens it on x.com; the action icons are
+const Chart = ({ src }: { src: string }) => (
+  <img src={`${src}?name=small`} alt="Chart attached to the post" loading="lazy"
+    className="mt-3 aspect-[16/10] w-full rounded-2xl border border-border bg-white object-cover" />
+);
+
+// The ARC report the thread links (a Daily Update, Theme Charts or Deep Dive post on Substack).
+function ReportCard({ r }: { r: XReport }) {
+  return (
+    <a href={r.url} target="_blank" rel="noopener noreferrer"
+      className="mt-3 flex items-center gap-3 rounded-2xl border border-border px-3.5 py-3 hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+      <span className="min-w-0 flex-1">
+        <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-accent">ARC report</span>
+        <span className="mt-0.5 block text-[14px] font-semibold leading-snug text-text">{r.title}</span>
+        <span className="block text-[12.5px] text-muted">Read it on Substack</span>
+      </span>
+      <ArrowUpRight className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
+    </a>
+  );
+}
+
+// One post as X draws it in a timeline: the post opens it on x.com, the report card opens the report,
+// and "Show the full thread" opens the analysis and chart posts under it. The action icons are
 // decoration (no counts: the cache only asks X for new posts, so counts would go stale).
 function XPostRow({ p, clamp }: { p: XPost; clamp?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const thread = p.thread ?? [];
+  const id = `thread-${p.id}`;
   return (
-    <a href={p.url} target="_blank" rel="noopener noreferrer" className="flex h-full min-w-0 gap-3 px-4 py-3 hover:bg-surface-3/45">
+    <div className="flex h-full min-w-0 gap-3 px-4 py-3">
       <img src="/team/ashleyn.png" alt="" className="h-10 w-10 shrink-0 rounded-full object-cover object-[40%_30%]" />
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1 text-[15px] leading-5">
-          <span className="shrink-0 font-bold text-text">Ashleyn Castelino</span>
-          <span className="truncate text-muted">@AshleynCas46131</span>
-          <span className="text-muted" aria-hidden="true">·</span>
-          <time dateTime={p.at} title={FULL.format(new Date(p.at))} className="shrink-0 text-muted">{ago(p.at)}</time>
-          <XLogo className="ml-auto h-4 w-4 shrink-0 text-muted" />
-        </span>
-        <span className={cn("mt-0.5 block whitespace-pre-line break-words text-[15px] leading-[1.45] text-text", clamp && "line-clamp-6")}>{p.text}</span>
-        {p.image && (
-          <img src={`${p.image}?name=small`} alt="Chart attached to the post" loading="lazy"
-            className="mt-3 aspect-[16/10] w-full rounded-2xl border border-border bg-white object-cover" />
+      <div className="min-w-0 flex-1">
+        <a href={p.url} target="_blank" rel="noopener noreferrer" className="block rounded-lg hover:bg-surface-3/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+          <span className="flex items-center gap-1 text-[15px] leading-5">
+            <span className="shrink-0 font-bold text-text">Ashleyn Castelino</span>
+            <span className="truncate text-muted">@AshleynCas46131</span>
+            <span className="text-muted" aria-hidden="true">·</span>
+            <time dateTime={p.at} title={FULL.format(new Date(p.at))} className="shrink-0 text-muted">{ago(p.at)}</time>
+            <XLogo className="ml-auto h-4 w-4 shrink-0 text-muted" />
+          </span>
+          <span className={cn("mt-0.5 block whitespace-pre-line break-words text-[15px] leading-[1.45] text-text", clamp && !open && "line-clamp-6")}>{p.text}</span>
+          {p.image && <Chart src={p.image} />}
+        </a>
+        {p.report && <ReportCard r={p.report} />}
+        {thread.length > 0 && (
+          <>
+            <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls={id}
+              className="mt-3 text-[14px] font-semibold text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+              {open ? "Hide the thread" : `Show the full thread (${thread.length} more ${thread.length === 1 ? "post" : "posts"})`}
+            </button>
+            {open && (
+              <ol id={id} className="mt-2 space-y-3 border-l-2 border-border pl-3">
+                {thread.map((t) => (
+                  <li key={t.id}>
+                    <a href={t.url} target="_blank" rel="noopener noreferrer" className="block rounded-lg hover:bg-surface-3/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                      <span className="block whitespace-pre-line break-words text-[14.5px] leading-[1.45] text-text">{t.text}</span>
+                      {t.image && <Chart src={t.image} />}
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </>
         )}
         <span className="mt-3 flex max-w-[420px] justify-between text-muted" aria-hidden="true">
           <MessageCircle className="h-[18px] w-[18px]" /><Repeat2 className="h-[18px] w-[18px]" />
           <Heart className="h-[18px] w-[18px]" /><BarChart2 className="h-[18px] w-[18px]" />
         </span>
-      </span>
-    </a>
+      </div>
+    </div>
   );
 }
 
