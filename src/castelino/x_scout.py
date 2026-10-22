@@ -120,8 +120,9 @@ analysis posts. The same text also goes out as a Substack Note, so make the anal
   3. What to watch: the next data, event or level that would confirm or break the story.
 Use only figures from the source line, the context lines and the chart data you are given, written
 as given; any other number gets the post dropped. Write a change in words ("up 10bp", "down 2.1%"),
-never with a + sign. Write every stock or fund as its X cashtag only, the ticker it trades under today
-("$SPCX beat forecasts", "$NVDA fell", "$XLE"), never with the company's name. No hashtags, no emoji,
+never with a + sign. Write every stock or fund as its ticker only, the one it trades under today, never
+with the company's name; X allows one cashtag per post, so the first ticker in each post is its cashtag
+and any other is plain ("$SPCX beat forecasts as NVDA fell"). No hashtags, no emoji,
 no links or web addresses, no advice, no "MACRO" or "AI" label: code adds the source. source: the name of the outlet or body that published the source line, as
 readers know it ("Reuters", "NAHB", "AP"), never a link or a domain: write "Investing", not
 "Investing.com"."""

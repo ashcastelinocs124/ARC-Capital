@@ -163,7 +163,7 @@ def test_as_jpeg_shrinks_wide_images():
 def test_stocks_go_out_on_x_as_cashtags_only():
     ok = {"SPCX", "TSM", "NVDA", "XLE", "SPY"}.__contains__
     assert (
-        x_post.cashtags("SpaceX (SPCX) beat; Nvidia (NVDA) fell.", ok) == "$SPCX beat; $NVDA fell."
+        x_post.cashtags("SpaceX (SPCX) beat; Nvidia (NVDA) fell.", ok) == "$SPCX beat; NVDA fell."
     )
     assert (
         x_post.cashtags("Taiwan Semiconductor (TSMC) rose.", ok)
@@ -171,9 +171,21 @@ def test_stocks_go_out_on_x_as_cashtags_only():
     )
     assert (
         x_post.cashtags("Energy stocks (XLE) and the S&P 500 (SPY)", ok)
-        == "Energy stocks $XLE and the S&P 500 $SPY"
+        == "Energy stocks $XLE and the S&P 500 SPY"
     )
     assert (
         x_post.cashtags("Consumer prices (CPI) rose.", lambda t: True)
         == "Consumer prices (CPI) rose."
+    )
+
+
+def test_a_post_carries_one_cashtag_because_x_refuses_more():
+    # X answers 403 "Posts are limited to a maximum of one cashtag" (seen 2026-10-21 and 22)
+    ok = {"TSLA", "XLY"}.__contains__
+    assert (
+        x_post.cashtags("$TSLA fell 3% while $XLY rose; $TSLA leads.", ok)
+        == "$TSLA fell 3% while XLY rose; TSLA leads."
+    )
+    assert x_post.cashtags("Spend hit $2.5 billion, $3,637.292B by 2027.", ok) == (
+        "Spend hit $2.5 billion, $3,637.292B by 2027."
     )

@@ -49,6 +49,8 @@ NOT_TICKERS = {
 }  # fmt: skip
 # "SpaceX (SPCX)" or "Taiwan Semiconductor (TSM)": up to 5 capitalised words, then the ticker in brackets
 _NAMED = re.compile(r"(?:\b[A-Z][\w&.'’-]*\s+){0,5}\(([A-Z]{1,5}(?:[.-][A-Z]{1,2})?)\)")
+# a cashtag, whether code made it or the model wrote it: "$TSLA", never "$2.5"
+_CASHTAG = re.compile(r"\$([A-Z]{1,5}(?:[.-][A-Z]{1,2})?)\b")
 
 
 @lru_cache(maxsize=256)
@@ -67,14 +69,22 @@ def trades(ticker: str) -> bool:
 def cashtags(text: str, lookup=None) -> str:
     """Stocks as X cashtags only (user rule, 2026-10-21): "SpaceX (SPCX) beat" -> "$SPCX beat", the
     capitalised name before the brackets going with them. Only a ticker that trades is turned, so
-    "(CPI)" or a wrong "(TSMC)" stays as written; "Energy stocks (XLE)" keeps its lower-case words."""
+    "(CPI)" or a wrong "(TSMC)" stays as written; "Energy stocks (XLE)" keeps its lower-case words.
+    X allows one cashtag per post, so only the first is kept and later ones lose their "$"."""
     lookup = lookup or trades
 
     def sub(m: re.Match) -> str:
         t = m.group(1)
         return f"${t}" if t not in NOT_TICKERS and lookup(t) else m.group(0)
 
-    return _NAMED.sub(sub, text)
+    n = 0
+
+    def first(m: re.Match) -> str:  # X refuses a post with more than one cashtag (403)
+        nonlocal n
+        n += 1
+        return m.group(0) if n == 1 else m.group(1)
+
+    return _CASHTAG.sub(first, _NAMED.sub(sub, text))
 
 
 def no_emoji(text: str) -> str:
