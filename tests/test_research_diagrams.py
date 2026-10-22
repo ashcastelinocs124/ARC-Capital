@@ -71,3 +71,18 @@ def test_both_layouts_draw_a_png(tmp_path):
     for name, d in (("b.png", branches()), ("f.png", flow)):
         diagrams.render_png(1, d, "arxiv.org", tmp_path / name)
         assert (tmp_path / name).stat().st_size > 10_000
+
+
+def test_a_long_note_wraps_and_every_box_line_fits_its_width_in_flys_font():
+    b = DiagramBox(title="Guard each update", lines=["Evaluate and guard before deployment"] * 3,
+                   note="Repeated edits can degrade capabilities over time")  # fmt: skip
+    w = (1 - 0.025 * 3) / 4  # one of four branches
+    size, title, body, note = diagrams._fit(b, w, 0.7)
+    assert "\n" in note  # the note no longer runs into the next box (Substack PNG, 2026-10-21)
+    inner = w * diagrams.AX_W - 16
+    for text, k, s in (
+        (title, diagrams.BOLD, size + 1.2),
+        (body, diagrams.CHAR, size),
+        (note, diagrams.BOLD, size),
+    ):
+        assert max(len(line) for line in text.split("\n")) * s * k <= inner

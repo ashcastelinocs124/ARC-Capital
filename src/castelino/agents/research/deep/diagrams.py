@@ -108,23 +108,34 @@ TONES = [(GREEN, GREEN_SOFT), (AMBER, AMBER_SOFT), (SLATE, SLATE_SOFT), ("#1D4ED
 
 
 AX_W, AX_H = 0.82 * 6.4 * 72, 0.63 * 3.9 * 72  # the frame's plot area in points (_frame, left=0.06)
+# average glyph width per point of font size: Fly draws in DejaVu Sans, wider than the Mac's Helvetica,
+# so the PNG is sized for DejaVu (bold wider still) or a long line runs out of its box on Substack
+CHAR, BOLD = 0.6, 0.66
 
 
-def _fit(b, w: float, h: float, room: float) -> tuple[int, float, str, str]:
-    """(wrap width, font size, wrapped title, wrapped body) so a box's text fits its width and height."""
+def _wrap(text: str, width_pt: float, size: float, k: float) -> str:
+    return textwrap.fill(text, max(8, int(width_pt / (size * k))), break_on_hyphens=False)
+
+
+def _lines(text: str) -> int:
+    return text.count("\n") + 1 if text else 0
+
+
+def _fit(b, w: float, room: float) -> tuple[float, str, str, str]:
+    """(font size, wrapped title, body and note) so a box's text fits its width and height."""
+    inner = w * AX_W - 16
     for size in (8.2, 7.8, 7.4, 7.0, 6.6, 6.2):
-        wrap = max(10, int((w * AX_W - 16) / (size * 0.53)))
-        title = textwrap.fill(b.title, max(8, int(wrap * 0.85)), break_on_hyphens=False)
-        body = "\n".join(textwrap.fill(t, wrap, break_on_hyphens=False) for t in b.lines)
-        lines = body.count("\n") + 1 if body else 0
+        title = _wrap(b.title, inner, size + 1.2, BOLD)
+        body = "\n".join(_wrap(t, inner, size, CHAR) for t in b.lines)
+        note = _wrap(b.note, inner, size, BOLD) if b.note else ""
         need = (
-            (title.count("\n") + 1) * (size + 1.6) * 1.3
-            + lines * size * 1.35
-            + (size * 1.6 if b.note else 0)
+            _lines(title) * (size + 1.6) * 1.3
+            + (_lines(body) + _lines(note)) * size * 1.35
+            + size * 2
         )
         if need <= room * AX_H:
             break
-    return wrap, size, title, body
+    return size, title, body, note
 
 
 def render_png(n: int, d: DiagramDraft, data: str, path: Path) -> None:
@@ -135,7 +146,7 @@ def render_png(n: int, d: DiagramDraft, data: str, path: Path) -> None:
     from castelino.agents.weekly.charts import _frame
 
     def box(ax, x, y, w, h, b, edge, fill):
-        _, size, title, body = _fit(b, w, h, h - 0.06)
+        size, title, body, note = _fit(b, w, h - 0.06)
         ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0,rounding_size=0.02",
                                     fc=fill, ec=edge, lw=1.3))  # fmt: skip
         ax.text(x + w / 2, y + h - 0.04, title, ha="center", va="top", fontsize=size + 1.2,
@@ -144,9 +155,9 @@ def render_png(n: int, d: DiagramDraft, data: str, path: Path) -> None:
         ax.text(
             x + 0.018, top, body, ha="left", va="top", fontsize=size, color=INK, linespacing=1.35
         )
-        if b.note:
-            ax.text(x + 0.018, y + 0.025, b.note, ha="left", va="bottom", fontsize=size,
-                    fontweight="bold", color=edge)  # fmt: skip
+        if note:
+            ax.text(x + 0.018, y + 0.025, note, ha="left", va="bottom", fontsize=size,
+                    fontweight="bold", color=edge, linespacing=1.3)  # fmt: skip
 
     def draw(ax):
         ax.set_xlim(-0.006, 1.006)
@@ -160,7 +171,7 @@ def render_png(n: int, d: DiagramDraft, data: str, path: Path) -> None:
                                         fc=INK, ec=INK))  # fmt: skip
             ax.text(
                 0.5,
-                0.94,
+                0.94 if d.root_note else 0.915,  # centred in its box when it has no sub-line
                 d.root,
                 ha="center",
                 va="center",
