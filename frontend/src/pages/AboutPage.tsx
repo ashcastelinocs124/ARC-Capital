@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpRight, ShieldCheck } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { C } from "@/lib/theme";
 import { ZoneBar, zoneOf } from "@/components/FearGreedGauge";
@@ -12,7 +11,7 @@ import { useThemePosts } from "@/hooks/useThemes";
 import { useWeeklyPosts } from "@/hooks/useWeekly";
 import { isNote, weekLabel } from "@/api/endpoints";
 
-// /about: who's behind ARC (profile + a live "Latest from ARC" desk), how a Memo is made, and what ARC publishes.
+// /about: who's behind ARC (profile + a live "Latest from ARC" desk), its X feed, and what ARC publishes.
 // The desk reads feeds the site already exports, so the public snapshot needs nothing new; an empty feed hides its row.
 const SUB = "https://archresearch.substack.com/p/";
 const DAY = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
@@ -23,19 +22,6 @@ const LINKS: [string, string][] = [
   ["X · @AshleynCas46131", "https://x.com/AshleynCas46131"],
   ["LinkedIn", "https://www.linkedin.com/in/ashleyn-castelino/"],
   ["YouTube", "https://www.youtube.com/@ashleyn4869"],
-];
-
-const STEPS: { name: string; blurb: string; detail: string; chips?: string[]; guard?: boolean }[] = [
-  { name: "Sources", blurb: "FRED · BLS · Yahoo · Polymarket · cited web search",
-    detail: "Code pulls the day's releases, prices and prediction-market odds, and turns each one into a fact with an id. News and X come from cited web search, one fact per cited line." },
-  { name: "Four analysts", blurb: "", chips: ["Macro", "News", "Alt", "AI"],
-    detail: "An orchestrator briefs four analyst agents (Macro, News, Alt and AI). Each picks findings by citing fact ids; they never type a number themselves." },
-  { name: "Editor", blurb: "Ranks five stories, one chart each",
-    detail: "The editor writes the headline, three takeaways and five ranked stories, each about 400 words, and picks one chart per story. Code draws every chart." },
-  { name: "Number check", blurb: "Every %, bp and pp must match a fact", guard: true,
-    detail: "A guard checks every %, bp and pp in a story against the facts behind it. The editor gets one retry; if a figure still doesn't match, the note doesn't ship." },
-  { name: "Substack", blurb: "A draft I read, edit and publish",
-    detail: "The note lands as a Substack draft. I read it, edit it and hit Publish. Nothing goes out on its own." },
 ];
 
 const PUBS: [string, string, string, string][] = [
@@ -95,43 +81,6 @@ function DeskRow({ r }: { r: Row }) {
     : <a href={r.href} target="_blank" rel="noopener noreferrer" className={cls}>{body}</a>;
 }
 
-function Pipeline() {
-  const [sel, setSel] = useState(3); // Number check: the step that earns the trust
-  return (
-    <section className="card p-5 md:px-7 md:py-6">
-      <div className="mb-4 flex items-baseline justify-between gap-3">
-        <h2 className="font-serif text-[21px] font-bold text-text">How a Memo is made</h2>
-        <span className="text-[12.5px] text-muted">Click a step</span>
-      </div>
-      <div className="grid gap-[18px] lg:grid-cols-5 lg:gap-[22px]">
-        {STEPS.map((s, i) => (
-          <button key={s.name} type="button" onClick={() => setSel(i)} aria-pressed={sel === i}
-            className={cn("relative flex flex-col items-start rounded-xl border p-3.5 text-left transition-colors",
-              s.guard ? "border-accent/60 bg-accent-soft" : "border-border bg-surface",
-              sel === i && "border-text ring-1 ring-text",
-              // the arrow to the next step: right on desktop, down on phones
-              i < STEPS.length - 1 && "after:absolute after:left-6 after:top-full after:mt-0.5 after:text-[15px] after:leading-none after:text-muted-2 after:content-['↓'] lg:after:left-auto lg:after:-right-[18px] lg:after:top-1/2 lg:after:mt-0 lg:after:-translate-y-1/2 lg:after:content-['→']")}>
-            <span className={cn("block text-[11px] font-bold tracking-[0.06em]", s.guard ? "text-accent" : "text-muted")}>0{i + 1}</span>
-            <span className={cn("mb-1 mt-0.5 flex items-center gap-1.5 text-[15px] font-bold", s.guard ? "text-accent" : "text-text")}>
-              {s.guard && <ShieldCheck className="h-4 w-4" />}{s.name}
-            </span>
-            {s.chips ? (
-              <span className="flex flex-wrap gap-1">
-                {s.chips.map((c) => <span key={c} className="rounded-full border border-border-strong px-2 text-[11.5px] text-text-2">{c}</span>)}
-              </span>
-            ) : (
-              <span className="block text-[12.5px] leading-snug text-muted">{s.blurb}</span>
-            )}
-          </button>
-        ))}
-      </div>
-      <p className="mt-4 rounded-[10px] border border-dashed border-border-strong bg-surface-2 px-3.5 py-3 text-[13.5px] leading-relaxed text-text-2">
-        {STEPS[sel].detail}
-      </p>
-    </section>
-  );
-}
-
 export default function AboutPage() {
   const desk = useDesk();
   return (
@@ -186,8 +135,6 @@ export default function AboutPage() {
       </section>
 
       <XFeedCard />
-
-      <Pipeline />
 
       <section>
         <h2 className="mb-3 font-serif text-[21px] font-bold text-text">What ARC publishes</h2>
