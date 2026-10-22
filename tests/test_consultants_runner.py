@@ -90,7 +90,7 @@ def test_after_note_without_note_logs_skipped_and_still_catches_up(calls, tmp_pa
     crunner.after_note(MONDAY, tmp_path / "updates")
     assert calls == [("weekly", c.slug, "2026-10-18")] * 2
     skipped = [h for h in store.history(c.slug) if h.verdict == "skipped"]
-    assert len(skipped) == 1 and skipped[0].reason == "no Daily Update today"
+    assert len(skipped) == 1 and skipped[0].reason == "No Daily Update today."
 
 
 def test_job_update_agent_calls_before_and_after_even_when_skipped(monkeypatch):

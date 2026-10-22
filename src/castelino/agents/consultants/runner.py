@@ -101,7 +101,7 @@ def after_note(day: date, updates_dir: Path) -> None:
                 store.append_history(
                     c.slug,
                     HistoryLine(
-                        day=ds, kind="daily", verdict="skipped", reason="no Daily Update today"
+                        day=ds, kind="daily", verdict="skipped", reason="No Daily Update today."
                     ),
                 )
             if day == we:
