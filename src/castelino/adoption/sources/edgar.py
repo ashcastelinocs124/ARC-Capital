@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import time
 from dataclasses import dataclass
+from datetime import date
 
 import httpx
 from bs4 import BeautifulSoup
@@ -83,3 +84,32 @@ class EdgarClient:
 
     def filing_text(self, filing: Filing) -> str:
         return _html_to_text(self._get(filing.url).text)
+
+    def earnings_release(self, ticker: str, day: date) -> tuple[str, str] | None:
+        """(text, address) of the earnings release filed on or after `day`: exhibit 99.1 of an 8-K
+        with item 2.02 (results of operations). None until it's filed. One filed after 17:30 ET gets
+        the next business day's date, hence "on or after"."""
+        cik = self._cik(ticker)
+        if cik is None:
+            return None
+        recent = self._get(_SUBS_URL.format(cik=cik)).json()["filings"]["recent"]
+        for i, form in enumerate(recent["form"]):
+            if recent["filingDate"][i] < day.isoformat():
+                return None  # newest first: nothing filed since the report day
+            if form.startswith("8-K") and "2.02" in recent["items"][i]:
+                acc = recent["accessionNumber"][i].replace("-", "")
+                index = f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc}/index.json"
+                docs = self._get(index).json()["directory"]["item"]
+                pages = [
+                    d
+                    for d in docs
+                    if d["name"].endswith((".htm", ".html"))
+                    and d["name"] != recent["primaryDocument"][i]
+                    and not re.fullmatch(r"R\d+\.htm|.*index.*", d["name"])
+                ]
+                ex = next((d for d in pages if re.search(r"99[._-]?0?1", d["name"])), None)
+                ex = ex or max(pages, key=lambda d: int(d.get("size") or 0), default=None)
+                if ex:
+                    url = _DOC_URL.format(cik=cik, acc=acc, doc=ex["name"])
+                    return _html_to_text(self._get(url).text), url
+        return None

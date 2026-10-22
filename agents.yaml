@@ -320,6 +320,27 @@ agents:
       writes: ["The search times, in the same file"]
       persists: "Up to 12 searches per company a day."
 
+  - id: x_segment_reader
+    name: Segment Reader
+    group: X Scout
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "LLM call (x_scout.writer_model, gpt-6-luna)"}
+      - {key: SEC_USER_AGENT, required: false, why: "SEC's required contact string for EDGAR; without it earnings posts carry only the beat-or-miss chart"}
+    class: castelino.release_charts.SegmentReader
+    summary: >-
+      When a watched company's results land, code finds the earnings release it filed with the SEC
+      (exhibit 99.1 of the 8-K with item 2.02) and this call copies the release's segment table: each
+      segment's sales and profit and their change on a year ago. Code keeps only numbers the release
+      prints and draws where the sales and the profit came from as two treemaps, posted on X with a
+      beat-or-miss chart.
+    tools:
+      - {name: "EdgarClient.earnings_release() (code)", does: "The 8-K with item 2.02 filed on or after the report day, exhibit 99.1 as text; none filed yet means no segment charts"}
+      - {name: "release_charts.checked() (code)", does: "Drops a segment whose sales the release doesn't print, and any other number it doesn't"}
+    memory:
+      reads: ["The earnings release's text"]
+      writes: ["The chart PNGs, beside data/x_posts/calendar/<date>.json"]
+      persists: "Nothing between posts."
+
   - id: desk_chat
     name: Desk Chat
     group: Briefings
@@ -1003,7 +1024,7 @@ systems:
       - title: "Findings"
         flow: [["Every 2 h"], ["agent:x_scout_search|cited macro + AI"], ["agent:x_scout|1 item, 24h retry"], ["agent:x_scout_writer|post + reply"], ["end:X + Substack Note|+ chart · or dry-run log"]]
       - title: "Calendar"
-        flow: [["7:00 · every 5 min"], ["code:Week Ahead|pick + card · watch list"], ["agent:x_calendar_writer|week or day read"], ["agent:x_earnings_reader|earnings from cited news", "agent:x_release_writer|one line per release"], ["end:X + Notes|card on both · releases X only ≤6/day"]]
+        flow: [["7:00 · every 5 min"], ["code:Week Ahead|pick + card · watch list"], ["agent:x_calendar_writer|week or day read"], ["agent:x_earnings_reader|earnings from cited news", "agent:x_segment_reader|segments from the 8-K", "agent:x_release_writer|one line per release"], ["end:X + Notes|card on both · releases X only ≤6/day"]]
 
   - group: Research metrics
     trigger: "Refresh (AI Adoption Index); recipes are written by hand"
@@ -1230,6 +1251,7 @@ pipelines:
       - {id: web, kind: source, layer: sources, x: 170, name: web search, sub: cited sources, does: "A web search that returns cited sources; only lines with a citation are kept."}
       - {id: series, kind: source, layer: sources, x: 490, name: FRED · Yahoo, sub: chart series, does: "The data series behind a finding's chart, downloaded straight from the source."}
       - {id: calendar, kind: source, layer: sources, x: 790, name: Week Ahead, sub: the week's calendar, does: "ARC's calendar of the week's economic releases (with consensus and previous) and the companies reporting, refreshed every evening."}
+      - {id: sec, kind: source, layer: sources, x: 1270, name: SEC EDGAR, sub: earnings releases, does: "The earnings release each company files with the SEC as an 8-K, usually minutes after it reports."}
       - {id: nasdaq, kind: source, layer: sources, x: 1110, name: Nasdaq calendar, sub: live actuals, does: "Nasdaq's economic and earnings calendars, which show the actual number or EPS within minutes of a release."}
       - {id: schedule, kind: trigger, layer: agents, x: 20, w: 120, name: Findings, sub: every 2 h, does: "Runs every 2 hours, 10:15 to 22:15 New York time on weekdays and 08:15 to 22:15 at weekends, never within an hour of the morning Theme Charts thread."}
       - {id: search, kind: llm, agent: x_scout_search, layer: agents, x: 170, name: Scout search, sub: macro + AI news, does: "Searches the last 6 hours of macro and AI news and keeps only the lines it can cite."}
@@ -1239,6 +1261,7 @@ pipelines:
       - {id: pick, kind: code, layer: agents, x: 790, name: Pick + card, sub: key rows · drawn by code, does: "Plain code picks the key US releases, inflation and jobs abroad and the largest companies reporting, draws the card and saves the four most important releases to watch."}
       - {id: cardw, kind: llm, agent: x_calendar_writer, layer: agents, x: 950, name: Calendar writer, sub: week or day read, does: "Writes the short read on top of the card from the card's own rows."}
       - {id: earnread, kind: llm, agent: x_earnings_reader, layer: agents, x: 1110, dy: -40, name: Earnings reader, sub: cited news, does: "Nasdaq doesn't show reported EPS, so a cited news search checks each watched company once its session opens; this agent reads the lines into the numbers line, posted only if every figure is a cited one's."}
+      - {id: segread, kind: llm, agent: x_segment_reader, layer: agents, x: 1270, name: Segment reader, sub: 8-K segments, does: "Copies the segment table of the company's SEC earnings release; code keeps only numbers the release prints and draws where the sales and the profit came from."}
       - {id: releasew, kind: llm, agent: x_release_writer, layer: agents, x: 1110, dy: 40, name: Release writer, sub: one plain line, does: "Adds one plain sentence, with no numbers, under each release post."}
       - {id: limits, kind: guard, layer: guardrails, x: 330, name: No repeats, sub: 7 days · 2 a day, does: "The Scout sees what this account posted in the last week and today's market alerts; code refuses a story already posted and stops after two findings a day."}
       - {id: check, kind: guard, layer: guardrails, x: 490, name: Number check, sub: source or chart data, does: "Code draws the chart. Every number in the post must come from the cited source or the chart's data, and each post must fit 280 characters, or the post is dropped after one retry."}
@@ -1247,7 +1270,7 @@ pipelines:
       - {id: stop, kind: stop, layer: delivery, x: 330, name: Nothing worth posting, sub: until next run, does: "Most findings runs find nothing worth a post, and the run simply stops."}
       - {id: post, kind: out, layer: delivery, x: 490, name: Finding, sub: X + Substack Note, does: "The finding is posted to X with its chart, naming its source, and the analysis follows as a reply; the same finding goes out as one Substack Note with the chart and the source link. While the feature is in test mode, posts are only logged."}
       - {id: cardpost, kind: out, layer: delivery, x: 950, name: Calendar card, sub: X + Substack Note, does: "The week's or today's calendar card posted to X with its read, and as a Substack Note. While the feature is in test mode, posts are only logged."}
-      - {id: relpost, kind: out, layer: delivery, x: 1110, name: Release post, sub: actual vs expected, does: "A post on X as each watched release or earnings report lands. While the feature is in test mode, posts are only logged."}
+      - {id: relpost, kind: out, layer: delivery, x: 1110, name: Release post, sub: with charts, does: "A post on X as each watched release or earnings report lands, with its charts: actual vs forecast for data; where the sales and the profit came from and the beat or miss for earnings. While the feature is in test mode, posts are only logged."}
     edges:
       - schedule > search
       - web > search
@@ -1269,13 +1292,15 @@ pipelines:
       - web > earnread
       - earnread > releasew
       - releasew > relpost
+      - sec > segread
+      - segread > relpost
     steps:
       - {title: Find, nodes: [schedule, search, web], edges: [schedule > search, web > search], io: ["in: last 6 hours of news", "out: cited items"], text: "Every 2 hours the Scout search agent lists the macro and AI news of the last 6 hours, and only lines with a citation go on."}
       - {title: Pick, nodes: [scout, limits, stop], edges: [search > scout, limits > scout, scout > stop], io: ["in: cited items + past posts", "out: one item or stop"], text: "The Scout agent picks the one item worth a post and the series that chart it. It skips anything already posted, and most runs stop here."}
       - {title: Chart, write and post, nodes: [writer, series, check, post], edges: [scout > writer, series > writer, writer > check, check > post], io: ["in: item + chart data", "out: finding on X"], text: "Code draws the chart; the Writer agent writes the post and one reply; code checks every number, then the finding goes out on X."}
       - {title: Calendar card, nodes: [calsched, pick, calendar, cardw], edges: [calsched > pick, calendar > pick, pick > cardw], io: ["in: the week's calendar", "out: card + read"], text: "At 7:00 on weekdays code picks the key releases and reporters and draws the card; the Calendar writer adds a short read."}
       - {title: Check and post the card, nodes: [cardcheck, cardpost], edges: [cardw > cardcheck, cardcheck > cardpost], io: ["in: card + read", "out: card on X"], text: "Code checks every figure in the read against the card, then the card goes out on X."}
-      - {title: Release posts, nodes: [watchcap, nasdaq, earnread, releasew, relpost], edges: [cardcheck > watchcap, watchcap > releasew, nasdaq > releasew, web > earnread, earnread > releasew, releasew > relpost], io: ["in: watch list + live calendar + cited news", "out: release posts"], text: "Every 5 minutes code checks Nasdaq's live calendar for the morning's watched data, and a cited news search (read by the Earnings Reader) for each watched company once its session opens; each release that lands posts once with its numbers against what was expected, plus one plain sentence."}
+      - {title: Release posts, nodes: [watchcap, nasdaq, earnread, sec, segread, releasew, relpost], edges: [cardcheck > watchcap, watchcap > releasew, nasdaq > releasew, web > earnread, earnread > releasew, sec > segread, segread > relpost, releasew > relpost], io: ["in: watch list + live calendar + cited news + SEC filings", "out: release posts with charts"], text: "Every 5 minutes code checks Nasdaq's live calendar for the morning's watched data, and a cited news search (read by the Earnings Reader) for each watched company once its session opens; each release that lands posts once with its numbers against what was expected, plus one plain sentence and its charts: actual vs forecast for data; for earnings, where the sales and the profit came from (the Segment Reader copies the SEC filing's segment table) and the beat or miss."}
 
   - id: sector-sentiment
     name: Sector Sentiment

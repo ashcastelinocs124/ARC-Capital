@@ -189,3 +189,20 @@ def test_a_post_carries_one_cashtag_because_x_refuses_more():
     assert x_post.cashtags("Spend hit $2.5 billion, $3,637.292B by 2027.", ok) == (
         "Spend hit $2.5 billion, $3,637.292B by 2027."
     )
+
+
+def test_a_post_can_carry_up_to_four_images(monkeypatch):
+    sent = {}
+    monkeypatch.setattr(x_post, "_auth_header", lambda *a: "OAuth x")
+    monkeypatch.setattr(
+        x_post.httpx,
+        "post",
+        lambda url, json, **k: (
+            sent.update(json)
+            or type("R", (), {"status_code": 201, "json": lambda self: {"data": {"id": "7"}}})()
+        ),
+    )
+    assert x_post.post("hi", media_id=["a", "b", "c", "d", "e"]) == "7"
+    assert sent["media"] == {"media_ids": ["a", "b", "c", "d"]}
+    x_post.post("hi", media_id="a")
+    assert sent["media"] == {"media_ids": ["a"]}

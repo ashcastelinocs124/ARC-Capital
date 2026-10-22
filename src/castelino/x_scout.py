@@ -55,7 +55,7 @@ from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel
 
-from castelino import substack, x_post
+from castelino import release_charts, substack, x_post
 from castelino.agents.base import StructuredAgent
 from castelino.agents.update.charts import is_rate
 from castelino.agents.update.facts import _NUM, facts_from_search, numbers_in
@@ -1068,11 +1068,12 @@ def earnings_result(w: dict, day: date) -> str | None:
     return line + "."
 
 
-def landed(todo: list[dict], now: datetime, rec: dict) -> list[tuple[list[dict], str]]:
-    """Watched releases whose number is out, in watch order: (their watch rows, the numbers line).
-    Data from Nasdaq's live calendar; earnings by earnings_result, its searches logged in rec."""
+def landed(todo: list[dict], now: datetime, rec: dict) -> list[tuple[list[dict], str, list[dict]]]:
+    """Watched releases whose number is out, in watch order: (their watch rows, the numbers line,
+    Nasdaq's rows for a data release). Data from Nasdaq's live calendar; earnings by earnings_result,
+    its searches logged in rec."""
     day = now.date()
-    out: list[tuple[list[dict], str]] = []
+    out: list[tuple[list[dict], str, list[dict]]] = []
     if any(w["kind"] != "earnings" for w in todo):
         live = {
             key(e): e for e in econ.events_for_day(nasdaq.fetch_day("economicevents", day), day)
@@ -1082,7 +1083,7 @@ def landed(todo: list[dict], now: datetime, rec: dict) -> list[tuple[list[dict],
             e = live.get(w["key"]) if w["kind"] != "earnings" else None
             if e and e["actual"] is not None:
                 hits.setdefault(group(w), []).append((w, e))
-        out += [([w for w, _ in h], _data_line(h)) for h in hits.values()]
+        out += [([w for w, _ in h], _data_line(h), [e for _, e in h]) for h in hits.values()]
     checks = rec.setdefault("checks", {})
     for w in [w for w in todo if w["kind"] == "earnings"]:
         seen = checks.setdefault(w["key"], [])
@@ -1095,7 +1096,7 @@ def landed(todo: list[dict], now: datetime, rec: dict) -> list[tuple[list[dict],
             print(f"  {w['ticker']}: search failed: {e}")
             continue
         if line:
-            out.append(([w], line))
+            out.append(([w], line, []))
     order = {w["key"]: i for i, w in enumerate(todo)}
     return sorted(out, key=lambda t: order[t[0][0]["key"]])
 
@@ -1110,6 +1111,35 @@ def explain(line: str) -> str | None:
     return s if s and len(s) <= 180 and not re.search(r"\d", s) else None
 
 
+def release_pngs(
+    ws: list[dict], line: str, rows: list[dict], now: datetime, root: Path
+) -> list[Path]:
+    """A release post's charts (release_charts.py), saved beside the day's record; [] when none can be
+    made. Never raises: the post goes out without them."""
+    out = _day_path(root, now).with_suffix("")
+    try:
+        w = ws[0]
+        if w["kind"] == "earnings":
+            return release_charts.earnings_charts(company(w), w["ticker"], line, now.date(), out)
+        out.mkdir(parents=True, exist_ok=True)
+        p = out / (re.sub(r"\W+", "-", label(w)).strip("-") + ".png")
+        return [p] if release_charts.data_chart(label(w), rows[0], now.date(), p) else []
+    except Exception as e:  # noqa: BLE001 - the news never waits on a chart
+        print(f"  release charts failed: {e}")
+        return []
+
+
+def uploads(pngs: list[Path]) -> list[str]:
+    """X media ids of the charts that uploaded (at most 4); one that fails is left out."""
+    ids = []
+    for p in pngs[:4]:
+        try:
+            ids.append(x_post.upload_image(p.read_bytes()))
+        except Exception as e:  # noqa: BLE001
+            print(f"  {p.name}: upload failed: {e}")
+    return ids
+
+
 def watch(now: datetime | None = None, root: Path | None = None, dry: bool = False) -> list[dict]:
     """Post each watched release that has landed since the last check; returns what went out."""
     now, root = now or datetime.now(ET), root or get_settings().root
@@ -1122,17 +1152,20 @@ def watch(now: datetime | None = None, root: Path | None = None, dry: bool = Fal
     out = []
     hits = landed(todo, now, rec)
     save_day(root, now, rec)  # the earnings searches just made, so the throttle holds
-    for ws, line in hits[:room]:
+    for ws, line, rows in hits[:room]:
         sentence = explain(line)
         text = line + (f"\n\n{sentence}" if sentence else "")
         live = _live(dry)
+        pngs = release_pngs(ws, line, rows, now, root)
+        media = uploads(pngs) if live else []
         r = {
             "key": group(ws[0]),
             "keys": [w["key"] for w in ws],
             "at": now.isoformat(timespec="minutes"),
             "text": text,
+            "charts": [p.name for p in pngs],
             "dry_run": not live,
-            "id": x_post.post(text) if live else None,
+            "id": x_post.post(text, media_id=media or None) if live else None,
         }
         rec.setdefault("releases", []).append(r)
         save_day(root, now, rec)  # after each post, so a crash never posts it twice

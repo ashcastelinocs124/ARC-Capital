@@ -173,6 +173,9 @@ def fake_watch(monkeypatch, tmp_path, econ, earnings, sentence="Builders are sti
     )
     # earnings by ticker: the line a cited search found, or None while it hasn't reported
     monkeypatch.setattr(x_scout, "earnings_result", lambda w, day: feeds["earnings"].get(w["ticker"]))  # fmt: skip
+    monkeypatch.setattr(
+        x_scout.release_charts, "segments", lambda *a: None
+    )  # no SEC calls in tests
     return feeds
 
 
@@ -252,6 +255,54 @@ def test_live_watch_posts_on_x(monkeypatch, tmp_path):
     assert (
         out[0]["id"] == "99" and not out[0]["dry_run"] and len(sent) == 1
     )  # release posts: X only
+
+
+def live_x(monkeypatch, upload=lambda data: "m"):
+    monkeypatch.setenv("X_SCOUT_LIVE", "1")
+    monkeypatch.setattr(x_post, "can_post", lambda: True)
+    monkeypatch.setattr(x_post, "upload_image", upload)
+    sent = []
+    monkeypatch.setattr(
+        x_post, "post", lambda text, **k: sent.append((text, k.get("media_id"))) or "99"
+    )
+    return sent
+
+
+def test_a_data_release_posts_with_its_actual_vs_forecast_chart(monkeypatch, tmp_path):
+    fake_watch(monkeypatch, tmp_path, [econ_row("Housing Starts", "1.32M", "1.3M", "1.275M")], {})
+    sent = live_x(monkeypatch)
+    out = x_scout.watch(now=WED.replace(hour=8, minute=35), root=tmp_path)
+    assert sent[0][1] == ["m"] and out[0]["charts"] == ["US-Housing-Starts.png"]
+    assert (
+        tmp_path / "data/x_posts/calendar/2026-10-21/US-Housing-Starts.png"
+    ).stat().st_size > 10_000
+
+
+def test_an_earnings_post_carries_up_to_three_charts(monkeypatch, tmp_path):
+    fake_watch(monkeypatch, tmp_path, [], {"TSLA": "$TSLA Q3: EPS 48 cents vs 45 cents expected."})
+    pngs = [tmp_path / f"{n}.png" for n in ("sales", "profit", "vs")]
+    for q in pngs:
+        q.write_bytes(b"png")
+    monkeypatch.setattr(x_scout.release_charts, "earnings_charts", lambda *a: pngs)
+    ids = iter(["a", "b", "c"])
+    sent = live_x(monkeypatch, upload=lambda data: next(ids))
+    x_scout.watch(now=WED.replace(hour=16, minute=20), root=tmp_path)
+    assert sent[0][1] == ["a", "b", "c"]
+
+
+def test_charts_that_fail_never_hold_up_the_post(monkeypatch, tmp_path):
+    fake_watch(monkeypatch, tmp_path, [econ_row("Housing Starts", "1.32M", "1.3M", "1.275M")], {})
+    monkeypatch.setattr(x_scout.release_charts, "data_chart", lambda *a: 1 / 0)
+    sent = live_x(monkeypatch)
+    out = x_scout.watch(now=WED.replace(hour=8, minute=35), root=tmp_path)
+    assert sent[0][1] is None and out[0]["charts"] == [] and out[0]["id"] == "99"
+
+
+def test_an_upload_that_fails_posts_without_that_chart(monkeypatch, tmp_path):
+    fake_watch(monkeypatch, tmp_path, [econ_row("Housing Starts", "1.32M", "1.3M", "1.275M")], {})
+    sent = live_x(monkeypatch, upload=lambda data: 1 / 0)
+    x_scout.watch(now=WED.replace(hour=8, minute=35), root=tmp_path)
+    assert sent[0][1] is None
 
 
 def test_live_card_also_posts_a_note_with_the_card(monkeypatch, tmp_path):

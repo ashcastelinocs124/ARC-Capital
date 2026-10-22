@@ -170,13 +170,13 @@ def upload_image(data: bytes) -> str:
     return r.json()["data"]["id"]
 
 
-def post(text: str, reply_to: str | None = None, media_id: str | None = None) -> str:
-    """One post; returns its id. Raises with X's message on failure."""
+def post(text: str, reply_to: str | None = None, media_id: str | list[str] | None = None) -> str:
+    """One post; returns its id. Raises with X's message on failure. media_id: one image or up to 4."""
     body: dict = {"text": cashtags(no_emoji(text)).strip()}
     if reply_to:
         body["reply"] = {"in_reply_to_tweet_id": reply_to}
     if media_id:
-        body["media"] = {"media_ids": [media_id]}
+        body["media"] = {"media_ids": [media_id] if isinstance(media_id, str) else media_id[:4]}
     r = httpx.post(
         TWEETS, json=body, headers={"Authorization": _auth_header("POST", TWEETS)}, timeout=30
     )
