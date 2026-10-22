@@ -148,6 +148,12 @@ def write_facts(slug: str, day: str, facts: list[Fact]) -> None:
     )
 
 
+def fact_days(slug: str) -> list[str]:
+    """Days that have facts, oldest first."""
+    d = cdir(slug) / "facts"
+    return sorted(p.stem for p in d.glob("*.json")) if d.exists() else []
+
+
 def _day_of(fid: str) -> str | None:
     m = re.match(r"^K\d+-(\d{4})(\d{2})(\d{2})-", fid)
     return f"{m[1]}-{m[2]}-{m[3]}" if m else None

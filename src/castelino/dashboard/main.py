@@ -94,6 +94,7 @@ from castelino.dashboard.endpoints import (  # noqa: E402
     agent_catalog,
     ai_sentiment,
     chart_desk,
+    consultants,
     cross_asset,
     daily_posts,
     deep_research,
@@ -138,6 +139,7 @@ for _private in (models.router, adoption.router, cross_asset.router):
 app.include_router(trade.router)
 app.include_router(deep_research.router)
 app.include_router(chart_desk.router)
+app.include_router(consultants.router)
 app.include_router(admin_desk.router)
 
 
