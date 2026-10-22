@@ -93,7 +93,8 @@ class TradeToolBox(ToolBox):
 
     def specs(self) -> list[dict]:
         names = [*self.allowed, "post_to_board", "read_board"]
-        return [{"type": "function", "name": n, "strict": True, **TRADE_SPECS[n]} for n in names]
+        specs = [{"type": "function", "name": n, "strict": True, **TRADE_SPECS[n]} for n in names]
+        return specs + self.consult_specs()
 
     def prefetch(self, calls: list[tuple[str, dict | None]]) -> None:
         """Run a turn's web searches at once (each takes ~30s). call() still takes them in order, so fact ids

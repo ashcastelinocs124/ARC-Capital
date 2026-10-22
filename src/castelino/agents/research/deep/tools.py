@@ -120,7 +120,8 @@ class ResearchToolBox(TradeToolBox):
 
     def specs(self) -> list[dict]:
         names = [*self.allowed, "post_to_board", "read_board"]
-        return [{"type": "function", "name": n, "strict": True, **SPECS_R[n]} for n in names]
+        specs = [{"type": "function", "name": n, "strict": True, **SPECS_R[n]} for n in names]
+        return specs + self.consult_specs()
 
     def _ids(self, n: int) -> list[str]:
         # after compaction only cited facts remain: count on from the highest own id, never len(facts)

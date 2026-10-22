@@ -150,7 +150,29 @@ class ToolBox:
 
     def specs(self) -> list[dict]:
         names = [*self.allowed, "post_to_board", "read_board"]
-        return [{"type": "function", "name": n, "strict": True, **SPECS[n]} for n in names]
+        specs = [{"type": "function", "name": n, "strict": True, **SPECS[n]} for n in names]
+        return specs + self.consult_specs()
+
+    def consult_specs(self) -> list[dict]:
+        """The topic consultants' `consult` tool, offered only once a consultant has a thesis."""
+        from castelino.agents.consultants import consult
+
+        return [s] if (s := consult.spec()) else []
+
+    def _consult(self, topic: str, question: str) -> str:
+        from castelino.agents.consultants import consult
+
+        try:
+            text, facts = consult.answer(
+                topic, question, asker=self.agent, meter=getattr(self, "meter", None)
+            )
+        except KeyError:
+            return f"Error: no consultant called {topic}"
+        have = {f.id for f in self.facts}
+        self.facts += [
+            f for f in facts if f.id not in have
+        ]  # consultant ids are unique, like board facts
+        return "\n".join([text, *(f"[{f.id}] {f.text} — {f.source_title}" for f in facts)])
 
     def exhausted(self) -> bool:
         return self.calls >= self.max_calls
@@ -171,6 +193,8 @@ class ToolBox:
                 return self._read_board()
             if name == "post_to_board":
                 return self._post(args["note"], args["fact_ids"])
+            if name == "consult":
+                return self._consult(args["topic"], args["question"])
             if name not in self.allowed:
                 raise ToolError(f"{name} is not one of your tools")
             new = getattr(self, f"_{name}")(**args)

@@ -58,6 +58,11 @@ class MemoryNoteDraft(BaseModel):  # LLM output: one note for this week's short-
     importance: int  # 1-5
 
 
+class Answer(BaseModel):  # LLM output: a consult() reply
+    text: str
+    fact_ids: list[str]
+
+
 class HistoryLine(BaseModel):
     day: str
     kind: Literal["start", "daily", "weekly"]
