@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
-import { consultants, type Detail, type HistoryLine, type Row, type Watchlist } from "./api";
+import { consultants, type Consultant, type Detail, type HistoryLine, type Row, type Watchlist } from "./api";
 
-// /admin → Consultants: type a topic → a suggested watchlist you can trim → Start. Each consultant builds a
+// /admin → Consultants: type a topic → a suggested watchlist you can trim or add to → Start. Each consultant builds a
 // daily file of cited facts and keeps a thesis (what's happening, what could happen) that the Daily Update
 // uses for its ARC view. Layout: the approved mockup's frame C (docs/superpowers/specs/2026-10-22-topic-consultants/).
 const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
@@ -65,6 +65,100 @@ function Timeline({ history }: { history: HistoryLine[] }) {
   );
 }
 
+// The watchlist's chips (click to remove) and add boxes: a company by ticker, a series by FRED/Yahoo id.
+// Each add is checked against Yahoo/FRED by the backend before it becomes a chip.
+function WatchlistEditor({ wl, onChange }: { wl: Watchlist; onChange: (w: Watchlist) => void }) {
+  const [ticker, setTicker] = useState("");
+  const [src, setSrc] = useState<"fred" | "yahoo">("fred");
+  const [sid, setSid] = useState("");
+  const [busy, setBusy] = useState<"" | "company" | "series">("");
+  const [error, setError] = useState<{ kind: "company" | "series"; text: string } | null>(null);
+  const remove = (k: keyof Watchlist, i: number) => onChange({ ...wl, [k]: (wl[k] as unknown[]).filter((_, j) => j !== i) } as Watchlist);
+  const add = (kind: "company" | "series", value: string, clear: () => void) => {
+    if (!value.trim() || busy) return;
+    setBusy(kind); setError(null);
+    consultants.check(kind, value.trim()).then(({ company, series }) => {
+      if (company) {
+        if (wl.companies.some((c) => c.ticker === company.ticker)) throw new Error(`${company.ticker} is already on the watchlist.`);
+        onChange({ ...wl, companies: [...wl.companies, company] });
+      } else if (series) {
+        if (wl.series.includes(series)) throw new Error(`${series} is already on the watchlist.`);
+        onChange({ ...wl, series: [...wl.series, series] });
+      }
+      clear();
+    }).catch((e) => setError({ kind, text: String(e.message ?? e) })).finally(() => setBusy(""));
+  };
+  const chip = (label: string, k: keyof Watchlist, i: number) => (
+    <button key={`${k}-${i}`} type="button" onClick={() => remove(k, i)} disabled={busy !== ""} aria-label={`Remove ${label}`}
+      className={cn("rounded-full border border-border-strong bg-surface-2 px-3 py-1 text-xs hover:border-danger disabled:opacity-60", FOCUS)}>
+      {label} <span aria-hidden="true">✕</span>
+    </button>
+  );
+  const box = cn("w-28 rounded-full border border-dashed border-border-strong bg-surface-2 px-3 py-1 text-xs", FOCUS);
+  const addBtn = cn("rounded-full border border-border-strong px-2.5 py-1 text-xs font-semibold text-accent disabled:opacity-50", FOCUS);
+  const err = (kind: "company" | "series") =>
+    error?.kind === kind && <p role="alert" className="basis-full text-xs text-danger">{error.text}</p>;
+  return (
+    <dl className="mt-2 grid grid-cols-[110px_1fr] gap-x-3 gap-y-2 text-[13px]">
+      <dt className="pt-1 font-semibold text-muted">Companies</dt>
+      <dd className="flex flex-wrap items-center gap-1.5">
+        {wl.companies.map((c, i) => chip(`${c.name} (${c.ticker})`, "companies", i))}
+        <span className="inline-flex items-center gap-1">
+          <input value={ticker} onChange={(e) => setTicker(e.target.value)} placeholder="Add ticker" aria-label="Add a company by ticker"
+            onKeyDown={(e) => e.key === "Enter" && add("company", ticker, () => setTicker(""))} className={box} />
+          <button type="button" onClick={() => add("company", ticker, () => setTicker(""))} disabled={busy !== ""} className={addBtn}>
+            {busy === "company" ? "Checking…" : "Add"}
+          </button>
+        </span>
+        {err("company")}
+      </dd>
+      <dt className="pt-1 font-semibold text-muted">Data</dt>
+      <dd className="flex flex-wrap items-center gap-1.5">
+        {wl.series.map((s, i) => chip(s, "series", i))}
+        <span className="inline-flex items-center gap-1">
+          <select value={src} onChange={(e) => setSrc(e.target.value as "fred" | "yahoo")} aria-label="Data source"
+            className={cn("rounded-full border border-border-strong bg-surface-2 px-2 py-1 text-xs", FOCUS)}>
+            <option value="fred">FRED</option>
+            <option value="yahoo">Yahoo</option>
+          </select>
+          <input value={sid} onChange={(e) => setSid(e.target.value)} placeholder={src === "fred" ? "e.g. DGS10" : "e.g. ^VIX"}
+            aria-label="Add a data series id" onKeyDown={(e) => e.key === "Enter" && add("series", sid && `${src}:${sid.trim()}`, () => setSid(""))}
+            className={box} />
+          <button type="button" onClick={() => add("series", sid && `${src}:${sid.trim()}`, () => setSid(""))} disabled={busy !== ""} className={addBtn}>
+            {busy === "series" ? "Checking…" : "Add"}
+          </button>
+        </span>
+        {err("series")}
+      </dd>
+      <dt className="pt-1 font-semibold text-muted">News and alt</dt>
+      <dd className="flex flex-wrap gap-1.5">{wl.queries.length ? wl.queries.map((q, i) => chip(`News: ${q}`, "queries", i)) : <span className="text-muted">None</span>}</dd>
+    </dl>
+  );
+}
+
+// A running consultant's watchlist: each add or remove saves at once and applies from the next build.
+function WatchlistCard({ c }: { c: Consultant }) {
+  const [wl, setWl] = useState(c.watchlist);
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const save = (w: Watchlist) => {
+    const prev = wl;
+    setWl(w); setNote({ ok: true, text: "Saving…" });
+    consultants.setWatchlist(c.slug, w)
+      .then(() => setNote({ ok: true, text: "Saved · applies from the next build" }))
+      .catch((e) => { setWl(prev); setNote({ ok: false, text: `Not saved: ${String(e.message ?? e)}` }); });
+  };
+  return (
+    <section className="rounded-2xl border border-border bg-surface p-5" aria-labelledby="watchlist">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 id="watchlist" className="eyebrow">Watchlist</h3>
+        <span aria-live="polite" className={cn("text-xs", note?.ok === false ? "text-danger" : "text-accent")}>{note?.text}</span>
+      </div>
+      <WatchlistEditor wl={wl} onChange={save} />
+      <p className="mt-3 text-xs text-muted">Changes apply from the next daily build (17:00 New York). Today's facts and the current view stay as they are.</p>
+    </section>
+  );
+}
+
 function NewConsultant({ onCreated }: { onCreated: (r: Row) => void }) {
   const [topic, setTopic] = useState("");
   const [wl, setWl] = useState<Watchlist | null>(null);
@@ -81,14 +175,6 @@ function NewConsultant({ onCreated }: { onCreated: (r: Row) => void }) {
     setBusy("start"); setError(null);
     consultants.create(t, wl).then(onCreated).catch((e) => setError(String(e.message ?? e))).finally(() => setBusy(""));
   };
-  const remove = (k: keyof Watchlist, i: number) =>
-    wl && setWl({ ...wl, [k]: (wl[k] as unknown[]).filter((_, j) => j !== i) } as Watchlist);
-  const chip = (label: string, k: keyof Watchlist, i: number) => (
-    <button key={`${k}-${i}`} type="button" onClick={() => remove(k, i)} aria-label={`Remove ${label}`}
-      className={cn("rounded-full border border-border-strong bg-surface-2 px-3 py-1 text-xs hover:border-danger", FOCUS)}>
-      {label} <span aria-hidden="true">✕</span>
-    </button>
-  );
   return (
     <div className="rounded-2xl border border-border bg-surface p-6">
       <div className="eyebrow">New consultant</div>
@@ -106,15 +192,8 @@ function NewConsultant({ onCreated }: { onCreated: (r: Row) => void }) {
       {error && <p role="alert" className="mt-2 text-sm text-danger">{error}</p>}
       {wl && (
         <>
-          <div className="eyebrow mt-5">Suggested watchlist (click to remove)</div>
-          <dl className="mt-2 grid grid-cols-[110px_1fr] gap-x-3 gap-y-2 text-[13px]">
-            <dt className="pt-1 font-semibold text-muted">Companies</dt>
-            <dd className="flex flex-wrap gap-1.5">{wl.companies.length ? wl.companies.map((c, i) => chip(`${c.name} (${c.ticker})`, "companies", i)) : <span className="text-muted">None for this topic</span>}</dd>
-            <dt className="pt-1 font-semibold text-muted">Data</dt>
-            <dd className="flex flex-wrap gap-1.5">{wl.series.length ? wl.series.map((s, i) => chip(s, "series", i)) : <span className="text-muted">None</span>}</dd>
-            <dt className="pt-1 font-semibold text-muted">News and alt</dt>
-            <dd className="flex flex-wrap gap-1.5">{wl.queries.map((q, i) => chip(`News: ${q}`, "queries", i))}</dd>
-          </dl>
+          <div className="eyebrow mt-5">Suggested watchlist (click a chip to remove, or add your own)</div>
+          <WatchlistEditor wl={wl} onChange={setWl} />
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
             <span className="text-xs text-muted">The first build runs now (a few minutes). Up to $1 a day per consultant.</span>
             <button type="button" onClick={start} disabled={busy !== ""}
@@ -159,6 +238,7 @@ function ConsultantView({ d, onChange, onDeleted }: { d: Detail; onChange: () =>
       {c.status === "failed" && c.error && <div role="alert" className="rounded-xl border border-danger bg-danger-soft px-4 py-2.5 text-sm text-danger">Last build failed: {c.error}</div>}
       {c.status === "building" && <div className="rounded-xl bg-warning-soft px-4 py-2.5 text-sm text-warning">First build running. This page updates by itself.</div>}
       {error && <div role="alert" className="rounded-xl border border-danger bg-danger-soft px-4 py-2.5 text-sm text-danger">{error}</div>}
+      <WatchlistCard key={c.slug} c={c} />
       {d.log.notes.length > 0 && (
         <div className="rounded-xl border border-warning/50 bg-warning-soft px-4 py-2.5 text-sm">
           <b className="text-warning">Today ({d.log.day}, ${d.log.cost_usd.toFixed(2)} spent):</b>

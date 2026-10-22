@@ -49,7 +49,11 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
 export const consultants = {
   list: () => req<{ consultants: Row[] }>("GET", ""),
   plan: (topic: string) => req<{ watchlist: Watchlist }>("POST", "/plan", { topic }),
+  // a hand-added company (by ticker) or "fred:ID" / "yahoo:TICKER" series, checked against Yahoo/FRED
+  check: (kind: "company" | "series", value: string) =>
+    req<{ company?: Company; series?: string }>("POST", "/check", { kind, value }),
   create: (topic: string, watchlist: Watchlist) => req<Row>("POST", "", { topic, watchlist }),
+  setWatchlist: (slug: string, watchlist: Watchlist) => req<{ watchlist: Watchlist }>("PUT", `/${slug}/watchlist`, watchlist),
   get: (slug: string) => req<Detail>("GET", `/${slug}`),
   pause: (slug: string) => req<Row>("POST", `/${slug}/pause`),
   resume: (slug: string) => req<Row>("POST", `/${slug}/resume`),

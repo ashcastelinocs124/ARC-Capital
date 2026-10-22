@@ -5,12 +5,14 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from datetime import date
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from castelino.agents.consultants import planner, runner, store
 from castelino.agents.consultants.models import Consultant, Watchlist
+from castelino.agents.themes import SERIES
 from castelino.agents.trade import llm
 
 router = APIRouter(prefix="/admin/desk/consultants")
@@ -22,6 +24,22 @@ class Topic(BaseModel):
 
 class NewConsultant(Topic):
     watchlist: Watchlist
+
+
+class Check(BaseModel):
+    kind: Literal["company", "series"]
+    value: str = Field(min_length=1, max_length=40)
+
+
+def _valid(wl: Watchlist) -> Watchlist:
+    """A watchlist from the browser: series in fred:/yahoo: form and the hand-edit caps."""
+    if bad := [s for s in wl.series if not SERIES.match(s)]:
+        raise HTTPException(422, f"not fred:ID or yahoo:TICKER: {', '.join(bad)}")
+    if max(len(wl.companies), len(wl.series)) > planner.MAX_HAND:
+        raise HTTPException(
+            422, f"at most {planner.MAX_HAND} companies and {planner.MAX_HAND} series"
+        )
+    return wl
 
 
 def _load(slug: str) -> Consultant:
@@ -56,9 +74,20 @@ def plan(req: Topic):
     return {"watchlist": planner.suggest(req.topic.strip(), llm.Meter())}
 
 
+@router.post("/check")
+def check(req: Check):
+    """One hand-added company (by ticker) or series, checked against Yahoo/FRED before it becomes a chip."""
+    try:
+        if req.kind == "company":
+            return {"company": planner.check_company(req.value).model_dump()}
+        return {"series": planner.check_series(req.value)}
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
+
+
 @router.post("")
 def create(req: NewConsultant):
-    c = store.create(req.topic, req.watchlist)
+    c = store.create(req.topic, _valid(req.watchlist))
     runner.submit_start(c.slug)
     return _row(c)
 
@@ -101,6 +130,16 @@ def pause(slug: str):
 @router.post("/{slug}/resume")
 def resume(slug: str):
     return _set_status(slug, "active")
+
+
+@router.put("/{slug}/watchlist")
+def set_watchlist(slug: str, wl: Watchlist):
+    """Edit a running consultant's watchlist. Today's facts and view stay; the next build fetches it."""
+    _load(slug)
+    _valid(wl)
+    with store.edit(slug) as x:
+        x.watchlist = wl
+    return {"watchlist": wl.model_dump()}
 
 
 @router.post("/{slug}/build")

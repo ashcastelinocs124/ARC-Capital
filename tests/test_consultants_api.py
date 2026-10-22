@@ -82,3 +82,42 @@ def test_build_now_shows_building(client):
 def test_short_topic_is_422(client):
     r = client.post("/admin/desk/consultants", json={"topic": "AI", "watchlist": WL})
     assert r.status_code == 422
+
+
+def test_check_returns_the_chip_or_422(client, monkeypatch):
+    def company(t):
+        if t == "ZZZZ":
+            raise ValueError("ZZZZ has no prices on Yahoo Finance.")
+        return Company(name="Broadcom", ticker="AVGO")
+
+    monkeypatch.setattr(planner, "check_company", company)
+    monkeypatch.setattr(planner, "check_series", lambda s: "fred:DGS10")
+    url = "/admin/desk/consultants/check"
+    r = client.post(url, json={"kind": "company", "value": "avgo"})
+    assert r.json() == {"company": {"name": "Broadcom", "ticker": "AVGO"}}
+    r = client.post(url, json={"kind": "company", "value": "ZZZZ"})
+    assert r.status_code == 422 and r.json()["detail"] == "ZZZZ has no prices on Yahoo Finance."
+    assert client.post(url, json={"kind": "series", "value": "fred:dgs10"}).json() == {
+        "series": "fred:DGS10"
+    }
+
+
+def test_put_watchlist_saves_and_validates(client):
+    client.post("/admin/desk/consultants", json={"topic": "India", "watchlist": WL})
+    url = "/admin/desk/consultants/india/watchlist"
+    new = {**WL, "series": ["yahoo:INDA"]}
+    assert client.put(url, json=new).json() == {"watchlist": new}
+    assert store.load("india").watchlist.series == ["yahoo:INDA"]
+    assert client.put(url, json={**WL, "series": ["bloomberg:X"]}).status_code == 422
+    many = [{"name": f"C{i}", "ticker": f"T{i}"} for i in range(planner.MAX_HAND + 1)]
+    assert client.put(url, json={**WL, "companies": many}).status_code == 422
+    assert store.load("india").watchlist.series == ["yahoo:INDA"]  # a refused edit saves nothing
+    assert client.put("/admin/desk/consultants/nope/watchlist", json=WL).status_code == 404
+
+
+def test_create_refuses_a_malformed_series(client):
+    r = client.post(
+        "/admin/desk/consultants",
+        json={"topic": "India", "watchlist": {**WL, "series": ["INDA"]}},
+    )
+    assert r.status_code == 422 and client.started == []

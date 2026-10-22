@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from castelino.agents.consultants import planner
 from castelino.agents.consultants.models import Company, Watchlist
@@ -60,3 +61,19 @@ def test_suggest_caps_lengths(monkeypatch):
 def test_system_prompt_asks_for_queries_even_without_tickers():
     assert "queries" in planner.SYSTEM
     assert "no companies" in planner.SYSTEM.lower()
+
+
+def test_check_company_uppercases_names_and_refuses_unpriced():
+    co = planner.check_company(" avgo ", close=_close, name=lambda t: "Broadcom")
+    assert (co.name, co.ticker) == ("Broadcom", "AVGO")
+    with pytest.raises(ValueError, match="FAKE has no prices"):
+        planner.check_company("fake", close=_close, name=str)
+
+
+def test_check_series_normalises_and_refuses_no_data():
+    assert planner.check_series("fred:dgs10", fred=_close, close=_close) == "fred:DGS10"
+    assert planner.check_series("yahoo:^VIX", fred=_close, close=_close) == "yahoo:^VIX"
+    with pytest.raises(ValueError, match="returned no data"):
+        planner.check_series("yahoo:EMPTY", fred=_close, close=_close)
+    with pytest.raises(ValueError, match="not fred:ID or yahoo:TICKER"):
+        planner.check_series("bloomberg:XYZ", fred=_close, close=_close)
