@@ -3,13 +3,15 @@ from datetime import date
 from castelino.agents.update import calendar
 from castelino.agents.update.models import Fact, Finding
 from castelino.substack import build_doc
+from castelino.week_ahead import te
+from tests.test_week_ahead_te import page, row
 
-ECON = [
-    {"country": "United States", "eventName": "Housing Starts", "gmt": "08:30", "actual": "1.221M", "consensus": "1.305M", "previous": "1.307M"},
-    {"country": "United States", "eventName": "NAHB Housing Market Index", "gmt": "10:00", "actual": "", "consensus": "31", "previous": "32"},
-    {"country": "Germany", "eventName": "Buba Monthly Report", "gmt": "06:00", "actual": "", "consensus": "", "previous": ""},
-    {"country": "Japan", "eventName": "National Core CPI (YoY)", "gmt": "19:30", "actual": "2.9%", "consensus": "2.8%", "previous": "2.7%"},
-]  # fmt: skip
+TE_PAGE = page(  # Trading Economics rows (UTC): 08:30, 10:00 and 19:30 in New York
+    row("2026-10-20", "12:30 PM", "US", "Housing Starts", actual="1.221M", consensus="1.305M", previous="1.307M"),
+    row("2026-10-20", "2:00 PM", "US", "NAHB Housing Market Index", consensus="31", previous="32"),
+    row("2026-10-20", "10:00 AM", "DE", "Buba Monthly Report"),
+    row("2026-10-20", "11:30 PM", "JP", "Core Inflation Rate YoY", actual="2.9%", consensus="2.8%", previous="2.7%"),
+)  # fmt: skip
 EARN = [
     {"symbol": "NFLX", "marketCap": "$290,851,193,000", "time": "time-after-hours", "epsForecast": "$0.82"},
     {"symbol": "GE", "marketCap": "$322,972,451,000", "time": "time-pre-market", "epsForecast": "$2.02"},
@@ -23,11 +25,12 @@ UNIVERSE = {
 KW = {  # Yahoo: GE's result is in, Netflix's not yet; SpaceX is off Nasdaq's calendar but on Yahoo's
     "eps": lambda t, day: {"GE": (2.25, 2.02, 11.4), "SPCX": (0.31, 0.13, 138.5)}.get(t),
     "yf_date": lambda t: (date(2026, 10, 20), 0.13302),
+    "econ_day": lambda day: [e for e in te.parse(TE_PAGE) if e["date"] == day.isoformat()],
 }
 
 
-def fetch(kind, day):
-    return ECON if kind == "economicevents" else EARN
+def fetch(kind, day):  # Nasdaq: earnings only
+    return EARN
 
 
 def test_the_days_calendar_becomes_lines_facts_and_findings_once():
@@ -36,7 +39,7 @@ def test_the_days_calendar_becomes_lines_facts_and_findings_once():
     assert lines == [
         "08:30 ET · US Housing Starts: 1.221M vs 1.305M expected (previous 1.307M)",
         "10:00 ET · US NAHB Housing Market Index: 31 expected (previous 32)",  # not out yet
-        "19:30 ET · Japan National Core CPI (YoY): 2.9% vs 2.8% expected (previous 2.7%)",
+        "19:30 ET · Japan Core Inflation Rate y/y: 2.9% vs 2.8% expected (previous 2.7%)",
         "SpaceX (SPCX) EPS: $0.31 vs $0.13 expected, a 138.5% beat",  # AI names first
         "GE Aerospace (GE) EPS: $2.25 vs $2.02 expected, an 11.4% beat",  # then by market value
         "Netflix (NFLX) reported after the close; EPS estimate $0.82",  # Yahoo hasn't got it yet

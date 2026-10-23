@@ -290,12 +290,12 @@ agents:
       - {key: X_API_KEY, required: false, why: "With X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET and X_SCOUT_LIVE=1, posts go live; else dry run"}
     class: castelino.x_scout.ReleaseWriter
     summary: >-
-      Every 5 minutes from 07:00 to 19:55 ET on weekdays code checks Nasdaq's live calendar (data) and
-      the Earnings Reader (earnings); when a watched release lands, code writes the numbers line
+      Every 5 minutes from 07:00 to 23:55 ET on weekdays code checks Trading Economics' live calendar
+      (data) and the Earnings Reader (earnings); when a watched release lands, code writes the numbers line
       (actual vs expected, previous) and this call adds one plain sentence with no digit, dropped if it has one.
     tools:
-      - {name: "landed() (code)", does: "Today's Nasdaq economic and earnings rows matched to the morning's watch list; a release's m/m and y/y post together"}
-      - {name: "x_post (code)", does: "One post per release, once, at most 6 a day; may post in the Theme Charts quiet hour"}
+      - {name: "landed() (code)", does: "Today's Trading Economics rows (the watched countries' pages) matched to the morning's watch list; a release's m/m and y/y post together"}
+      - {name: "x_post (code)", does: "One post per release, once, at most 7 a day; may post in the Theme Charts quiet hour"}
     memory:
       reads: ["The release's numbers line"]
       writes: ["data/x_posts/calendar/<date>.json (releases posted, X ids)"]
@@ -1204,7 +1204,7 @@ pipelines:
       - {id: polymarket, kind: source, layer: sources, x: 624, dy: 18, w: 100, name: Polymarket, does: "Prediction-market odds and how they moved."}
       - {id: x, kind: source, layer: sources, x: 734, dy: 18, w: 100, name: X, does: "Posts from financial X, found through a cited search."}
       - {id: background, kind: code, layer: sources, x: 872, dy: -18, w: 164, name: Background facts, sub: prices · past notes, does: "Plain code adds context to the findings: a stock's moves this year, a data series' recent history, ARC's earlier notes."}
-      - {id: calendar, kind: code, layer: sources, x: 872, dy: 18, w: 164, name: Day's calendar, sub: releases · earnings, does: "Plain code reads the day's data releases and earnings from Nasdaq's calendar. Each result goes to the Editor as a fact, and the full list runs under the note."}
+      - {id: calendar, kind: code, layer: sources, x: 872, dy: 18, w: 164, name: Day's calendar, sub: releases · earnings, does: "Plain code reads the day's data releases from Trading Economics and its earnings from Nasdaq's calendar. Each result goes to the Editor as a fact, and the full list runs under the note."}
       - {id: schedule, kind: trigger, layer: agents, x: 150, w: 120, name: Schedule, sub: 17:00 ET, does: "A scheduled job on ARC's server starts the run at 5 pm New York time every day."}
       - {id: orch, kind: llm, agent: update_orchestrator, layer: agents, x: 316, w: 140, name: Orchestrator, sub: plan · review, does: "The lead agent. It writes each analyst a brief, then reviews what they found and can send follow-up questions."}
       - {id: macro, kind: llm, agent: macro_agent, layer: agents, x: 518, dy: -40, w: 145, name: Macro analyst, sub: fred · bls · yahoo, does: "Reads today's official data releases (inflation, jobs, rates) and market moves, and picks the ones that matter."}
@@ -1375,7 +1375,7 @@ pipelines:
       - {id: series, kind: source, layer: sources, x: 490, name: FRED · Yahoo, sub: chart series, does: "The data series behind a finding's chart, downloaded straight from the source."}
       - {id: calendar, kind: source, layer: sources, x: 790, name: Week Ahead, sub: the week's calendar, does: "ARC's calendar of the week's economic releases (with consensus and previous) and the companies reporting, refreshed every evening."}
       - {id: sec, kind: source, layer: sources, x: 1270, name: SEC EDGAR, sub: earnings releases, does: "The earnings release each company files with the SEC as an 8-K, usually minutes after it reports."}
-      - {id: nasdaq, kind: source, layer: sources, x: 1110, name: Nasdaq calendar, sub: live actuals, does: "Nasdaq's economic and earnings calendars, which show the actual number or EPS within minutes of a release."}
+      - {id: nasdaq, kind: source, layer: sources, x: 1110, name: Live calendar, sub: Trading Economics, does: "Trading Economics' calendar pages, which show a release's actual within minutes; the watched countries' pages are read every 5 minutes."}
       - {id: schedule, kind: trigger, layer: agents, x: 20, w: 120, name: Findings, sub: every 2 h, does: "Runs every 2 hours, 10:15 to 22:15 New York time on weekdays and 08:15 to 22:15 at weekends, never within an hour of the morning Theme Charts thread."}
       - {id: search, kind: llm, agent: x_scout_search, layer: agents, x: 170, name: Scout search, sub: macro + AI news, does: "Searches the last 6 hours of macro and AI news and keeps only the lines it can cite."}
       - {id: scout, kind: llm, agent: x_scout, layer: agents, x: 330, name: Scout, sub: 1 item, 24h retry, does: "Picks the one item worth a post and names the data series that chart it; if nothing clears the bar, a second search covers 24 hours and the Scout must pick the best item not yet posted."}
@@ -1389,7 +1389,7 @@ pipelines:
       - {id: limits, kind: guard, layer: guardrails, x: 330, name: No repeats, sub: 7 days · 2 a day, does: "The Scout sees what this account posted in the last week and today's market alerts; code refuses a story already posted and stops after two findings a day."}
       - {id: check, kind: guard, layer: guardrails, x: 490, name: Number check, sub: source or chart data, does: "Code draws the chart. Every number in the post must come from the cited source or the chart's data, and each post must fit 280 characters, or the post is dropped after one retry."}
       - {id: cardcheck, kind: guard, layer: guardrails, x: 950, name: Card check, sub: card's figures only, does: "Every figure in the read must be on the card, and the post must fit 280 characters, or the card goes out with a plain code-written line."}
-      - {id: watchcap, kind: guard, layer: guardrails, x: 1110, name: Watch list, sub: once · 6 a day, does: "Only the morning card's watched releases post, each once, at most six a day; every number in the post comes from Nasdaq or a cited line."}
+      - {id: watchcap, kind: guard, layer: guardrails, x: 1110, name: Watch list, sub: once · 7 a day, does: "Only the morning card's watched releases post, each once, at most seven a day; every number in the post comes from Trading Economics or a cited line."}
       - {id: stop, kind: stop, layer: delivery, x: 330, name: Nothing worth posting, sub: until next run, does: "Most findings runs find nothing worth a post, and the run simply stops."}
       - {id: post, kind: out, layer: delivery, x: 490, name: Finding, sub: X + Substack Note, does: "The finding is posted to X with its chart, naming its source, and the analysis follows as a reply; the same finding goes out as one Substack Note with the chart and the source link. While the feature is in test mode, posts are only logged."}
       - {id: cardpost, kind: out, layer: delivery, x: 950, name: Calendar card, sub: X + Substack Note, does: "The week's or today's calendar card posted to X with its read, and as a Substack Note. While the feature is in test mode, posts are only logged."}
@@ -1423,7 +1423,7 @@ pipelines:
       - {title: Chart, write and post, nodes: [writer, series, check, post], edges: [scout > writer, series > writer, writer > check, check > post], io: ["in: item + chart data", "out: finding on X"], text: "Code draws the chart; the Writer agent writes the post and one reply; code checks every number, then the finding goes out on X."}
       - {title: Calendar card, nodes: [calsched, pick, calendar, cardw], edges: [calsched > pick, calendar > pick, pick > cardw], io: ["in: the week's calendar", "out: card + read"], text: "At 7:00 on weekdays code picks the key releases and reporters and draws the card; the Calendar writer adds a short read."}
       - {title: Check and post the card, nodes: [cardcheck, cardpost], edges: [cardw > cardcheck, cardcheck > cardpost], io: ["in: card + read", "out: card on X"], text: "Code checks every figure in the read against the card, then the card goes out on X."}
-      - {title: Release posts, nodes: [watchcap, nasdaq, earnread, sec, segread, releasew, relpost], edges: [cardcheck > watchcap, watchcap > releasew, nasdaq > releasew, web > earnread, earnread > releasew, sec > segread, segread > relpost, releasew > relpost], io: ["in: watch list + live calendar + cited news + SEC filings", "out: release posts with charts"], text: "Every 5 minutes code checks Nasdaq's live calendar for the morning's watched data, and a cited news search (read by the Earnings Reader) for each watched company once its session opens; each release that lands posts once with its numbers against what was expected, plus one plain sentence and its charts: actual vs forecast for data; for earnings, where the sales and the profit came from (the Segment Reader copies the SEC filing's segment table) and the beat or miss."}
+      - {title: Release posts, nodes: [watchcap, nasdaq, earnread, sec, segread, releasew, relpost], edges: [cardcheck > watchcap, watchcap > releasew, nasdaq > releasew, web > earnread, earnread > releasew, sec > segread, segread > relpost, releasew > relpost], io: ["in: watch list + live calendar + cited news + SEC filings", "out: release posts with charts"], text: "Every 5 minutes code checks Trading Economics' live calendar for the morning's watched data, and a cited news search (read by the Earnings Reader) for each watched company once its session opens; each release that lands posts once with its numbers against what was expected, plus one plain sentence and its charts: actual vs forecast for data; for earnings, where the sales and the profit came from (the Segment Reader copies the SEC filing's segment table) and the beat or miss."}
 
   - id: sector-sentiment
     name: Sector Sentiment

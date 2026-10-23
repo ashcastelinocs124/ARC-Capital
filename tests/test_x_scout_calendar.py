@@ -2,6 +2,7 @@ import json
 from datetime import datetime
 
 from castelino import substack, x_post, x_scout
+from castelino.week_ahead import econ
 from castelino.x_scout import ET, CardRead, ReleaseRead
 
 MON = datetime(2026, 10, 19, 7, 0, tzinfo=ET)
@@ -76,7 +77,29 @@ def test_pick_keeps_key_releases_with_a_consensus_and_the_biggest_reporters():
     assert [r["ticker"] for r in rows if r["kind"] == "earnings"] == ["META", "TSLA"]
 
 
-def test_watch_list_is_the_days_six_most_important_rows_ai_names_first():
+def test_a_seventh_slot_fits_inflation_abroad_on_a_busy_earnings_day():
+    # 2026-10-22 replayed: jobless claims, five reporters and Japan's CPI at 19:30 ET (not posted that day)
+    day = "2026-10-23"
+    reps = [earn(day, t, t, cap, 1.0, "pre")
+            for t, cap in (("PG", 3.5e11), ("UNP", 1.4e11), ("WDC", 4e10), ("LMT", 1.1e11), ("VLO", 4.5e10))]  # fmt: skip
+    keys = [x_scout.key(r) for r in x_scout.watch_rows(x_scout.pick(EVENTS + reps, day, 4, 5))]
+    assert len(keys) == 7 and keys[0] == "US|08:30|Initial Jobless Claims|None"
+    assert keys[-1] == "JP|19:30|National Core CPI|None"
+
+
+def test_trading_economics_names_rank_like_the_old_ones():
+    rank = x_scout._rank
+    for name in (
+        "Inflation Rate",
+        "Core Inflation Rate",
+        "Non Farm Payrolls",
+        "Core PCE Price Index",
+    ):
+        assert rank(us("2026-10-23", "08:30", name, 0.3, 0.2)) == 0.0, name
+    assert rank(us("2026-10-23", "08:30", "Retail Sales", 0.3, 0.2)) == 1.0
+
+
+def test_watch_list_is_the_days_seven_most_important_rows_ai_names_first():
     spacex = {**earn("2026-10-21", "SPCX", "SpaceX", None, 0.13, None), "group": "ai_extra"}
     rows = x_scout.pick(EVENTS, "2026-10-21", data=4, earnings=5) + [
         us("2026-10-21", "08:30", "CPI", 0.3, 0.4, "%", "inflation"),
@@ -91,6 +114,7 @@ def test_watch_list_is_the_days_six_most_important_rows_ai_names_first():
         "E|TSLA",
         "E|LRCX",
         "E|PM",
+        "US|08:30|Housing Starts|None",
     ]
 
 
@@ -157,9 +181,22 @@ def test_draw_card_renders_a_png(tmp_path):
     assert (tmp_path / "c.png").stat().st_size > 10_000
 
 
-def econ_row(name, actual, cons, prev, t="08:30"):
-    return {"country": "United States", "eventName": name, "gmt": t, "actual": actual,
-            "consensus": cons, "previous": prev}  # fmt: skip
+def econ_row(name, actual, cons, prev, t="08:30", measure=None):
+    """A release as Trading Economics' live page gives it (te.day_events)."""
+    (a, u), (c, _), (p, _) = (econ.parse_num(s) for s in (actual, cons, prev))
+    return {"date": "2026-10-21", "time_et": t, "kind": "other", "country": "US", "name": name,
+            "measure": measure, "consensus": c, "previous": p, "actual": a, "unit": u}  # fmt: skip
+
+
+def live_econ(monkeypatch, rows):
+    asked = []
+
+    def day_events(day, countries=None, get=None):
+        asked.append(set(countries or ()))
+        return rows() if callable(rows) else rows
+
+    monkeypatch.setattr(x_scout.te, "day_events", day_events)
+    return asked
 
 
 def fake_watch(monkeypatch, tmp_path, econ, earnings, sentence="Builders are still busy."):
@@ -167,7 +204,7 @@ def fake_watch(monkeypatch, tmp_path, econ, earnings, sentence="Builders are sti
     fake_card(monkeypatch)
     x_scout.card(now=WED, root=tmp_path)  # sets Wednesday's watch list
     feeds = {"economicevents": econ, "earnings": earnings}
-    monkeypatch.setattr(x_scout.nasdaq, "fetch_day", lambda kind, day: feeds[kind])
+    feeds["asked"] = live_econ(monkeypatch, lambda: feeds["economicevents"])
     monkeypatch.setattr(
         x_scout.ReleaseWriter, "__call__", lambda self, **k: ReleaseRead(sentence=sentence)
     )
@@ -191,6 +228,7 @@ def test_a_landed_release_posts_once(monkeypatch, tmp_path):
     assert [r["text"] for r in out] == [
         "US Housing Starts: 1.32M vs 1.3M expected (previous 1.275M).\n\nBuilders are still busy."
     ]
+    assert feeds["asked"][0] == {"US"}  # only the watched releases' countries are read
     assert x_scout.watch(now=at, root=tmp_path) == []  # never twice
     feeds["earnings"] = {"TSLA": "Tesla (TSLA) Q3: EPS $0.25 vs $0.21 expected."}
     out = x_scout.watch(now=at.replace(hour=16, minute=20), root=tmp_path)
@@ -210,9 +248,8 @@ def test_a_releases_mm_and_yy_are_one_watch_slot_and_one_post(monkeypatch, tmp_p
     p.write_text(json.dumps({**json.loads(p.read_text()), "events": EVENTS + ppi}))
     fake_card(monkeypatch)
     x_scout.card(now=WED, root=tmp_path)
-    monkeypatch.setattr(x_scout.nasdaq, "fetch_day", lambda kind, day: [
-        econ_row("Core PPI", "0.7%", "0.3%", "0.2%"), econ_row("Core PPI", "5.0%", "4.4%", "4.8%")
-    ] if kind == "economicevents" else [])  # fmt: skip
+    live_econ(monkeypatch, [econ_row("Core PPI", "0.7%", "0.3%", "0.2%", measure="m/m"),
+                            econ_row("Core PPI", "5.0%", "4.4%", "4.8%", measure="y/y")])  # fmt: skip
     monkeypatch.setattr(
         x_scout.ReleaseWriter, "__call__", lambda self, **k: ReleaseRead(sentence="")
     )
@@ -229,7 +266,7 @@ def test_a_sentence_with_a_digit_is_dropped(monkeypatch, tmp_path):
     assert out[0]["text"] == "US Housing Starts: 1.32M vs 1.3M expected (previous 1.275M)."
 
 
-def test_release_posts_cap_at_six_a_day(monkeypatch, tmp_path):
+def test_release_posts_cap_at_seven_a_day(monkeypatch, tmp_path):
     fake_watch(
         monkeypatch, tmp_path,
         [econ_row("Housing Starts", "1.32M", "1.3M", "1.275M"),
@@ -238,9 +275,9 @@ def test_release_posts_cap_at_six_a_day(monkeypatch, tmp_path):
          "TSLA": "Tesla (TSLA) Q3: EPS $0.25 vs $0.21 expected."},
     )  # fmt: skip
     rec = x_scout.day_record(tmp_path, WED)
-    rec["releases"] = [{"key": f"earlier{i}", "text": "x"} for i in range(4)]  # four already out
+    rec["releases"] = [{"key": f"earlier{i}", "text": "x"} for i in range(6)]  # six already out
     x_scout.save_day(tmp_path, WED, rec)
-    assert len(x_scout.watch(now=WED.replace(hour=16, minute=30), root=tmp_path)) == 2
+    assert len(x_scout.watch(now=WED.replace(hour=16, minute=30), root=tmp_path)) == 1
 
 
 def test_live_watch_posts_on_x(monkeypatch, tmp_path):

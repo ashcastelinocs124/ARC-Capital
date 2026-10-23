@@ -29,8 +29,9 @@ important release groups still to come (watch_rows: top-tier US data, then the l
 marked WATCH. The Card Writer adds a short read whose figures must be the card's (check()); one
 retry, then a code-written line. Monday's card is the whole week's and also sets Monday's watch list.
 
-`watch` (every 5 min, 07:00-19:55 ET on weekdays): code fetches today's Nasdaq calendar and posts
-each watched release whose actual (data) or EPS (earnings) has appeared, once, at most MAX_RELEASES
+`watch` (every 5 min, 07:00-23:55 ET on weekdays): code reads today's releases from Trading Economics
+(the watched countries' pages; Nasdaq filed its economic calendar a day late and its actuals hours
+late) and posts each watched release whose actual (data) or EPS (earnings) has appeared, once, at most MAX_RELEASES
 a day: a code-written numbers line (a release's m/m and y/y together), then one Release Writer
 sentence that may hold no digit (else it's dropped and the numbers line posts alone). Release posts
 skip the Theme Charts quiet hour: they are news. Records: data/x_posts/calendar/<YYYY-MM-DD>.json
@@ -63,7 +64,7 @@ from castelino.agents.update.fsio import atomic_write_text
 from castelino.agents.update.guard import _FIG, _supported, unsupported
 from castelino.agents.update.models import Fact
 from castelino.config import get_settings
-from castelino.week_ahead import econ, nasdaq
+from castelino.week_ahead import te
 from castelino.x_post import NOT_TICKERS, trades  # also used by ticker_errors
 
 ET = ZoneInfo("America/New_York")
@@ -601,7 +602,7 @@ def run(dry: bool = False, now: datetime | None = None, root: Path | None = None
 
 # ── the calendar: the week's or today's card each weekday morning, each release as it lands ──
 
-MAX_RELEASES = 6  # watched releases a day, each posted once it lands (user, 2026-10-21)
+MAX_RELEASES = 7  # watched releases a day, each posted once it lands (user: 6 on 10-21, 7 on 10-22)
 # Nasdaq's day calendar never fills reported EPS, so a watched company is found by a cited search. The
 # search must give the report's date: the reader only posts results a line dates to today, and without
 # that line it missed 7 of 8 reports on 2026-10-21 and 22 (P&G, Meta, Tesla ...). Searched from its
@@ -612,7 +613,7 @@ EARN_EVERY = timedelta(minutes=15)
 EARN_CHECKS = 12
 TIERS = [  # US releases by importance; a release outside every tier never makes the card
     re.compile(
-        r"^(Core )?(CPI|PCE Price Index)\b|Nonfarm Payrolls|Unemployment Rate|Fed Interest Rate Decision|^GDP",
+        r"^(Core )?(CPI|PCE Price Index|Inflation Rate)\b|Non ?Farm Payrolls|Unemployment Rate|Fed Interest Rate Decision|^GDP",
         re.I,
     ),  # fmt: skip
     re.compile(
@@ -724,7 +725,7 @@ class EarningsReader(StructuredAgent[EarningsRead]):
 
 
 def key(e: dict) -> str:
-    """One row's identity in both the morning file and Nasdaq's live reply."""
+    """One row's identity in both the morning file and the live Trading Economics rows."""
     if e["kind"] == "earnings":
         return f"E|{e['ticker']}"
     return f"{e['country']}|{e['time_et']}|{e['name']}|{e['measure']}"
@@ -1070,14 +1071,13 @@ def earnings_result(w: dict, day: date) -> str | None:
 
 def landed(todo: list[dict], now: datetime, rec: dict) -> list[tuple[list[dict], str, list[dict]]]:
     """Watched releases whose number is out, in watch order: (their watch rows, the numbers line,
-    Nasdaq's rows for a data release). Data from Nasdaq's live calendar; earnings by earnings_result,
+    the live rows for a data release). Data from Trading Economics; earnings by earnings_result,
     its searches logged in rec."""
     day = now.date()
     out: list[tuple[list[dict], str, list[dict]]] = []
-    if any(w["kind"] != "earnings" for w in todo):
-        live = {
-            key(e): e for e in econ.events_for_day(nasdaq.fetch_day("economicevents", day), day)
-        }
+    if data := [w for w in todo if w["kind"] != "earnings"]:
+        # Trading Economics fills an actual within minutes; read only the watched countries' pages
+        live = {key(e): e for e in te.day_events(day, countries={w["country"] for w in data})}
         hits: dict[str, list[tuple[dict, dict]]] = {}
         for w in todo:
             e = live.get(w["key"]) if w["kind"] != "earnings" else None

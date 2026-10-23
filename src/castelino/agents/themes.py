@@ -405,8 +405,7 @@ def catalysts(now: datetime, path: Path | None = None) -> list[Fact]:
         if figs:
             text += " · " + ", ".join(figs)
         rows.append((_when(e), text, [e.get("consensus"), e.get("previous")],
-                     "Nasdaq economic calendar",
-                     "https://www.nasdaq.com/market-activity/economic-calendar"))  # fmt: skip
+                     "Trading Economics calendar", "https://tradingeconomics.com/calendar"))  # fmt: skip
     for e in earn:
         when = {"pre": "before the open", "post": "after the close"}.get(e.get("session"), "today")
         text = f"{e['company']} ({e['ticker']}) reports {when}"

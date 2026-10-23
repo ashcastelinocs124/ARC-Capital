@@ -65,7 +65,8 @@ def run(
     *,
     out: Path | None = None,
     universe: dict | None = None,
-    fetch_day=nasdaq.fetch_day,
+    fetch_day=nasdaq.fetch_day,  # earnings only: economic releases come from Trading Economics
+    te_get=None,
     yf=earnings.yf_earnings,
     get_json=ai.get_json,
     search=None,
@@ -113,7 +114,9 @@ def run(
             gaps.append({"lane": "ai", "error": "reported launches: " + QS.sub("", str(e))[:200]})
             return evs
 
-    econ_ev = lane("econ", lambda: econ.fetch_week(monday, fetch_day), kept(ECON_KINDS))
+    econ_ev = lane(
+        "econ", lambda: econ.fetch_week(monday, kept(ECON_KINDS), te_get), kept(ECON_KINDS)
+    )
     earn_ev = lane("earnings", earnings_lane, kept({"earnings"}))
     ai_ev = lane("ai", ai_lane, kept({"ai"}))
     ramp = lane("ramp", lambda: spend.ramp(fetch_fred), prev_spend.get("ramp") or {})

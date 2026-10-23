@@ -1,16 +1,11 @@
-import json
 from datetime import date
-from pathlib import Path
 
 import pytest
 
 from castelino.week_ahead import econ
+from tests.test_week_ahead_te import page, row
 
-FIX = Path(__file__).parent / "fixtures" / "week_ahead"
-
-
-def rows(day: str) -> list[dict]:
-    return (json.loads((FIX / f"econ-{day}.json").read_text()).get("data") or {}).get("rows") or []
+MONDAY = date(2026, 10, 19)
 
 
 @pytest.mark.parametrize(
@@ -32,56 +27,81 @@ def test_parse_num(raw, expected):
     assert econ.parse_num(raw) == expected
 
 
-def test_keeps_only_five_countries_and_drops_auctions():
-    evs = econ.events_for_day(rows("2026-10-14"), date(2026, 10, 14))
-    assert {e["country"] for e in evs} <= {"US", "CN", "DE", "JP", "IN"}
-    assert not [e for e in evs if "Auction" in e["name"]]
+def test_kinds():
+    assert econ.kind_of("Core Inflation Rate") == "inflation"
+    assert econ.kind_of("Non Farm Payrolls") == "jobs"
+    assert econ.kind_of("Existing Home Sales") == "other"
+    assert econ.kind_of("Core CPI Index") == "other"  # an index level isn't the headline
 
 
-def test_tiers_and_german_prefix():
-    evs = econ.events_for_day(rows("2026-10-14"), date(2026, 10, 14))
-    de = [e for e in evs if e["country"] == "DE" and e["kind"] == "inflation"]
-    assert {e["name"] for e in de} >= {"CPI", "HICP"}
-    adp = [e for e in evs if e["name"].startswith("ADP")]
-    assert adp and adp[0]["kind"] == "jobs"
-    assert [e for e in evs if e["name"] == "Existing Home Sales"][0]["kind"] == "other"
+PAGES = {
+    "japan": page(
+        row("2026-10-21", "11:50 PM", "JP", "Balance of Trade", actual="¥-536.6B"),  # Wed 19:50 ET
+        row(
+            "2026-10-22",
+            "11:30 PM",
+            "JP",
+            "Core Inflation Rate YoY",
+            actual="2.1%",
+            consensus="2.1%",
+        ),
+        row("2026-10-27", "11:30 PM", "JP", "Unemployment Rate", consensus="2.5%"),  # next week
+    ),
+    "united-states": page(
+        row(
+            "2026-10-22",
+            "12:30 PM",
+            "US",
+            "Initial Jobless Claims",
+            actual="194K",
+            consensus="200K",
+        ),
+    ),
+}
 
 
-def test_index_levels_are_not_tier1():
-    evs = econ.events_for_day(rows("2026-10-15"), date(2026, 10, 15))
-    lvl = [e for e in evs if e["name"] == "Core CPI Index"]
-    assert lvl and lvl[0]["kind"] == "other"
+def ev(cc, day, name):
+    return {"date": day, "time_et": "09:00", "kind": "other", "country": cc, "name": name,
+            "measure": None, "consensus": None, "previous": None, "actual": None, "unit": ""}  # fmt: skip
 
 
-def test_pairs_labelled_in_either_order():
-    us = econ.events_for_day(rows("2026-10-15"), date(2026, 10, 15))
-    cpi = {e["measure"]: e for e in us if e["country"] == "US" and e["name"] == "CPI"}
-    assert cpi["y/y"]["consensus"] == 3.6 and cpi["m/m"]["consensus"] == 0.6  # m/m row comes first
-    cn = econ.events_for_day(rows("2026-10-14"), date(2026, 10, 14))
-    ccpi = {e["measure"]: e for e in cn if e["country"] == "CN" and e["name"] == "CPI"}
-    assert ccpi["y/y"]["consensus"] == 1.0 and ccpi["m/m"]["previous"] == 0.4  # y/y row comes first
+def get(slug):
+    if slug not in PAGES:
+        raise RuntimeError(f"tradingeconomics {slug}: HTTP 403")
+    return PAGES[slug]
 
 
-def test_time_and_units():
-    evs = econ.events_for_day(rows("2026-10-13"), date(2026, 10, 13))
-    ind = [e for e in evs if e["country"] == "IN" and e["name"] == "CPI"][0]
-    assert ind["time_et"] == "06:30" and ind["unit"] == "%" and ind["previous"] == 4.82
-    assert ind["date"] == "2026-10-13"
+def test_fetch_week_reads_trading_economics_for_the_week_only():
+    evs = econ.fetch_week(MONDAY, get=get)
+    assert [(e["country"], e["date"], e["name"]) for e in evs] == [
+        ("US", "2026-10-22", "Initial Jobless Claims"),
+        ("JP", "2026-10-21", "Balance of Trade"),
+        ("JP", "2026-10-22", "Core Inflation Rate"),
+    ]
 
 
-def test_fetch_week_handles_empty_day():
-    calls = []
+def test_fetch_week_keeps_earlier_days_the_page_no_longer_shows():
+    prior = [ev("JP", "2026-10-19", "Tertiary Industry Index"), ev("JP", "2026-10-21", "old row"),
+             ev("US", "2026-10-20", "Housing Starts")]  # fmt: skip
+    evs = econ.fetch_week(MONDAY, prior=prior, get=get)
+    names = [e["name"] for e in evs]
+    assert (
+        "Tertiary Industry Index" in names and "Housing Starts" in names
+    )  # before each page's start
+    assert "old row" not in names  # a day the page covers is read fresh
 
-    def fetch(kind, day):
-        calls.append((kind, day))
-        return [] if day == date(2026, 10, 12) else rows(day.isoformat())
 
-    evs = econ.fetch_week(date(2026, 10, 12), fetch=fetch)
-    assert len(calls) == 5 and all(k == "economicevents" for k, _ in calls)
-    assert evs and not [e for e in evs if e["date"] == "2026-10-12"]
+def test_fetch_week_keeps_a_failed_countrys_last_rows():
+    evs = econ.fetch_week(MONDAY, prior=[ev("DE", "2026-10-20", "ZEW Economic Sentiment")], get=get)
+    assert ("DE", "ZEW Economic Sentiment") in [(e["country"], e["name"]) for e in evs]
 
 
-def test_fetch_week_raises_when_whole_week_is_empty():
-    # five empty days across five economies never happens: Nasdaq changed its reply
+def test_a_page_with_no_rows_counts_as_failed():
+    # Trading Economics changed its layout: the page loads but no row parses
     with pytest.raises(RuntimeError, match="no releases"):
-        econ.fetch_week(date(2026, 10, 12), fetch=lambda kind, day: [])
+        econ.fetch_week(MONDAY, get=lambda slug: "<html>new layout</html>")
+
+
+def test_fetch_week_raises_when_every_page_fails():
+    with pytest.raises(RuntimeError, match="no releases"):
+        econ.fetch_week(MONDAY, get=lambda slug: (_ for _ in ()).throw(RuntimeError("down")))

@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from castelino.week_ahead import run as r
+from tests.test_week_ahead_te import page, row
 
 NY = ZoneInfo("America/New_York")
 TUE = datetime(2026, 10, 13, 9, 0, tzinfo=NY)  # in the week of Oct 12
@@ -43,8 +44,17 @@ def fake_fetch(kind, day):
     return ECON if kind == "economicevents" else EARN
 
 
+def te_get(slug):  # Trading Economics' page: US CPI on Tuesday at 08:30 ET (12:30 UTC)
+    if slug != "united-states":
+        raise RuntimeError("HTTP 403")
+    return page(
+        row("2026-10-13", "12:30 PM", "US", "Inflation Rate YoY", consensus="3.6%", previous="3.4%")
+    )
+
+
 def go(tmp_path, now=TUE, **kw):
     kw.setdefault("fetch_day", fake_fetch)
+    kw.setdefault("te_get", te_get)
     kw.setdefault("universe", {"JPM": ("JPMorgan Chase", "sp500")})
     kw.setdefault("yf", lambda t: (None, None))
     kw.setdefault("get_json", lambda url: {"data": []})
@@ -93,10 +103,12 @@ def test_failed_lane_keeps_previous_same_week(tmp_path):
 def test_failed_lane_does_not_reuse_other_week(tmp_path):
     go(tmp_path)  # week of Oct 12
 
-    def broken(kind, day):
-        raise RuntimeError("nasdaq down")
+    def broken(*a):
+        raise RuntimeError("source down")
 
-    _, data = go(tmp_path, now=datetime(2026, 10, 20, 9, 0, tzinfo=NY), fetch_day=broken)
+    _, data = go(
+        tmp_path, now=datetime(2026, 10, 20, 9, 0, tzinfo=NY), fetch_day=broken, te_get=broken
+    )
     assert data["week_start"] == "2026-10-19"
     assert not [
         e for e in data["events"] if e["kind"] in ("inflation", "jobs", "other", "earnings")
@@ -121,6 +133,7 @@ def test_all_lanes_failing_raises_and_keeps_file(tmp_path):
         go(
             tmp_path,
             fetch_day=boom,
+            te_get=boom,
             get_json=boom,
             search=boom,
             fetch_fred=boom,

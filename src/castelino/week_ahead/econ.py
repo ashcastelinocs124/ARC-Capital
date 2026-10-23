@@ -1,21 +1,23 @@
-"""Economic releases for the five largest economies, tiered: inflation and jobs first."""
+"""Economic releases for the five largest economies, tiered: inflation and jobs first.
+
+The source is Trading Economics (te.py; user rule 2026-10-22). Nasdaq's economic calendar filed its
+releases a day late and left actuals blank for hours, so it is no longer read; Nasdaq stays only for
+the earnings calendar."""
 
 from __future__ import annotations
 
+import logging
 import re
-from collections import defaultdict
 from datetime import date, timedelta
 
-from castelino.week_ahead import nasdaq
+log = logging.getLogger(__name__)
 
-COUNTRIES = {"United States": "US", "China": "CN", "Germany": "DE", "Japan": "JP", "India": "IN"}
 INFLATION = re.compile(r"\b(CPI|PPI|WPI|HICP|PCE)\b|inflation", re.I)
 JOBS = re.compile(r"payroll|unemploy|jobless|employment change|\bADP\b", re.I)
 LEVEL = re.compile(
     r"\bindex\b|n\.s\.a", re.I
 )  # index levels / unadjusted series aren't the headline
 DROP = re.compile(r"auction", re.I)
-HHMM = re.compile(r"\d{2}:\d{2}")
 
 
 def parse_num(s: str | None) -> tuple[float | None, str]:
@@ -42,64 +44,32 @@ def kind_of(name: str) -> str:
     return "other"
 
 
-def _label_pairs(evs: list[dict]) -> None:
-    """Nasdaq sends m/m and y/y under one name, in no fixed order: the larger value is y/y.
+def fetch_week(monday: date, prior=(), get=None) -> list[dict]:
+    """The week's releases (Monday to Friday, New York time) from each country's Trading Economics page.
 
-    ponytail: breaks in deflation (m/m can exceed y/y); fix with a per-series prior lookup if it bites.
+    A page starts a day or two back, so a Thursday refresh can't re-read Monday: earlier days of the
+    week keep `prior`'s rows (the last file of the same week), and so does a country whose page failed.
     """
-    groups: dict[tuple, list[dict]] = defaultdict(list)
-    for e in evs:
-        if e["kind"] == "inflation":
-            groups[(e["country"], e["time_et"], e["name"])].append(e)
+    from castelino.week_ahead import te
 
-    def size(e: dict) -> float:
-        v = e["consensus"] if e["consensus"] is not None else e["previous"]
-        return abs(v) if v is not None else 0.0
-
-    for g in groups.values():
-        if len(g) == 2:
-            lo, hi = sorted(g, key=size)
-            lo["measure"], hi["measure"] = "m/m", "y/y"
-
-
-def events_for_day(rows: list[dict], day: date) -> list[dict]:
-    out = []
-    for r in rows:
-        cc = COUNTRIES.get(r.get("country") or "")
-        name = (r.get("eventName") or "").strip()
-        if not cc or not name or DROP.search(name):
-            continue
-        cons, cu = parse_num(r.get("consensus"))
-        prev, pu = parse_num(r.get("previous"))
-        act, au = parse_num(r.get("actual"))
-        t = (r.get("gmt") or "").strip()  # labelled gmt, but the times are ET (US CPI at 08:30)
-        if t.lower() == "all day" and cons is None and prev is None:
-            continue  # holidays
-        if cc == "DE":
-            name = re.sub(r"^German(y)?\s+", "", name)
-        out.append(
-            {
-                "date": day.isoformat(),
-                "time_et": t if HHMM.fullmatch(t) else None,
-                "kind": kind_of(name),
-                "country": cc,
-                "name": name,
-                "measure": None,
-                "consensus": cons,
-                "previous": prev,
-                "actual": act,
-                "unit": cu or pu or au,
-            }
-        )
-    _label_pairs(out)
-    return out
-
-
-def fetch_week(monday: date, fetch=nasdaq.fetch_day) -> list[dict]:
+    lo, hi = monday.isoformat(), (monday + timedelta(days=4)).isoformat()
     out: list[dict] = []
-    for i in range(5):
-        d = monday + timedelta(days=i)
-        out += events_for_day(fetch("economicevents", d), d)
-    if not out:  # five economies never go a whole week without a release: Nasdaq changed its reply
-        raise RuntimeError(f"nasdaq: no releases for the week of {monday}")
+    read = 0
+    for cc in te.SLUGS:
+        try:
+            evs = te.country_events(cc, get or te.get_page)
+            if not evs:  # the page loaded but no row parsed: its layout changed
+                raise RuntimeError("no rows parsed")
+        except Exception as e:  # noqa: BLE001 - one country's page never blanks the others
+            log.warning("week_ahead econ %s: %s", cc, str(e)[:120])
+            out += [p for p in prior if p["country"] == cc]
+            continue
+        read += 1
+        start = min((e["date"] for e in evs), default=hi)
+        out += [e for e in evs if lo <= e["date"] <= hi]
+        out += [p for p in prior if p["country"] == cc and p["date"] < start]
+    if not read:
+        raise RuntimeError(
+            f"tradingeconomics: no releases for the week of {monday} (every page failed)"
+        )
     return out

@@ -19,9 +19,10 @@
 #   at weekends (8). Weekdays start at 10:15 so the 08:00 Theme Charts thread (done by 09:00, its 1h timeout) has
 #   the feed to itself for an hour; a run within an hour of that thread's last post is skipped too.
 # card: 07:00 on weekdays, the week's calendar card on Mondays and today's Tuesday to Friday.
-# watch: every 5 min from 07:00 to 19:55 on weekdays, a post for each watched release as it lands (at most 4 a
-#   day); release posts may land in the Theme Charts quiet hour: they are news.
+# watch: every 5 min from 07:00 to 23:55 on weekdays, a post for each watched release as it lands (at most 7 a
+#   day), its number read from Trading Economics; till 23:55 so Japan's 19:30 releases are caught; release posts
+#   may land in the Theme Charts quiet hour: they are news.
 15 10-22/2 * * 1-5 cd /app && timeout 10m python -m castelino.x_scout scout >> data/x_scout.log 2>&1
 15 8-22/2 * * 0,6 cd /app && timeout 10m python -m castelino.x_scout scout >> data/x_scout.log 2>&1
 0 7 * * 1-5 cd /app && timeout 10m python -m castelino.x_scout card >> data/x_scout.log 2>&1
-*/5 7-19 * * 1-5 cd /app && timeout 4m python -m castelino.x_scout watch >> data/x_scout.log 2>&1
+*/5 7-23 * * 1-5 cd /app && timeout 4m python -m castelino.x_scout watch >> data/x_scout.log 2>&1

@@ -312,7 +312,7 @@ def data_chart(label: str, e: dict, day: date, path: Path) -> bool:
         lo, hi = min(0, *(v for _, v in rows)), max(0, *(v for _, v in rows))
         ax.set_ylim(lo * 1.18, hi * 1.18 or 1)
 
-    wc._frame(1, f"{label}{verb}", f"Released {day:%b %-d, %Y}", "Nasdaq economic calendar", path, draw,
+    wc._frame(1, f"{label}{verb}", f"Released {day:%b %-d, %Y}", "Trading Economics", path, draw,
               kicker="DATA RELEASE", left=0.12, numbered=False)  # fmt: skip
     return True
 

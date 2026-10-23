@@ -1,6 +1,6 @@
 """The day's calendar for the Morning Note: the data releases and earnings Radar's week map shows for
-the note's day, read fresh from Nasdaq (data/week_ahead.json is rewritten in the same 17:00 refresh,
-so its actuals can lag).
+the note's day, read fresh (data/week_ahead.json is rewritten in the same 17:00 refresh, so its
+actuals can lag): economic releases from Trading Economics (user rule 2026-10-22), earnings from Nasdaq.
 
 Two outputs. Every released result becomes a fact and a finding (releases as macro, earnings as news),
 so the Editor can write an item about a big one and the guard can check its numbers. And every entry,
@@ -19,12 +19,12 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 
 from castelino.agents.update.models import Fact, Finding
-from castelino.week_ahead import nasdaq
+from castelino.week_ahead import nasdaq, te
 from castelino.week_ahead.earnings import _norm, load_universe, universe_path
-from castelino.week_ahead.econ import events_for_day, parse_num
+from castelino.week_ahead.econ import parse_num
 
 PREFIX = "cal"  # fact ids cal1, cal2…; finding ids cal-1, cal-2…; rebuilt from scratch each call
-ECON = ("Nasdaq economic calendar", "https://www.nasdaq.com/market-activity/economic-calendar")
+ECON = ("Trading Economics calendar", "https://tradingeconomics.com/calendar")
 EARN = ("Yahoo Finance earnings history", "https://finance.yahoo.com/calendar/earnings")
 WHEN = {"pre": "reported before the open", "post": "reported after the close"}
 QUARTER_DAYS = 75  # a report covers the quarter that ended at most this long before it
@@ -113,13 +113,19 @@ def reporters(day: date, fetch, universe: dict, yf_date=None) -> list[dict]:
 
 
 def lines(
-    day: date, fetch=nasdaq.fetch_day, universe: dict | None = None, eps=yahoo_eps, yf_date=None
+    day: date,
+    fetch=nasdaq.fetch_day,
+    universe: dict | None = None,
+    eps=yahoo_eps,
+    yf_date=None,
+    econ_day=None,
 ) -> list[tuple[str, list[float], str]]:
     """(text, numbers, kind) per calendar entry, releases by time then earnings; numbers is empty
-    for an entry with no result yet. kind is "econ" or "earnings"."""
+    for an entry with no result yet. kind is "econ" or "earnings". `fetch` reads Nasdaq's earnings
+    calendar; `econ_day` the day's economic releases (Trading Economics by default)."""
     econ = [
         e
-        for e in events_for_day(fetch("economicevents", day), day)
+        for e in (econ_day or te.day_events)(day)
         if e["country"] == "US" or e["kind"] in ("inflation", "jobs")
     ]
     out = [(*_release(e), "econ") for e in sorted(econ, key=lambda e: e.get("time_et") or "99:99")]
