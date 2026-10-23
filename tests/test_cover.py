@@ -25,6 +25,22 @@ def test_prompt_clamps_title_and_scene_and_keeps_only_people_the_post_names():
     assert "Mary Daly" not in generic and "generic businesspeople" in generic
 
 
+def test_prompt_never_draws_jerome_powell_as_fed_chair():
+    # 2026-10-23 cover: asked for Susan M. Collins at the Fed, the image model drew a Powell look-alike
+    collins = cover.Person(
+        name="Susan M. Collins", role="Boston Fed President", org="Fed", look="calm"
+    )
+    brief = cover.CoverBrief(
+        title="Oil shock", people=[collins], scene=["the Federal Reserve building"]
+    )
+    for text in (
+        cover.prompt(brief, "Susan M. Collins said"),
+        cover.prompt(brief, "", people=False),
+    ):
+        assert "never draw Jerome Powell" in text and "Kevin Warsh" in text
+        assert "No other recognisable real person" in text
+
+
 def test_cached_cover_is_reused_and_a_failure_returns_none(tmp_path, monkeypatch):
     png = tmp_path / "c.png"
     png.write_bytes(b"x")
@@ -126,7 +142,9 @@ def test_nobody_on_the_last_covers_comes_back_unless_named(tmp_path, monkeypatch
     cover._remember("e.png", ["Kevin Warsh"])
     cover.make(tmp_path / "f.png", "Warsh speaks as Tesla reports", ["The Fed and Tesla"])
     assert asks[-1]["avoid"] == ["Lisa Su", "Kevin Warsh"] and asks[-1]["use"] == []
-    assert "Elon Musk" in drawn[-1] and "Kevin Warsh" not in drawn[-1]
+    # the prompt also names today's Fed chair, so look only at the portraits
+    portraits = drawn[-1].split("No other recognisable")[0]
+    assert "Elon Musk" in portraits and "Kevin Warsh" not in portraits
 
     cover.make(tmp_path / "g.png", "Warsh speaks", ["The Fed"], force=True, use=["Kevin Warsh"])
     assert asks[-1]["avoid"] == [] and "Kevin Warsh" in drawn[-1]  # the analyst's pick wins

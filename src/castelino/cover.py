@@ -68,7 +68,9 @@ From its headline and stories, return:
 
 STYLE = """Cinematic, photo-real 16:9 editorial cover for a financial markets newsletter. Dusk
 lighting, deep navy and warm amber palette, dramatic depth of field. A dense collage of: {scene}.
-{people} Large gold serif capital letters across the lower third read "{title}", spelled
+{people} No other recognisable real person appears: never draw Jerome Powell or anyone who looks
+like him, as he is no longer Fed chair (Kevin Warsh is); a Fed official not named here is shown from
+behind. Large gold serif capital letters across the lower third read "{title}", spelled
 exactly, with a thin gold rule beneath. No other words except the short labels on the screens,
 logos and nameplates."""
 
