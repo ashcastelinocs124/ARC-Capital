@@ -42,6 +42,8 @@ def test_prompt_marks_chartable_findings_and_shows_evidence(monkeypatch):
     assert "[macro-1] (macro) [chartable] 10y up" in user
     assert "evidence:\n    [M1] DGS10 (rates): 1d +4.00bp" in user
     assert "item 1: 9%" in user and "mem" in user
+    # the rule a number broke: it must sit in a finding THAT item cites (2026-10-22)
+    assert "add that finding to the item's finding_ids, or drop the figure" in user
 
 
 def test_item_bodies_run_what_why_how_without_labels():

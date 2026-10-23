@@ -143,7 +143,9 @@ class UpdateEditor(StructuredAgent[MorningNote]):
         if guard_errors:
             parts.append(
                 "## Correction\nYour previous draft failed these checks: "
-                f"{'; '.join(guard_errors)}. Fix them using only figures from the evidence."
+                f"{'; '.join(guard_errors)}. Fix them using only figures from the evidence. A figure "
+                "in an item must be in the evidence of a finding that item cites: add that "
+                "finding to the item's finding_ids, or drop the figure."
             )
         return "\n\n".join(parts)
 

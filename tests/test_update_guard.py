@@ -1,4 +1,10 @@
-from castelino.agents.update.guard import check_note, drop_views, unsupported, view_errors
+from castelino.agents.update.guard import (
+    check_note,
+    clean_picks,
+    drop_views,
+    unsupported,
+    view_errors,
+)
 from castelino.agents.update.models import Fact, Finding, ItemView, MorningNote, NoteItem
 
 
@@ -61,11 +67,21 @@ def test_headline_may_use_any_cited_fact():
     ]
 
 
-def test_dangling_finding_and_foreign_chart_rejected():
-    bad = [item(1, "x", ["macro-9"]), item(2, "y", ["macro-1"], chart="macro-2"), *OK_ITEMS[2:]]
-    errs = check_note(note(bad), FINDS, FACTS)
-    assert "item 1: unknown finding macro-9" in errs
-    assert "item 2: chart macro-2 is not one of its findings" in errs
+def test_dangling_finding_rejected_but_a_bad_chart_pick_is_not():
+    # chart is only a fallback line chart: a bad pick is dropped later, never fails the note
+    bad = [item(1, "x", ["macro-9"]), item(2, "y", ["macro-1"], chart="M2"), *OK_ITEMS[2:]]
+    assert check_note(note(bad), FINDS, FACTS) == ["item 1: unknown finding macro-9"]
+
+
+def test_clean_picks_drops_foreign_and_repeated_charts():
+    picks = [
+        item(1, "x", ["macro-1"], chart="M1"),  # a fact id, not a finding id (2026-10-22)
+        item(2, "y", ["macro-2"], chart="macro-2"),
+        item(3, "z", ["macro-2"], chart="macro-2"),  # charted twice: the first keeps it
+        *OK_ITEMS[3:],
+    ]
+    out = clean_picks(note(picks), FINDS, FACTS)
+    assert [it.chart for it in out.items[:3]] == [None, "macro-2", None]
 
 
 def test_shape_rules():
@@ -91,14 +107,13 @@ def test_common_unit_spellings_are_checked():
     assert unsupported(["a 25-basis-point cut"], {25.0}) == []
 
 
-def test_duplicate_ranks_and_charts_rejected():
+def test_duplicate_ranks_rejected():
     dup = [
         item(1, "x", ["macro-1"], chart="macro-1"),
         item(1, "y", ["macro-1"], chart="macro-1"),
         *OK_ITEMS[2:],
     ]
-    errs = check_note(note(dup), FINDS, FACTS)
-    assert "duplicate rank 1" in errs and "finding macro-1 charted twice" in errs
+    assert check_note(note(dup), FINDS, FACTS) == ["duplicate rank 1"]
 
 
 def test_ai_findings_need_an_ai_item():

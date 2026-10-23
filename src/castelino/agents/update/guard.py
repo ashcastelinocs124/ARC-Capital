@@ -66,16 +66,10 @@ def check_note(
         errs.append(f"need exactly {items} items")
     ranks = [it.rank for it in note.items]
     errs += [f"duplicate rank {r}" for r in sorted({r for r in ranks if ranks.count(r) > 1})]
-    charts = [it.chart for it in note.items if it.chart]
-    errs += [
-        f"finding {c} charted twice" for c in sorted({c for c in charts if charts.count(c) > 1})
-    ]
     for it in note.items:
         errs += [
             f"item {it.rank}: unknown finding {fid}" for fid in it.finding_ids if fid not in find_by
         ]
-        if it.chart is not None and it.chart not in it.finding_ids:
-            errs.append(f"item {it.rank}: chart {it.chart} is not one of its findings")
         nums = nums_for(it.finding_ids)
         errs += [f"item {it.rank}: {t}" for t in unsupported([it.title, it.body], nums)]
     if any(f.agent == "ai" for f in findings) and not any(
@@ -194,10 +188,16 @@ def drop_views(note: MorningNote, ranks: set[int]) -> MorningNote:
 
 
 def clean_picks(note: MorningNote, findings: list[Finding], facts: list[Fact]) -> MorningNote:
-    items = []
+    """Drop bad chart picks instead of failing the note: a bad exhibit, or a fallback `chart`
+    that isn't one of the item's own findings or was already charted by an earlier item."""
+    items, charted = [], set()
     for it in note.items:
         if errs := pick_errors(it, findings, facts):
             log.warning("item %s chart pick dropped: %s", it.rank, "; ".join(errs))
             it = it.model_copy(update={"exhibit": None})
+        if it.chart is not None and (it.chart not in it.finding_ids or it.chart in charted):
+            log.warning("item %s fallback chart %s dropped", it.rank, it.chart)
+            it = it.model_copy(update={"chart": None})
+        charted.add(it.chart)
         items.append(it)
     return note.model_copy(update={"items": items})
