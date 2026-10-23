@@ -92,6 +92,12 @@ def no_emoji(text: str) -> str:
     return _EMOJI.sub("", text)
 
 
+def for_substack(text: str) -> str:
+    """Substack text: no emoji and no cashtags ("$SPCX" -> "SPCX"; cashtags are for X only, user rule
+    2026-10-23). A dollar amount ("$1.20") stays."""
+    return _CASHTAG.sub(r"\1", no_emoji(text))
+
+
 def drafts(kind: str, title: str, takeaways: list[str], url: str) -> list[str]:
     """A thread for both kinds: the title, one post per takeaway (≤5), then the link."""
     end = (

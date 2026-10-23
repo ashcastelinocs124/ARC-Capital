@@ -22,7 +22,7 @@ import httpx
 from castelino import cover
 from castelino.agents.update.fsio import atomic_write_text
 from castelino.config import get_settings
-from castelino.x_post import no_emoji
+from castelino.x_post import for_substack
 
 SITE = "https://arcresearch.markets"
 
@@ -201,7 +201,7 @@ def post_note(text: str, png: Path | None = None) -> str:
             url = _upload(http, NOTES_API, png)["url"]
             att = http.post(f"{NOTES_API}/comment/attachment", json={"url": url, "type": "image"})
             ids.append(_check(att).json()["id"])
-        r = http.post(f"{NOTES_API}/comment/feed", json=note_payload(no_emoji(text), ids))
+        r = http.post(f"{NOTES_API}/comment/feed", json=note_payload(for_substack(text), ids))
         return str(_check(r).json()["id"])
 
 
@@ -239,10 +239,10 @@ def push(
         uploaded = {name: _upload(http, api, png) for name, png in pngs.items() if png.exists()}
 
         fields = {
-            "draft_title": no_emoji(title).strip(),
-            "draft_subtitle": no_emoji(subtitle).strip(),
-            # emoji only ever sit inside JSON strings, so dropping them from the text keeps it valid JSON
-            "draft_body": no_emoji(json.dumps(body(uploaded), ensure_ascii=False)),
+            "draft_title": for_substack(title).strip(),
+            "draft_subtitle": for_substack(subtitle).strip(),
+            # emoji and cashtags only ever sit inside JSON strings, so dropping them keeps it valid JSON
+            "draft_body": for_substack(json.dumps(body(uploaded), ensure_ascii=False)),
         }
         if cover and not draft.get("cover_image") and (png := cover()):
             fields["cover_image"] = _upload(http, api, png)["url"]

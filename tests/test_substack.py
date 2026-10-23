@@ -108,11 +108,13 @@ def test_post_note_uploads_attaches_then_posts(monkeypatch, tmp_path):
         substack.httpx, "Client", lambda **kw: real(transport=httpx.MockTransport(handler), **kw)
     )
     monkeypatch.setenv("SUBSTACK_SID", "s")
-    assert substack.post_note("Hello.", png) == "365"
+    assert substack.post_note("$SPCX beat forecasts.", png) == "365"
     paths = [c[1] for c in calls]
     assert paths == ["/api/v1/image", "/api/v1/comment/attachment", "/api/v1/comment/feed"]
     assert calls[1][2] == {"url": "https://img/card.png", "type": "image"}
     assert calls[2][2]["attachmentIds"] == ["att-9"]
+    note = json.dumps(calls[2][2])
+    assert "SPCX beat forecasts." in note and "$SPCX" not in note  # cashtags are for X only
     # without a browser's Origin, Substack answers the Note with a 403 (2026-10-19)
     assert calls[2][3]["origin"] == "https://substack.com" and calls[2][3]["referer"]
 

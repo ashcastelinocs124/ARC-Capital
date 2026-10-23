@@ -206,3 +206,11 @@ def test_a_post_can_carry_up_to_four_images(monkeypatch):
     assert sent["media"] == {"media_ids": ["a", "b", "c", "d"]}
     x_post.post("hi", media_id="a")
     assert sent["media"] == {"media_ids": ["a"]}
+
+
+def test_substack_text_drops_cashtags_but_keeps_dollar_amounts():
+    # cashtags are for X only (user, 2026-10-23); Substack reads "SPCX", never "$SPCX"
+    assert (
+        x_post.for_substack("$SPCX beat 🚀 as $NVDA fell; EPS $1.20 vs US$0.98")
+        == "SPCX beat as NVDA fell; EPS $1.20 vs US$0.98"
+    )
