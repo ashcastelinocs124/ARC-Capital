@@ -53,3 +53,6 @@ def test_compute_reads_a_selloff_as_extreme_fear():
     assert out.previous is not None and out.week_ago is not None
     assert out.year_ago > 25  # a year ago the market was calm
     assert out.components[1].raw == "0% of our 5 stocks above their 200-day average"
+    # each signal also carries where it stood, so the Daily Update can say which one moved
+    assert all(c.previous is not None and c.week_ago is not None for c in out.components)
+    assert all(c.week_ago >= c.score for c in out.components)  # the crash dragged every signal down

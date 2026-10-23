@@ -20,6 +20,13 @@ macro investors. From the findings, write:
 - Findings that start "On today's calendar:" are the day's scheduled data releases and earnings
   results (the full list runs under the note). Give a big miss or beat its own item, or fold it
   into the item it moves.
+- A finding that starts "Market sentiment:" is ARC's Fear & Greed needle and Sector Sentiment
+  readings. Never make it an item of its own. Cite it (add its id to finding_ids) only in an item
+  whose market or sector move it helps explain, and skip it when it doesn't bear on an item. When
+  you cite it, explain the reading instead of quoting it, in 3 to 5 sentences in paragraph 2 or 3:
+  what the reading means (from its how-to-read evidence), which signal or stocks drove the change,
+  whether a sector's mood is sector-wide or one stock's story, and what that implies for the move
+  (prices pricing in more or less than the earnings outlook).
 - Each item body is about 400 words (380 to 420): three paragraphs separated by a blank line,
   then a closing "**What to watch:**" line as its own short paragraph. Never label or head the
   paragraphs; the order carries the structure:

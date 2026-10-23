@@ -37,6 +37,10 @@ BackgroundFn = Callable[
 ]
 # (findings, facts, day) -> (findings and facts with the day's calendar results, its lines)
 CalendarFn = Callable[[list[Finding], list[Fact], str], tuple[list[Finding], list[Fact], list[str]]]
+# (findings, facts, day) -> (findings and facts with the market sentiment ones, data gaps)
+SentimentFn = Callable[
+    [list[Finding], list[Fact], str], tuple[list[Finding], list[Fact], list[str]]
+]
 # (day, updates_dir, create=) -> the topic consultants' input for that day (saved per day, so rebuilds
 # reuse it; only the daily run creates it)
 ConsultFn = Callable[..., NoteConsult]
@@ -75,6 +79,7 @@ class UpdateRunner:
         today_fn: Callable[[], date] = date.today,
         background_fn: BackgroundFn | None = None,
         calendar_fn: CalendarFn | None = None,
+        sentiment_fn: SentimentFn | None = None,
         consult_fn: ConsultFn | None = None,
         view_max_words: int = 100,
         view_max_figures: int = 2,
@@ -86,6 +91,7 @@ class UpdateRunner:
         self.editor_fn, self.chart_fn, self.today_fn = editor_fn, chart_fn, today_fn
         self.background_fn = background_fn
         self.calendar_fn = calendar_fn
+        self.sentiment_fn = sentiment_fn
         self.consult_fn = consult_fn
         self.view_max_words, self.view_max_figures = view_max_words, view_max_figures
         self._consulted: NoteConsult | None = None  # this run's consultant input
@@ -237,6 +243,13 @@ class UpdateRunner:
             except Exception as exc:  # noqa: BLE001 — the calendar is never load-bearing
                 log.warning("calendar step failed; writing without it", exc_info=True)
                 self._gaps.append(f"calendar step failed: {exc}")
+        if self.sentiment_fn is not None:
+            try:
+                findings, facts, gaps = self.sentiment_fn(findings, facts, self._day)
+                self._gaps += gaps
+            except Exception as exc:  # noqa: BLE001 — sentiment is never load-bearing
+                log.warning("sentiment step failed; writing without it", exc_info=True)
+                self._gaps.append(f"sentiment step failed: {exc}")
         consult = self._consult()
         if consult.facts:  # a rebuild's raw facts already hold them: never twice
             ids = {f.id for f in consult.facts}
@@ -358,6 +371,7 @@ def build_default_runner() -> UpdateRunner:
         macro,
         news,
         orchestrator,
+        sentiment,
     )
     from castelino.config import get_settings
 
@@ -383,6 +397,7 @@ def build_default_runner() -> UpdateRunner:
         chart_fn=exhibits.make_note_exhibits,
         background_fn=background.enrich,
         calendar_fn=calendar.add,
+        sentiment_fn=sentiment.add,
         consult_fn=consult.for_note,
         view_max_words=cfg.consultants.view_max_words,
         view_max_figures=cfg.consultants.view_max_figures,

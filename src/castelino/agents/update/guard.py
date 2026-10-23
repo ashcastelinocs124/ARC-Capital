@@ -40,6 +40,26 @@ def unsupported(texts: list[str], nums: set[float]) -> list[str]:
     return bad
 
 
+# Sentiment scores are plain 0-100 levels, which the unit check above skips. So any "N of 100", and
+# in a sentence that names the needle any score after at/to/from, must be one of the evidence numbers.
+_NEEDLE = re.compile(r"fear (?:&|and) greed|needle", re.I)
+_OF_100 = re.compile(r"(?<![\w.])(\d{1,3}) (?:out )?of 100\b")
+_AT = re.compile(
+    r"\b(?:at|to|from) (\d{1,3})(?!\d|\.\d|:\d|\s*-?\s*(?:%|percent|bp|pp|basis|day|week|month|year))",
+    re.I,
+)
+
+
+def unsupported_scores(texts: list[str], nums: set[float]) -> list[str]:
+    bad: list[str] = []
+    for sentence in (s for t in texts for s in re.split(r"(?<=[.!?])\s+", t)):
+        found = _OF_100.findall(sentence) + (
+            _AT.findall(sentence) if _NEEDLE.search(sentence) else []
+        )
+        bad += [n for n in found if float(n) not in nums and n not in bad]
+    return bad
+
+
 def count_figures(texts: list[str]) -> int:
     """How many unit-carrying figures the guard checked (shown on the report's page 1)."""
     return sum(1 for t in texts for _ in _FIG.finditer(t))
@@ -72,14 +92,23 @@ def check_note(
         ]
         nums = nums_for(it.finding_ids)
         errs += [f"item {it.rank}: {t}" for t in unsupported([it.title, it.body], nums)]
+        errs += [
+            f"item {it.rank}: sentiment score {n}"
+            for n in unsupported_scores([it.title, it.body], nums)
+        ]
+        if it.finding_ids and all(fid.startswith("sent-") for fid in it.finding_ids):
+            errs.append(
+                f"item {it.rank} rests only on the Market sentiment finding; sentiment explains "
+                "another item's move, it is never an item of its own"
+            )
     if any(f.agent == "ai" for f in findings) and not any(
         find_by[fid].agent == "ai" for it in note.items for fid in it.finding_ids if fid in find_by
     ):
         errs.append("no item cites an (ai) finding; include one AI & chips item")
     every = nums_for(list(find_by))
-    errs += [
-        f"headline/takeaways: {t}" for t in unsupported([note.headline, *note.takeaways], every)
-    ]
+    tops = [note.headline, *note.takeaways]
+    errs += [f"headline/takeaways: {t}" for t in unsupported(tops, every)]
+    errs += [f"headline/takeaways: sentiment score {n}" for n in unsupported_scores(tops, every)]
     return errs
 
 

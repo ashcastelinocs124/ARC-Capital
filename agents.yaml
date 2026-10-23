@@ -102,8 +102,9 @@ agents:
       consultant's reading of what is happening and what could happen. A number guard checks every figure.
     tools:
       - {name: "Background (code)", does: "Stock price history, a release's last 12 readings or a series' recent moves, and earlier ARC notes, linked to the findings as facts"}
+      - {name: "Market sentiment (code)", does: "ARC's Fear & Greed needle recomputed from the day's close, its 5 signals ordered by how far they moved, and each sector's Sector Sentiment reading in words (price trend vs fundamentals, sector-wide or one stock), as one finding the Editor may cite only to explain another item's move"}
       - {name: "Chart agent (code)", does: "Draws the picked form (range, movers, ladder, columns, dumbbell, vs expected, compare, line); a bad pick falls back to a line chart"}
-      - {name: "check_note (guard)", does: "Every %, bp or pp must be in the facts behind the cited findings; one retry"}
+      - {name: "check_note (guard)", does: "Every %, bp or pp, and every Fear & Greed or sector score, must be in the facts behind the cited findings; an item can't rest on sentiment alone; one retry"}
       - {name: "Consult step (code)", does: "The day's consultant theses and up to 15 of their facts, saved per day so a rebuild uses that day's"}
       - {name: "view_errors (guard)", does: "An ARC view may cite only its consultant's facts, at most 2 figures and about 80 words; one retry, then the box is dropped, never the note"}
     memory:
@@ -1072,7 +1073,7 @@ systems:
         regions: [{from: 1, to: 3, label: "Loop · max 2 follow-up rounds"}]
         loops: [{from: 3, to: 2, label: "follow-ups"}]
       - title: "Daily Update 2 · Write"
-        flow: [["code:Background|stock · data · past notes", "code:Day's calendar|releases · earnings"], ["agent:update_editor|Daily Update"], ["code:Number guard|1 retry"], ["code:Chart agent|8 chart forms", "agent:cover_artist|Substack cover"], ["end:/updates|+ 2-tier memory"]]
+        flow: [["code:Background|stock · data · past notes", "code:Day's calendar|releases · earnings", "code:Market sentiment|Fear & Greed · sectors"], ["agent:update_editor|Daily Update"], ["code:Number guard|1 retry"], ["code:Chart agent|8 chart forms", "agent:cover_artist|Substack cover"], ["end:/updates|+ 2-tier memory"]]
         loops: [{from: 2, to: 1, label: "retry with errors"}]
       - title: "Admin · Daily desk"
         flow: [["Your question on /admin"], ["agent:desk_chat|one day · one agent"], ["end:Answer with fact ids"]]
@@ -1226,6 +1227,7 @@ pipelines:
     groups:
       - {id: tools, label: ANALYST TOOLS, nodes: [fred, bls, yahoo, web, polymarket, x]}
       - {id: analysts, label: 4 ANALYSTS, note: RUN IN PARALLEL, nodes: [macro, news, alt, ai]}
+      - {id: context, label: CONTEXT FOR THE EDITOR, nodes: [background, calendar, sentiment]}
     nodes:
       - {id: memory, kind: source, layer: sources, x: 316, w: 140, name: ARC memory, sub: recent notes, does: "The themes and trends from ARC's recent notes, so each run builds on what came before."}
       - {id: fred, kind: source, layer: sources, x: 514, dy: -18, w: 100, name: FRED, does: "Federal Reserve economic data: inflation, rates, jobs and hundreds of other official series."}
@@ -1234,8 +1236,9 @@ pipelines:
       - {id: web, kind: source, layer: sources, x: 514, dy: 18, w: 100, name: web search, does: "A web search that returns cited sources; only lines with a citation are kept."}
       - {id: polymarket, kind: source, layer: sources, x: 624, dy: 18, w: 100, name: Polymarket, does: "Prediction-market odds and how they moved."}
       - {id: x, kind: source, layer: sources, x: 734, dy: 18, w: 100, name: X, does: "Posts from financial X, found through a cited search."}
-      - {id: background, kind: code, layer: sources, x: 872, dy: -18, w: 164, name: Background facts, sub: prices · past notes, does: "Plain code adds context to the findings: a stock's moves this year, a data series' recent history, ARC's earlier notes."}
-      - {id: calendar, kind: code, layer: sources, x: 872, dy: 18, w: 164, name: Day's calendar, sub: releases · earnings, does: "Plain code reads the day's data releases from Trading Economics and its earnings from Nasdaq's calendar. Each result goes to the Editor as a fact, and the full list runs under the note."}
+      - {id: background, kind: code, layer: sources, x: 872, w: 164, name: Background facts, sub: prices · past notes, does: "Plain code adds context to the findings: a stock's moves this year, a data series' recent history, ARC's earlier notes."}
+      - {id: calendar, kind: code, layer: sources, x: 1046, w: 164, name: Day's calendar, sub: releases · earnings, does: "Plain code reads the day's data releases from Trading Economics and its earnings from Nasdaq's calendar. Each result goes to the Editor as a fact, and the full list runs under the note."}
+      - {id: sentiment, kind: code, layer: sources, x: 1220, w: 164, name: Market sentiment, sub: Fear & Greed · sectors, does: "Plain code recomputes ARC's Fear & Greed needle from the day's close and reads each sector's Sector Sentiment, in words: which signal moved, whether prices run ahead of or behind the earnings outlook. The Editor uses it only to explain why a market or sector moved."}
       - {id: schedule, kind: trigger, layer: agents, x: 150, w: 120, name: Schedule, sub: 17:00 ET, does: "A scheduled job on ARC's server starts the run at 5 pm New York time every day."}
       - {id: orch, kind: llm, agent: update_orchestrator, layer: agents, x: 316, w: 140, name: Orchestrator, sub: plan · review, does: "The lead agent. It writes each analyst a brief, then reviews what they found and can send follow-up questions."}
       - {id: macro, kind: llm, agent: macro_agent, layer: agents, x: 518, dy: -40, w: 145, name: Macro analyst, sub: fred · bls · yahoo, does: "Reads today's official data releases (inflation, jobs, rates) and market moves, and picks the ones that matter."}
@@ -1255,8 +1258,7 @@ pipelines:
       - tools > analysts
       - analysts > orch | below | follow-ups · max 2 rounds
       - analysts > editor
-      - background > editor
-      - calendar > editor
+      - context > editor
       - editor > guard
       - guard > editor | right | retry
       - guard > charts
@@ -1268,7 +1270,7 @@ pipelines:
       - {title: Plan, nodes: [orch, memory], edges: [orch > analysts, memory > orch], io: ["in: recent notes", "out: 4 briefs"], text: "The Orchestrator, an LLM agent, reads ARC's memory of recent notes and writes each analyst a brief: what to look into today."}
       - {title: Pull data with tools, nodes: [tools, analysts], edges: [tools > analysts], io: ["in: brief + data", "out: findings + fact ids"], text: "Four analyst agents run at the same time, each limited to its own tools: official data (FRED, BLS, Yahoo Finance), a cited web search, prediction markets and X. Code turns every result into numbered facts that the agents must cite."}
       - {title: Report back, nodes: [analysts, orch], edges: [analysts > orch], io: ["in: findings", "out: follow-ups or done"], text: "The analysts' findings go back to the Orchestrator, which can send any of them a follow-up question, for at most two rounds."}
-      - {title: Write, nodes: [background, calendar, editor], edges: [analysts > editor, background > editor, calendar > editor], io: ["in: findings + background + calendar", "out: draft note"], text: "Code adds background (price history, earlier notes) and the day's calendar (each data release and earnings result, listed in full under the note). The Editor agent writes five stories (what happened, why, what to watch) and cites a fact for every claim."}
+      - {title: Write, nodes: [context, editor], edges: [analysts > editor, context > editor], io: ["in: findings + background + calendar + sentiment", "out: draft note"], text: "Code adds background (price history, earlier notes), the day's calendar (each data release and earnings result, listed in full under the note) and market sentiment (ARC's Fear & Greed needle and sector readings, used only to explain why a market moved). The Editor agent writes five stories (what happened, why, what to watch) and cites a fact for every claim."}
       - {title: Check every number, nodes: [guard, editor], edges: [editor > guard, guard > editor], io: ["in: draft", "out: pass or errors"], text: "Plain code checks every number in the draft against the facts. If a figure isn't in the data, the draft goes back to the Editor with the errors, once."}
       - {title: Chart and publish, nodes: [charts, cover, substack, memo], edges: [guard > charts, charts > cover, cover > substack, substack > memo], io: ["in: checked note", "out: Substack post"], text: "Code draws each chart from the source data, the Cover Artist draws the post's cover image, and the note is published on Substack and listed on the Memo page."}
 

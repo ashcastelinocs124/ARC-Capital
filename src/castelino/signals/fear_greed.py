@@ -32,6 +32,8 @@ class FGComponent(BaseModel):
     name: str
     score: int
     raw: str  # the reading in words, e.g. "VIX 21.4 vs its 50-day average 17.9"
+    previous: int | None = None  # the session before (the Daily Update says which signal moved)
+    week_ago: int | None = None
 
 
 class FearGreed(BaseModel):
@@ -106,6 +108,13 @@ def compute(
         past = index[index.index <= today - pd.Timedelta(days=days)]
         return round(past.iloc[-1]) if len(past) else None
 
+    def signal_at(k: str, when: pd.Timestamp | None) -> int | None:
+        past = scores[k].loc[:when].dropna() if when is not None else ()
+        return round(past.iloc[-1]) if len(past) else None
+
+    before = index.index[-2] if len(index) > 1 else None
+    week = today - pd.Timedelta(days=7)
+
     hy_now, hy_month = hy.loc[today], hy[hy.index <= today - pd.Timedelta(days=30)].iloc[-1]
     m, b, h = momentum.loc[today], breadth.loc[today], haven.loc[today]
     raw = {
@@ -121,7 +130,14 @@ def compute(
         zone=zone(score),
         as_of=today.date(),
         components=[
-            FGComponent(key=k, name=name, score=round(scores.loc[today, k]), raw=raw[k])
+            FGComponent(
+                key=k,
+                name=name,
+                score=round(scores.loc[today, k]),
+                raw=raw[k],
+                previous=signal_at(k, before),
+                week_ago=signal_at(k, week),
+            )
             for k, (name, _) in signals.items()
         ],
         previous=round(index.iloc[-2]) if len(index) > 1 else None,
