@@ -3,7 +3,7 @@ the findings also go out as Substack Notes (note(): after X, never blocking it; 
 with the SUBSTACK_SID cookie). Dry run (log only) unless X_SCOUT_LIVE=1 and the X write keys are set
 (see x_post.py). One log: data/x_scout.log.
 
-`scout` (the default; every 2 h, 10:15-22:15 ET on weekdays and 08:15-22:15 at weekends): post one
+`scout` (the default; hourly, 10:15-23:15 ET on weekdays and 08:15-23:15 at weekends): post one
 interesting macro or AI finding with a chart. Code runs one cited web search for the last 6 hours of
 macro and AI news (uncited lines are dropped). The Scout picks the one item worth a post, or
 nothing, and names a chart form (allowed_forms) and the fred:/yahoo: series it needs; code fetches
@@ -68,7 +68,7 @@ from castelino.week_ahead import te
 from castelino.x_post import NOT_TICKERS, trades  # also used by ticker_errors
 
 ET = ZoneInfo("America/New_York")
-MAX_PER_DAY = 8  # one per 2-hourly run (deploy/crontab)
+MAX_PER_DAY = 16  # one per hourly run (deploy/crontab); doubled from 8 on 2026-10-23
 MEMORY_DAYS = 7
 THEME_GAP = timedelta(hours=1)  # the morning Theme Charts thread gets the feed to itself this long
 # (hours searched, must pick): every run posts unless all is old; None = since midnight ET, so a

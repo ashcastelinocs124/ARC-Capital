@@ -219,7 +219,7 @@ agents:
       - {key: OPENAI_API_KEY, required: true, why: "Web search (x_scout.search_model, gpt-6-luna)"}
     prompt: "castelino.x_scout:SCAN_USER"
     summary: >-
-      Every 2 hours (10:15-22:15 ET on weekdays, 08:15-22:15 at weekends), one cited web search lists up to 8 macro and AI
+      Every hour (10:15-23:15 ET on weekdays, 08:15-23:15 at weekends), one cited web search lists up to 8 macro and AI
       items from the last 6 hours: data releases against forecasts, central banks, model and chip
       launches, AI capex. Lines without a citation are dropped before the Scout sees them.
     tools:
@@ -1166,7 +1166,7 @@ systems:
         flow: [["Every 30 min"], ["code:Market check|10 markets · z ≥ 2.5"], ["agent:move_explainer|cited why"], ["agent:x_chart_picker|intraday or context chart"], ["end:Post on X|+ chart · or dry-run log"]]
 
   - group: X Scout
-    trigger: "Cron on the Fly server: the Scout every 2 hours, 10:15-22:15 ET on weekdays and 08:15-22:15 at weekends; the calendar card at 07:00 and its watcher every 5 min, 07:00-23:55, on weekdays"
+    trigger: "Cron on the Fly server: the Scout every hour, 10:15-23:15 ET on weekdays and 08:15-23:15 at weekends (at most 16 a day); the calendar card at 07:00 and its watcher every 5 min, 07:00-23:55, on weekdays"
     output: "On X, with the card and findings also as Substack Notes (dry run until X_SCOUT_LIVE=1): up to 2 cited findings a day with a chart and a reply; a calendar card each weekday morning (the week on Mondays); a post on X for each watched release as it lands, up to 4 a day"
     blurb: >-
       A cited search finds the last 6 hours of macro and AI news; the Scout picks one item worth a
@@ -1398,7 +1398,7 @@ pipelines:
 
   - id: x-scout
     name: X Scout
-    trigger: "cron · findings every 2 h · calendar 07:00 + every 5 min"
+    trigger: "cron · findings every hour · calendar 07:00 + every 5 min"
     guardrails: "numbers from sources · no repeats · daily caps"
     delivery: "X + Substack Notes: findings, calendar cards; release posts on X"
     nodes:
@@ -1407,7 +1407,7 @@ pipelines:
       - {id: calendar, kind: source, layer: sources, x: 790, name: Week Ahead, sub: the week's calendar, does: "ARC's calendar of the week's economic releases (with consensus and previous) and the companies reporting, refreshed every evening."}
       - {id: sec, kind: source, layer: sources, x: 1270, name: SEC EDGAR, sub: earnings releases, does: "The earnings release each company files with the SEC as an 8-K, usually minutes after it reports."}
       - {id: nasdaq, kind: source, layer: sources, x: 1110, name: Live calendar, sub: Trading Economics, does: "Trading Economics' calendar pages, which show a release's actual within minutes; the watched countries' pages are read every 5 minutes."}
-      - {id: schedule, kind: trigger, layer: agents, x: 20, w: 120, name: Findings, sub: every 2 h, does: "Runs every 2 hours, 10:15 to 22:15 New York time on weekdays and 08:15 to 22:15 at weekends, never within an hour of the morning Theme Charts thread."}
+      - {id: schedule, kind: trigger, layer: agents, x: 20, w: 120, name: Findings, sub: every hour, does: "Runs every hour, 10:15 to 23:15 New York time on weekdays and 08:15 to 23:15 at weekends (at most 16 a day), never within an hour of the morning Theme Charts thread."}
       - {id: search, kind: llm, agent: x_scout_search, layer: agents, x: 170, name: Scout search, sub: macro + AI news, does: "Searches the last 6 hours of macro and AI news and keeps only the lines it can cite."}
       - {id: scout, kind: llm, agent: x_scout, layer: agents, x: 330, name: Scout, sub: 1 item, 24h retry, does: "Picks the one item worth a post and names the data series that chart it; if nothing clears the bar, a second search covers 24 hours and the Scout must pick the best item not yet posted."}
       - {id: writer, kind: llm, agent: x_scout_writer, layer: agents, x: 490, name: Writer, sub: post + reply, does: "Writes the post and one reply of analysis from the cited line and the chart's numbers."}
@@ -1449,7 +1449,7 @@ pipelines:
       - sec > segread
       - segread > relpost
     steps:
-      - {title: Find, nodes: [schedule, search, web], edges: [schedule > search, web > search], io: ["in: last 6 hours of news", "out: cited items"], text: "Every 2 hours the Scout search agent lists the macro and AI news of the last 6 hours, and only lines with a citation go on."}
+      - {title: Find, nodes: [schedule, search, web], edges: [schedule > search, web > search], io: ["in: last 6 hours of news", "out: cited items"], text: "Every hour the Scout search agent lists the macro and AI news of the last 6 hours, and only lines with a citation go on."}
       - {title: Pick, nodes: [scout, limits, stop], edges: [search > scout, limits > scout, scout > stop], io: ["in: cited items + past posts", "out: one item or stop"], text: "The Scout agent picks the one item worth a post and the series that chart it. It skips anything already posted, and most runs stop here."}
       - {title: Chart, write and post, nodes: [writer, series, check, post], edges: [scout > writer, series > writer, writer > check, check > post], io: ["in: item + chart data", "out: finding on X"], text: "Code draws the chart; the Writer agent writes the post and one reply; code checks every number, then the finding goes out on X."}
       - {title: Calendar card, nodes: [calsched, pick, calendar, cardw], edges: [calsched > pick, calendar > pick, pick > cardw], io: ["in: the week's calendar", "out: card + read"], text: "At 7:00 on weekdays code picks the key releases and reporters and draws the card; the Calendar writer adds a short read."}
