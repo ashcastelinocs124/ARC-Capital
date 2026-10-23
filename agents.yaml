@@ -23,7 +23,7 @@ agents:
       - {name: "plan()", does: "One brief per agent, no numbers"}
       - {name: "review()", does: "done, or follow-up asks for gaps or conflicts between agents"}
     memory:
-      reads: ["MEMORY.md — top 5 themes", "long-term.md — older themes"]
+      reads: ["MEMORY.md — top 5 themes", "long-term.md — older themes", "What each topic consultant is watching (its thesis's lean and what would change its mind), so briefs can chase it"]
       writes: []
       persists: "Nothing of its own; the Editor's themes update the shared two-tier memory."
 
@@ -98,11 +98,14 @@ agents:
     summary: >-
       Writes the Daily Update (headline, 3 key takeaways, 5 ranked items of about 400 words that
       run what happened, why, then how it came about from code-pulled background) and picks each
-      item's chart form. A number guard checks every figure.
+      item's chart form. Under an item a topic consultant covers it adds a one-paragraph ARC view: that
+      consultant's reading of what is happening and what could happen. A number guard checks every figure.
     tools:
       - {name: "Background (code)", does: "Stock price history, a release's last 12 readings or a series' recent moves, and earlier ARC notes, linked to the findings as facts"}
       - {name: "Chart agent (code)", does: "Draws the picked form (range, movers, ladder, columns, dumbbell, vs expected, compare, line); a bad pick falls back to a line chart"}
       - {name: "check_note (guard)", does: "Every %, bp or pp must be in the facts behind the cited findings; one retry"}
+      - {name: "Consult step (code)", does: "The day's consultant theses and up to 15 of their facts, saved per day so a rebuild uses that day's"}
+      - {name: "view_errors (guard)", does: "An ARC view may cite only its consultant's facts, at most 2 figures and about 80 words; one retry, then the box is dropped, never the note"}
     memory:
       reads: ["MEMORY.md — top 5 themes", "long-term.md — older themes"]
       writes: ["Theme notes (touched and new)", "data/updates/<date>.json — written last, marks the day done"]
@@ -524,6 +527,7 @@ agents:
       aimed at new ones.
     tools:
       - {name: "web_search / fred_series / yahoo_prices", does: "One fact per cited line or computed series"}
+      - {name: "consult (topic consultants)", does: "Ask an ARC topic consultant for its analysis; it answers from its own file and its facts are copied in, so any number it lends is still checked"}
     memory:
       reads: ["Its brief and the facts so far"]
       writes: ["Findings + NA/NB facts"]
@@ -542,6 +546,7 @@ agents:
       relative strength and COT positioning, all computed by code (up to 16 calls).
     tools:
       - {name: "technicals / cot / yahoo_prices / fred_series", does: "Numbers computed by code"}
+      - {name: "consult (topic consultants)", does: "Ask an ARC topic consultant for its analysis; it answers from its own file and its facts are copied in, so any number it lends is still checked"}
     memory:
       reads: ["Its brief and the facts so far"]
       writes: ["Findings + T facts"]
@@ -653,6 +658,7 @@ agents:
       - {name: "web_search / x_search / fred_series / yahoo_prices / bls_series / polymarket_odds", does: "Facts computed by code or cited lines; X posts are attributed to their author"}
       - {name: "ramp_ai_index / openrouter_rankings / arc_ai_adoption_index", does: "Live data: Ramp's AI Index (monthly U.S. business AI adoption, weekly token spend), OpenRouter's rankings (most-used models, open-weight or closed) and ARC's own AI Adoption Index (52 companies: filings, AI hiring, spend)"}
       - {name: "post_to_board / read_board", does: "The shared board between agents"}
+      - {name: "consult (topic consultants)", does: "Ask an ARC topic consultant for its analysis; it answers from its own file and its facts are copied in, so any number it lends is still checked"}
     memory:
       reads: ["Its brief, the board; on the editor desk its own saved thread (or its summary after 14 days)"]
       writes: ["Facts, findings, its transcript"]
@@ -957,6 +963,7 @@ agents:
       - {name: "fred_series / yahoo_prices / bls_series", does: "A series over a chosen window → one fact with levels and changes"}
       - {name: "polymarket_odds / web_search", does: "Odds and moves; cited search lines → facts"}
       - {name: "post_to_board / read_board", does: "Share facts with related desks"}
+      - {name: "consult (topic consultants)", does: "Ask an ARC topic consultant for its analysis; it answers from its own file and its facts are copied in, so any number it lends is still checked"}
     memory: {reads: ["Its goal and trends from the Lead", "The week's Daily Updates"], writes: [], persists: "Nothing."}
 
   - id: deep_editor
@@ -1135,7 +1142,7 @@ systems:
         flow: [["Every 30 min"], ["code:Market check|10 markets · z ≥ 2.5"], ["agent:move_explainer|cited why"], ["agent:x_chart_picker|intraday or context chart"], ["end:Post on X|+ chart · or dry-run log"]]
 
   - group: X Scout
-    trigger: "Cron on the Fly server: the Scout every 2 hours, 10:15-22:15 ET on weekdays and 08:15-22:15 at weekends; the calendar card at 07:00 and its watcher every 5 min, 07:00-19:55, on weekdays"
+    trigger: "Cron on the Fly server: the Scout every 2 hours, 10:15-22:15 ET on weekdays and 08:15-22:15 at weekends; the calendar card at 07:00 and its watcher every 5 min, 07:00-23:55, on weekdays"
     output: "On X, with the card and findings also as Substack Notes (dry run until X_SCOUT_LIVE=1): up to 2 cited findings a day with a chart and a reply; a calendar card each weekday morning (the week on Mondays); a post on X for each watched release as it lands, up to 4 a day"
     blurb: >-
       A cited search finds the last 6 hours of macro and AI news; the Scout picks one item worth a
@@ -1380,7 +1387,7 @@ pipelines:
       - {id: search, kind: llm, agent: x_scout_search, layer: agents, x: 170, name: Scout search, sub: macro + AI news, does: "Searches the last 6 hours of macro and AI news and keeps only the lines it can cite."}
       - {id: scout, kind: llm, agent: x_scout, layer: agents, x: 330, name: Scout, sub: 1 item, 24h retry, does: "Picks the one item worth a post and names the data series that chart it; if nothing clears the bar, a second search covers 24 hours and the Scout must pick the best item not yet posted."}
       - {id: writer, kind: llm, agent: x_scout_writer, layer: agents, x: 490, name: Writer, sub: post + reply, does: "Writes the post and one reply of analysis from the cited line and the chart's numbers."}
-      - {id: calsched, kind: trigger, layer: agents, x: 650, w: 120, name: Calendar, sub: 07:00 · every 5 min, does: "The calendar card goes out at 7:00 New York time on weekdays (the whole week on Mondays); the release watcher checks every 5 minutes from 7:00 to 19:55."}
+      - {id: calsched, kind: trigger, layer: agents, x: 650, w: 120, name: Calendar, sub: 07:00 · every 5 min, does: "The calendar card goes out at 7:00 New York time on weekdays (the whole week on Mondays); the release watcher checks every 5 minutes from 7:00 to 23:55 (Japan's releases land at 19:30)."}
       - {id: pick, kind: code, layer: agents, x: 790, name: Pick + card, sub: key rows · drawn by code, does: "Plain code picks the key US releases, inflation and jobs abroad and the largest companies reporting, draws the card and saves the four most important releases to watch."}
       - {id: cardw, kind: llm, agent: x_calendar_writer, layer: agents, x: 950, name: Calendar writer, sub: week or day read, does: "Writes the short read on top of the card from the card's own rows."}
       - {id: earnread, kind: llm, agent: x_earnings_reader, layer: agents, x: 1110, dy: -40, name: Earnings reader, sub: cited news, does: "Nasdaq doesn't show reported EPS, so a cited news search checks each watched company once its session opens; this agent reads the lines into the numbers line, posted only if every figure is a cited one's."}
