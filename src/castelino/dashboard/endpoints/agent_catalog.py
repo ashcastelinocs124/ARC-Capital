@@ -147,7 +147,7 @@ _PUBLIC_FIELDS = ("id", "name", "group", "family", "summary")
 # Pipelines left off the public /agents page (user's call, 2026-10-15), with the agents only they use; /admin keeps them.
 _PRIVATE_PIPELINES = {"sector-sentiment", "ai-adoption"}
 # Admin-only tools: every agent in these groups stays off the public catalog.
-_PRIVATE_GROUPS = {"Trade Lab", "Deep research", "Consultants"}
+_PRIVATE_GROUPS = {"Trade Lab", "Deep research"}  # Consultants went public 2026-10-23 (user)
 
 
 def public_catalog(catalog: dict) -> dict:

@@ -1417,7 +1417,7 @@ pipelines:
       - {id: earnread, kind: llm, agent: x_earnings_reader, layer: agents, x: 1110, dy: -40, name: Earnings reader, sub: cited news, does: "Nasdaq doesn't show reported EPS, so a cited news search checks each watched company once its session opens; this agent reads the lines into the numbers line, posted only if every figure is a cited one's."}
       - {id: segread, kind: llm, agent: x_segment_reader, layer: agents, x: 1270, name: Segment reader, sub: 8-K segments, does: "Copies the segment table of the company's SEC earnings release; code keeps only numbers the release prints and draws where the sales and the profit came from."}
       - {id: releasew, kind: llm, agent: x_release_writer, layer: agents, x: 1110, dy: 40, name: Release writer, sub: one plain line, does: "Adds one plain sentence, with no numbers, under each release post."}
-      - {id: limits, kind: guard, layer: guardrails, x: 330, name: No repeats, sub: 7 days · 2 a day, does: "The Scout sees what this account posted in the last week and today's market alerts; code refuses a story already posted and stops after two findings a day."}
+      - {id: limits, kind: guard, layer: guardrails, x: 330, name: No repeats, sub: 7 days · 16 a day, does: "The Scout sees what this account posted in the last week and today's market alerts; code refuses a story already posted and stops after 16 findings a day."}
       - {id: check, kind: guard, layer: guardrails, x: 490, name: Number check, sub: source or chart data, does: "Code draws the chart. Every number in the post must come from the cited source or the chart's data, and each post must fit 280 characters, or the post is dropped after one retry."}
       - {id: cardcheck, kind: guard, layer: guardrails, x: 950, name: Card check, sub: card's figures only, does: "Every figure in the read must be on the card, and the post must fit 280 characters, or the card goes out with a plain code-written line."}
       - {id: watchcap, kind: guard, layer: guardrails, x: 1110, name: Watch list, sub: once · 7 a day, does: "Only the morning card's watched releases post, each once, at most seven a day; every number in the post comes from Trading Economics or a cited line."}
@@ -1455,6 +1455,63 @@ pipelines:
       - {title: Calendar card, nodes: [calsched, pick, calendar, cardw], edges: [calsched > pick, calendar > pick, pick > cardw], io: ["in: the week's calendar", "out: card + read"], text: "At 7:00 on weekdays code picks the key releases and reporters and draws the card; the Calendar writer adds a short read."}
       - {title: Check and post the card, nodes: [cardcheck, cardpost], edges: [cardw > cardcheck, cardcheck > cardpost], io: ["in: card + read", "out: card on X"], text: "Code checks every figure in the read against the card, then the card goes out on X."}
       - {title: Release posts, nodes: [watchcap, nasdaq, earnread, sec, segread, releasew, relpost], edges: [cardcheck > watchcap, watchcap > releasew, nasdaq > releasew, web > earnread, earnread > releasew, sec > segread, segread > relpost, releasew > relpost], io: ["in: watch list + live calendar + cited news + SEC filings", "out: release posts with charts"], text: "Every 5 minutes code checks Trading Economics' live calendar for the morning's watched data, and a cited news search (read by the Earnings Reader) for each watched company once its session opens; each release that lands posts once with its numbers against what was expected, plus one plain sentence and its charts: actual vs forecast for data; for earnings, where the sales and the profit came from (the Segment Reader copies the SEC filing's segment table) and the beat or miss."}
+
+  - id: consultants
+    name: Topic Consultants
+    trigger: "a topic you add · then every day after the 17:00 ET run"
+    guardrails: "numbers from cited facts · $1 a day · posting off by default"
+    delivery: "ARC view in the Daily Update · answers to research agents · X posts"
+    groups:
+      - {id: data, label: WATCHLIST + RESEARCH TOOLS, nodes: [yahoo, fred, web, x]}
+    nodes:
+      - {id: you, kind: human, layer: sources, x: 150, w: 130, name: You, sub: type a topic, does: "Someone at ARC types a topic (a stock, a theme, AI) and gets a consultant that follows it every day."}
+      - {id: yahoo, kind: source, layer: sources, x: 330, dy: -18, w: 100, name: Yahoo Finance, does: "Prices and the latest quarter for the companies on the watchlist."}
+      - {id: fred, kind: source, layer: sources, x: 440, dy: -18, w: 100, name: FRED, does: "The economic data series on the watchlist."}
+      - {id: web, kind: source, layer: sources, x: 330, dy: 18, w: 100, name: web search, does: "A web search that returns cited sources; only lines with a citation are kept."}
+      - {id: x, kind: source, layer: sources, x: 440, dy: 18, w: 100, name: X, does: "Posts from X, found through a cited search."}
+      - {id: findings, kind: source, layer: sources, x: 710, w: 160, name: Today's findings, sub: Daily Update analysts, does: "What the Daily Update's analysts found today. They never see the consultant's own facts, so the consultant can't end up agreeing with itself."}
+      - {id: planner, kind: llm, agent: consultant_planner, layer: agents, x: 150, dy: -40, w: 130, name: Planner, sub: a watchlist, does: "Turns the topic into a suggested watchlist: companies, data series and news searches. Code drops any ticker that doesn't trade."}
+      - {id: schedule, kind: trigger, layer: agents, x: 150, dy: 40, w: 130, name: Every day, sub: after 17:00 ET, does: "Each consultant runs once a day, alongside the Daily Update's 5 pm New York run."}
+      - {id: builder, kind: llm, agent: consultant_builder, layer: agents, x: 330, w: 150, name: Builder, sub: news + alt · 8 calls, does: "Code fetches the watchlist's prices, earnings and series; the Builder agent adds news and alternative data with up to 8 cited searches. Every result is kept as a dated fact."}
+      - {id: thesis, kind: llm, agent: consultant_thesis, layer: agents, x: 520, w: 150, name: Thesis writer, sub: now · what next, does: "Writes the consultant's view as analysis, not data points: what is happening, then the path it leans to, the other path and what would change its mind."}
+      - {id: decide, kind: llm, agent: consultant_decide, layer: agents, x: 710, w: 160, name: Evening review, sub: Decisions API, does: "Each evening one call asks whether today changes the view and whether anything is worth remembering, and, if posting is on, whether today has a notable point worth posting. On Sundays it decides which notes to keep."}
+      - {id: note, kind: llm, agent: consultant_note, layer: agents, x: 900, dy: -40, w: 140, name: Memory note, sub: this week, does: "Writes one note for this week's memory when the review says something is worth remembering."}
+      - {id: post, kind: llm, agent: consultant_post, layer: agents, x: 900, dy: 40, w: 140, name: Post Writer, sub: post + chart pick, does: "Only when posting is switched on for that consultant: writes one post on the notable point (what's happening, then what could happen) and picks a chart to show it."}
+      - {id: asks, kind: trigger, layer: agents, x: 1080, w: 130, name: Other agents, sub: consult(), does: "The Weekly Deep Dive's desks and ARC's other research agents can ask a consultant for its analysis while they work."}
+      - {id: answer, kind: llm, agent: consultant_answer, layer: agents, x: 1240, w: 150, name: Consult answer, sub: from its file, does: "Answers from the consultant's own file, with the facts behind the answer, so any number it lends is still checked by the caller."}
+      - {id: trim, kind: human, layer: guardrails, x: 150, w: 130, name: You trim it, sub: then Start, does: "The watchlist is only a suggestion: a person removes or adds companies and series, and the consultant starts only when they press Start."}
+      - {id: guard, kind: guard, layer: guardrails, x: 520, w: 150, name: Number guard, sub: 2 cited figures max, does: "Plain code checks every figure in the view against the facts it cites, at most two in all; a view that fails twice is dropped and the old one stands."}
+      - {id: memory, kind: code, layer: guardrails, x: 810, w: 140, name: Memory review, sub: weekly · 20 kept, does: "Each Sunday the review moves notes that will still matter in a month to long-term memory (at most 20) and drops out-of-date ones; this week's notes are then cleared."}
+      - {id: postcheck, kind: guard, layer: guardrails, x: 990, w: 150, name: Post checks, sub: chart drawn by code, does: "Code draws the chart from the source data. Every number in the post must be a cited fact's, with no links, and every ticker must trade; no chart, no post."}
+      - {id: view, kind: out, layer: delivery, x: 520, w: 170, name: ARC view, sub: in the Daily Update, does: "Under each Daily Update story the topic covers, the Editor adds a one-paragraph ARC view from the consultant's thesis."}
+      - {id: xpost, kind: out, layer: delivery, x: 990, w: 150, name: X post, sub: + chart · 1 a day, does: "When posting is on, the notable point goes out on X with its chart, at most once a day per consultant. Posting is off unless someone turns it on."}
+      - {id: reply, kind: out, layer: delivery, x: 1240, w: 150, name: Answer, sub: facts copied in, does: "The answer goes back to the asking agent with its facts, so the agent's own number check covers anything it borrows."}
+    edges:
+      - you > planner
+      - planner > trim
+      - trim > builder
+      - schedule > builder
+      - data > builder
+      - builder > thesis
+      - thesis > guard
+      - guard > view
+      - findings > decide
+      - decide > thesis | above | rewrite if changed
+      - decide > note
+      - note > memory
+      - decide > post
+      - post > postcheck
+      - postcheck > xpost
+      - asks > answer
+      - answer > reply
+    steps:
+      - {title: Start, nodes: [you, planner, trim], edges: [you > planner, planner > trim, trim > builder], io: ["in: a topic", "out: a watchlist"], text: "Someone at ARC types a topic. The Planner agent suggests a watchlist of companies, data series and news searches; a person trims it and presses Start."}
+      - {title: Gather, nodes: [schedule, data, builder], edges: [schedule > builder, data > builder], io: ["in: watchlist", "out: dated facts"], text: "Every day code fetches the watchlist's prices, earnings and data series, and the Builder agent adds news and alternative data with up to 8 cited searches. Every result is kept as a dated fact."}
+      - {title: Form a view, nodes: [thesis, guard, view], edges: [builder > thesis, thesis > guard, guard > view], io: ["in: facts", "out: ARC view"], text: "The Thesis writer turns the facts into analysis: what is happening and what could happen. Code checks every figure, and the Daily Update's Editor adds it as an ARC view under the stories the topic covers."}
+      - {title: Evening review, nodes: [findings, decide, thesis], edges: [findings > decide, decide > thesis], io: ["in: today's findings", "out: keep or rewrite"], text: "Each evening one Decisions API call reads the Daily Update's findings and asks whether today changes the view; if it does, the Thesis writer rewrites it."}
+      - {title: Remember, nodes: [note, memory], edges: [decide > note, note > memory], io: ["in: today", "out: memory notes"], text: "If something is worth remembering, a note goes into this week's memory. On Sundays the notes that will still matter move to long-term memory and the rest are cleared."}
+      - {title: Post (if switched on), nodes: [post, postcheck, xpost], edges: [decide > post, post > postcheck, postcheck > xpost], io: ["in: a notable point", "out: X post + chart"], text: "Posting is off unless switched on for that consultant. Then, when the review finds a notable new point, the Post Writer writes one post and picks a chart; code draws the chart and checks every number, and it goes out on X, at most once a day."}
+      - {title: Consult, nodes: [asks, answer, reply], edges: [asks > answer, answer > reply], io: ["in: a question", "out: analysis + facts"], text: "ARC's other research agents can ask a consultant for its analysis while they work. It answers from its own file, and its facts travel with the answer so the caller's number check still applies."}
 
   - id: sector-sentiment
     name: Sector Sentiment

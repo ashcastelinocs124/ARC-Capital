@@ -93,7 +93,7 @@ export default function AboutPage() {
               className="h-[120px] w-[120px] shrink-0 rounded-2xl border-2 border-accent/55 object-cover object-[40%_30%] md:h-[200px] md:w-[200px] md:rounded-[28px]" />
             <div className="min-w-0">
               <h1 className="font-serif text-[26px] font-bold leading-tight text-text md:text-[34px]">Ashleyn Castelino</h1>
-              <p className="mb-3 mt-1.5 text-[13.5px] text-muted">Analyst · macro &amp; AI research</p>
+              <p className="mb-3 mt-1.5 text-[13.5px] text-muted">Research Analyst · macro &amp; AI research</p>
               <div className="flex flex-wrap gap-2">
                 {LINKS.map(([label, href], i) => (
                   <a key={href} href={href} target="_blank" rel="noopener noreferrer"

@@ -179,9 +179,7 @@ def test_pipelines_reference_real_agents_nodes_and_edges():
             assert {e.replace(" ", "") for e in s["edges"]} <= edges, where
     # admin-only agents (the Daily desk chat and Trade Lab) stay off the public pipeline graphs
     admin_only = {"desk_chat"} | {
-        e["id"]
-        for e in body["agents"]
-        if e["group"] in ("Trade Lab", "Deep research", "Consultants")
+        e["id"] for e in body["agents"] if e["group"] in ("Trade Lab", "Deep research")
     }
     assert ids - drawn == admin_only, f"draw these agents in a pipeline: {ids - drawn - admin_only}"
 
@@ -254,15 +252,17 @@ CONSULTANTS = {
 }
 
 
-def test_consultant_agents_are_registered_with_live_prompts_and_stay_private():
+def test_consultant_agents_are_registered_with_live_prompts_and_shown_publicly():
     body = cat.build_catalog()
     assert {e["id"] for e in body["agents"] if e["group"] == "Consultants"} == CONSULTANTS
     full = {e["id"]: e for e in body["agents"]}
     assert all(full[i].get("prompt") for i in CONSULTANTS), "every consultant prompt must resolve"
     assert any(s["group"] == "Consultants" for s in body["systems"])
+    # public since 2026-10-23 (user): names and summaries plus the pipeline graph, never prompts or models
     public = cat.public_catalog(body)
-    assert not CONSULTANTS & {a["id"] for a in public["agents"]}
-    assert "Consultants" not in public["groups"]
+    assert CONSULTANTS <= {a["id"] for a in public["agents"]}
+    assert "Consultants" in public["groups"]
+    assert "consultants" in {p["id"] for p in public["pipelines"]}
 
 
 def test_deep_research_agents_are_registered_with_live_prompts_and_stay_private():
