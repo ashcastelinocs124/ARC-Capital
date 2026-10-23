@@ -901,14 +901,36 @@ agents:
     schema: "castelino.agents.trade.decide:YesNo"
     summary: >-
       Evening: one call asks whether today changes the thesis and whether anything is worth remembering
-      (0.5 or more = yes). Sunday: one call per note: keep a short-term note for long-term, drop an out-of-date
-      long-term note; short-term is then cleared.
+      (0.5 or more = yes), and, while the consultant's "Post to X" knob is on, whether today has a notable
+      point worth posting. Sunday: one call per note: keep a short-term note for long-term, drop an
+      out-of-date long-term note; short-term is then cleared.
     tools:
       - {name: "decide.predicates (code)", does: "One Decisions API call, several named questions"}
     memory:
       reads: ["The thesis, memory, the Daily Update's findings (never its own advice), the week's reviews"]
       writes: ["history.jsonl: probabilities and what changed"]
       persists: "data/consultants/<slug>/history.jsonl."
+
+  - id: consultant_post
+    name: Consultants · Post Writer
+    group: Consultants
+    family: Topic consultants
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-luna"}
+      - {key: X_API_KEY, required: false, why: "X write keys (with X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET); without them nothing posts"}
+    prompt: "castelino.agents.consultants.post:SYSTEM"
+    schema: "castelino.agents.consultants.post:PostDraft"
+    summary: >-
+      Only for a consultant whose "Post to X" knob is on, when the evening review finds a notable new point:
+      writes one post (what's happening, then what could happen) and picks a chart, which code draws and posts
+      with it. Every number must be a cited fact's; no links; tickers must trade; at most one post a day.
+    tools:
+      - {name: "x_scout.chart (code)", does: "Fetches the FRED/Yahoo series and draws the picked form (Trade Lab's 12), falling back to dial, bars, line; no chart, no post"}
+      - {name: "x_post.post (code)", does: "Posts the text with the chart image; strips emoji, keeps one cashtag"}
+    memory:
+      reads: ["The thesis (after any rewrite), today's facts and the facts the thesis cites, the Daily Update's findings, the watchlist"]
+      writes: ["The post text and chart form in history.jsonl, X's post id in that day's log, the chart PNG"]
+      persists: "data/consultants/<slug>/posts/<day>.png and days/<day>.json."
 
   - id: consultant_answer
     name: Consultants · Consult answer
@@ -1116,6 +1138,8 @@ systems:
         flow: [["agent:consultant_decide|evening: memory?"], ["agent:consultant_note|short-term note"], ["agent:consultant_decide|Sunday: per note"], ["code:Move / delete|long-term ≤ 20"], ["end:Short-term cleared"]]
       - title: "4 · Consult"
         flow: [["Weekly / Research / Trade Lab agent"], ["agent:consultant_answer|from its file"], ["end:Facts copied to the caller"]]
+      - title: "5 · Post to X (knob on)"
+        flow: [["gate:Knob on Auto|per consultant"], ["agent:consultant_decide|notable point?"], ["agent:consultant_post|post + chart pick"], ["code:Checks + chart|numbers, link, ticker"], ["end:Posted on X|≤ 1 a day"]]
 
   - group: Theme Charts
     trigger: "Cron on the Fly server at 08:00 ET, weekdays"

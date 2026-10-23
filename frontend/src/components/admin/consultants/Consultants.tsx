@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
-import { consultants, type Consultant, type Detail, type HistoryLine, type Row, type Watchlist } from "./api";
+import { consultants, postChart, type Consultant, type Detail, type HistoryLine, type Row, type Watchlist } from "./api";
 
 // /admin → Consultants: type a topic → a suggested watchlist you can trim or add to → Start. Each consultant builds a
 // daily file of cited facts and keeps a thesis (what's happening, what could happen) that the Daily Update
@@ -39,13 +39,39 @@ function Verdict({ h }: { h: HistoryLine }) {
   return <span className={cn("rounded-full px-2.5 py-0.5 text-[11px] font-bold", tone)}>{label}</span>;
 }
 
-function Timeline({ history }: { history: HistoryLine[] }) {
+const X_TONE = "bg-[rgb(var(--c-cat-jobs)_/_0.14)] text-[rgb(var(--c-cat-jobs))]";
+
+// What went out on X that evening, with its chart: shown above that day's review line.
+function Posted({ h, slug }: { h: HistoryLine; slug: string }) {
+  return (
+    <li className="relative">
+      <span aria-hidden="true" className="absolute -left-[27px] top-1 h-3 w-3 rounded-sm border-2 border-[rgb(var(--c-cat-jobs))] bg-[rgb(var(--c-cat-jobs))]" />
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+        <b className="text-text">{h.day}</b>
+        <span className={cn("rounded-full px-2.5 py-0.5 text-[11px] font-bold", X_TONE)}>
+          Posted on X{h.p_post != null ? ` · ${h.p_post.toFixed(2)}` : ""}
+        </span>
+      </div>
+      <div className="mt-2 rounded-xl border border-border bg-surface-2 p-3">
+        <div className="text-[13px]"><b>Ashleyn Castelino</b> <span className="text-muted">@AshleynCas46131</span></div>
+        <p className="mt-1 text-[14px] leading-relaxed">{h.post}</p>
+        {h.chart_form && (
+          <img src={postChart(slug, h.day)} alt={`The ${h.chart_form} chart posted with this post`} loading="lazy"
+            className="mt-2.5 w-full rounded-lg border border-border bg-white" />
+        )}
+      </div>
+    </li>
+  );
+}
+
+function Timeline({ history, slug }: { history: HistoryLine[]; slug: string }) {
   return (
     <section className="rounded-2xl border border-border bg-surface p-5" aria-labelledby="moved">
       <h3 id="moved" className="eyebrow">How the view moved</h3>
       {history.length === 0 && <p className="mt-3 text-sm text-muted">Nothing yet. The first view appears after the first build.</p>}
       <ol className="mt-3 space-y-4 border-l-2 border-border-strong pl-5">
-        {history.map((h, i) => (
+        {history.flatMap((h, i) => [
+          h.post ? <Posted key={`${h.day}-post-${i}`} h={h} slug={slug} /> : null,
           <li key={`${h.day}-${h.kind}-${i}`} className="relative">
             <span aria-hidden="true" className={cn("absolute -left-[27px] top-1 h-3 w-3 rounded-full border-2",
               h.verdict === "updated" || h.verdict === "started" ? "border-accent bg-accent"
@@ -58,8 +84,8 @@ function Timeline({ history }: { history: HistoryLine[] }) {
                     {h.deleted.length ? `Dropped as out of date: ${h.deleted.join("; ")}. ` : ""}{h.reason}</>
                 : h.reason || (h.verdict === "held" ? "No change to the view." : "")}
             </p>
-          </li>
-        ))}
+          </li>,
+        ])}
       </ol>
     </section>
   );
@@ -207,6 +233,39 @@ function NewConsultant({ onCreated }: { onCreated: (r: Row) => void }) {
   );
 }
 
+// The posting knob: Off (the default) posts nothing; Auto lets the evening review post one notable point a
+// day to X, with a chart the Post Writer picks (agents/consultants/post.py).
+function PostKnob({ on, onSet }: { on: boolean; onSet: (on: boolean) => void }) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-border-strong py-1 pl-3 pr-1 text-xs font-semibold">
+      Post to X
+      <span role="group" aria-label="Post to X" className="inline-flex rounded-full bg-surface-3 p-0.5">
+        {[false, true].map((v) => (
+          <button key={String(v)} type="button" aria-pressed={on === v} onClick={() => on !== v && onSet(v)}
+            className={cn("rounded-full px-3 py-0.5 text-xs font-semibold", FOCUS,
+              on === v ? (v ? "bg-accent text-on-accent" : "bg-border-strong text-text") : "text-muted hover:text-text")}>
+            {v ? "Auto" : "Off"}
+          </button>
+        ))}
+      </span>
+    </span>
+  );
+}
+
+const KNOB_NOTE = {
+  off: "Off: this consultant never posts. Its view still feeds the Daily Update's ARC view.",
+  on: "Auto: when the evening review finds a notable new point (a fresh development, a turning point or a surprise, not a recap), it posts one analysis post to X with a chart the agent picks. At most one a day; no links; every number must be one of its facts.",
+};
+
+// The last evening review's scores in words; the post question is only asked while the knob is on.
+function reviewLine(h: HistoryLine | undefined, knob: boolean): string | null {
+  if (!h || h.kind !== "daily" || h.p_thesis == null) return null;
+  const parts = [`thesis changed (${h.p_thesis.toFixed(2)})`, `worth remembering (${(h.p_memory ?? 0).toFixed(2)})`];
+  if (h.p_post != null) parts.push(`notable point to post (${h.p_post.toFixed(2)})${h.post ? ": posted" : ""}`);
+  const tail = h.p_post == null && !knob ? ". Posting was off, so the post question wasn't asked." : ".";
+  return `${h.day}: ${parts.join(" · ")}${tail}`;
+}
+
 function ConsultantView({ d, onChange, onDeleted }: { d: Detail; onChange: () => void; onDeleted: () => void }) {
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -215,12 +274,14 @@ function ConsultantView({ d, onChange, onDeleted }: { d: Detail; onChange: () =>
   const t = d.thesis;
   return (
     <div className="space-y-3.5">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-5 py-3">
+      <div className="rounded-2xl border border-border bg-surface px-5 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-serif text-xl font-bold">{c.topic}</h2>
           <p className="text-xs text-muted">Started {c.created} · status: {c.status}{t ? ` · view v${t.version}` : ""}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <PostKnob on={c.post_to_x} onSet={(v) => act(consultants.setPostToX(c.slug, v))} />
           {c.status === "failed" && (
             <button type="button" onClick={() => act(consultants.build(c.slug))} className={cn("rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-on-accent", FOCUS)}>Build now</button>
           )}
@@ -235,6 +296,8 @@ function ConsultantView({ d, onChange, onDeleted }: { d: Detail; onChange: () =>
             : <button type="button" onClick={() => setConfirm(true)} className={cn("rounded-full border border-danger/50 px-3 py-1.5 text-xs font-semibold text-danger", FOCUS)}>Delete</button>}
         </div>
       </div>
+      <p className="mt-2 text-xs text-muted">{c.post_to_x ? KNOB_NOTE.on : KNOB_NOTE.off}</p>
+      </div>
       {c.status === "failed" && c.error && <div role="alert" className="rounded-xl border border-danger bg-danger-soft px-4 py-2.5 text-sm text-danger">Last build failed: {c.error}</div>}
       {c.status === "building" && <div className="rounded-xl bg-warning-soft px-4 py-2.5 text-sm text-warning">First build running. This page updates by itself.</div>}
       {error && <div role="alert" className="rounded-xl border border-danger bg-danger-soft px-4 py-2.5 text-sm text-danger">{error}</div>}
@@ -246,11 +309,17 @@ function ConsultantView({ d, onChange, onDeleted }: { d: Detail; onChange: () =>
         </div>
       )}
       <div className="grid items-start gap-3.5 lg:grid-cols-[1fr_1.15fr]">
-        <Timeline history={d.history} />
+        <Timeline history={d.history} slug={c.slug} />
         <div className="space-y-3.5">
           <section className="rounded-2xl border border-border bg-surface p-5" aria-labelledby="happening">
             <h3 id="happening" className="eyebrow">What's happening</h3>
             <p className="mt-2 font-serif text-[16px] leading-relaxed">{t ? t.happening.text : "No view yet."}</p>
+            {reviewLine(d.history[0], c.post_to_x) && (
+              <>
+                <h4 className="eyebrow mt-4">Last evening review</h4>
+                <p className="mt-1 text-[13px] leading-relaxed text-text-2">{reviewLine(d.history[0], c.post_to_x)}</p>
+              </>
+            )}
           </section>
           <section className="rounded-2xl border border-border bg-surface p-5" aria-labelledby="today">
             <h3 id="today" className="eyebrow">
@@ -334,7 +403,11 @@ export default function Consultants() {
                 className={cn("grid w-full grid-cols-[10px_1fr] gap-2.5 rounded-xl px-2 py-2 text-left hover:bg-surface-3", FOCUS,
                   sel === r.slug && "bg-accent-soft ring-1 ring-accent/30")}>
                 <span aria-hidden="true" className={cn("mt-1.5 h-2 w-2 rounded-full", DOT[g])} />
-                <span><b className="block text-[13px] font-semibold leading-tight">{r.topic}</b><span className="text-[11.5px] text-muted">{rowNote(r)}</span></span>
+                <span>
+                  <b className="block text-[13px] font-semibold leading-tight">{r.topic}</b>
+                  {r.post_to_x && <span className="mr-1.5 rounded-full bg-accent-soft px-1.5 text-[10.5px] font-bold text-accent">Posts to X</span>}
+                  <span className="text-[11.5px] text-muted">{rowNote(r)}</span>
+                </span>
               </button>
             ))}
           </div>

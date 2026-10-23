@@ -284,11 +284,13 @@ def allowed_forms(today: list[dict]) -> list[str]:
 
 
 def chart(
-    pick: ScoutPick, now: datetime, path: Path, allowed: list[str] | None = None
+    pick: ScoutPick, now: datetime, path: Path, allowed: list[str] | None = None, kicker: str = ""
 ) -> tuple[list[Fact], str, str, list[tuple[str, float]]]:
     """Draw the pick to `path` in its form, else the first allowed FALLBACK that draws. Returns the
     series facts, the line chart's subtitle ("" for other forms), the form drawn and the numbers a
-    non-line form computed; raises when nothing can be drawn."""
+    non-line form computed; raises when nothing can be drawn. `kicker` overrides the topic label
+    (a consultant's chart carries its topic)."""
+    kicker = kicker or pick.topic.upper()
     from castelino.agents import themes
     from castelino.agents.trade.forms import FORMS
 
@@ -305,11 +307,11 @@ def chart(
         try:
             if form in LINES:
                 return (
-                    *_line_chart(pick, now, path, specs[: 1 if form == "line" else 4]),
+                    *_line_chart(pick, now, path, specs[: 1 if form == "line" else 4], kicker),
                     form,
                     [],
                 )
-            facts, sub, shown = _form_chart(pick, form, now, path, specs[:n])
+            facts, sub, shown = _form_chart(pick, form, now, path, specs[:n], kicker)
             return facts, sub, form, shown
         except Exception as e:  # noqa: BLE001 - try the next form
             print(f"  {form} chart failed: {e}")
@@ -328,7 +330,7 @@ def _series_facts(pick: ScoutPick, now: datetime, specs: list, days: int) -> lis
 
 
 def _form_chart(
-    pick: ScoutPick, form: str, now: datetime, path: Path, specs: list
+    pick: ScoutPick, form: str, now: datetime, path: Path, specs: list, kicker: str
 ) -> tuple[list[Fact], str, list[tuple[str, float]]]:
     """A Trade Lab form (dial, bars, underwater…) drawn by its code; the first 4 series' facts
     still give the Writer their levels."""
@@ -347,11 +349,13 @@ def _form_chart(
         why="",
         agent_pick=True,
     )
-    nums = forms.render(spec, forms.Sources.live(), path, 1, kicker=pick.topic.upper())
+    nums = forms.render(spec, forms.Sources.live(), path, 1, kicker=kicker)
     return _series_facts(pick, now, specs[:4], min(365, max(30, pick.window_days))), "", nums
 
 
-def _line_chart(pick: ScoutPick, now: datetime, path: Path, specs: list) -> tuple[list[Fact], str]:
+def _line_chart(
+    pick: ScoutPick, now: datetime, path: Path, specs: list, kicker: str
+) -> tuple[list[Fact], str]:
     """One series as a line, 2-4 compared: the Morning Note renderer, with its subtitle."""
     from castelino.agents.weekly.charts import make_weekly_exhibits
     from castelino.agents.weekly.models import ExhibitPick
@@ -368,7 +372,7 @@ def _line_chart(pick: ScoutPick, now: datetime, path: Path, specs: list) -> tupl
     )
     out = path.with_suffix("")
     report = SimpleNamespace(sections=[SimpleNamespace(exhibits=[ex])])
-    drawn = make_weekly_exhibits(report, facts, out, kicker=pick.topic.upper())
+    drawn = make_weekly_exhibits(report, facts, out, kicker=kicker)
     if not drawn:
         raise RuntimeError(f"{pick.series} could not be drawn")
     (out / "exhibit_1.png").replace(path)

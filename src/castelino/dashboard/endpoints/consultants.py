@@ -8,6 +8,7 @@ from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from castelino.agents.consultants import planner, runner, store
@@ -24,6 +25,10 @@ class Topic(BaseModel):
 
 class NewConsultant(Topic):
     watchlist: Watchlist
+
+
+class Knob(BaseModel):
+    on: bool
 
 
 class Check(BaseModel):
@@ -53,7 +58,9 @@ def _row(c: Consultant) -> dict:
     today = date.today().isoformat()
     hist = store.history(c.slug)
     return {
-        **c.model_dump(include={"slug", "code", "topic", "status", "error", "created"}),
+        **c.model_dump(
+            include={"slug", "code", "topic", "status", "error", "created", "post_to_x"}
+        ),
         "last": hist[-1].model_dump() if hist else None,
         "facts_today": len(store.read_facts(c.slug, today)),
         "asks_today": len(store.day_log(c.slug, today).asks),
@@ -130,6 +137,29 @@ def pause(slug: str):
 @router.post("/{slug}/resume")
 def resume(slug: str):
     return _set_status(slug, "active")
+
+
+@router.post("/{slug}/x")
+def set_post_to_x(slug: str, req: Knob):
+    """The posting knob: on = the evening review may post one notable point a day to X (post.py)."""
+    _load(slug)
+    with store.edit(slug) as x:
+        x.post_to_x = req.on
+    return _row(store.load(slug))
+
+
+@router.get("/{slug}/posts/{day}.png")
+def post_chart(slug: str, day: str):
+    """The chart that went out with that day's post."""
+    _load(slug)
+    try:
+        date.fromisoformat(day)
+    except ValueError as e:
+        raise HTTPException(404, "no such day") from e
+    path = store.cdir(slug) / "posts" / f"{day}.png"
+    if not path.exists():
+        raise HTTPException(404, "no post chart that day")
+    return FileResponse(path, media_type="image/png")
 
 
 @router.put("/{slug}/watchlist")

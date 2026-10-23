@@ -1,7 +1,8 @@
 """The reviews: how a consultant's thesis and memory change.
 
 Evening (every day, after the Daily Update): one Decisions API call asks two questions — does today change
-the thesis, and is anything worth remembering? Each yes rewrites that part; each no leaves it alone.
+the thesis, and is anything worth remembering? Each yes rewrites that part; each no leaves it alone. While a
+consultant's knob is on it asks a third, whether today has a notable point to post (post.py).
 Sunday: one call asks, per note, whether a short-term note still matters a month from now (moved to
 long-term) and whether a long-term note is now out of date (deleted). Short-term is then cleared.
 
@@ -12,7 +13,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
-from castelino.agents.consultants import store, thesis
+from castelino.agents.consultants import post, store, thesis
 from castelino.agents.consultants.models import HistoryLine, MemoryNoteDraft, Thesis
 from castelino.agents.trade import llm
 from castelino.agents.trade.decide import predicates
@@ -58,6 +59,12 @@ def _findings_md(findings: list[Finding]) -> str:
     return "\n".join(f"- {f.claim} ({f.source_title})" for f in findings) or "(none)"
 
 
+def _cited(t: Thesis) -> list[str]:
+    return [
+        i for part in (t.happening, t.lean, t.alternative, t.change_mind) for i in part.fact_ids
+    ]
+
+
 def daily(slug: str, day: str, findings: list[Finding], meter: llm.Meter) -> HistoryLine | None:
     """The evening review. None when already done today or there is no thesis yet."""
     cfg = get_settings().consultants
@@ -71,18 +78,16 @@ def daily(slug: str, day: str, findings: list[Finding], meter: llm.Meter) -> His
         f"Topic: {c.topic}\n\n## Thesis\n{_thesis_md(old)}\n\n## Memory\n{_notes_md(short + long)}"
         f"\n\n## Today's Daily Update findings\n{_findings_md(findings)}\n\n## Today's facts\n{_facts_md(own)}"
     )
-    p = predicates(text, {"thesis": THESIS_Q, "memory": MEMORY_Q}, meter, agent="consultant_decide")
+    questions = {"thesis": THESIS_Q, "memory": MEMORY_Q} | (
+        {"post": post.POST_Q} if c.post_to_x else {}
+    )
+    p = predicates(text, questions, meter, agent="consultant_decide")
     verdict, reason, before, after = "held", "", None, None
     if p["thesis"] >= cfg.threshold:
-        cited = [
-            i
-            for part in (old.happening, old.lean, old.alternative, old.change_mind)
-            for i in part.fact_ids
-        ]
         pool = {
             f.id: f
             for f in [
-                *store.facts_by_id(slug, cited),
+                *store.facts_by_id(slug, _cited(old)),
                 *store.recent_facts(slug, 7, date.fromisoformat(day)),
             ]
         }
@@ -113,6 +118,16 @@ def daily(slug: str, day: str, findings: list[Finding], meter: llm.Meter) -> His
         except Exception as e:  # noqa: BLE001 - a lost note never fails the review
             with store.edit_day(slug, day) as d:
                 d.notes.append(f"memory note failed: {str(e)[:120]}")
+    posted = form = None
+    if p.get("post", 0.0) >= cfg.threshold:
+        now = store.read_thesis(slug) or old  # the rewritten thesis, if today changed it
+        facts = {f.id: f for f in [*store.facts_by_id(slug, _cited(now)), *own]}
+        ctx = f"## Thesis\n{_thesis_md(now)}\n\n## Today's Daily Update findings\n{_findings_md(findings)}"
+        try:
+            posted, form = post.run(slug, day, ctx, list(facts.values()), meter) or (None, None)
+        except Exception as e:  # noqa: BLE001 - a failed post never fails the review
+            with store.edit_day(slug, day) as d:
+                d.notes.append(f"X post skipped: {str(e)[:160]}")
     line = HistoryLine(
         day=day,
         kind="daily",
@@ -122,6 +137,9 @@ def daily(slug: str, day: str, findings: list[Finding], meter: llm.Meter) -> His
         reason=reason,
         before=before,
         after=after,
+        p_post=p.get("post"),
+        post=posted,
+        chart_form=form,
     )
     store.append_history(slug, line)
     with store.edit_day(slug, day) as d:

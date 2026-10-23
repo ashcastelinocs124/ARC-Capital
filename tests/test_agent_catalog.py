@@ -249,6 +249,7 @@ CONSULTANTS = {
     "consultant_thesis",
     "consultant_note",
     "consultant_decide",
+    "consultant_post",
     "consultant_answer",
 }
 

@@ -121,3 +121,19 @@ def test_create_refuses_a_malformed_series(client):
         json={"topic": "India", "watchlist": {**WL, "series": ["INDA"]}},
     )
     assert r.status_code == 422 and client.started == []
+
+
+def test_post_knob_and_chart(client):
+    client.post("/admin/desk/consultants", json={"topic": "India", "watchlist": WL})
+    base = "/admin/desk/consultants/india"
+    assert client.get(base).json()["consultant"]["post_to_x"] is False  # Off by default
+    assert client.post(f"{base}/x", json={"on": True}).json()["post_to_x"] is True
+    assert store.load("india").post_to_x is True
+    assert client.post(f"{base}/x", json={"on": False}).json()["post_to_x"] is False
+    assert client.get(f"{base}/posts/2026-10-22.png").status_code == 404
+    png = store.cdir("india") / "posts" / "2026-10-22.png"
+    png.parent.mkdir(parents=True)
+    png.write_bytes(b"\x89PNG")
+    r = client.get(f"{base}/posts/2026-10-22.png")
+    assert r.status_code == 200 and r.headers["content-type"] == "image/png"
+    assert client.get(f"{base}/posts/..%2Fconsultant.png").status_code == 404

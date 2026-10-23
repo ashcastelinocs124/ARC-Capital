@@ -32,6 +32,9 @@ class Consultant(BaseModel):
     status: Literal["building", "active", "paused", "failed"]
     created: str  # ISO date
     error: str | None = None
+    post_to_x: bool = (
+        False  # the knob: Auto posts a notable point to X (post.py); Off posts nothing
+    )
 
 
 class Part(BaseModel):
@@ -74,6 +77,9 @@ class HistoryLine(BaseModel):
     after: str | None = None
     moved: list[str] = Field(default_factory=list)
     deleted: list[str] = Field(default_factory=list)
+    p_post: float | None = None  # asked only while the knob is on
+    post: str | None = None  # the text posted to X
+    chart_form: str | None = None  # its chart, posts/<day>.png
 
 
 class Ask(BaseModel):
@@ -90,6 +96,7 @@ class DayLog(BaseModel):
     reviewed: bool = False
     asks: list[Ask] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
+    post_id: str | None = None  # X's id: at most one post a day
 
 
 class NoteConsult(BaseModel):
