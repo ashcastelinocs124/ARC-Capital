@@ -23,6 +23,7 @@ def _stub(monkeypatch, wl: Watchlist) -> list:
         return wl
 
     monkeypatch.setattr(llm, "structured", fake)
+    monkeypatch.setattr(planner, "find_links", lambda topic, meter: [])
     return calls
 
 
@@ -109,3 +110,64 @@ def test_check_link_cleans_and_refuses_bad_or_dead_links():
 def test_page_status_refuses_private_addresses():
     with pytest.raises(ValueError, match="private"):
         planner.page_status("http://127.0.0.1:8080/")
+
+
+def _cited(*rows):
+    """(line, url) rows -> a search answer whose every line cites its url."""
+    text, cites, pos = "", [], 0
+    for line, url in rows:
+        cites.append((url, url, pos, pos + 1))
+        text += line + "\n"
+        pos = len(text)
+    return text, cites
+
+
+def test_find_links_keeps_updating_cited_pages_cleaned_two_per_site(monkeypatch):
+    eia = "https://www.eia.gov/electricity/monthly/"
+    rows = [
+        (
+            "Electric Power Monthly: generation by source, updated monthly.",
+            eia + "?utm_source=openai",
+        ),
+        ("Same page again, monthly.", eia + "#table"),
+        ("EIA STEO, a monthly forecast.", "https://www.eia.gov/outlooks/steo/"),
+        (
+            "EIA hourly grid monitor, real-time demand.",
+            "https://www.eia.gov/electricity/gridmonitor/",
+        ),
+        ("FRED industrial production, monthly.", "https://fred.stlouisfed.org/series/IPG2211S"),
+        ("Yahoo XLU quote, live.", "https://finance.yahoo.com/quote/XLU"),
+        ("A PDF of grid filings, quarterly.", "https://www.iso-ne.com/static-assets/letters.pdf"),
+        ("Polymarket odds, updated live.", "https://polymarket.com/event/x?tid=1&utm_medium=x"),
+    ] + [(f"Tracker {i}, weekly.", f"https://s{i}.org/data") for i in range(4)]
+    seen = {}
+
+    def search(system, user, model=None):
+        seen["model"] = model
+        return _cited(*rows)
+
+    monkeypatch.setattr(planner.web_search, "search_cited", search)
+    meter = llm.Meter()
+    out = planner.find_links("AI power demand", meter)
+    assert out == [
+        eia,
+        "https://www.eia.gov/outlooks/steo/",
+        "https://polymarket.com/event/x?tid=1",
+        "https://s0.org/data",
+        "https://s1.org/data",
+    ]
+    assert meter.total == llm.SEARCH_USD and seen["model"] == "gpt-6-luna"
+
+
+def test_find_links_failure_proposes_none(monkeypatch):
+    def boom(system, user, model=None):
+        raise RuntimeError("search down")
+
+    monkeypatch.setattr(planner.web_search, "search_cited", boom)
+    assert planner.find_links("AI power demand", llm.Meter()) == []
+
+
+def test_suggest_adds_the_found_pages(monkeypatch):
+    _stub(monkeypatch, Watchlist(companies=[], series=["fred:DGS10"], queries=[]))
+    monkeypatch.setattr(planner, "find_links", lambda topic, meter: ["https://www.eia.gov/x"])
+    assert planner.suggest("Power", llm.Meter(), close=_close).links == ["https://www.eia.gov/x"]

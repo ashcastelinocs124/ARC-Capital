@@ -189,6 +189,7 @@ class ConsultantsCfg(BaseModel):
     enabled: bool = True
     data_dir: str = "data/consultants"
     planner_model: str = "gpt-6-sol"
+    links_model: str = "gpt-6-luna"
     thesis_model: str = "gpt-6-sol"
     note_model: str = "gpt-6-luna"
     answer_model: str = "gpt-6-luna"

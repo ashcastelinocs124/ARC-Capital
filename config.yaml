@@ -113,6 +113,7 @@ consultants:
   enabled: true
   data_dir: data/consultants
   planner_model: gpt-6-sol
+  links_model: gpt-6-luna   # the Planner's search for data pages (gpt-5.4-mini proposed articles and PDFs)
   thesis_model: gpt-6-sol
   note_model: gpt-6-luna
   answer_model: gpt-6-luna

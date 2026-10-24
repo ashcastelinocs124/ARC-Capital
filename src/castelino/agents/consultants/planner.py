@@ -1,7 +1,9 @@
 """The Planner: turns a typed topic into a suggested watchlist the user can trim or add to before Start.
 
 Code checks every pick before it is shown: a ticker Yahoo can't price and a series id that isn't
-`fred:ID` / `yahoo:TICKER` are dropped, so the daily build never starts from a made-up id. A company,
+`fred:ID` / `yahoo:TICKER` are dropped, so the daily build never starts from a made-up id. Data pages
+beyond FRED and Yahoo come from one cited web search (`find_links`): only pages it cites are proposed, so
+no link is made up. A company,
 series or web page the user adds by hand goes through `check_company` / `check_series` / `check_link`."""
 
 from __future__ import annotations
@@ -9,7 +11,8 @@ from __future__ import annotations
 import ipaddress
 import socket
 from collections.abc import Callable
-from urllib.parse import urlparse
+from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import parse_qsl, urlencode, urlparse
 
 import httpx
 import pandas as pd
@@ -18,7 +21,9 @@ from castelino.agents.consultants.models import Company, Watchlist, WatchlistDra
 from castelino.agents.themes import SERIES
 from castelino.agents.trade import llm
 from castelino.agents.update.background import default_close, default_fred, load_universe
+from castelino.agents.update.facts import facts_from_search
 from castelino.config import get_settings
+from castelino.data import web_search
 
 MAX_COMPANIES, MAX_SERIES, MAX_QUERIES = 8, 6, 4
 MAX_HAND = (
@@ -36,7 +41,21 @@ every day and keeps a view on it. Given the topic, list:
   ETF, future or currency on Yahoo Finance). At most 6. Only ids you are sure exist.
 - queries: 2 to 4 short news search queries that would find today's news on the topic.
 
-Prefer fewer, surer picks over many guesses."""
+Look past the obvious headline series: a sector or thematic ETF, a commodity future or a FRED series that
+moves with the topic beats a broad index. Prefer fewer, surer picks over many guesses."""
+
+LINKS = """You find live data sources for an analyst who will follow a topic every day. List up to 6 web
+pages beyond FRED and Yahoo Finance whose page itself shows numbers on the topic (a table, chart,
+dashboard, odds or rankings) that change on a set schedule: statistical agency and central bank data
+pages, data trackers (e.g. Trading Economics, Our World in Data, the EIA's data browsers), prediction
+markets (Polymarket, Kalshi), industry and alternative data (usage rankings, job or shipping trackers, grid
+monitors), company investor-relations data pages. Mix kinds of source; at most 2 pages from one site.
+Never an article, blog post, press release, PDF, FAQ, outlook narrative or one-off report, even if it is
+about the data. One page per line: what numbers it shows and how often they update (live, daily, weekly,
+monthly or quarterly), citing that page itself."""
+
+_COVERED = ("fred.stlouisfed.org", "finance.yahoo.com")  # already reachable as fred:/yahoo: series
+PER_SITE = 2
 
 
 def _prices(ticker: str, close: Callable[[str], pd.Series]) -> bool:
@@ -46,14 +65,54 @@ def _prices(ticker: str, close: Callable[[str], pd.Series]) -> bool:
         return False
 
 
+def _clean(url: str) -> str:
+    """Drop the utm_* tags the search adds to cited links, and any #fragment."""
+    p = urlparse(url)
+    q = urlencode([(k, v) for k, v in parse_qsl(p.query) if not k.startswith("utm_")])
+    return p._replace(query=q, fragment="").geturl()
+
+
+def find_links(topic: str, meter: llm.Meter) -> list[str]:
+    """Data pages on the topic that the search cites (so none is made up), at most MAX_LINKS. A failed
+    search proposes none and never fails the plan."""
+    meter.add(llm.SEARCH_USD)
+    try:
+        model = get_settings().consultants.links_model
+        text, cites = web_search.search_cited(LINKS, f"Topic: {topic}", model=model)
+    except Exception:  # noqa: BLE001 - the watchlist still comes back, without pages
+        return []
+    out: list[str] = []
+    for line in facts_from_search("L", text, cites):  # one per cited line, with the page it cites
+        u = _clean(line.source_url)
+        p = urlparse(u)
+        host = _host(u)
+        if (
+            p.scheme in ("http", "https")
+            and host not in _COVERED
+            and not p.path.lower().endswith(".pdf")  # a document, not a page that updates
+            and u not in out
+            and sum(_host(x) == host for x in out) < PER_SITE
+        ):
+            out.append(u)
+    return out[:MAX_LINKS]
+
+
+def _host(url: str) -> str:
+    return (urlparse(url).hostname or "").removeprefix("www.")
+
+
 def suggest(topic: str, meter: llm.Meter, *, close=default_close) -> Watchlist:
     cfg = get_settings().consultants
     msgs = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": f"Topic: {topic}"}]
-    wl = llm.structured("consultant_planner", cfg.planner_model, msgs, WatchlistDraft, meter)
+    with ThreadPoolExecutor(1) as pool:  # the page search runs beside the Planner call
+        pages = pool.submit(find_links, topic, meter)
+        wl = llm.structured("consultant_planner", cfg.planner_model, msgs, WatchlistDraft, meter)
+        links = pages.result()
     return Watchlist(
         companies=[c for c in wl.companies if _prices(c.ticker, close)][:MAX_COMPANIES],
         series=[s for s in wl.series if SERIES.match(s)][:MAX_SERIES],
         queries=[q.strip() for q in wl.queries if q.strip()][:MAX_QUERIES],
+        links=links,
     )
 
 
