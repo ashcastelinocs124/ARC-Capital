@@ -51,8 +51,17 @@ def _notes_md(notes: list[Note]) -> str:
     return "\n".join(f"- {n.title}: {n.text}" for n in notes) or "(empty)"
 
 
-def _facts_md(facts: list[Fact]) -> str:
-    return "\n".join(f"[{f.id}] {f.text}" for f in facts) or "(none)"
+def _facts_md(facts: list[Fact], seen: dict[str, str] | None = None) -> str:
+    """One line per fact; a fact gathered again unchanged (`seen`: text -> first day) says since when."""
+    seen = seen or {}
+    return (
+        "\n".join(
+            f"[{f.id}] {f.text}"
+            + (f" (unchanged since {seen[k]})" if (k := store.fact_key(f.text)) in seen else "")
+            for f in facts
+        )
+        or "(none)"
+    )
 
 
 def _findings_md(findings: list[Finding]) -> str:
@@ -74,10 +83,14 @@ def daily(slug: str, day: str, findings: list[Finding], meter: llm.Meter) -> His
         return None
     short, long = store.read_memory(slug)
     own = store.read_facts(slug, day)
+    seen = store.earlier_texts(slug, day)
     text = (
         f"Topic: {c.topic}\n\n## Thesis\n{_thesis_md(old)}\n\n## Memory\n{_notes_md(short + long)}"
-        f"\n\n## Today's Daily Update findings\n{_findings_md(findings)}\n\n## Today's facts\n{_facts_md(own)}"
+        f"\n\n## Today's Daily Update findings\n{_findings_md(findings)}"
+        f"\n\n## Today's facts\n{_facts_md(own, seen)}"
     )
+    if c.post_to_x:  # the post question must tell a new point from one already out
+        text += f"\n\n## Already posted\n{store.posts_md(slug)}"
     questions = {"thesis": THESIS_Q, "memory": MEMORY_Q} | (
         {"post": post.POST_Q} if c.post_to_x else {}
     )

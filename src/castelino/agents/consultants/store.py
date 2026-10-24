@@ -186,6 +186,26 @@ def recent_facts(slug: str, days: int, today: date) -> list[Fact]:
     return out
 
 
+# a date a build stamps into otherwise unchanged data ("as of Oct 24, 2026", "2026-10-24")
+_STAMP = re.compile(r"\b(?:as of )?(?:[A-Z][a-z]{2,8}\.? \d{1,2}, \d{4}|\d{4}-\d{2}-\d{2})")
+
+
+def fact_key(text: str) -> str:
+    """A fact's text without stamped dates, so the same data gathered on two days compares equal.
+    ponytail: exact text otherwise; a search that words an old story anew still counts as new (the post
+    question and the Post Writer see the posts already out for that)."""
+    return _STAMP.sub("", text)
+
+
+def earlier_texts(slug: str, day: str, days: int = 7) -> dict[str, str]:
+    """fact_key -> the first of the `days` days before `day` it was gathered. A build fetches some data
+    again unchanged (a monthly index re-read every day), so a fact found here is not news on `day`."""
+    out: dict[str, str] = {}
+    for f in recent_facts(slug, days, date.fromisoformat(day) - timedelta(days=1)):  # oldest first
+        out.setdefault(fact_key(f.text), _day_of(f.id) or "")
+    return out
+
+
 # ── history and day logs ────────────────────────────────────────────────────
 
 
@@ -201,6 +221,12 @@ def history(slug: str) -> list[HistoryLine]:
     if not p.exists():
         return []
     return [HistoryLine.model_validate_json(x) for x in p.read_text().splitlines() if x.strip()]
+
+
+def posts_md(slug: str, n: int = 5) -> str:
+    """The last `n` posts, one "- day: text" line each, so a new post can be told apart from them."""
+    lines = [f"- {h.day}: {h.post}" for h in history(slug) if h.post][-n:]
+    return "\n".join(lines) or "(none)"
 
 
 def day_log(slug: str, day: str) -> DayLog:

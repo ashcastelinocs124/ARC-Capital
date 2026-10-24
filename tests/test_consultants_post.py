@@ -105,14 +105,14 @@ def test_run_gives_up_after_two_bad_drafts(monkeypatch, x):
 
 def test_run_never_posts_without_a_chart(monkeypatch, x):
     c = consultant()
-    drafts(monkeypatch, draft())
+    drafts(monkeypatch, draft(ids=["K1-20261015-1"]))
 
     def no_chart(*a, **k):
         raise RuntimeError("could not be drawn in any allowed form")
 
     monkeypatch.setattr(x_scout, "chart", no_chart)
     with pytest.raises(RuntimeError):
-        post.run(c.slug, DAY, "ctx", [], llm.Meter())
+        post.run(c.slug, DAY, "ctx", [fact()], llm.Meter())
     assert x["posts"] == []
 
 
@@ -167,3 +167,63 @@ def test_daily_logs_a_failed_post_and_still_finishes(monkeypatch):
     assert line.post is None and line.p_post == 0.9
     log = store.day_log(c.slug, DAY)
     assert log.reviewed and any("X post skipped" in n and "403" in n for n in log.notes)
+
+
+RAMP = "Ramp AI Index, September 2026: 55.9% of U.S. businesses on Ramp paid for AI."
+
+
+def test_run_skips_when_every_fact_was_gathered_on_an_earlier_day(monkeypatch, x):
+    """The Ramp index is re-read every build: the same September figure under a new id is not news."""
+    c = consultant()
+    store.write_facts(c.slug, "2026-10-14", [fact("K1-20261014-3", RAMP, (55.9,))])
+    drafts(monkeypatch)  # any LLM call would pop from an empty list
+    today = fact("K1-20261015-1", RAMP, (55.9,))
+    with pytest.raises(ValueError, match="nothing new today"):
+        post.run(c.slug, DAY, "ctx", [today], llm.Meter())
+    assert x["posts"] == []
+
+
+def test_errors_require_citing_a_fact_new_today():
+    old, new = fact("K1-20261014-3", RAMP, (55.9,)), fact()
+    facts = {f.id: f for f in (old, new)}
+    bad = post.errors(draft("Paid AI use hit 55.9%.", [old.id]), facts, fresh={new.id})
+    assert any("new today" in b for b in bad)
+    assert post.errors(draft(ids=[new.id]), facts, fresh={new.id}) == []
+
+
+def test_writer_sees_what_was_already_posted_and_which_facts_are_new(monkeypatch, x):
+    c = consultant()
+    store.write_facts(c.slug, "2026-10-14", [fact("K1-20261014-3", RAMP, (55.9,))])
+    with store.edit_day(c.slug, "2026-10-14") as d:
+        d.post_id = "x0"
+    from castelino.agents.consultants.models import HistoryLine
+
+    store.append_history(
+        c.slug,
+        HistoryLine(
+            day="2026-10-14",
+            kind="daily",
+            verdict="held",
+            p_thesis=0.1,
+            p_memory=0.1,
+            reason="",
+            before=None,
+            after=None,
+            moved=[],
+            deleted=[],
+            post="Paid AI use keeps broadening: 55.9% of U.S. businesses pay for AI.",
+        ),
+    )
+    seen = []
+
+    def fake(agent, model, messages, schema, meter, **kw):
+        seen.append(messages[-1]["content"])
+        return draft(ids=["K1-20261015-1"])
+
+    monkeypatch.setattr(llm, "structured", fake)
+    facts = [fact("K1-20261015-2", RAMP, (55.9,)), fact()]
+    post.run(c.slug, DAY, "ctx", facts, llm.Meter())
+    assert "Already posted" in seen[0] and "Paid AI use keeps broadening" in seen[0]
+    assert "[K1-20261015-1] Digital Realty" in seen[0] and "(new today)" in seen[0]
+    assert "[K1-20261015-2] Ramp" in seen[0] and "unchanged since 2026-10-14" in seen[0]
+    assert len(x["posts"]) == 1

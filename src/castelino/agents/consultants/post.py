@@ -22,13 +22,16 @@ from castelino.config import get_settings
 
 POST_Q = (
     "Today brings a notable new point for this topic worth posting publicly: a fresh development, a turning "
-    "point or a surprise, not a recap of what the thesis already says."
+    "point or a surprise, not a recap of what the thesis already says, of a point under Already posted, or "
+    "of data marked unchanged since an earlier day."
 )
 SYSTEM = """You write one X post for an ARC Research topic consultant about the notable new point today
 brings to its topic. Write analysis, not a list of data points: say what is happening, then what could
 happen next. Keep it under 250 characters (X cuts at 280), plain text: no hashtags, no emoji, no links or
 web addresses, no advice to buy or sell. Name a company as "Name (TICKER)". Any number must be one of the numbers of the
-facts you cite, written as the fact writes it; put those facts' ids in fact_ids.
+facts you cite, written as the fact writes it; put those facts' ids in fact_ids. The point must be new
+today: cite at least one fact marked (new today), and never repeat a point under Already posted, even in
+other words. A figure marked unchanged since an earlier day is not news.
 
 Also pick ONE chart that shows the point, from these forms:
 {forms}
@@ -48,10 +51,14 @@ class PostDraft(BaseModel):  # LLM output (closed schema: no defaults)
     chart_title: str
 
 
-def errors(d: PostDraft, facts: dict[str, Fact], lookup=None) -> list[str]:
-    """What's wrong with a draft: an unknown fact id, a figure its facts don't give, a link, over 280
-    characters, or a ticker that doesn't trade."""
+def errors(
+    d: PostDraft, facts: dict[str, Fact], lookup=None, fresh: set[str] | None = None
+) -> list[str]:
+    """What's wrong with a draft: an unknown fact id, no fact new today (`fresh`), a figure its facts
+    don't give, a link, over 280 characters, or a ticker that doesn't trade."""
     bad = [f"{i} is not one of the facts given to you" for i in d.fact_ids if i not in facts]
+    if fresh is not None and not fresh & set(d.fact_ids):
+        bad.append("the post cites no fact marked (new today); a point already out is not news")
     nums = {n for i in d.fact_ids if i in facts for n in facts[i].numbers}
     bad += [
         b.replace("the source line or the chart data", "the facts you cite")
@@ -65,17 +72,33 @@ def errors(d: PostDraft, facts: dict[str, Fact], lookup=None) -> list[str]:
 
 
 def write(
-    topic: str, context_md: str, wl: Watchlist, facts: list[Fact], meter: llm.Meter
+    topic: str,
+    context_md: str,
+    wl: Watchlist,
+    facts: list[Fact],
+    meter: llm.Meter,
+    fresh: set[str] | None = None,
+    seen: dict[str, str] | None = None,
 ) -> PostDraft:
-    """One Post Writer call, one retry with the errors; raises ValueError when both fail the checks."""
+    """One Post Writer call, one retry with the errors; raises ValueError when both fail the checks.
+    Each fact is marked new today (`fresh`), unchanged since an earlier day (`seen`) or by its day."""
     from castelino.agents.trade import forms
+
+    seen = seen or {}
+
+    def mark(f: Fact) -> str:
+        if fresh and f.id in fresh:
+            return " (new today)"
+        if (k := store.fact_key(f.text)) in seen:
+            return f" (unchanged since {seen[k]})"
+        return f" (from {day})" if (day := store._day_of(f.id)) else ""
 
     by_id = {f.id: f for f in facts}
     companies = ", ".join(f"{c.name} ({c.ticker})" for c in wl.companies) or "none"
     user = (
         f"Topic: {topic}\nWatchlist companies: {companies}\nWatchlist series: "
         f"{', '.join(wl.series) or 'none'}\n\n{context_md}\n\n## Facts you may cite\n"
-        + ("\n".join(f"- [{f.id}] {f.text} ({f.source_title})" for f in facts) or "(none)")
+        + ("\n".join(f"- [{f.id}] {f.text} ({f.source_title}){mark(f)}" for f in facts) or "(none)")
     )
     msgs = [
         {"role": "system", "content": SYSTEM.format(forms=forms.catalog_text())},
@@ -84,7 +107,7 @@ def write(
     model = get_settings().consultants.note_model
     for _ in range(2):
         d = llm.structured("consultant_post", model, msgs, PostDraft, meter)
-        if not (bad := errors(d, by_id)):
+        if not (bad := errors(d, by_id, fresh=fresh)):
             return d
         msgs += [
             {"role": "assistant", "content": d.model_dump_json()},
@@ -100,8 +123,15 @@ def run(
     today. Raises when the draft fails its checks twice, no chart can be drawn or X refuses."""
     if store.day_log(slug, day).post_id:
         return None
+    seen = store.earlier_texts(slug, day)
+    fresh = {
+        f.id for f in facts if store._day_of(f.id) == day and store.fact_key(f.text) not in seen
+    }
+    if not fresh:  # e.g. the Ramp index re-read unchanged: the same post would go out again
+        raise ValueError("nothing new today: every fact was gathered on an earlier day")
     c = store.load(slug)
-    d = write(c.topic, context_md, c.watchlist, facts, meter)
+    context_md += f"\n\n## Already posted (never repeat these)\n{store.posts_md(slug)}"
+    d = write(c.topic, context_md, c.watchlist, facts, meter, fresh, seen)
     png = store.cdir(slug) / "posts" / f"{day}.png"
     png.parent.mkdir(parents=True, exist_ok=True)
     pick = x_scout.ScoutPick(

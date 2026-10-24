@@ -156,3 +156,49 @@ def test_weekly_traces_notes_evicted_by_the_cap(monkeypatch):
 def test_last_sunday():
     assert review.last_sunday(date(2026, 10, 22)) == date(2026, 10, 18)
     assert review.last_sunday(date(2026, 10, 18)) == date(2026, 10, 18)
+
+
+def test_the_post_question_sees_past_posts_and_unchanged_facts(monkeypatch):
+    from castelino.agents.consultants import post
+    from castelino.agents.consultants.models import HistoryLine
+    from castelino.agents.update.models import Fact
+
+    c, asked = setup(monkeypatch, {"thesis": 0.1})
+    with store.edit(c.slug) as y:
+        y.post_to_x = True
+    ramp = "Ramp AI Index, September 2026: 55.9% of U.S. businesses on Ramp paid for AI."
+
+    def f(fid):
+        return Fact(
+            id=fid,
+            text=ramp,
+            numbers=[55.9],
+            provenance="data",
+            source_title="Ramp",
+            source_url="u",
+        )
+
+    store.write_facts(c.slug, "2026-10-14", [f("K1-20261014-3")])
+    store.write_facts(c.slug, DAY, [f("K1-20261015-1")])
+    store.append_history(
+        c.slug,
+        HistoryLine(
+            day="2026-10-14",
+            kind="daily",
+            verdict="held",
+            p_thesis=0.1,
+            p_memory=0.1,
+            reason="",
+            before=None,
+            after=None,
+            moved=[],
+            deleted=[],
+            post="55.9% pay for AI.",
+        ),
+    )
+    review.daily(c.slug, DAY, [finding()], llm.Meter())
+    text, questions, _ = asked[0]
+    assert "(unchanged since 2026-10-14)" in text
+    assert "## Already posted" in text and "2026-10-14: 55.9% pay for AI." in text
+    assert "Already posted" in questions["post"] and "unchanged" in questions["post"]
+    assert post.POST_Q == questions["post"]

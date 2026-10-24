@@ -126,3 +126,21 @@ def test_all_skips_unreadable_folders():
     bad.mkdir()
     (bad / "consultant.json").write_text("{not json")
     assert [c.slug for c in store.all()] == [good.slug]
+
+
+def test_earlier_texts_ignore_the_date_a_build_stamps_in():
+    c = store.create("AI", Watchlist(companies=[], series=[], queries=[]))
+
+    def f(fid, text):
+        return Fact(
+            id=fid, text=text, numbers=[], provenance="data", source_title="s", source_url="u"
+        )
+
+    eps = "Oracle (ORCL) reported EPS of 1.92 (latest quarter, as of {}, 2026)."
+    store.write_facts(c.slug, "2026-10-13", [f("K1-20261013-1", eps.format("Oct 13"))])
+    store.write_facts(c.slug, "2026-10-14", [f("K1-20261014-1", eps.format("Oct 14"))])
+    seen = store.earlier_texts(c.slug, "2026-10-15")
+    assert seen == {store.fact_key(eps.format("Oct 15")): "2026-10-13"}
+    assert store.fact_key("IGV: 115.98 on 2025-10-24") != store.fact_key(
+        "IGV: 110.59 on 2025-10-24"
+    )
