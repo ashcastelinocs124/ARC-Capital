@@ -1,5 +1,5 @@
 """What the models cost (admin → Costs): each logged call's tokens × that model's list price,
-plus the Fly.io server at its list price.
+plus the Fly.io server at its list price and each billed X API call at X's per-call price.
 
 Reads the benchmark call logs (benchmark.py), so it covers every provider we call. An estimate,
 not the invoice: the log keeps total input tokens only, so cached-input discounts aren't counted,
@@ -43,6 +43,11 @@ SEARCH_FEE = 0.01  # assumed $ per OpenAI web search call (2025 rate); confirm o
 # $0.15/GB. ponytail: update it with fly.toml. Shared IPs are free; bandwidth isn't counted.
 FLY_USD_MONTH = 13.39 + 3 * 0.15
 FLY_SINCE = "2026-10-13"  # a card was added that day; the free trial before it cost nothing
+
+# X's pay-per-use API, $ per call (docs.x.com, 2026-10-19): a post, a post carrying a URL, and each
+# post a read returns. Logged per call by benchmark.record_x since 2026-10-24, so earlier X spend
+# isn't counted. Model names as the page lists them.
+X_FEES = {"post": ("x-post", 0.015), "post_link": ("x-post-link", 0.200), "read": ("x-read", 0.005)}
 
 
 def provider(model: str) -> str:
@@ -90,7 +95,8 @@ def _day(root: str, day: str, size: int) -> tuple[dict, ...]:
 
 def summary(days: int = 30, today: date | None = None) -> dict:
     """Calls, tokens and $ per (day, agent, model) over the last `days` days, plus one Fly.io row
-    a day (provider "fly", no calls); the page groups them."""
+    a day (provider "fly", no calls) and the day's X API calls by kind (provider "x", calls = posts
+    sent or read); the page groups them."""
     today = today or date.today()
     rows = []
     for i in range(days - 1, -1, -1):
@@ -98,6 +104,23 @@ def summary(days: int = 30, today: date | None = None) -> dict:
         p = benchmark.root() / "calls" / f"{day}.jsonl.gz"
         if p.exists():
             rows += _day(str(p.parent), day, os.path.getsize(p))
+        x: dict[str, int] = {}
+        for r in benchmark.read("x", day):
+            x[r["kind"]] = x.get(r["kind"], 0) + (r.get("n") or 0)
+        for kind, n in x.items():
+            model, fee = X_FEES.get(kind, (f"x-{kind}", None))
+            rows.append(
+                {
+                    "day": day,
+                    "agent": "x_api",
+                    "model": model,
+                    "provider": "x",
+                    "calls": n,
+                    "tokens_in": 0,
+                    "tokens_out": 0,
+                    "usd": None if fee is None else n * fee,
+                }
+            )
         if day >= FLY_SINCE:
             rows.append(
                 {
@@ -118,5 +141,6 @@ def summary(days: int = 30, today: date | None = None) -> dict:
         "prices": {m: list(p) for m, p in PRICES.items()},
         "search_fee": SEARCH_FEE,
         "fly_usd_month": FLY_USD_MONTH,
+        "x_fees": dict(X_FEES.values()),
         "rows": rows,
     }

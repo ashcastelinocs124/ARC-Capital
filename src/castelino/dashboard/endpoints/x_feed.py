@@ -16,7 +16,7 @@ import time
 import httpx
 from fastapi import APIRouter
 
-from castelino import x_post
+from castelino import benchmark, x_post
 from castelino.agents.update.fsio import atomic_write_text
 from castelino.config import get_settings
 
@@ -117,6 +117,7 @@ def refresh(now: float | None = None, get=httpx.get) -> list[dict]:
     r = get(TIMELINE, params=params, headers={"Authorization": auth}, timeout=20)
     r.raise_for_status()
     reply = r.json()
+    benchmark.record_x("read", len(reply.get("data", [])))  # X bills each post it returns
     posts = parse(reply, cache["posts"] if fresh else None)[:KEEP]
     if not fresh:  # keep older posts the refetch didn't reach
         seen = {x["id"] for x in posts}

@@ -6,6 +6,8 @@ Two append-only logs under `data/benchmark/` (or $ARC_BENCHMARK_DIR), one gzip J
   the full input as sent, the output, time taken, tokens, error). Ids let ratings point at a call.
 - `actions/<day>.jsonl.gz`: what the admin did (chat, rerun, rebuild, push_draft, x_post, rate).
   A rating is an action: {"action": "rate", "call_id", "rating": "up"|"down", "better"}.
+- `x/<day>.jsonl.gz`: one line per billed X API call, {"at", "kind", "n"} (record_x); costs.py
+  prices it for admin → Costs.
 
 Recording never breaks a run: a failed write is only logged. Admin-only data: it lives on the
 data volume and is never exported to the public site. Appending to a .gz file adds a gzip
@@ -48,6 +50,12 @@ def _append(kind: str, row: dict) -> None:
             f.write(line)
     except Exception:  # noqa: BLE001 — the benchmark must never break a run
         log.warning("benchmark write failed", exc_info=True)
+
+
+def record_x(kind: str, n: int = 1) -> None:
+    """Log one billed X API call: "post", "post_link" (a post carrying a URL) or "read" (n = the
+    posts it returned). costs.X_FEES prices them."""
+    _append("x", {"at": datetime.now().isoformat(timespec="seconds"), "kind": kind, "n": n})
 
 
 def record_call(

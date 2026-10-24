@@ -5,10 +5,11 @@ import { PageIntro } from "@/components/layout/PageIntro";
 import { call } from "@/components/admin/DailyDesk";
 
 // Admin Costs: every logged model call's tokens × that model's list price (src/castelino/costs.py),
-// read live from the call logs on the Fly machine, plus the Fly server itself at list price. The
-// server sends one row per (day, agent, model), the Fly server as provider "fly" with no calls;
-// the tiles, chart and tables are sums of those rows.
-type Provider = "openai" | "anthropic" | "openrouter" | "fly";
+// read live from the call logs on the Fly machine, plus the Fly server itself at list price and each
+// billed X API call at X's per-call price. The server sends one row per (day, agent, model), the Fly
+// server as provider "fly" with no calls, X as provider "x" (calls = posts sent or read); the tiles,
+// chart and tables are sums of those rows.
+type Provider = "openai" | "anthropic" | "openrouter" | "fly" | "x";
 type Row = {
   day: string;
   agent: string;
@@ -26,6 +27,7 @@ type Summary = {
   prices: Record<string, [number, number]>;
   search_fee: number;
   fly_usd_month: number;
+  x_fees: Record<string, number>; // $ per X post sent or read, by model name
   rows: Row[];
 };
 
@@ -34,6 +36,7 @@ const PROVIDERS: [Provider, string, string][] = [
   ["anthropic", "Anthropic", C.inflation],
   ["openrouter", "OpenRouter", C.ai],
   ["fly", "Fly.io", C.jobs],
+  ["x", "X", C.text2],
 ];
 const RANGES = [7, 30, 90];
 const DAY = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
@@ -77,7 +80,10 @@ function Chip({ p }: { p: Provider }) {
 }
 
 // What each provider may cost a month (estimates set 2026-10-17); edit here to change them.
-const BUDGET: Record<Provider, number> = { openai: 100, anthropic: 100, openrouter: 20, fly: 50 };
+const BUDGET: Record<Exclude<Provider, "x">, number> = { openai: 100, anthropic: 100, openrouter: 20, fly: 50 };
+// X's API is prepaid credit, not a monthly bill: the balance on a day, spent down by every post and
+// read logged since. Edit both when you top up (user: $2.90 on 2026-10-24).
+const X_CREDITS = { usd: 2.9, since: "2026-10-24" };
 const MONTH = new Intl.DateTimeFormat("en-US", { month: "long", timeZone: "UTC" });
 
 // This calendar month's spend per provider against its budget, and where it lands at month-end if
@@ -93,7 +99,7 @@ function Budget() {
   const week = daysBack(data.today, 7);
   const tone = (spent: number, proj: number, budget: number) =>
     spent > budget ? "text-danger" : proj > budget ? "text-warning" : "text-muted";
-  const lines = PROVIDERS.map(([p, name, color]) => {
+  const lines = PROVIDERS.filter((x): x is [Exclude<Provider, "x">, string, string] => x[0] !== "x").map(([p, name, color]) => {
     const rows = data.rows.filter((r) => r.provider === p);
     const spent = usd(rows.filter((r) => r.day.startsWith(data.today.slice(0, 7))));
     // pace = $ a day over the last 7 days, counting only days since this provider's first row
@@ -106,6 +112,15 @@ function Budget() {
   const total = (k: "spent" | "proj" | "budget") => lines.reduce((a, l) => a + l[k], 0);
   const all = { spent: total("spent"), proj: total("proj"), budget: total("budget"), tone: tone(total("spent"), total("proj"), total("budget")) };
   const pct = (x: number, of: number) => `${Math.min(100, (x / of) * 100)}%`;
+  // X: what's left of the credits and the day they run out at the last 7 days' pace (days since the
+  // top-up only, like Fly's first week)
+  const xRows = data.rows.filter((r) => r.provider === "x" && r.day >= X_CREDITS.since);
+  const xSpent = usd(xRows);
+  const xLeft = X_CREDITS.usd - xSpent;
+  const xSpan = week.filter((d) => d >= X_CREDITS.since).length;
+  const xPace = xSpan ? usd(xRows.filter((r) => r.day >= week[0])) / xSpan : 0;
+  const xOut = xPace > 0 ? fmtDay(new Date(t.getTime() + (xLeft / xPace) * 864e5).toISOString().slice(0, 10)) : null;
+  const xTone = xLeft <= 0 ? "text-danger" : xPace * 7 > xLeft ? "text-warning" : "text-muted";
   return (
     <div className="card p-4 md:p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -115,7 +130,7 @@ function Budget() {
           <b className={all.tone === "text-muted" ? "text-text" : all.tone}>{money(all.proj)}</b> · {left} {left === 1 ? "day" : "days"} left
         </span>
       </div>
-      <div className="mt-3.5 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-3.5 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-5">
         {lines.map((l) => (
           <div key={l.p}>
             <div className="flex items-baseline justify-between text-[13px]">
@@ -132,6 +147,20 @@ function Budget() {
             </div>
           </div>
         ))}
+        <div>
+          <div className="flex items-baseline justify-between text-[13px]">
+            <span className="font-semibold" style={{ color: C.text2 }}>X credits</span>
+            <span className="num text-text-2"><b className="text-text">{money(xSpent)}</b> / ${X_CREDITS.usd.toFixed(2)}</span>
+          </div>
+          <div aria-hidden="true" className="relative mt-1.5 h-2.5 overflow-hidden rounded-full bg-surface-3">
+            <i className="absolute inset-y-0 left-0 rounded-full" style={{ width: pct(xSpent, X_CREDITS.usd), background: C.text2 }} />
+          </div>
+          <div className={cn("num mt-1 text-xs", xTone)}>
+            {xLeft <= 0
+              ? "Used up: X refuses posts (402) until you top up"
+              : `${money(xLeft)} left of the ${fmtDay(X_CREDITS.since)} balance · ${xOut ? `runs out about ${xOut}` : "no X calls logged yet"}`}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -163,7 +192,8 @@ export default function Costs() {
   const intro = (
     <PageIntro kicker="Admin · Model costs" title="What the models cost">
       Every model call&apos;s tokens × that model&apos;s list price, from the call logs on the Fly server, plus the Fly server
-      itself. OpenAI, Anthropic, OpenRouter and Fly.io, by day, model and agent. An estimate, not your invoice.
+      itself and every post and read on X. OpenAI, Anthropic, OpenRouter, Fly.io and X, by day, model and agent. An estimate,
+      not your invoice.
     </PageIntro>
   );
   const rangeSwitch = (
@@ -206,6 +236,7 @@ export default function Costs() {
   const topAgent = group(data.rows, "agent")[0];
   const first = data.rows.reduce<string | null>((a, r) => (r.provider === "fly" || (a !== null && r.day >= a) ? a : r.day), null);
   const fly = (p: Provider) => p === "fly";
+  const noTokens = (p: Provider) => p === "fly" || p === "x";
   const unpriced = group(data.rows, "model").filter((g) => g.usd === null);
   // Chart segments: one per provider, except OpenRouter, which gets one per model (priciest first) in
   // shades of its purple, so the models stay readable as one provider.
@@ -337,10 +368,14 @@ export default function Costs() {
                   <tr key={g.k} className="border-b border-border/60">
                     <td className="px-2 py-2"><span className="font-mono text-xs">{g.k}</span><Chip p={g.provider} /></td>
                     <td className="px-2 py-2 text-right">{fly(g.provider) ? "—" : g.calls}</td>
-                    <td className="px-2 py-2 text-right">{fly(g.provider) ? "—" : big(g.tin)}</td>
-                    <td className="px-2 py-2 text-right">{fly(g.provider) ? "—" : big(g.tout)}</td>
+                    <td className="px-2 py-2 text-right">{noTokens(g.provider) ? "—" : big(g.tin)}</td>
+                    <td className="px-2 py-2 text-right">{noTokens(g.provider) ? "—" : big(g.tout)}</td>
                     <td className="px-2 py-2 text-right text-muted">
-                      {fly(g.provider) ? `$${data.fly_usd_month.toFixed(2)} / month` : price ? `${price[0]} · ${price[1]}` : "no price"}
+                      {fly(g.provider)
+                        ? `$${data.fly_usd_month.toFixed(2)} / month`
+                        : g.provider === "x"
+                          ? data.x_fees?.[g.k] !== undefined ? `$${data.x_fees[g.k]} each` : "no price"
+                          : price ? `${price[0]} · ${price[1]}` : "no price"}
                     </td>
                     <td className="px-2 py-2 text-right font-bold">{g.usd === null ? "—" : money(g.usd)}</td>
                   </tr>
@@ -369,6 +404,7 @@ export default function Costs() {
                     <span className="font-mono text-xs">{g.k}</span>
                     {g.k === "web_search" && <span className="ml-1.5 text-[11px] text-muted">(shared by every searching agent)</span>}
                     {fly(g.provider) && <span className="ml-1.5 text-[11px] text-muted">(machine + volume, list price)</span>}
+                    {g.provider === "x" && <span className="ml-1.5 text-[11px] text-muted">(posts sent and read, X&apos;s per-call price)</span>}
                   </td>
                   <td className="px-2 py-2 text-right">{fly(g.provider) ? "—" : g.calls}</td>
                   <td className="px-2 py-2 text-right font-bold">{g.usd === null ? "—" : money(g.usd)}</td>
@@ -394,7 +430,10 @@ export default function Costs() {
         search also adds an assumed <b className="text-text-2">${data.search_fee.toFixed(2)} call fee</b>. Cached-input discounts aren&apos;t
         counted, so the real bill can be slightly lower. <b className="text-text-2">Fly.io</b> has no billing API, so its line is the
         list price of the server in fly.toml (shared-cpu-2x, 2 GB, plus the 3 GB volume) at ${data.fly_usd_month.toFixed(2)} a month
-        from Oct 13, when the free trial ended; bandwidth isn&apos;t counted.{" "}
+        from Oct 13, when the free trial ended; bandwidth isn&apos;t counted. <b className="text-text-2">X</b> is billed per call: each
+        post ${data.x_fees?.["x-post"] ?? 0.015}, a post with a link ${data.x_fees?.["x-post-link"] ?? 0.2}, each post a read returns
+        ${data.x_fees?.["x-read"] ?? 0.005}; logged since Oct 24, 2026, so earlier X spend isn&apos;t here, and image uploads aren&apos;t
+        counted.{" "}
         <span className="text-warning">
           Not priced: {unpriced.length ? unpriced.map((g) => `${g.k} (${g.calls} calls)`).join(", ") : "none"}.
         </span>{" "}

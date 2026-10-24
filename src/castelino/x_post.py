@@ -19,6 +19,8 @@ from urllib.parse import quote
 
 import httpx
 
+from castelino import benchmark
+
 TWEETS = "https://api.x.com/2/tweets"
 MEDIA = "https://api.x.com/2/media/upload"
 LIMIT = 280
@@ -188,4 +190,6 @@ def post(text: str, reply_to: str | None = None, media_id: str | list[str] | Non
     )
     if r.status_code >= 400:
         raise RuntimeError(f"X said {r.status_code}: {r.text[:300]}")
+    # ponytail: image uploads aren't logged, X's pay-per-use list doesn't price them
+    benchmark.record_x("post_link" if _URL.search(body["text"]) else "post")
     return r.json()["data"]["id"]

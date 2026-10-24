@@ -12,6 +12,8 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
+from castelino import benchmark
+
 URL = "https://api.x.com/2/tweets/search/recent"
 NY = ZoneInfo("America/New_York")
 MAX_QUERY = 512  # X's query length limit on the self-serve tiers
@@ -56,7 +58,9 @@ def _get(params: dict) -> dict:
     r = httpx.get(URL, params=params, headers={"Authorization": f"Bearer {token}"}, timeout=30)
     if r.status_code != 200:
         raise RuntimeError(f"x api: HTTP {r.status_code} {r.text[:120]}")
-    return r.json()
+    page = r.json()
+    benchmark.record_x("read", len(page.get("data", [])))  # X bills each post it returns
+    return page
 
 
 def search(

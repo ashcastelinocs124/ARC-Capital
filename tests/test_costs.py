@@ -4,7 +4,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from castelino import benchmark, costs
+from castelino import benchmark, costs, x_post
 from castelino.dashboard.endpoints import admin_desk
 
 
@@ -50,3 +50,25 @@ def test_costs_endpoint_is_not_taken_by_the_day_route():
     r = TestClient(app).get("/admin/desk/costs?days=7")
     assert r.status_code == 200 and r.json()["days"] == 7
     assert costs.provider("deepseek/deepseek-v4-pro") == "openrouter"
+
+
+def test_x_posts_and_reads_are_priced_per_call(monkeypatch):
+    monkeypatch.setattr(x_post, "_auth_header", lambda *a: "OAuth x")
+    monkeypatch.setattr(
+        x_post.httpx,
+        "post",
+        lambda url, json, **k: type(
+            "R", (), {"status_code": 201, "json": lambda self: {"data": {"id": "7"}}}
+        )(),
+    )
+    x_post.post("CPI beat forecasts.")
+    x_post.post("CPI cooled.")
+    x_post.post(
+        "The full note: https://archresearch.substack.com/p/note"
+    )  # X bills a link at $0.200
+    benchmark.record_x("read", 12)  # the About feed: X bills each post a read returns
+    rows = {r["model"]: r for r in costs.summary(1)["rows"] if r["provider"] == "x"}
+    assert (rows["x-post"]["calls"], rows["x-post"]["usd"]) == (2, pytest.approx(0.03))
+    assert rows["x-post-link"]["usd"] == pytest.approx(0.2)
+    assert (rows["x-read"]["calls"], rows["x-read"]["usd"]) == (12, pytest.approx(0.06))
+    assert costs.summary(1)["x_fees"]["x-post-link"] == 0.2
