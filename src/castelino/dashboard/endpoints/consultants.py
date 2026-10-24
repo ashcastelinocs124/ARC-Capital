@@ -6,6 +6,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from datetime import date
 from typing import Literal
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
@@ -32,14 +33,18 @@ class Knob(BaseModel):
 
 
 class Check(BaseModel):
-    kind: Literal["company", "series"]
-    value: str = Field(min_length=1, max_length=40)
+    kind: Literal["company", "series", "link"]
+    value: str = Field(min_length=1, max_length=500)
 
 
 def _valid(wl: Watchlist) -> Watchlist:
-    """A watchlist from the browser: series in fred:/yahoo: form and the hand-edit caps."""
+    """A watchlist from the browser: series in fred:/yahoo: form, links http(s), and the hand-edit caps."""
     if bad := [s for s in wl.series if not SERIES.match(s)]:
         raise HTTPException(422, f"not fred:ID or yahoo:TICKER: {', '.join(bad)}")
+    if bad := [u for u in wl.links if urlparse(u).scheme not in ("http", "https") or len(u) > 500]:
+        raise HTTPException(422, f"not a web address: {', '.join(bad)}")
+    if len(wl.links) > planner.MAX_LINKS:
+        raise HTTPException(422, f"at most {planner.MAX_LINKS} links")
     if max(len(wl.companies), len(wl.series)) > planner.MAX_HAND:
         raise HTTPException(
             422, f"at most {planner.MAX_HAND} companies and {planner.MAX_HAND} series"
@@ -83,10 +88,12 @@ def plan(req: Topic):
 
 @router.post("/check")
 def check(req: Check):
-    """One hand-added company (by ticker) or series, checked against Yahoo/FRED before it becomes a chip."""
+    """One hand-added company (by ticker), series or web page, checked before it becomes a chip."""
     try:
         if req.kind == "company":
             return {"company": planner.check_company(req.value).model_dump()}
+        if req.kind == "link":
+            return {"link": planner.check_link(req.value)}
         return {"series": planner.check_series(req.value)}
     except ValueError as e:
         raise HTTPException(422, str(e)) from e

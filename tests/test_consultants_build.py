@@ -62,6 +62,45 @@ def test_watchlist_failure_is_a_gap_not_an_error():
     assert facts == [] and len(gaps) == 1 and "X" in gaps[0]
 
 
+def test_pasted_pages_become_facts_after_the_series_and_are_charged():
+    wl = Watchlist(
+        companies=[],
+        series=["fred:DGS10"],
+        queries=[],
+        links=["https://a.com/p", "https://b.com/q"],
+    )
+    c = store.create("AI", wl)
+
+    def page(url, topic):
+        if "b.com" in url:
+            raise ValueError("search down")
+        return [fact("P1", (3.7,)), fact("P2", (0.6,))]
+
+    meter = llm.Meter()
+    facts, gaps = build.watchlist_facts(c, DAY, series=series_fact, page=page, meter=meter)
+    assert [f.id for f in facts] == ["K1-20261015-1", "K1-20261015-2", "K1-20261015-3"]
+    assert facts[1].numbers == [3.7]
+    assert len(gaps) == 1 and "b.com" in gaps[0]
+    assert meter.total == 2 * llm.SEARCH_USD
+
+
+def test_read_page_keeps_only_lines_citing_the_pages_site(monkeypatch):
+    seen = {}
+
+    def search(system, user, domains=None):
+        seen["domains"] = domains
+        text = "Sep 2026: CPI rose 3.7%.\nSep 2026: a blog says 4%."
+        return text, [
+            ("TE", "https://tradingeconomics.com/us/cpi", 5, 6),
+            ("Blog", "https://blog.example/x", 30, 31),
+        ]
+
+    monkeypatch.setattr(build.web_search, "search_cited", search)
+    facts = build.read_page("https://www.tradingeconomics.com/us/cpi", "US inflation")
+    assert seen["domains"] == ["tradingeconomics.com"]
+    assert [f.text for f in facts] == ["Sep 2026: CPI rose 3.7%."]
+
+
 def _thesis() -> Thesis:
     p = Part(text="Funding is the squeeze.", fact_ids=[])
     return Thesis(

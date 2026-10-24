@@ -18,10 +18,14 @@ class Company(BaseModel):
     ticker: str
 
 
-class Watchlist(BaseModel):
+class WatchlistDraft(BaseModel):  # the Planner's output (closed schema: no defaults)
     companies: list[Company]
     series: list[str]  # "fred:ID" or "yahoo:TICKER"
     queries: list[str]
+
+
+class Watchlist(WatchlistDraft):
+    links: list[str] = []  # web pages pasted by hand; each build reads them (build.read_page)
 
 
 class Consultant(BaseModel):
@@ -97,6 +101,7 @@ class DayLog(BaseModel):
     asks: list[Ask] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
     post_id: str | None = None  # X's id: at most one post a day
+    note_id: str | None = None  # the same post as a Substack Note
 
 
 class NoteConsult(BaseModel):

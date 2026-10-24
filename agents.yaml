@@ -868,11 +868,12 @@ agents:
     prompt: "castelino.agents.research.deep.sub_agent:SYSTEM"
     schema: "castelino.agents.research.deep.models:FindingDrafts"
     summary: >-
-      Before each Daily Update: code fetches the watchlist (prices, latest quarter, series), then Deep
-      Research's tool loop covers news and alt data in up to 8 calls. Only the facts are kept, as
-      {code}-{yyyymmdd}-{n}.
+      Before each Daily Update: code fetches the watchlist (prices, latest quarter, series), each pasted
+      web page is read with one cited search kept to its site, then Deep Research's tool loop covers news
+      and alt data in up to 8 calls. Only the facts are kept, as {code}-{yyyymmdd}-{n}.
     tools:
       - {name: "Watchlist fetch (code)", does: "Yahoo price history and earnings, FRED/Yahoo series"}
+      - {name: "Pasted pages (web_search)", does: "One cited search per pasted link, kept to that site; lines citing other sites dropped"}
       - {name: "web_search / fred_series / yahoo_prices / polymarket_odds / ramp_ai_index / openrouter_rankings / arc_ai_adoption_index", does: "Deep Research's tools"}
     memory:
       reads: ["The watchlist and the thesis's 'what to watch'"]

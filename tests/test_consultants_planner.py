@@ -1,8 +1,9 @@
+import httpx
 import pandas as pd
 import pytest
 
 from castelino.agents.consultants import planner
-from castelino.agents.consultants.models import Company, Watchlist
+from castelino.agents.consultants.models import Company, Watchlist, WatchlistDraft
 from castelino.agents.trade import llm
 
 
@@ -38,7 +39,7 @@ def test_suggest_drops_tickers_yahoo_cannot_price(monkeypatch):
     calls = _stub(monkeypatch, wl)
     out = planner.suggest("AI chips", llm.Meter(), close=_close)
     assert [c.ticker for c in out.companies] == ["NVDA"]
-    assert calls[0][1] == "gpt-6-sol" and calls[0][2] is Watchlist
+    assert calls[0][1] == "gpt-6-sol" and calls[0][2] is WatchlistDraft
 
 
 def test_suggest_drops_malformed_series(monkeypatch):
@@ -77,3 +78,34 @@ def test_check_series_normalises_and_refuses_no_data():
         planner.check_series("yahoo:EMPTY", fred=_close, close=_close)
     with pytest.raises(ValueError, match="not fred:ID or yahoo:TICKER"):
         planner.check_series("bloomberg:XYZ", fred=_close, close=_close)
+
+
+def test_check_link_cleans_and_refuses_bad_or_dead_links():
+    ok = planner.check_link(
+        " https://tradingeconomics.com/united-states/inflation-cpi#chart ", status=lambda u: 200
+    )
+    assert ok == "https://tradingeconomics.com/united-states/inflation-cpi"
+    assert (
+        planner.check_link("https://a.com/x", status=lambda u: 403) == "https://a.com/x"
+    )  # bot wall
+    with pytest.raises(ValueError, match="not a web address"):
+        planner.check_link("tradingeconomics.com/x", status=lambda u: 200)
+    with pytest.raises(ValueError, match="not found"):
+        planner.check_link("https://a.com/gone", status=lambda u: 404)
+
+    def down(u):
+        raise ValueError("a private address")
+
+    with pytest.raises(ValueError, match="did not answer"):
+        planner.check_link("http://localhost:8080/admin", status=down)
+
+    def slow(u):
+        raise httpx.ReadTimeout("timed out")
+
+    fred = "https://fred.stlouisfed.org/series/DGS10"
+    assert planner.check_link(fred, status=slow) == fred  # FRED stalls on non-browser requests
+
+
+def test_page_status_refuses_private_addresses():
+    with pytest.raises(ValueError, match="private"):
+        planner.page_status("http://127.0.0.1:8080/")

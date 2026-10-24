@@ -17,11 +17,12 @@ def has_key() -> bool:
 
 
 def search_cited(
-    system: str, user: str, model: str | None = None
+    system: str, user: str, model: str | None = None, domains: list[str] | None = None
 ) -> tuple[str, list[tuple[str, str, int, int]]]:
     """One web-search call -> (raw answer text, [(title, url, start, end)] per citation).
 
-    start/end index into the returned text (not stripped). Raises on API failure.
+    start/end index into the returned text (not stripped). `domains` keeps the search on those sites
+    (subdomains included). Raises on API failure.
     """
     import time
 
@@ -33,12 +34,13 @@ def search_cited(
     # a reasoning model + live search often runs past the 60 s default; a timeout just wastes the call
     client = OpenAI(api_key=cfg.openai_api_key, timeout=max(cfg.openai.request_timeout_s, 180))
     model = model or cfg.web_search.model
-    sent = {"system": system, "user": user, "tools": ["web_search"]}
+    tool: dict = {"type": "web_search"}
+    if domains:
+        tool["filters"] = {"allowed_domains": domains}
+    sent = {"system": system, "user": user, "tools": [tool]}
     started = time.monotonic()
     try:
-        resp = client.responses.create(
-            model=model, instructions=system, input=user, tools=[{"type": "web_search"}]
-        )
+        resp = client.responses.create(model=model, instructions=system, input=user, tools=[tool])
     except Exception as e:
         benchmark.record_call("web_search", model, sent, started=started, error=str(e)[:500])
         raise

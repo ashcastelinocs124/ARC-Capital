@@ -4,7 +4,12 @@ from fastapi.testclient import TestClient
 from castelino.agents.consultants import planner, runner, store
 from castelino.agents.consultants.models import Company, Watchlist
 
-WL = {"companies": [{"name": "NVIDIA", "ticker": "NVDA"}], "series": [], "queries": ["AI chips"]}
+WL = {
+    "companies": [{"name": "NVIDIA", "ticker": "NVDA"}],
+    "series": [],
+    "queries": ["AI chips"],
+    "links": [],
+}
 
 
 @pytest.fixture
@@ -100,6 +105,9 @@ def test_check_returns_the_chip_or_422(client, monkeypatch):
     assert client.post(url, json={"kind": "series", "value": "fred:dgs10"}).json() == {
         "series": "fred:DGS10"
     }
+    monkeypatch.setattr(planner, "check_link", lambda u: u.strip())
+    link = "https://tradingeconomics.com/united-states/inflation-cpi"
+    assert client.post(url, json={"kind": "link", "value": link}).json() == {"link": link}
 
 
 def test_put_watchlist_saves_and_validates(client):
@@ -109,6 +117,9 @@ def test_put_watchlist_saves_and_validates(client):
     assert client.put(url, json=new).json() == {"watchlist": new}
     assert store.load("india").watchlist.series == ["yahoo:INDA"]
     assert client.put(url, json={**WL, "series": ["bloomberg:X"]}).status_code == 422
+    assert client.put(url, json={**WL, "links": ["ftp://a.com/x"]}).status_code == 422
+    links = [f"https://a.com/{i}" for i in range(planner.MAX_LINKS + 1)]
+    assert client.put(url, json={**WL, "links": links}).status_code == 422
     many = [{"name": f"C{i}", "ticker": f"T{i}"} for i in range(planner.MAX_HAND + 1)]
     assert client.put(url, json={**WL, "companies": many}).status_code == 422
     assert store.load("india").watchlist.series == ["yahoo:INDA"]  # a refused edit saves nothing

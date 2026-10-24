@@ -1,7 +1,8 @@
 """The daily build: today's facts for one consultant, in two layers.
 
 1. Code fetches the watchlist (no model): each company's price history and latest reported quarter, and
-   each FRED/Yahoo series, so the same series grow day after day.
+   each FRED/Yahoo series, so the same series grow day after day. Each pasted web page is read with one
+   cited web search kept to that page's site (`read_page`).
 2. Deep Research's tool loop covers news and alt data (web search, Polymarket, Ramp, OpenRouter, ARC's
    adoption index; X only when X_BEARER_TOKEN is set), capped at `build_tool_calls`.
 
@@ -10,6 +11,7 @@ Every fact id is `{code}-{yyyymmdd}-{n}`. The first build also writes the first 
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from urllib.parse import urlparse
 
 from castelino.agents import themes
 from castelino.agents.consultants import store, thesis
@@ -20,9 +22,16 @@ from castelino.agents.research.deep.tools import XBudget
 from castelino.agents.trade import llm
 from castelino.agents.update import calendar
 from castelino.agents.update.background import default_close, stock_fact
+from castelino.agents.update.facts import facts_from_search
 from castelino.agents.update.models import Fact
 from castelino.agents.weekly.board import Board
 from castelino.config import get_settings
+from castelino.data import web_search
+
+PAGE = """You read one web page for an analyst who follows a topic. Open the page at the address given
+and report what it shows now: its latest figures and statements, one per line, each line starting with
+the date or period it refers to. Cite the page on every line. Report only what that page says: no other
+pages, no commentary. At most 12 lines."""
 
 
 def _prefix(c: Consultant, day: date) -> str:
@@ -46,6 +55,18 @@ def _earnings_fact(fid: str, name: str, ticker: str, eps: tuple, day: date) -> F
     )
 
 
+def _host(url: str) -> str:
+    return (urlparse(url).hostname or "").removeprefix("www.")
+
+
+def read_page(url: str, topic: str) -> list[Fact]:
+    """A pasted page's cited lines, from one web search kept to its site. A line citing any other site
+    is dropped, so every fact is that site's."""
+    host = _host(url)
+    text, cites = web_search.search_cited(PAGE, f"Page: {url}\nTopic: {topic}", domains=[host])
+    return [f for f in facts_from_search("P", text, cites) if _host(f.source_url).endswith(host)]
+
+
 def watchlist_facts(
     c: Consultant,
     day: date,
@@ -53,8 +74,11 @@ def watchlist_facts(
     close=default_close,
     series=themes.fetch_series,
     eps=calendar.yahoo_eps,
+    page=read_page,
+    meter: llm.Meter | None = None,
 ) -> tuple[list[Fact], list[str]]:
-    """Code-made facts for the watchlist. One failed item is a gap, never an exception."""
+    """Facts for the watchlist: code-made, except each pasted page's one web search (charged to `meter`).
+    One failed item is a gap, never an exception."""
     facts: list[Fact] = []
     gaps: list[str] = []
 
@@ -78,6 +102,18 @@ def watchlist_facts(
             facts.append(series(provider, sid, fid(), start))
         except Exception as e:  # noqa: BLE001
             gaps.append(f"{s}: {str(e)[:80]}")
+    for url in c.watchlist.links:
+        if meter:
+            meter.add(llm.SEARCH_USD)
+        try:
+            got = page(url, c.topic)
+        except Exception as e:  # noqa: BLE001
+            gaps.append(f"{url}: {str(e)[:80]}")
+            continue
+        if not got:
+            gaps.append(f"{url}: the page gave no cited lines")
+        for f in got:
+            facts.append(f.model_copy(update={"id": fid()}))
     return facts, gaps
 
 
@@ -116,7 +152,7 @@ def build(slug: str, day: date, meter: llm.Meter) -> list[str]:
     ds = day.isoformat()
     if store.day_log(slug, ds).built and c.status not in ("failed", "building"):  # Build now reruns
         return []
-    facts, gaps = watchlist_facts(c, day)
+    facts, gaps = watchlist_facts(c, day, meter=meter)
     th = store.read_thesis(slug)
     try:
         all_facts, err = research_facts(c, day, facts, meter, th)

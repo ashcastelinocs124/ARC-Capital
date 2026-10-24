@@ -91,38 +91,54 @@ function Timeline({ history, slug }: { history: HistoryLine[]; slug: string }) {
   );
 }
 
-// The watchlist's chips (click to remove) and add boxes: a company by ticker, a series by FRED/Yahoo id.
-// Each add is checked against Yahoo/FRED by the backend before it becomes a chip.
+// A pasted page's chip label: site and path, no scheme, cut to fit a chip.
+const pageLabel = (u: string) => {
+  const s = u.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
+  return `Page: ${s.length > 44 ? `${s.slice(0, 43)}…` : s}`;
+};
+
+// The watchlist's chips (click to remove) and add boxes: a company by ticker, a series by FRED/Yahoo id or a
+// web page by link (each build reads the page). Each add is checked by the backend before it becomes a chip.
 function WatchlistEditor({ wl, onChange }: { wl: Watchlist; onChange: (w: Watchlist) => void }) {
   const [ticker, setTicker] = useState("");
-  const [src, setSrc] = useState<"fred" | "yahoo">("fred");
+  const [src, setSrc] = useState<"fred" | "yahoo" | "link">("fred");
   const [sid, setSid] = useState("");
-  const [busy, setBusy] = useState<"" | "company" | "series">("");
-  const [error, setError] = useState<{ kind: "company" | "series"; text: string } | null>(null);
-  const remove = (k: keyof Watchlist, i: number) => onChange({ ...wl, [k]: (wl[k] as unknown[]).filter((_, j) => j !== i) } as Watchlist);
-  const add = (kind: "company" | "series", value: string, clear: () => void) => {
+  const [busy, setBusy] = useState<"" | "company" | "series" | "link">("");
+  const [error, setError] = useState<{ kind: "company" | "data"; text: string } | null>(null);
+  const links = wl.links ?? [];
+  const remove = (k: keyof Watchlist, i: number) => onChange({ ...wl, [k]: ((wl[k] ?? []) as unknown[]).filter((_, j) => j !== i) } as Watchlist);
+  const add = (kind: "company" | "series" | "link", value: string, clear: () => void) => {
     if (!value.trim() || busy) return;
     setBusy(kind); setError(null);
-    consultants.check(kind, value.trim()).then(({ company, series }) => {
+    consultants.check(kind, value.trim()).then(({ company, series, link }) => {
       if (company) {
         if (wl.companies.some((c) => c.ticker === company.ticker)) throw new Error(`${company.ticker} is already on the watchlist.`);
         onChange({ ...wl, companies: [...wl.companies, company] });
       } else if (series) {
         if (wl.series.includes(series)) throw new Error(`${series} is already on the watchlist.`);
         onChange({ ...wl, series: [...wl.series, series] });
+      } else if (link) {
+        if (links.includes(link)) throw new Error("That page is already on the watchlist.");
+        onChange({ ...wl, links: [...links, link] });
       }
       clear();
-    }).catch((e) => setError({ kind, text: String(e.message ?? e) })).finally(() => setBusy(""));
+    }).catch((e) => setError({ kind: kind === "company" ? "company" : "data", text: String(e.message ?? e) })).finally(() => setBusy(""));
   };
-  const chip = (label: string, k: keyof Watchlist, i: number) => (
-    <button key={`${k}-${i}`} type="button" onClick={() => remove(k, i)} disabled={busy !== ""} aria-label={`Remove ${label}`}
+  // a pasted http(s) address is a page whatever the source box says
+  const addData = () => {
+    const v = sid.trim();
+    const isLink = src === "link" || /^https?:\/\//i.test(v);
+    add(isLink ? "link" : "series", isLink ? v : v && `${src}:${v}`, () => setSid(""));
+  };
+  const chip = (label: string, k: keyof Watchlist, i: number, title?: string) => (
+    <button key={`${k}-${i}`} type="button" onClick={() => remove(k, i)} disabled={busy !== ""} aria-label={`Remove ${title ?? label}`} title={title}
       className={cn("rounded-full border border-border-strong bg-surface-2 px-3 py-1 text-xs hover:border-danger disabled:opacity-60", FOCUS)}>
       {label} <span aria-hidden="true">✕</span>
     </button>
   );
   const box = cn("w-28 rounded-full border border-dashed border-border-strong bg-surface-2 px-3 py-1 text-xs", FOCUS);
   const addBtn = cn("rounded-full border border-border-strong px-2.5 py-1 text-xs font-semibold text-accent disabled:opacity-50", FOCUS);
-  const err = (kind: "company" | "series") =>
+  const err = (kind: "company" | "data") =>
     error?.kind === kind && <p role="alert" className="basis-full text-xs text-danger">{error.text}</p>;
   return (
     <dl className="mt-2 grid grid-cols-[110px_1fr] gap-x-3 gap-y-2 text-[13px]">
@@ -141,20 +157,22 @@ function WatchlistEditor({ wl, onChange }: { wl: Watchlist; onChange: (w: Watchl
       <dt className="pt-1 font-semibold text-muted">Data</dt>
       <dd className="flex flex-wrap items-center gap-1.5">
         {wl.series.map((s, i) => chip(s, "series", i))}
+        {links.map((u, i) => chip(pageLabel(u), "links", i, u))}
         <span className="inline-flex items-center gap-1">
-          <select value={src} onChange={(e) => setSrc(e.target.value as "fred" | "yahoo")} aria-label="Data source"
+          <select value={src} onChange={(e) => setSrc(e.target.value as "fred" | "yahoo" | "link")} aria-label="Data source"
             className={cn("rounded-full border border-border-strong bg-surface-2 px-2 py-1 text-xs", FOCUS)}>
             <option value="fred">FRED</option>
             <option value="yahoo">Yahoo</option>
+            <option value="link">Link</option>
           </select>
-          <input value={sid} onChange={(e) => setSid(e.target.value)} placeholder={src === "fred" ? "e.g. DGS10" : "e.g. ^VIX"}
-            aria-label="Add a data series id" onKeyDown={(e) => e.key === "Enter" && add("series", sid && `${src}:${sid.trim()}`, () => setSid(""))}
-            className={box} />
-          <button type="button" onClick={() => add("series", sid && `${src}:${sid.trim()}`, () => setSid(""))} disabled={busy !== ""} className={addBtn}>
-            {busy === "series" ? "Checking…" : "Add"}
+          <input value={sid} onChange={(e) => setSid(e.target.value)} placeholder={{ fred: "e.g. DGS10", yahoo: "e.g. ^VIX", link: "Paste a page link" }[src]}
+            aria-label="Add a data series id or paste a page link" onKeyDown={(e) => e.key === "Enter" && addData()}
+            className={cn(box, src === "link" && "w-64")} />
+          <button type="button" onClick={addData} disabled={busy !== ""} className={addBtn}>
+            {busy === "series" || busy === "link" ? "Checking…" : "Add"}
           </button>
         </span>
-        {err("series")}
+        {err("data")}
       </dd>
       <dt className="pt-1 font-semibold text-muted">News and alt</dt>
       <dd className="flex flex-wrap gap-1.5">{wl.queries.length ? wl.queries.map((q, i) => chip(`News: ${q}`, "queries", i)) : <span className="text-muted">None</span>}</dd>

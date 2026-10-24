@@ -6,7 +6,7 @@ import type { Fact } from "@/components/admin/trade/api";
 // the admin password). Mirrors src/castelino/agents/consultants/models.py.
 export type { Fact };
 export type Company = { name: string; ticker: string };
-export type Watchlist = { companies: Company[]; series: string[]; queries: string[] };
+export type Watchlist = { companies: Company[]; series: string[]; queries: string[]; links?: string[] }; // links: pasted web pages
 export type Status = "building" | "active" | "paused" | "failed";
 export type Consultant = {
   slug: string; code: string; topic: string; watchlist: Watchlist; status: Status; created: string; error: string | null;
@@ -51,9 +51,9 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
 export const consultants = {
   list: () => req<{ consultants: Row[] }>("GET", ""),
   plan: (topic: string) => req<{ watchlist: Watchlist }>("POST", "/plan", { topic }),
-  // a hand-added company (by ticker) or "fred:ID" / "yahoo:TICKER" series, checked against Yahoo/FRED
-  check: (kind: "company" | "series", value: string) =>
-    req<{ company?: Company; series?: string }>("POST", "/check", { kind, value }),
+  // a hand-added company (by ticker), "fred:ID" / "yahoo:TICKER" series or web page link, checked by the backend
+  check: (kind: "company" | "series" | "link", value: string) =>
+    req<{ company?: Company; series?: string; link?: string }>("POST", "/check", { kind, value }),
   create: (topic: string, watchlist: Watchlist) => req<Row>("POST", "", { topic, watchlist }),
   setWatchlist: (slug: string, watchlist: Watchlist) => req<{ watchlist: Watchlist }>("PUT", `/${slug}/watchlist`, watchlist),
   get: (slug: string) => req<Detail>("GET", `/${slug}`),

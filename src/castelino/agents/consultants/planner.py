@@ -1,16 +1,20 @@
 """The Planner: turns a typed topic into a suggested watchlist the user can trim or add to before Start.
 
 Code checks every pick before it is shown: a ticker Yahoo can't price and a series id that isn't
-`fred:ID` / `yahoo:TICKER` are dropped, so the daily build never starts from a made-up id. A company or
-series the user adds by hand goes through `check_company` / `check_series` the same way."""
+`fred:ID` / `yahoo:TICKER` are dropped, so the daily build never starts from a made-up id. A company,
+series or web page the user adds by hand goes through `check_company` / `check_series` / `check_link`."""
 
 from __future__ import annotations
 
+import ipaddress
+import socket
 from collections.abc import Callable
+from urllib.parse import urlparse
 
+import httpx
 import pandas as pd
 
-from castelino.agents.consultants.models import Company, Watchlist
+from castelino.agents.consultants.models import Company, Watchlist, WatchlistDraft
 from castelino.agents.themes import SERIES
 from castelino.agents.trade import llm
 from castelino.agents.update.background import default_close, default_fred, load_universe
@@ -20,6 +24,7 @@ MAX_COMPANIES, MAX_SERIES, MAX_QUERIES = 8, 6, 4
 MAX_HAND = (
     15  # companies or series on a watchlist edited by hand: no model cost, only Yahoo/FRED calls
 )
+MAX_LINKS = 5  # pasted pages: each is one web search per build (llm.SEARCH_USD, ~$0.02)
 
 SYSTEM = """You plan the watchlist for an ARC Research topic consultant. The consultant follows one topic
 every day and keeps a view on it. Given the topic, list:
@@ -44,7 +49,7 @@ def _prices(ticker: str, close: Callable[[str], pd.Series]) -> bool:
 def suggest(topic: str, meter: llm.Meter, *, close=default_close) -> Watchlist:
     cfg = get_settings().consultants
     msgs = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": f"Topic: {topic}"}]
-    wl = llm.structured("consultant_planner", cfg.planner_model, msgs, Watchlist, meter)
+    wl = llm.structured("consultant_planner", cfg.planner_model, msgs, WatchlistDraft, meter)
     return Watchlist(
         companies=[c for c in wl.companies if _prices(c.ticker, close)][:MAX_COMPANIES],
         series=[s for s in wl.series if SERIES.match(s)][:MAX_SERIES],
@@ -86,3 +91,37 @@ def check_series(spec: str, *, fred=default_fred, close=default_close) -> str:
     if not _prices(sid, fred if provider == "fred" else close):
         raise ValueError(f"{provider}:{sid} returned no data. Check the id on {where}.")
     return f"{provider}:{sid}"
+
+
+def page_status(url: str) -> int:
+    """HTTP status of a pasted page. Refuses a host that resolves to a private address: the server is
+    the one fetching, so a link must not reach Fly's internal network."""
+    host = urlparse(url).hostname or ""
+    for *_, addr in socket.getaddrinfo(host, None):
+        if not ipaddress.ip_address(addr[0]).is_global:
+            raise ValueError("a private address")
+    # ponytail: redirects aren't re-checked; only the status code ever comes back, never the body
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/130 Safari/537.36"
+    }
+    return httpx.get(url, headers=headers, follow_redirects=True, timeout=15).status_code
+
+
+def check_link(url: str, *, status=page_status) -> str:
+    """A hand-added web page: refused (ValueError) unless it is an http(s) address that answers. A bot
+    wall (401/403/429) or a timeout passes (FRED stalls on any non-browser request): the build reads the
+    page through web search, not from this server."""
+    u = url.strip()
+    p = urlparse(u)
+    if p.scheme not in ("http", "https") or not p.hostname:
+        raise ValueError(f"{u!r} is not a web address. Paste the full link, starting https://.")
+    u = p._replace(fragment="").geturl()
+    try:
+        code = status(u)
+    except httpx.TimeoutException:
+        return u
+    except Exception as e:  # noqa: BLE001 - DNS, refused, private address: the link is unusable
+        raise ValueError(f"{p.hostname} did not answer ({str(e)[:80]}). Check the link.") from e
+    if code in (404, 410):
+        raise ValueError(f"That page was not found ({code}). Check the link.")
+    return u
