@@ -239,12 +239,32 @@ agents:
       Yahoo series to chart it. When nothing clears the bar (or the pick can't be charted or
       written), code searches the last 24 hours and the Scout must pick the best item not yet
       posted, so a run posts unless everything is old. Code fetches and draws every plotted value.
+      A story about a company's or an industry's own figures (compute, capacity, capex) also gets up
+      to 3 data requests, charted by the Data Charter; a share price is the chart only when its move
+      is the story.
     tools:
-      - {name: "chart() (code)", does: "fetch_series per series, drawn as one line or 2-4 compared (prices rebased to 100) with the Daily Update renderer"}
+      - {name: "chart() (code)", does: "fetch_series per series, drawn as one line or 2-4 compared (prices rebased to 100) with the Daily Update renderer; the fallback when the data requests find nothing to chart"}
     memory:
       reads: ["The cited items", "This account's posts from the last 7 days (data/x_posts/scout/)", "Today's market alerts (data/x_posts/moves/)"]
       writes: ["data/x_posts/scout/<date>/<HHMM>.png"]
       persists: "Each day's posts; code also refuses a source URL already posted in the last 7 days."
+
+  - id: x_scout_data_chart
+    name: Data Charter
+    group: X Scout
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "Cited web searches and the LLM call (x_scout.writer_model, gpt-6-luna)"}
+    class: castelino.x_scout.DataCharter
+    summary: >-
+      When the Scout's story is about a company's or an industry's own figures (SpaceX's computing
+      capacity, data-center gigawatts, capex), code runs the Scout's data requests as cited web
+      searches and this call charts the lines as bars or a dated line, each value copied from the
+      line it cites. Code refuses any value not in that line (one retry), else the Scout's
+      FRED/Yahoo chart is drawn instead.
+    tools:
+      - {name: "chart_desk._search (code)", does: "Up to 3 cited web searches; each cited line becomes a W# fact"}
+      - {name: "cited_chart() (code)", does: "Checks each value against its line (chart_desk._cited_errors) and draws cited_bars or cited_line in the ARC frame"}
+    memory: {reads: ["The picked news line", "The cited data lines"], writes: ["data/x_posts/scout/<date>/<HHMM>.png"], persists: "Nothing; the day file records the form and the data requests."}
 
   - id: x_scout_writer
     name: Scout Writer
@@ -294,7 +314,7 @@ agents:
       - {key: X_API_KEY, required: false, why: "With X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET and X_SCOUT_LIVE=1, posts go live; else dry run"}
     class: castelino.x_scout.ReleaseWriter
     summary: >-
-      Every 5 minutes from 07:00 to 23:55 ET on weekdays code checks Trading Economics' live calendar
+      Every 5 minutes from 07:00 to 23:55 ET, every day, code checks Trading Economics' live calendar
       (data) and the Earnings Reader (earnings); when a watched release lands, code writes the numbers line
       (actual vs expected, previous) and this call adds one plain sentence with no digit, dropped if it has one.
     tools:
@@ -1167,7 +1187,7 @@ systems:
         flow: [["Every 30 min"], ["code:Market check|10 markets · z ≥ 2.5"], ["agent:move_explainer|cited why"], ["agent:x_chart_picker|intraday or context chart"], ["end:Post on X|+ chart · or dry-run log"]]
 
   - group: X Scout
-    trigger: "Cron on the Fly server: the Scout every hour, 10:15-23:15 ET on weekdays and 08:15-23:15 at weekends (at most 16 a day); the calendar card at 07:00 and its watcher every 5 min, 07:00-23:55, on weekdays"
+    trigger: "Cron on the Fly server: the Scout every hour, 10:15-23:15 ET on weekdays and 08:15-23:15 at weekends (at most 16 a day); the calendar card at 07:00 on weekdays; the release watcher every 5 min, 07:00-23:55, every day (at weekends from its own Trading Economics list)"
     output: "On X, with the card and findings also as Substack Notes (dry run until X_SCOUT_LIVE=1): up to 2 cited findings a day with a chart and a reply; a calendar card each weekday morning (the week on Mondays); a post on X for each watched release as it lands, up to 4 a day"
     blurb: >-
       A cited search finds the last 6 hours of macro and AI news; the Scout picks one item worth a
@@ -1177,7 +1197,7 @@ systems:
       every number and the two writers only add words.
     lanes:
       - title: "Findings"
-        flow: [["Every 2 h"], ["agent:x_scout_search|cited macro + AI"], ["agent:x_scout|1 item, 24h retry"], ["agent:x_scout_writer|post + reply"], ["end:X + Substack Note|+ chart · or dry-run log"]]
+        flow: [["Every 2 h"], ["agent:x_scout_search|cited macro + AI"], ["agent:x_scout|1 item, 24h retry", "agent:x_scout_data_chart|the story's own data"], ["agent:x_scout_writer|post + reply"], ["end:X + Substack Note|+ chart · or dry-run log"]]
       - title: "Calendar"
         flow: [["7:00 · every 5 min"], ["code:Week Ahead|pick + card · watch list"], ["agent:x_calendar_writer|week or day read"], ["agent:x_earnings_reader|earnings from cited news", "agent:x_segment_reader|segments from the 8-K", "agent:x_release_writer|one line per release"], ["end:X + Notes|card on both · releases X only ≤6/day"]]
 
@@ -1412,8 +1432,9 @@ pipelines:
       - {id: schedule, kind: trigger, layer: agents, x: 20, w: 120, name: Findings, sub: every hour, does: "Runs every hour, 10:15 to 23:15 New York time on weekdays and 08:15 to 23:15 at weekends (at most 16 a day), never within an hour of the morning Theme Charts thread."}
       - {id: search, kind: llm, agent: x_scout_search, layer: agents, x: 170, name: Scout search, sub: macro + AI news, does: "Searches the last 6 hours of macro and AI news and keeps only the lines it can cite."}
       - {id: scout, kind: llm, agent: x_scout, layer: agents, x: 330, name: Scout, sub: 1 item, 24h retry, does: "Picks the one item worth a post and names the data series that chart it; if nothing clears the bar, a second search covers 24 hours and the Scout must pick the best item not yet posted."}
-      - {id: writer, kind: llm, agent: x_scout_writer, layer: agents, x: 490, name: Writer, sub: post + reply, does: "Writes the post and one reply of analysis from the cited line and the chart's numbers."}
-      - {id: calsched, kind: trigger, layer: agents, x: 650, w: 120, name: Calendar, sub: 07:00 · every 5 min, does: "The calendar card goes out at 7:00 New York time on weekdays (the whole week on Mondays); the release watcher checks every 5 minutes from 7:00 to 23:55 (Japan's releases land at 19:30)."}
+      - {id: datachart, kind: llm, agent: x_scout_data_chart, layer: agents, x: 490, dy: -40, name: Data charter, sub: the story's own data, does: "When the story is about a company's or an industry's own figures (computing capacity, gigawatts, capex), code searches the web for them and this agent charts the cited lines; every value must be in the line it cites. A share price is charted only when its move is the story."}
+      - {id: writer, kind: llm, agent: x_scout_writer, layer: agents, x: 490, dy: 40, name: Writer, sub: post + reply, does: "Writes the post and one reply of analysis from the cited line and the chart's numbers."}
+      - {id: calsched, kind: trigger, layer: agents, x: 650, w: 120, name: Calendar, sub: 07:00 · every 5 min, does: "The calendar card goes out at 7:00 New York time on weekdays (the whole week on Mondays); the release watcher checks every 5 minutes from 7:00 to 23:55 every day (Japan's releases land at 19:30; at weekends it lists the day's releases itself)."}
       - {id: pick, kind: code, layer: agents, x: 790, name: Pick + card, sub: key rows · drawn by code, does: "Plain code picks the key US releases, inflation and jobs abroad and the largest companies reporting, draws the card and saves the four most important releases to watch."}
       - {id: cardw, kind: llm, agent: x_calendar_writer, layer: agents, x: 950, name: Calendar writer, sub: week or day read, does: "Writes the short read on top of the card from the card's own rows."}
       - {id: earnread, kind: llm, agent: x_earnings_reader, layer: agents, x: 1110, dy: -40, name: Earnings reader, sub: cited news, does: "Nasdaq doesn't show reported EPS, so a cited news search checks each watched company once its session opens; this agent reads the lines into the numbers line, posted only if every figure is a cited one's."}
@@ -1433,6 +1454,9 @@ pipelines:
       - search > scout
       - limits > scout
       - scout > stop
+      - scout > datachart
+      - web > datachart
+      - datachart > writer
       - scout > writer
       - series > writer
       - writer > check
@@ -1453,7 +1477,7 @@ pipelines:
     steps:
       - {title: Find, nodes: [schedule, search, web], edges: [schedule > search, web > search], io: ["in: last 6 hours of news", "out: cited items"], text: "Every hour the Scout search agent lists the macro and AI news of the last 6 hours, and only lines with a citation go on."}
       - {title: Pick, nodes: [scout, limits, stop], edges: [search > scout, limits > scout, scout > stop], io: ["in: cited items + past posts", "out: one item or stop"], text: "The Scout agent picks the one item worth a post and the series that chart it. It skips anything already posted, and most runs stop here."}
-      - {title: Chart, write and post, nodes: [writer, series, check, post], edges: [scout > writer, series > writer, writer > check, check > post], io: ["in: item + chart data", "out: finding on X"], text: "Code draws the chart; the Writer agent writes the post and one reply; code checks every number, then the finding goes out on X."}
+      - {title: Chart, write and post, nodes: [datachart, writer, series, check, post], edges: [scout > datachart, web > datachart, datachart > writer, scout > writer, series > writer, writer > check, check > post], io: ["in: item + chart data", "out: finding on X"], text: "Code draws the chart: the story's own figures from a cited web search (the Data charter picks them, code checks each one) or, for a market, FRED and Yahoo series. The Writer agent writes the post and its analysis; code checks every number, then the finding goes out on X."}
       - {title: Calendar card, nodes: [calsched, pick, calendar, cardw], edges: [calsched > pick, calendar > pick, pick > cardw], io: ["in: the week's calendar", "out: card + read"], text: "At 7:00 on weekdays code picks the key releases and reporters and draws the card; the Calendar writer adds a short read."}
       - {title: Check and post the card, nodes: [cardcheck, cardpost], edges: [cardw > cardcheck, cardcheck > cardpost], io: ["in: card + read", "out: card on X"], text: "Code checks every figure in the read against the card, then the card goes out on X."}
       - {title: Release posts, nodes: [watchcap, nasdaq, earnread, sec, segread, releasew, relpost], edges: [cardcheck > watchcap, watchcap > releasew, nasdaq > releasew, web > earnread, earnread > releasew, sec > segread, segread > relpost, releasew > relpost], io: ["in: watch list + live calendar + cited news + SEC filings", "out: release posts with charts"], text: "Every 5 minutes code checks Trading Economics' live calendar for the morning's watched data, and a cited news search (read by the Earnings Reader) for each watched company once its session opens; each release that lands posts once with its numbers against what was expected, plus one plain sentence and its charts: actual vs forecast for data; for earnings, where the sales and the profit came from (the Segment Reader copies the SEC filing's segment table) and the beat or miss."}

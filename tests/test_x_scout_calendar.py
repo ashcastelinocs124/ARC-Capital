@@ -381,3 +381,29 @@ def test_an_earnings_line_needs_today_and_every_figure_from_a_cited_line(monkeyp
         assert got == (
             "SpaceX (SPCX) Q3: EPS $0.35 vs $0.13 expected." if case == "good" else None
         ), case
+
+
+def test_weekends_watch_trading_economics_without_a_card(monkeypatch, tmp_path):
+    sat = datetime(2026, 10, 24, 7, 0, tzinfo=ET)
+    cn = {"date": "2026-10-24", "country": "CN"}
+    rows = [
+        {
+            **econ_row("CPI", "&nbsp;", "0.2%", "0.1%", "21:30", "y/y"),
+            **cn,
+            "kind": "inflation",
+            "unit": "%",
+        },
+        {**econ_row("Balance of Trade", "&nbsp;", "90B", "80B", "23:00"), **cn},  # not on any card
+    ]
+    asked = live_econ(monkeypatch, lambda: rows)
+    monkeypatch.setattr(
+        x_scout.ReleaseWriter, "__call__", lambda self, **k: ReleaseRead(sentence="Prices firm.")
+    )
+    assert x_scout.watch(now=sat, root=tmp_path) == []
+    assert [w["name"] for w in x_scout.day_record(tmp_path, sat)["watch"]] == ["CPI"]
+    rows[0]["actual"] = 0.3
+    out = x_scout.watch(now=sat.replace(hour=21, minute=35), root=tmp_path)
+    assert [r["text"].split("\n")[0] for r in out] == [
+        "China CPI y/y: 0.3% vs 0.2% expected (previous 0.1%)."
+    ]
+    assert asked.count(set()) == 1  # every page read once to build the list, then only China's

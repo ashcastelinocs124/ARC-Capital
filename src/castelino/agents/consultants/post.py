@@ -116,6 +116,7 @@ def run(
         threshold=d.threshold,
         chart_title=d.chart_title,
         reason="",
+        searches=[],
     )
     _, _, form, _ = x_scout.chart(pick, datetime.now(x_scout.ET), png, kicker=c.topic.upper())
     if not x_post.can_post():

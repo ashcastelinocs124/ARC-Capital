@@ -264,14 +264,18 @@ def _cited_errors(c: Chart, facts: dict[str, Fact]) -> list[str]:
     return errs
 
 
-def _draw_cited(c: Chart, facts: dict[str, Fact], path: Path, k: int) -> list[tuple[str, float]]:
-    """A cited chart in the house frame: bars (a snapshot) or a line (dated points)."""
+def _draw_cited(
+    c: Chart, facts: dict[str, Fact], path: Path, k: int, kicker: str = KICKER
+) -> list[tuple[str, float]]:
+    """A cited chart in the house frame: bars (a snapshot) or a line (dated points). X Scout draws
+    its data charts here too, with its topic as the kicker."""
     from castelino.agents.trade.forms import GREEN, INK2, SLATE, _wrap
     from castelino.agents.weekly.charts import _frame
 
     pts, unit = c.points or [], c.unit or ""
     labels, vals = [p.label for p in pts], [p.value for p in pts]
-    fmt = lambda v: f"{v:,.2f}".rstrip("0").rstrip(".") + unit  # noqa: E731
+    gap = " " if unit[:1].isalpha() and unit != "x" else ""  # "1.7 GW", but "2.1%" and "18.5x"
+    fmt = lambda v: f"{v:,.2f}".rstrip("0").rstrip(".") + gap + unit  # noqa: E731
 
     def bars(ax):
         y = list(range(len(vals)))[::-1]
@@ -294,7 +298,8 @@ def _draw_cited(c: Chart, facts: dict[str, Fact], path: Path, k: int) -> list[tu
                     fontsize=8.5, color=GREEN, fontweight="bold", va="center")  # fmt: skip
 
     ids = dict.fromkeys(p.fact_id for p in pts)
-    sources = "; ".join(dict.fromkeys(facts[i].source_title for i in ids))
+    # the publisher, not the page title: "... Underwrite | Columbia Business School" ran off the footer
+    sources = "; ".join(dict.fromkeys(facts[i].source_title.rsplit(" | ", 1)[-1][:60] for i in ids))
     sub = (
         "Cited values" + (f" ({unit})" if unit else "")
         if c.form == "cited_bars"
@@ -302,7 +307,7 @@ def _draw_cited(c: Chart, facts: dict[str, Fact], path: Path, k: int) -> list[tu
     )
     is_bars = c.form == "cited_bars"
     _frame(k, c.title, sub, f"web search, cited: {sources}", path, bars if is_bars else line,
-           left=0.25 if is_bars else 0.1, kicker=KICKER)  # fmt: skip
+           left=0.25 if is_bars else 0.1, kicker=kicker)  # fmt: skip
     return [(p.label, p.value) for p in pts]
 
 

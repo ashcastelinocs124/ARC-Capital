@@ -7,7 +7,11 @@ with the SUBSTACK_SID cookie). Dry run (log only) unless X_SCOUT_LIVE=1 and the 
 interesting macro or AI finding with a chart. Code runs one cited web search for the last 6 hours of
 macro and AI news (uncited lines are dropped). The Scout picks the one item worth a post, or
 nothing, and names a chart form (allowed_forms) and the fred:/yahoo: series it needs; code fetches
-and draws them. A pass with nothing to post (no item clears the bar, or the pick can't be
+and draws them. A story about a company's or an industry's own figures (compute, capacity, capex) is
+charted with those figures, never a share price unless the move is the story (user rule,
+2026-10-24): the Scout lists up to 3 data requests, code runs them as cited searches, the Data
+Charter charts the lines as cited_bars or cited_line, and each value must be a number of the line it
+cites (cited_chart); with nothing to chart, the fred:/yahoo: chart is drawn instead. A pass with nothing to post (no item clears the bar, or the pick can't be
 charted, written or was already posted) is followed by a second one (PASSES): the last 24 hours, and
 the Scout must pick the best item not yet posted. One cited follow-up search adds context, and the
 Writer writes the lead and a 3-post analysis thread from that line, the context and the chart's
@@ -29,12 +33,13 @@ important release groups still to come (watch_rows: top-tier US data, then the l
 marked WATCH. The Card Writer adds a short read whose figures must be the card's (check()); one
 retry, then a code-written line. Monday's card is the whole week's and also sets Monday's watch list.
 
-`watch` (every 5 min, 07:00-23:55 ET on weekdays): code reads today's releases from Trading Economics
+`watch` (every 5 min, 07:00-23:55 ET every day): code reads today's releases from Trading Economics
 (the watched countries' pages; Nasdaq filed its economic calendar a day late and its actuals hours
 late) and posts each watched release whose actual (data) or EPS (earnings) has appeared, once, at most MAX_RELEASES
 a day: a code-written numbers line (a release's m/m and y/y together), then one Release Writer
 sentence that may hold no digit (else it's dropped and the numbers line posts alone). Release posts
-skip the Theme Charts quiet hour: they are news. Records: data/x_posts/calendar/<YYYY-MM-DD>.json
+skip the Theme Charts quiet hour: they are news. Weekends have no card, so the first run builds the
+day's watch list from Trading Economics by the card's rules (Sunday evening's Japan and China data). Records: data/x_posts/calendar/<YYYY-MM-DD>.json
 (card, watch list, releases) and <YYYY-MM-DD>/card.png.
 
 Run by deploy/crontab: python -m castelino.x_scout [scout|card|watch] [--dry-run]
@@ -58,6 +63,14 @@ from pydantic import BaseModel
 
 from castelino import release_charts, substack, x_post
 from castelino.agents.base import StructuredAgent
+from castelino.agents.chart_desk import (
+    CITED,
+    Chart,
+    CitedPoint,
+    _cited_errors,
+    _draw_cited,
+    _search,
+)
 from castelino.agents.update.charts import is_rate
 from castelino.agents.update.facts import _NUM, facts_from_search, numbers_in
 from castelino.agents.update.fsio import atomic_write_text
@@ -92,7 +105,7 @@ record, a policy shift, a model or chip launch with hard numbers, a big AI capex
 Routine, in-line or already-posted stories are a no: answer post=false, which should be the usual
 answer. A company written with a ticker in its line is listed and trades: never call it private or
 untradable from memory, which is older than some listings (SpaceX has traded as SPCX since its
-2026 IPO); chart it with yahoo:<that ticker>. Never pick a story listed under "Already posted", including a market that today's alerts
+2026 IPO); when its share price is the chart, use yahoo:<that ticker>. Never pick a story listed under "Already posted", including a market that today's alerts
 already covered. If you post, name the chart that best shows the story: a form from the list in
 the message and the series it needs, each "fred:SERIES_ID" for economic data (FRED lags a day or
 more) or "yahoo:TICKER" for anything that trades (NVDA, SMH, ^TNX, CL=F, DX-Y.NYB). Pick the form
@@ -103,7 +116,15 @@ together; a line or compare only when the story is a series' path. Pick series w
 on its own (a yield, spread, price or rate such as DGS10, T10YIE, UNRATE), never an index level
 like CPIAUCSL or INDPRO. names: a reader name per series ("Chip stocks (SMH)"). window_days:
 30-365. threshold: a number for threshold_band, else null. chart_title and headline: short, no
-figures. When post is false, leave item_id, series and names empty and give the reason."""
+figures. When post is false, leave item_id, series, names and searches empty and give the reason.
+Chart what the story is about. A story about a company's or an industry's own figures (computing or
+data-center capacity, capex, users, sales by business, a model's benchmark or price, chip shipments)
+is charted with those figures, not a share price: list up to 3 searches, each a precise request for
+figures FRED and Yahoo don't have ("SpaceX computing capacity in gigawatts by quarter since 2025, and
+its end-2027 target"). Code runs them as cited web searches and charts what they find. A single
+stock's price is the chart only when its move is the story (an earnings reaction, a selloff, a
+record). Always also fill form and series: that chart is drawn when the searches find nothing to
+chart. Leave searches empty for a market or an economic release FRED or Yahoo carry."""
 MUST = """Nothing cleared the bar in the last 6 hours, and the account posts every run. This time
 pick the best item here that is not already posted and that a chart can show; answer post=false
 only if every item is already posted or none can be charted."""
@@ -132,6 +153,13 @@ In up to 6 lines, each with a citation, give the context an analyst would add: w
 prior readings or the trend it continues or breaks, how markets reacted, and what comes next (the
 next release, meeting, report or deadline). Quote figures exactly as reported. Nothing older than a
 year unless it is the comparison that matters."""
+DATA = """You chart one news story for ARC Research's X account from cited lines, each marked [id].
+Pick cited_bars for a few labelled values (a figure now against its target, peers side by side; the
+story's subject first, it is highlighted) or cited_line for one figure's path over time (dated
+points, oldest first, each label its date). Copy every value exactly from the line it cites
+(fact_id = that line's id), all in one unit, given in unit ("GW", "%", "bn dollars"; "" for a
+count). Plot only what the story is about, never a share price. title: what the chart shows in a
+few words, no figures. When the lines hold fewer than 2 comparable figures, return no points."""
 POSTS = 3
 
 
@@ -147,6 +175,14 @@ class ScoutPick(BaseModel):  # LLM output (closed schema: no defaults)
     threshold: float | None  # threshold_band only
     chart_title: str
     reason: str
+    searches: list[str]  # data requests FRED/Yahoo can't answer, charted by the Data Charter
+
+
+class DataChart(BaseModel):  # LLM output (closed schema: no defaults)
+    form: Literal["cited_bars", "cited_line"]
+    title: str  # what the chart shows, no figures
+    unit: str  # written after each value: "GW", "%", "bn dollars"; "" for none
+    points: list[CitedPoint]
 
 
 class ScoutPost(BaseModel):  # LLM output (closed schema: no defaults)
@@ -177,6 +213,28 @@ class Scout(StructuredAgent[ScoutPick]):
             f"\n\nChart forms you may use this run:\n{forms}"
         )
         return f"{out}\n\n{MUST}" if must else out
+
+
+class DataCharter(StructuredAgent[DataChart]):
+    name = "x_scout_data_chart"
+    output_schema = DataChart
+    tier = "fast"
+    max_output_tokens = 8000  # reasoning tokens share this budget
+
+    def __init__(self) -> None:
+        self.model = get_settings().x_scout.writer_model
+
+    def system_prompt(self) -> str:
+        return DATA
+
+    def user_prompt(self, *, item: Fact, lines: list[Fact], fix: list[str] | None = None) -> str:
+        cited = "\n".join(f"[{f.id}] {f.text} ({f.source_title})" for f in [item, *lines])
+        out = f"The story: {item.text}\n\nCited lines:\n{cited}"
+        if fix:
+            out += "\n\nYour last chart had problems. Fix them:\n" + "\n".join(
+                f"- {e}" for e in fix
+            )
+        return out
 
 
 class Writer(StructuredAgent[ScoutPost]):
@@ -318,6 +376,41 @@ def chart(
     raise RuntimeError(f"{pick.series} could not be drawn in any allowed form")
 
 
+def cited_chart(
+    pick: ScoutPick, item: Fact, path: Path, kicker: str
+) -> tuple[str, list[tuple[str, float]], list[Fact]] | None:
+    """The story's own figures, not a share price (user rule, 2026-10-24, after SpaceX's compute
+    story was charted as SPCX's price): the Scout's data requests run as cited web searches, the
+    Data Charter charts the lines, and every value must be a number of the line it cites (one retry
+    told what failed). Returns the form, the plotted (label, value) and the search lines; None when
+    there is nothing to chart, so the caller draws the fred:/yahoo: chart instead."""
+    lines = _search(pick.searches)
+    print(f"  data search: {len(lines)} cited lines")
+    if not lines:
+        return None
+    facts, fix = {f.id: f for f in [item, *lines]}, None
+    for _ in range(2):
+        try:
+            d = DataCharter()(item=item, lines=lines, fix=fix)
+            if not d.points:
+                print("  data chart: nothing comparable in the lines")
+                return None
+            c = Chart(form=d.form, series=[], window_days=0, threshold=None, title=d.title[:60],
+                      why="", points=d.points, unit=d.unit.strip() or None)  # fmt: skip
+            fix = _cited_errors(c, facts) + [
+                f"the title has {t}; give it no figures" for t in unsupported([c.title], set())
+            ]
+            if not fix:
+                shown = _draw_cited(c, facts, path, 1, kicker=kicker)
+                unit = f" ({c.unit})" if c.unit else ""
+                return d.form, [(label + unit, v) for label, v in shown], lines
+        except Exception as e:  # noqa: BLE001 - the series chart is the fallback
+            print(f"  data chart failed: {e}")
+            return None
+        print("  data chart: " + "; ".join(fix))
+    return None
+
+
 def _series_facts(pick: ScoutPick, now: datetime, specs: list, days: int) -> list[Fact]:
     from castelino.agents import themes
 
@@ -389,7 +482,8 @@ def chart_numbers(
     numbers a non-line form computed (an RSI, a place in the 52-week range, a drawdown)."""
     from castelino.agents.trade.forms import FORMS
 
-    lines = [f"Chart form: {form} ({FORMS[form].description})" if form in FORMS else ""]
+    desc = FORMS[form].description if form in FORMS else CITED.get(form, ("",))[0]
+    lines = [f"Chart form: {form} ({desc})" if desc else ""]
     lines += [f"Chart subtitle: {subtitle}"] if subtitle else []
     lines += [f"The chart shows {label}: {v:g}" for label, v in shown]
     nums = set(numbers_in(subtitle)) | {x for _, v in shown for x in (v, abs(v))}
@@ -513,13 +607,19 @@ def find(
         print("  already posted this story")
         return None
     png.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        series, subtitle, form, shown = chart(pick, now, png, allowed)
-    except Exception as e:  # the chart is the point: no chart, no post
-        print(f"  no chart, no post: {e}")
-        return None
+    cited = cited_chart(pick, hit, png, pick.topic.upper()) if pick.searches else None
+    if cited:
+        form, shown, data = cited
+        series, subtitle = [], ""
+    else:
+        data = []
+        try:
+            series, subtitle, form, shown = chart(pick, now, png, allowed)
+        except Exception as e:  # the chart is the point: no chart, no post
+            print(f"  no chart, no post: {e}")
+            return None
     numbers, nums = chart_numbers(series, subtitle, form, shown)
-    ctx = context(hit)
+    ctx = data + context(hit)  # the data lines also give the Writer what each value means
     print(f"  context: {len(ctx)} cited lines")
     lines = "\n".join(f"- {f.text} ({f.source_title})" for f in ctx)
     texts = write(
@@ -584,6 +684,7 @@ def run(dry: bool = False, now: datetime | None = None, root: Path | None = None
         "source_url": hit.source_url,
         "source": source,
         "series": pick.series,
+        "searches": pick.searches,  # cited_bars / cited_line: the chart is these searches' figures
         "form": form,  # allowed_forms() reads it back
         "chart": f"{png.parent.name}/{png.name}",
         "lead": lead,
@@ -1148,6 +1249,13 @@ def watch(now: datetime | None = None, root: Path | None = None, dry: bool = Fal
     """Post each watched release that has landed since the last check; returns what went out."""
     now, root = now or datetime.now(ET), root or get_settings().root
     rec = day_record(root, now)
+    if now.weekday() >= 5 and not _day_path(root, now).exists():
+        # weekends have no card: the first run builds the day's list from Trading Economics, by the
+        # card's rules (Sunday evening's Japan and China releases); 2 rows a release (m/m, y/y)
+        rows = pick(upcoming(te.day_events(now.date()), now), f"{now:%Y-%m-%d}", data=2 * MAX_RELEASES, earnings=0)  # fmt: skip
+        rec["watch"] = [{"key": key(r), **r} for r in watch_rows(rows)]
+        save_day(root, now, rec)  # saved even when empty, so the pages are read once a day
+        print(f"{now:%Y-%m-%d %H:%M} ET  watch: weekend list, {len(rec['watch'])} rows")
     done = {k for r in rec.get("releases", []) for k in r.get("keys", [r["key"]])}
     todo = [w for w in rec.get("watch", []) if w["key"] not in done]
     room = MAX_RELEASES - len(rec.get("releases", []))

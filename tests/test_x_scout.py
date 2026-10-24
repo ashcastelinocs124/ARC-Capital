@@ -47,6 +47,7 @@ def pick(post=True, item_id="N1", series=("yahoo:SMH", "yahoo:^GSPC")):
         threshold=None,
         chart_title="Chip stocks vs the S&P 500",
         reason="r",
+        searches=[],
     )
 
 
@@ -315,3 +316,59 @@ def test_every_ticker_a_post_names_must_trade_before_it_goes_out(monkeypatch, tm
     monkeypatch.setattr(x_scout, "trades", lambda t: t in listed)
     assert x_scout.run(dry=True, now=AT, root=tmp_path)  # the retry, told why, goes out
     assert len(calls) == 2 and "SPCXX is not a ticker" in " ".join(calls[1]["fix"])
+
+
+W = [
+    Fact(
+        id="W1",
+        text="SpaceX had 1.7 GW of compute at September 30, up from 0.6 GW a year earlier.",
+        numbers=[1.7, 30.0, 0.6],
+        provenance="reported",
+        source_title="Reuters",
+        source_url="https://reuters.com/w",
+    )
+]
+
+
+def data_chart(points):
+    return x_scout.DataChart(
+        form="cited_bars",
+        title="SpaceX compute capacity",
+        unit="GW",
+        points=[x_scout.CitedPoint(label=lb, value=v, fact_id="W1") for lb, v in points],
+    )
+
+
+def test_a_company_story_is_charted_with_its_own_cited_figures(monkeypatch, tmp_path):
+    lead = ScoutPost(
+        lead="SpaceX compute rose to 1.7 GW from 0.6 GW.", posts=FINE, source="Reuters"
+    )
+    asks = ["SpaceX computing capacity in GW by quarter"]
+    calls = fake(monkeypatch, pick_=pick().model_copy(update={"searches": asks}), chart_ok=False, posts=[lead])  # fmt: skip
+    monkeypatch.setattr(x_scout, "_search", lambda qs: W if qs == asks else [])
+    monkeypatch.setattr(
+        x_scout.DataCharter,
+        "__call__",
+        lambda self, **k: data_chart([("Sep 2025", 0.6), ("Sep 2026", 1.7)]),
+    )
+    rec = x_scout.run(dry=True, now=AT, root=tmp_path)
+    assert rec["form"] == "cited_bars" and rec["searches"] == asks  # never the stock chart
+    assert "The chart shows Sep 2026 (GW): 1.7" in calls[0]["numbers"]
+    assert "[W1]" not in calls[0]["context"] and "1.7 GW of compute" in calls[0]["context"]
+    assert (tmp_path / "data" / "x_posts" / "scout" / rec["chart"]).stat().st_size > 1000
+
+
+def test_a_value_not_in_its_line_gets_one_retry_then_the_series_chart(monkeypatch, tmp_path):
+    fake(monkeypatch, pick_=pick().model_copy(update={"searches": ["q"]}))
+    monkeypatch.setattr(x_scout, "_search", lambda qs: W)
+    fixes = []
+    monkeypatch.setattr(
+        x_scout.DataCharter,
+        "__call__",
+        lambda self, **k: (
+            fixes.append(k["fix"]) or data_chart([("Sep 2025", 0.6), ("Sep 2026", 2.5)])
+        ),  # fmt: skip
+    )
+    rec = x_scout.run(dry=True, now=AT, root=tmp_path)
+    assert rec["form"] == "compare"  # the Scout's fred:/yahoo: chart
+    assert fixes[0] is None and fixes[1][0].startswith("Sep 2026: 2.5 is not in [W1]")
