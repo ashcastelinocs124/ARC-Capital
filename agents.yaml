@@ -946,13 +946,14 @@ agents:
     summary: >-
       Only for a consultant whose "Post to X" knob is on, when the evening review finds a notable new point:
       writes one post (what's happening, then what could happen) and picks a chart, which code draws and posts
-      with it. Every number must be a cited fact's; no links; tickers must trade; at most one post a day.
+      with it on X and as a Substack Note. Every number must be a cited fact's; no links; tickers must trade; at most one post a day.
     tools:
       - {name: "x_scout.chart (code)", does: "Fetches the FRED/Yahoo series and draws the picked form (Trade Lab's 12), falling back to dial, bars, line; no chart, no post"}
       - {name: "x_post.post (code)", does: "Posts the text with the chart image; strips emoji, keeps one cashtag"}
+      - {name: "substack.post_note (code)", does: "Posts the same text and chart as a Substack Note after X; a failure is logged and never blocks X"}
     memory:
       reads: ["The thesis (after any rewrite), today's facts and the facts the thesis cites, the Daily Update's findings, the watchlist"]
-      writes: ["The post text and chart form in history.jsonl, X's post id in that day's log, the chart PNG"]
+      writes: ["The post text and chart form in history.jsonl, X's post id and the Note's id in that day's log, the chart PNG"]
       persists: "data/consultants/<slug>/posts/<day>.png and days/<day>.json."
 
   - id: consultant_answer
@@ -1488,7 +1489,7 @@ pipelines:
     name: Topic Consultants
     trigger: "a topic you add · then every day after the 17:00 ET run"
     guardrails: "numbers from cited facts · $1 a day · posting off by default"
-    delivery: "ARC view in the Daily Update · answers to research agents · X posts"
+    delivery: "ARC view in the Daily Update · answers to research agents · X + Substack Notes"
     groups:
       - {id: data, label: WATCHLIST + RESEARCH TOOLS, nodes: [yahoo, fred, web, x]}
     nodes:
@@ -1512,7 +1513,7 @@ pipelines:
       - {id: memory, kind: code, layer: guardrails, x: 810, w: 140, name: Memory review, sub: weekly · 20 kept, does: "Each Sunday the review moves notes that will still matter in a month to long-term memory (at most 20) and drops out-of-date ones; this week's notes are then cleared."}
       - {id: postcheck, kind: guard, layer: guardrails, x: 990, w: 150, name: Post checks, sub: chart drawn by code, does: "Code draws the chart from the source data. Every number in the post must be a cited fact's, with no links, and every ticker must trade; no chart, no post."}
       - {id: view, kind: out, layer: delivery, x: 520, w: 170, name: ARC view, sub: in the Daily Update, does: "Under each Daily Update story the topic covers, the Editor adds a one-paragraph ARC view from the consultant's thesis."}
-      - {id: xpost, kind: out, layer: delivery, x: 990, w: 150, name: X post, sub: + chart · 1 a day, does: "When posting is on, the notable point goes out on X with its chart, at most once a day per consultant. Posting is off unless someone turns it on."}
+      - {id: xpost, kind: out, layer: delivery, x: 990, w: 150, name: X + Substack, sub: + chart · 1 a day, does: "When posting is on, the notable point goes out on X with its chart, then as a Substack Note, at most once a day per consultant. Posting is off unless someone turns it on."}
       - {id: reply, kind: out, layer: delivery, x: 1240, w: 150, name: Answer, sub: facts copied in, does: "The answer goes back to the asking agent with its facts, so the agent's own number check covers anything it borrows."}
     edges:
       - you > planner
@@ -1538,7 +1539,7 @@ pipelines:
       - {title: Form a view, nodes: [thesis, guard, view], edges: [builder > thesis, thesis > guard, guard > view], io: ["in: facts", "out: ARC view"], text: "The Thesis writer turns the facts into analysis: what is happening and what could happen. Code checks every figure, and the Daily Update's Editor adds it as an ARC view under the stories the topic covers."}
       - {title: Evening review, nodes: [findings, decide, thesis], edges: [findings > decide, decide > thesis], io: ["in: today's findings", "out: keep or rewrite"], text: "Each evening one Decisions API call reads the Daily Update's findings and asks whether today changes the view; if it does, the Thesis writer rewrites it."}
       - {title: Remember, nodes: [note, memory], edges: [decide > note, note > memory], io: ["in: today", "out: memory notes"], text: "If something is worth remembering, a note goes into this week's memory. On Sundays the notes that will still matter move to long-term memory and the rest are cleared."}
-      - {title: Post (if switched on), nodes: [post, postcheck, xpost], edges: [decide > post, post > postcheck, postcheck > xpost], io: ["in: a notable point", "out: X post + chart"], text: "Posting is off unless switched on for that consultant. Then, when the review finds a notable new point, the Post Writer writes one post and picks a chart; code draws the chart and checks every number, and it goes out on X, at most once a day."}
+      - {title: Post (if switched on), nodes: [post, postcheck, xpost], edges: [decide > post, post > postcheck, postcheck > xpost], io: ["in: a notable point", "out: X post + Substack Note, with the chart"], text: "Posting is off unless switched on for that consultant. Then, when the review finds a notable new point, the Post Writer writes one post and picks a chart; code draws the chart and checks every number, and it goes out on X and as a Substack Note, at most once a day."}
       - {title: Consult, nodes: [asks, answer, reply], edges: [asks > answer, answer > reply], io: ["in: a question", "out: analysis + facts"], text: "ARC's other research agents can ask a consultant for its analysis while they work. It answers from its own file, and its facts travel with the answer so the caller's number check still applies."}
 
   - id: sector-sentiment

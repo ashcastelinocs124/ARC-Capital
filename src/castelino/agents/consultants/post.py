@@ -3,9 +3,9 @@
 While the knob is on, the evening review asks the Decisions API one more question (POST_Q). A yes has the
 Post Writer write one post (what's happening, then what could happen) and name a chart; code draws the
 chart with X Scout's chart code (Trade Lab's forms, so the model never supplies a plotted number) and both
-go to X. Every number in the post must be one of its cited facts, the post carries no link (X bills $0.200
+go to X, then out as a Substack Note (x_scout.note: after X, never blocking it). Every number in the post must be one of its cited facts, the post carries no link (X bills $0.200
 for one against $0.015) and every ticker must trade. No chart, no post. At most one post per consultant a
-day: X's id is kept in that day's log."""
+day: X's id (and the Note's) is kept in that day's log."""
 
 from __future__ import annotations
 
@@ -153,5 +153,10 @@ def run(
         raise RuntimeError("the X write keys aren't set here, so nothing was posted")
     pid = x_post.post(d.text, media_id=x_post.upload_image(png.read_bytes()))
     with store.edit_day(slug, day) as log:
-        log.post_id = pid
+        log.post_id = pid  # saved before the Note, so a Note failure can't make X post twice
+    noted = x_scout.note(d.text, png, live=True)
+    with store.edit_day(slug, day) as log:
+        log.note_id = noted["note_id"]
+        if err := noted.get("note_error"):
+            log.notes.append(f"Substack Note failed: {err}")
     return d.text, form

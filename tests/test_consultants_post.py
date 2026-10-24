@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from castelino import x_post, x_scout
+from castelino import substack, x_post, x_scout
 from castelino.agents.consultants import post, review, store
 from castelino.agents.consultants.models import Watchlist
 from castelino.agents.trade import llm
@@ -40,8 +40,8 @@ def draft(
 
 @pytest.fixture
 def x(monkeypatch):
-    """Fake X and chart: records what would go out; tickers always trade."""
-    sent = {"posts": [], "charts": []}
+    """Fake X, Substack Notes and chart: records what would go out; tickers always trade."""
+    sent = {"posts": [], "charts": [], "notes": []}
 
     def fake_chart(pick, now, path, allowed=None, kicker=""):
         sent["charts"].append((pick.form, kicker))
@@ -54,6 +54,10 @@ def x(monkeypatch):
     monkeypatch.setattr(x_post, "upload_image", lambda data: "m1")
     monkeypatch.setattr(
         x_post, "post", lambda text, media_id=None: sent["posts"].append((text, media_id)) or "x1"
+    )
+    monkeypatch.setattr(substack, "can_note", lambda: True)
+    monkeypatch.setattr(
+        substack, "post_note", lambda text, png=None: sent["notes"].append((text, png.name)) or "n1"
     )
     return sent
 
@@ -91,8 +95,24 @@ def test_run_retries_once_then_posts_with_its_chart(monkeypatch, x):
     assert (text, form) == ("A 4.1% stake sale.", "compare")
     assert x["posts"] == [("A 4.1% stake sale.", "m1")]
     assert x["charts"] == [("compare", "AI MODELS AND CHIPS")]
-    assert store.day_log(c.slug, DAY).post_id == "x1"
+    assert x["notes"] == [("A 4.1% stake sale.", f"{DAY}.png")]
+    log = store.day_log(c.slug, DAY)
+    assert (log.post_id, log.note_id) == ("x1", "n1")
     assert (store.cdir(c.slug) / "posts" / f"{DAY}.png").exists()
+
+
+def test_a_failed_note_is_logged_and_x_still_counts(monkeypatch, x):
+    c = consultant()
+    drafts(monkeypatch, draft(ids=["K1-20261015-1"]))
+
+    def refused(text, png=None):
+        raise RuntimeError("403 Forbidden")
+
+    monkeypatch.setattr(substack, "post_note", refused)
+    assert post.run(c.slug, DAY, "ctx", [fact()], llm.Meter())
+    log = store.day_log(c.slug, DAY)
+    assert (log.post_id, log.note_id) == ("x1", None)
+    assert log.notes == ["Substack Note failed: 403 Forbidden"]
 
 
 def test_run_gives_up_after_two_bad_drafts(monkeypatch, x):
