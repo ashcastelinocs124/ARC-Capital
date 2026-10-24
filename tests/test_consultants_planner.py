@@ -122,7 +122,7 @@ def _cited(*rows):
     return text, cites
 
 
-def test_find_links_keeps_updating_cited_pages_cleaned_two_per_site(monkeypatch):
+def test_find_links_keeps_topic_pages_cleaned_two_per_site_no_quote_sites(monkeypatch):
     eia = "https://www.eia.gov/electricity/monthly/"
     rows = [
         (
@@ -139,6 +139,9 @@ def test_find_links_keeps_updating_cited_pages_cleaned_two_per_site(monkeypatch)
         ("Yahoo XLU quote, live.", "https://finance.yahoo.com/quote/XLU"),
         ("A PDF of grid filings, quarterly.", "https://www.iso-ne.com/static-assets/letters.pdf"),
         ("Polymarket odds, updated live.", "https://polymarket.com/event/x?tid=1&utm_medium=x"),
+        ("USD/JPY quote, live.", "https://www.tradingview.com/symbols/USDJPY/"),
+        ("Japan 2-year yield, daily.", "https://tradingeconomics.com/japan/2-year-note-yield"),
+        ("Same quote, mobile site.", "https://m.investing.com/currencies/usd-jpy"),
     ] + [(f"Tracker {i}, weekly.", f"https://s{i}.org/data") for i in range(4)]
     seen = {}
 

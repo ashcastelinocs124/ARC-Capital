@@ -850,7 +850,7 @@ agents:
       - {key: OPENAI_API_KEY, required: true, why: "gpt-6-sol"}
     prompt: "castelino.agents.consultants.planner:SYSTEM"
     schema: "castelino.agents.consultants.models:WatchlistDraft"
-    summary: "Turns the topic you type into a suggested watchlist (companies with tickers, FRED/Yahoo series, news queries) plus up to 5 live data pages beyond FRED and Yahoo from one cited web search, all of which you can trim before Start; code drops tickers Yahoo can't price, and only pages the search cites are proposed."
+    summary: "Turns the topic you type into a suggested watchlist (companies with tickers, FRED/Yahoo series, news queries) plus up to 5 live data pages specific to the topic (the ones its specialists follow, never a quote or general macro site) from one cited web search, all of which you can trim before Start; code drops tickers Yahoo can't price, and only pages the search cites are proposed."
     tools:
       - {name: "web_search (code)", does: "One cited search for live data pages on the topic (trackers, agencies, prediction markets, alt data); FRED/Yahoo pages skipped, utm tags stripped"}
     memory:

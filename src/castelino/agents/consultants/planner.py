@@ -2,8 +2,8 @@
 
 Code checks every pick before it is shown: a ticker Yahoo can't price and a series id that isn't
 `fred:ID` / `yahoo:TICKER` are dropped, so the daily build never starts from a made-up id. Data pages
-beyond FRED and Yahoo come from one cited web search (`find_links`): only pages it cites are proposed, so
-no link is made up. A company,
+specific to the topic come from one cited web search (`find_links`): only pages it cites are proposed, so
+no link is made up, and quote or general macro sites (`_COVERED`) are dropped. A company,
 series or web page the user adds by hand goes through `check_company` / `check_series` / `check_link`."""
 
 from __future__ import annotations
@@ -44,17 +44,33 @@ every day and keeps a view on it. Given the topic, list:
 Look past the obvious headline series: a sector or thematic ETF, a commodity future or a FRED series that
 moves with the topic beats a broad index. Prefer fewer, surer picks over many guesses."""
 
-LINKS = """You find live data sources for an analyst who will follow a topic every day. List up to 6 web
-pages beyond FRED and Yahoo Finance whose page itself shows numbers on the topic (a table, chart,
-dashboard, odds or rankings) that change on a set schedule: statistical agency and central bank data
-pages, data trackers (e.g. Trading Economics, Our World in Data, the EIA's data browsers), prediction
-markets (Polymarket, Kalshi), industry and alternative data (usage rankings, job or shipping trackers, grid
-monitors), company investor-relations data pages. Mix kinds of source; at most 2 pages from one site.
-Never an article, blog post, press release, PDF, FAQ, outlook narrative or one-off report, even if it is
-about the data. One page per line: what numbers it shows and how often they update (live, daily, weekly,
-monthly or quarterly), citing that page itself."""
+LINKS = """You find live data sources for an analyst who will follow a topic every day. Prices, yields,
+indexes, currencies and FRED's economic series are already covered, so look for the numbers only this
+topic has: ask who tracks it most closely (the industry body, regulator, exchange, specialist tracker,
+survey, research group or company that publishes them) and find the pages those specialists read. List
+up to 6 web pages whose page itself shows numbers on the topic (a table, chart, dashboard, odds or
+rankings) that change on a set schedule. Mix kinds of source; at most 2 pages from one site. Never a
+price quote or chart for a stock, ETF, index, currency, future or bond yield, and never a general site
+that covers every market or country when a page specific to the topic exists. Never an article, blog
+post, press release, PDF, FAQ, outlook narrative or one-off report, even if it is about the data. One page
+per line: what numbers it shows and how often they update (live, daily, weekly, monthly or quarterly),
+citing that page itself."""
 
-_COVERED = ("fred.stlouisfed.org", "finance.yahoo.com")  # already reachable as fred:/yahoo: series
+# Hosts whose numbers are already reachable as fred:/yahoo: series, or general quote and macro sites
+# that show the same prices and releases for any topic.
+# ponytail: hand-kept list; add a host here when it keeps showing up in suggestions
+_COVERED = (
+    "fred.stlouisfed.org",
+    "finance.yahoo.com",
+    "tradingeconomics.com",
+    "tradingview.com",
+    "investing.com",
+    "marketwatch.com",
+    "macrotrends.net",
+    "stockanalysis.com",
+    "cnbc.com",
+    "google.com",
+)
 PER_SITE = 2
 
 
@@ -88,7 +104,7 @@ def find_links(topic: str, meter: llm.Meter) -> list[str]:
         host = _host(u)
         if (
             p.scheme in ("http", "https")
-            and host not in _COVERED
+            and not any(host == c or host.endswith("." + c) for c in _COVERED)
             and not p.path.lower().endswith(".pdf")  # a document, not a page that updates
             and u not in out
             and sum(_host(x) == host for x in out) < PER_SITE
