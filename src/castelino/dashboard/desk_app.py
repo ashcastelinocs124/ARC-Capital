@@ -19,7 +19,14 @@ from http.cookies import CookieError, SimpleCookie
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from castelino.dashboard.endpoints import admin_desk, chart_desk, consultants, deep_research, trade
+from castelino.dashboard.endpoints import (
+    admin_desk,
+    admin_overview,
+    chart_desk,
+    consultants,
+    deep_research,
+    trade,
+)
 
 app = FastAPI(title="ARC admin desk", docs_url=None, redoc_url=None, openapi_url=None)
 COOKIE = "arc_admin"
@@ -74,6 +81,7 @@ app.include_router(trade.router)
 app.include_router(deep_research.router)
 app.include_router(chart_desk.router)
 app.include_router(consultants.router)
+app.include_router(admin_overview.router)  # before admin_desk: its /{day} would catch /overview
 app.include_router(admin_desk.router)
 
 

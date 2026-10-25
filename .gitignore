@@ -100,6 +100,7 @@ frontend/vite.config.js
 docs/superpowers/specs/
 docs/superpowers/plans/
 docs/plans/
+docs/design/
 CLAUDE.md
 AGENTS.md
 

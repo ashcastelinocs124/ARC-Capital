@@ -183,7 +183,7 @@ function PointChart({ c, facts }: { c: PointChartT; facts: Record<string, Fact> 
     const v = c.values[0];
     body = (
       <div className="mt-1 flex items-baseline gap-3" role="img" aria-label={aria}>
-        <b className="font-serif text-[40px] leading-none" style={{ color: INK }}>{f(v.value)}</b>
+        <b className="text-[40px] leading-none" style={{ color: INK }}>{f(v.value)}</b>
         <span className="text-[12.5px] text-black/60">{v.label}</span>
       </div>
     );
@@ -259,10 +259,10 @@ function Header({ s }: { s: Session }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="eyebrow">Deep research · started {s.created_at.slice(0, 16).replace("T", " ")}</div>
-          <h2 className="mt-0.5 font-serif text-[24px] font-bold leading-tight">{s.topic}</h2>
+          <h2 className="mt-0.5 text-[24px] font-semibold leading-tight">{s.topic}</h2>
           {s.question && <p className="text-[13px] text-muted">{s.question}</p>}
         </div>
-        <div className="text-right text-[12px] text-muted"><b className="block font-serif text-[22px] text-text">${s.cost_usd.toFixed(2)}</b>of ${s.cost_cap_usd.toFixed(0)} spent</div>
+        <div className="text-right text-[12px] text-muted"><b className="block text-[22px] text-text">${s.cost_usd.toFixed(2)}</b>of ${s.cost_cap_usd.toFixed(0)} spent</div>
       </div>
       <div className="mt-3 flex gap-1.5">
         {STEPS.map((x, i) => (
@@ -289,10 +289,10 @@ function NewTopic({ onCreate }: { onCreate: (t: string) => Promise<void> }) {
   return (
     <div className="rounded-2xl border border-border bg-surface p-6">
       <div className="eyebrow">New research</div>
-      <h2 className="mt-1 font-serif text-2xl font-bold">What should we research?</h2>
+      <h2 className="mt-1 text-2xl font-semibold">What should we research?</h2>
       <p className="text-sm text-muted">A topic or a question. The clarifier asks up to 3 questions before anything is spent.</p>
       <textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder="AI adoption"
-        className="mt-3 w-full rounded-xl border border-border-strong bg-surface-2 px-4 py-3 font-serif text-[17px] outline-none focus:border-accent" />
+        className="mt-3 w-full rounded-xl border border-border-strong bg-surface-2 px-4 py-3 text-[15px] outline-none focus:border-accent" />
       <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-muted md:grid-cols-6">
         {STEP_BOXES.map(([a, b, you]) => (
           <div key={a} className={cn("rounded-xl border bg-surface-2 p-2.5", you ? "border-warning/50" : "border-border")}>
@@ -302,7 +302,7 @@ function NewTopic({ onCreate }: { onCreate: (t: string) => Promise<void> }) {
       </div>
       <div className="mt-4 flex items-center justify-between gap-3">
         <span className="text-xs text-muted">Research and writing take about 8 minutes. Up to $8 per report, edits included.</span>
-        <button onClick={go} disabled={busy} className="rounded-full bg-accent px-4 py-2 text-[13px] font-semibold text-on-accent disabled:opacity-50">
+        <button onClick={go} disabled={busy} className="rounded-lg bg-accent px-4 py-2 text-[13px] font-semibold text-on-accent disabled:opacity-50">
           {busy ? "Asking…" : "Ask the clarifier →"}
         </button>
       </div>
@@ -330,7 +330,7 @@ function Clarify({ s, onStart }: { s: Session; onStart: (a: Record<string, strin
       </div>
       <div className="mt-4 flex items-center justify-between">
         <span className="text-xs text-muted">Next: the Lead plans up to 8 agents · about 8 minutes · about $2</span>
-        <button onClick={() => onStart(a)} className="rounded-full bg-accent px-4 py-2 text-[13px] font-semibold text-on-accent">Start research →</button>
+        <button onClick={() => onStart(a)} className="rounded-lg bg-accent px-4 py-2 text-[13px] font-semibold text-on-accent">Start research →</button>
       </div>
     </div>
   );
@@ -360,7 +360,7 @@ function Agents({ s, facts }: { s: Session; facts: Record<string, Fact> }) {
               <div className="grid grid-cols-3 gap-1.5 text-center">
                 {stats.map(([v, l]) => (
                   <div key={l} className="rounded-lg bg-surface-2 py-1.5">
-                    <b className="block font-serif text-lg">{settled ? v : "…"}</b>
+                    <b className="block text-lg">{settled ? v : "…"}</b>
                     <span className="text-[10px] uppercase tracking-wide text-muted">{l}</span>
                   </div>
                 ))}
@@ -399,7 +399,7 @@ function ReportView({ s, facts, selected, onSelect }: {
       </div>
       <div className="px-6 py-5">
         <div className="text-[11px] font-bold uppercase tracking-wider text-accent">ARC Deep Research</div>
-        <h3 className="mt-1 font-serif text-[26px] font-bold leading-tight">{r.title}</h3>
+        <h3 className="mt-1 text-[26px] font-semibold leading-tight">{r.title}</h3>
         <p className="mb-3 text-[13.5px] text-black/55">{r.subtitle}</p>
         <div className="text-[11px] font-bold uppercase tracking-wider text-black/50">Key findings</div>
         <ol className="mt-1 list-decimal pl-5 text-sm">
@@ -422,8 +422,8 @@ function ReportView({ s, facts, selected, onSelect }: {
               <span className={cn("rounded-full border px-2.5 py-0.5 text-[11.5px] font-semibold",
                 p.id === selected ? "border-accent bg-accent text-on-accent" : "border-black/15 text-black/55")}>Ask or edit</span>
             </div>
-            <h4 className="mt-2 font-serif text-[18px] font-bold leading-snug">{p.headline}</h4>
-            <p className="my-1.5 whitespace-pre-line font-serif text-base leading-relaxed">{p.body}<Chips ids={p.fact_ids} facts={facts} /></p>
+            <h4 className="mt-2 text-[18px] font-semibold leading-snug">{p.headline}</h4>
+            <p className="my-1.5 whitespace-pre-line text-base leading-relaxed">{p.body}<Chips ids={p.fact_ids} facts={facts} /></p>
             {p.diagram ? <PointDiagram d={p.diagram} /> : p.chart && <PointChart c={p.chart} facts={facts} />}
           </section>
         ))}
@@ -457,8 +457,8 @@ function ProposalCard({ x, facts, n, onDecide }: {
         <div className="eyebrow text-warning">Proposal · Point {n} · before → after</div>
         <span className="text-[11px] text-muted">v{a.version} → v{b.version}</span>
       </div>
-      <p className="mt-2 font-serif text-[15px] font-bold leading-relaxed text-text"><Diff a={a.headline} b={b.headline} /></p>
-      <p className="mt-1 whitespace-pre-line font-serif text-[15px] leading-relaxed text-text-2"><Diff a={a.body} b={b.body} /><Chips ids={b.fact_ids} facts={facts} /></p>
+      <p className="mt-2 text-[15px] font-semibold leading-relaxed text-text"><Diff a={a.headline} b={b.headline} /></p>
+      <p className="mt-1 whitespace-pre-line text-[15px] leading-relaxed text-text-2"><Diff a={a.body} b={b.body} /><Chips ids={b.fact_ids} facts={facts} /></p>
       {(b.chart || b.diagram) && <div className="mt-2 text-[11px] font-semibold text-muted">The {b.diagram ? "diagram" : "chart"} after the edit</div>}
       {b.diagram ? <PointDiagram d={b.diagram} /> : b.chart && <PointChart c={b.chart} facts={facts} />}
       {x.new_facts.length > 0 && (
@@ -469,8 +469,8 @@ function ProposalCard({ x, facts, n, onDecide }: {
       <div className="mt-3 flex items-center justify-between gap-2">
         <span className="text-[11.5px] text-muted">Approve swaps Point {n}'s text and chart. Nothing else in the report changes.</span>
         <span className="flex gap-2">
-          <button onClick={() => onDecide(false)} className="rounded-full border border-border-strong px-3.5 py-1.5 text-[12.5px] font-semibold text-text-2">Reject</button>
-          <button onClick={() => onDecide(true)} className="rounded-full bg-accent px-3.5 py-1.5 text-[12.5px] font-semibold text-on-accent">Approve</button>
+          <button onClick={() => onDecide(false)} className="rounded-lg border border-border-strong px-3.5 py-1.5 text-[12.5px] font-semibold text-text-2">Reject</button>
+          <button onClick={() => onDecide(true)} className="rounded-lg bg-accent px-3.5 py-1.5 text-[12.5px] font-semibold text-on-accent">Approve</button>
         </span>
       </div>
     </div>
@@ -582,7 +582,7 @@ function DraftBar({ s, onSession }: { s: Session; onSession: (s: Session) => voi
           </a>
         )}
         <button onClick={push} disabled={busy || live(s)}
-          className="rounded-full border border-border-strong px-3 py-1 text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50">
+          className="rounded-lg border border-border-strong px-3 py-1 text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50">
           {busy ? "Pushing…" : d?.url ? "Push again" : "Push to Substack"}
         </button>
       </span>
@@ -615,7 +615,7 @@ function AddAngles({ s, onSession }: { s: Session; onSession: (s: Session) => vo
       <div className="flex items-center justify-between gap-2 text-[11.5px] text-muted">
         <span>About $0.50 to $1 · ${s.cost_usd.toFixed(2)} of ${s.cost_cap_usd.toFixed(0)} spent</span>
         <button onClick={send} disabled={running || text.trim().length < 3}
-          className="rounded-full bg-accent px-3.5 py-1.5 text-xs font-semibold text-on-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50">
+          className="rounded-lg bg-accent px-3.5 py-1.5 text-xs font-semibold text-on-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50">
           Add angles
         </button>
       </div>
@@ -705,9 +705,9 @@ export default function Research() {
   const fresh = lastAdd ? s!.agents.filter((a) => a.round === lastAdd.round) : [];
 
   return (
-    <div className="grid items-start gap-4 px-4 pb-8 md:grid-cols-[250px_1fr] md:px-8">
+    <div className="grid items-start gap-4 p-5 md:grid-cols-[250px_1fr] md:p-8">
       <aside className="rounded-2xl border border-border bg-surface p-2.5">
-        <button onClick={() => { setSel(null); setS(null); }} className="mb-2 w-full rounded-full bg-accent py-2 text-[13px] font-semibold text-on-accent">+ New research</button>
+        <button onClick={() => { setSel(null); setS(null); }} className="mb-2 w-full rounded-lg bg-accent py-2 text-[13px] font-semibold text-on-accent">+ New research</button>
         {rows === null && <p className="p-2 text-xs text-muted">Loading…</p>}
         {rows?.length === 0 && <p className="p-2 text-xs text-muted">No research yet.</p>}
         {groups.map(([g, list]) => list.length > 0 && (

@@ -75,7 +75,7 @@ export default function XPosts() {
   };
 
   return (
-    <div className="space-y-4 px-4 pb-8 md:px-8">
+    <div className="space-y-4 p-5 md:p-8">
       {!canPost && (
         <div className="rounded-xl border border-warning/40 bg-warning-soft px-4 py-2.5 text-sm text-warning">
           Posting is off: set X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN and X_ACCESS_SECRET (X developer portal → your app,
@@ -113,7 +113,7 @@ export default function XPosts() {
                 {msg.text}
               </div>
             )}
-            <h4 className="font-serif text-lg font-semibold leading-snug">{post.title}</h4>
+            <h4 className="text-lg font-semibold leading-snug">{post.title}</h4>
             <p className="mb-3 text-xs text-muted">
               A thread: the title, one post per takeaway, then the link. Edit or remove posts before sending.{" "}
               · <a className="underline" href={post.url} target="_blank" rel="noreferrer">Substack post ↗</a>

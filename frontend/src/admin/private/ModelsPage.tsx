@@ -335,22 +335,17 @@ function useChipValues(): Record<string, string | undefined> {
 function Header({ onJump }: { onJump: (id: string) => void }) {
   const values = useChipValues();
   return (
-    <section>
-      <div className="eyebrow">ARC Research · Models</div>
-      <h1 className="mt-2.5 text-4xl font-semibold tracking-[-0.035em] text-text">Live models</h1>
-      <p className="mt-2.5 max-w-2xl text-base leading-relaxed text-muted">
-        {PRIVATE_MODELS.length} models that read the economy and markets every day, shown only here. Each one answers a single question; click any of them for the method, inputs and track record.
-      </p>
-      <div className="mt-4 flex flex-wrap gap-2">
+    <section aria-label="Jump to a model">
+      <div className="flex flex-wrap gap-2">
         {PRIVATE_MODELS.map((m) => (
           <button key={m.id} onClick={() => onJump(m.id)}
-            className="flex items-baseline gap-2 rounded-full border border-border bg-surface px-3.5 py-1.5 text-[13px] hover:border-text">
+            className="flex items-baseline gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-[13px] hover:border-border-strong">
             <b className="font-semibold text-text">{m.name}</b>
             {values[m.id] && <span className="num text-muted">{values[m.id]}</span>}
           </button>
         ))}
       </div>
-      <div className="mt-3.5 text-xs text-muted">Read-only · refit daily by the Update Agent · a model older than 24h is marked stale</div>
+      <div className="mt-2.5 text-xs text-muted">Read-only. Refit daily by the Update Agent; a model older than 24 hours is marked stale. Click a card for its method, inputs and track record.</div>
     </section>
   );
 }
@@ -364,7 +359,7 @@ export default function ModelsPage() {
   const jump = (id: string) => document.getElementById(`model-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   return (
-    <div className="space-y-7 p-4 md:p-8">
+    <div className="space-y-6 p-5 md:p-8">
       <Header onJump={jump} />
       <div className="grid gap-5 md:grid-cols-2">
         {isLoading && <div className="text-sm text-muted">Loading…</div>}

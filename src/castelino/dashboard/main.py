@@ -92,6 +92,7 @@ def get_apps():
 
 from castelino.dashboard.endpoints import (  # noqa: E402
     admin_desk,
+    admin_overview,
     adoption,
     agent_catalog,
     ai_sentiment,
@@ -142,6 +143,7 @@ app.include_router(trade.router)
 app.include_router(deep_research.router)
 app.include_router(chart_desk.router)
 app.include_router(consultants.router)
+app.include_router(admin_overview.router)  # before admin_desk: its /{day} would catch /overview
 app.include_router(admin_desk.router)
 
 

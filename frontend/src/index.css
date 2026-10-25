@@ -10,6 +10,8 @@
     --c-surface-2: 245 245 247;
     --c-surface-3: 236 236 239;
     --c-border: 229 229 232;
+    --c-border-soft: 236 236 239;
+    --c-rail: 243 243 245; /* admin sidebar: a step off the canvas so it recedes */
     --c-border-strong: 210 210 215;
     --c-text: 29 29 31;
     --c-text-2: 66 66 69;
@@ -43,6 +45,8 @@
     --c-surface-2: 17 24 22;
     --c-surface-3: 34 43 39;
     --c-border: 53 64 59;
+    --c-border-soft: 42 52 48;
+    --c-rail: 13 19 17;
     --c-border-strong: 70 82 76;
     --c-text: 242 245 243;
     --c-text-2: 214 220 217;
@@ -143,6 +147,8 @@
 /* Home hero (after semianalysis.com): circuit traces draw in, then the text rises. */
 .trace { stroke-dasharray: 1; stroke-dashoffset: 1; animation: trace-draw 1.6s cubic-bezier(.6,0,.2,1) forwards; }
 @keyframes trace-draw { to { stroke-dashoffset: 0; } }
+/* admin status dot: a ring that fades out, only while something runs (components/admin/shell.tsx) */
+@keyframes pulse-ring { 0%, 100% { box-shadow: 0 0 0 0 rgb(var(--c-accent) / .5); } 50% { box-shadow: 0 0 0 4px rgb(var(--c-accent) / 0); } }
 .rise { opacity: 0; animation: rise .6s ease-out forwards; }
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .twinkle { opacity: 0; animation: twinkle 4s ease-in-out infinite; }

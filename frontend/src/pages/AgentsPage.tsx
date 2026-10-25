@@ -4,7 +4,7 @@ import type { AgentCatalogEntry, AgentSystem } from "@/api/endpoints";
 import { useAgentCatalog } from "@/hooks/useAgentCatalog";
 import { cn } from "@/lib/cn";
 import { AgentArch, FamilyArch, SystemDiagram } from "@/components/SystemDiagram";
-import { PageIntro } from "@/components/layout/PageIntro";
+import { HeaderActions } from "@/components/admin/shell";
 
 const TABS = ["Arch", "Prompt", "Tools", "Memory", "Output", "Dependencies"] as const;
 type Tab = (typeof TABS)[number];
@@ -192,8 +192,12 @@ function FamilyView({ name, members, system, names, open }: {
 export default function AgentsPage() {
   const { data, isLoading } = useAgentCatalog(true);
   const [q, setQ] = useState("");
-  // an agent id, or a group name for its architecture diagram; null = the first system
-  const [picked, setPicked] = useState<Pick | null>(null);
+  // an agent id, or a group name for its architecture diagram; null = the first system.
+  // /admin/agents?agent=<id> (⌘K) opens on that agent.
+  const [picked, setPicked] = useState<Pick | null>(() => {
+    const agent = new URLSearchParams(location.search).get("agent");
+    return agent ? { agent } : null;
+  });
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [groupState, setGroupState] = useState<Record<string, boolean>>({}); // a click overrides the default
   const agents = data?.agents ?? [];
@@ -233,16 +237,13 @@ export default function AgentsPage() {
     </button>
   );
 
-  if (isLoading) return <div className="p-4 md:p-8 text-sm text-muted">Loading agents…</div>;
+  if (isLoading) return <div className="p-5 md:p-8 text-sm text-muted">Loading agents…</div>;
 
   return (
-    <div className="p-4 md:p-8 space-y-5">
-      <PageIntro kicker="Admin · Agents" title="Every agent in full: prompts, models, tools, memory, keys"
-        steps={["Prompt", "Model", "Tools + data", "Output schema", "Architecture"]}
-        when={{ label: `${agents.length} agents`, value: `${systems.length} systems` }}>
-        The full private catalog: what each agent is asked to do, which model it runs on, the tools and data it can
-        use, its output schema and which API keys it needs.
-      </PageIntro>
+    <div className="p-5 md:p-8 space-y-5">
+      <HeaderActions>
+        <span className="text-[13px] text-muted"><b className="font-medium text-text-2">{agents.length}</b> agents · <b className="font-medium text-text-2">{systems.length}</b> systems</span>
+      </HeaderActions>
     <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
       <Card className="flex flex-col">
         <div className="p-3.5 border-b border-border">

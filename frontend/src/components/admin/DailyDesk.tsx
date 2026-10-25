@@ -104,7 +104,7 @@ export default function DailyDesk() {
   const job = detail?.job;
 
   return (
-    <div className="space-y-4 px-4 pb-8 md:px-8">
+    <div className="space-y-4 p-5 md:p-8">
       {error && <div className="rounded-xl border border-danger bg-danger-soft px-4 py-2.5 text-sm text-danger">{error}</div>}
 
       <div className="flex flex-wrap gap-1.5">
@@ -132,7 +132,7 @@ export default function DailyDesk() {
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-5 py-4">
             <div className="min-w-0">
               <div className="text-[11px] uppercase tracking-wider text-muted">Daily Update · {detail.date}</div>
-              <h3 className="font-serif text-lg font-semibold leading-snug">{detail.note.headline}</h3>
+              <h3 className="text-lg font-semibold leading-snug">{detail.note.headline}</h3>
               <div className="text-xs text-muted">
                 Written {detail.generated_at.replace("T", " ").slice(0, 16)} ·{" "}
                 {detail.draft ? (

@@ -41,7 +41,7 @@ export function Header({ idea }: { idea: Idea }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">Trade idea · {idea.created_at.slice(0, 10)}</div>
-          <h2 className="font-serif text-2xl font-bold leading-tight">{idea.frame?.title ?? idea.idea}</h2>
+          <h2 className="text-2xl font-semibold leading-tight">{idea.frame?.title ?? idea.idea}</h2>
           <p className="text-[13px] italic text-muted">“{idea.idea}”</p>
         </div>
         <div className="flex flex-wrap gap-1.5 text-xs font-semibold">
@@ -88,7 +88,7 @@ export function FrameStrip({ idea, onIdea }: { idea: Idea; onIdea: (i: Idea) => 
         <div className="border-border p-4 md:border-l"><div className="eyebrow">Stand-ins</div>
           <div className="mt-1 flex flex-wrap gap-1">{f.stand_ins.map((s) => (
             <span key={s.ticker} className="rounded bg-surface-3 px-1.5 py-0.5 font-mono text-[11px] font-semibold">{s.ticker}</span>))}</div></div>
-        <div className="border-border p-4 md:border-l"><div className="eyebrow">Horizon</div><p className="mt-1 font-serif text-xl font-bold">{f.horizon_months} mo</p></div>
+        <div className="border-border p-4 md:border-l"><div className="eyebrow">Horizon</div><p className="mt-1 text-xl font-semibold">{f.horizon_months} mo</p></div>
         <div className="border-border p-4 md:border-l"><div className="eyebrow">What would prove it wrong</div><p className="mt-1 text-[13px] text-danger">{f.prove_wrong.join(" · ")}</p></div>
       </div>
       {idea.status === "awaiting_view" && (
@@ -99,7 +99,7 @@ export function FrameStrip({ idea, onIdea }: { idea: Idea; onIdea: (i: Idea) => 
               <textarea rows={2} value={wrong} onChange={(e) => setWrong(e.target.value)} placeholder="One test per line"
                 className="rounded-xl border border-border-strong bg-surface-2 px-3 py-2 text-sm" />
               <div className="flex gap-2 md:col-span-2">
-                <button onClick={save} className="rounded-full bg-accent px-3 py-1 text-xs font-semibold text-on-accent">Save</button>
+                <button onClick={save} className="rounded-lg bg-accent px-3 py-1 text-xs font-semibold text-on-accent">Save</button>
                 <button onClick={() => setEdit(false)} className="text-xs text-muted">Cancel</button>
               </div>
             </div>
@@ -160,7 +160,7 @@ function SendBar({ items, remove, onSend, label, busy }: {
       ))}
       <div className="mt-3 flex justify-end">
         <button disabled={busy || items.length === 0} onClick={onSend}
-          className="rounded-full bg-accent px-4 py-2 text-[13px] font-semibold text-on-accent disabled:opacity-40">{label} →</button>
+          className="rounded-lg bg-accent px-4 py-2 text-[13px] font-semibold text-on-accent disabled:opacity-40">{label} →</button>
       </div>
     </>
   );
@@ -280,7 +280,7 @@ export function Research({ idea }: { idea: Idea }) {
               </div>
               <p className="my-2 text-[12.5px] text-muted">{b.brief}</p>
               {run && <div className="grid grid-cols-3 gap-1.5 text-center">{stats.map(([v, l]) => (
-                <div key={l} className="rounded-lg bg-surface-2 py-1.5"><b className="block font-serif text-lg">{v}</b><span className="text-[10px] uppercase tracking-wide text-muted">{l}</span></div>))}</div>}
+                <div key={l} className="rounded-lg bg-surface-2 py-1.5"><b className="block text-lg">{v}</b><span className="text-[10px] uppercase tracking-wide text-muted">{l}</span></div>))}</div>}
               {run && !tech && <div className="mt-2 flex flex-wrap gap-1">
                 {run.domains.slice(0, 6).map((d) => <span key={d} className="rounded bg-surface-3 px-1.5 text-[11px]">{d}</span>)}
                 {run.domains.length > 6 && <span className="text-[11px] text-muted">+{run.domains.length - 6}</span>}</div>}
@@ -347,7 +347,7 @@ export function ChartPicker({ idea, onIdea, busy }: { idea: Idea; onIdea: (i: Id
         <span className={cn("text-xs", plain > 2 || forms < 6 ? "text-warning" : "text-muted")}>{forms} different forms · {plain} plain line/bar (need 6+ forms, at most 2 plain)</span>
         {error && <span className="text-xs text-danger">{error}</span>}
         <button disabled={!ok || busy} onClick={() => trade.choose(idea.id, picks).then(onIdea).catch((e) => setError(String(e.message ?? e)))}
-          className="ml-auto whitespace-nowrap rounded-full bg-accent px-4 py-2 text-[13px] font-semibold text-on-accent disabled:opacity-40">Write the draft →</button>
+          className="ml-auto whitespace-nowrap rounded-lg bg-accent px-4 py-2 text-[13px] font-semibold text-on-accent disabled:opacity-40">Write the draft →</button>
       </div>
     </div>
   );
@@ -364,8 +364,8 @@ export function Draft({ idea }: { idea: Idea }) {
   };
   const outline = [["intro", "Introduction"], ...r.sections.map((s) => [s.key, SECTION_LABEL[s.key]]), ["watch", "What to watch"]];
   const jump = (k: string) => document.getElementById(`draft-${k}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  const para = "my-2 font-serif text-base leading-relaxed";
-  const head = "scroll-mt-4 border-t border-black/10 pt-4 font-serif text-xl font-bold";
+  const para = "my-2 text-base leading-relaxed";
+  const head = "scroll-mt-4 border-t border-black/10 pt-4 text-xl font-semibold";
   // the editor marks emphasis as **bold**, which Substack renders; show it the same way here
   const rich = (t: string) => t.split(/\*\*(.+?)\*\*/g).map((x, i) => (i % 2 ? <b key={i}>{x}</b> : x));
   return (
@@ -376,7 +376,7 @@ export function Draft({ idea }: { idea: Idea }) {
       </div>
       <div className="px-6 py-5">
         <div className="text-[11px] font-bold uppercase tracking-wider text-accent">ARC Special Topics</div>
-        <h3 className="mt-1 font-serif text-[26px] font-bold leading-tight">{r.title}</h3>
+        <h3 className="mt-1 text-[26px] font-semibold leading-tight">{r.title}</h3>
         <p className="mb-3 text-[13.5px] text-black/55">{r.subtitle}</p>
         <div className="mb-4 flex flex-wrap gap-1.5">{outline.map(([k, x]) => (
           <button key={k} onClick={() => jump(k)} className="rounded-full bg-black/5 px-2 py-0.5 text-[11.5px] text-black/70 hover:bg-accent/15 hover:text-accent">{x}</button>

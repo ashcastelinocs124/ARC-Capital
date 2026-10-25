@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 import { C } from "@/lib/theme";
-import { PageIntro } from "@/components/layout/PageIntro";
+import { HeaderActions, Segmented } from "@/components/admin/shell";
 import { call } from "@/components/admin/DailyDesk";
 
 // Admin Costs: every logged model call's tokens × that model's list price (src/castelino/costs.py),
@@ -80,7 +80,7 @@ function Chip({ p }: { p: Provider }) {
 }
 
 // What each provider may cost a month (estimates set 2026-10-17); edit here to change them.
-const BUDGET: Record<Exclude<Provider, "x">, number> = { openai: 100, anthropic: 100, openrouter: 20, fly: 50 };
+export const BUDGET: Record<Exclude<Provider, "x">, number> = { openai: 100, anthropic: 100, openrouter: 20, fly: 50 };
 // X's API is prepaid credit, not a monthly bill: the balance on a day, spent down by every post and
 // read logged since. Edit both when you top up (user: $2.90 on 2026-10-24).
 const X_CREDITS = { usd: 2.9, since: "2026-10-24" };
@@ -189,36 +189,24 @@ export default function Costs() {
     call<Summary>(`/costs?days=${range}`).then(setData, (e: Error) => setError(e.message));
   }, [range]);
 
-  const intro = (
-    <PageIntro kicker="Admin · Model costs" title="What the models cost">
-      Every model call&apos;s tokens × that model&apos;s list price, from the call logs on the Fly server, plus the Fly server
-      itself and every post and read on X. OpenAI, Anthropic, OpenRouter, Fly.io and X, by day, model and agent. An estimate,
-      not your invoice.
-    </PageIntro>
-  );
-  const rangeSwitch = (
-    <div className="flex w-fit rounded-full border border-border bg-surface-2 p-[3px]">
-      {RANGES.map((d) => (
-        <button key={d} onClick={() => setRange(d)}
-          className={cn("rounded-full px-3.5 py-1.5 text-[13px] font-semibold",
-            d === range ? "bg-surface text-text ring-1 ring-border" : "text-text-2 hover:text-text")}>
-          {d} days
-        </button>
-      ))}
-    </div>
+  const actions = (
+    <HeaderActions>
+      <Segmented label="Range" value={String(range)} onChange={(v) => setRange(Number(v) as typeof range)}
+        options={RANGES.map((d) => [String(d), `${d} days`] as [string, string])} />
+    </HeaderActions>
   );
   if (error) {
     return (
-      <div className="space-y-4 px-4 pb-8 md:px-8">
-        {intro}
+      <div className="space-y-4 p-5 md:p-8">
+        {actions}
         <div className="card p-6 text-sm text-danger">Couldn&apos;t load costs: {error}</div>
       </div>
     );
   }
   if (!data || data.days !== range) {
     return (
-      <div className="space-y-4 px-4 pb-8 md:px-8">
-        {intro}
+      <div className="space-y-4 p-5 md:p-8">
+        {actions}
         <div className="text-sm text-muted">Loading costs…</div>
       </div>
     );
@@ -259,11 +247,8 @@ export default function Costs() {
   );
 
   return (
-    <div className="space-y-5 px-4 pb-8 md:px-8">
-      <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
-        {intro}
-        {rangeSwitch}
-      </div>
+    <div className="space-y-5 p-5 md:p-8">
+      {actions}
 
       <Budget />
 

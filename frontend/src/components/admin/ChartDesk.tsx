@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { C } from "@/lib/theme";
-import { PageIntro } from "@/components/layout/PageIntro";
+import { HeaderActions, Segmented } from "@/components/admin/shell";
 import { BASE, call } from "@/components/admin/DailyDesk";
 
 // Admin Charts (src/castelino/agents/chart_desk.py): talk to the chart agent about any idea, or run
@@ -154,7 +154,7 @@ function Chat({ ov, reload, onZoom }: { ov: Overview; reload: () => void; onZoom
     <div className="grid gap-4 lg:grid-cols-[250px_1fr]">
       <div className="card flex flex-col gap-1 self-start p-2.5">
         <button type="button" onClick={() => { setId(null); setRun(null); }}
-          className="mb-1.5 rounded-full border border-border-strong px-4 py-2 text-[13px] font-semibold text-text-2 hover:text-text">
+          className="mb-1.5 rounded-lg border border-border-strong px-4 py-2 text-[13px] font-semibold text-text-2 hover:text-text">
           + New idea
         </button>
         {threads.length === 0 && <p className="px-2 py-1 text-xs text-muted">No threads yet.</p>}
@@ -194,7 +194,7 @@ function Chat({ ov, reload, onZoom }: { ov: Overview; reload: () => void; onZoom
               {models.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
             <button type="button" onClick={send} disabled={busy(run) || ask.trim().length < 3}
-              className="rounded-full bg-accent px-4 py-2 text-[13px] font-bold text-on-accent disabled:opacity-50">
+              className="rounded-lg bg-accent px-4 py-2 text-[13px] font-bold text-on-accent disabled:opacity-50">
               {busy(run) ? "Drawing…" : "Send"}
             </button>
           </div>
@@ -265,7 +265,7 @@ function Compare({ ov, reload, onZoom }: { ov: Overview; reload: () => void; onZ
             className="w-64 rounded-full border border-dashed border-border-strong bg-surface-2 px-3 py-1.5 font-mono text-xs text-text" />
           <span className="flex-1" />
           <button type="button" onClick={start} disabled={ask.trim().length < 3 || models.length === 0 || busy(run)}
-            className="rounded-full bg-accent px-4 py-2 text-[13px] font-bold text-on-accent disabled:opacity-50">
+            className="rounded-lg bg-accent px-4 py-2 text-[13px] font-bold text-on-accent disabled:opacity-50">
             Run on {models.length} model{models.length === 1 ? "" : "s"}
           </button>
         </div>
@@ -323,7 +323,7 @@ function Compare({ ov, reload, onZoom }: { ov: Overview; reload: () => void; onZ
                       </div>
                       {r.charts.filter((c) => c.error).map((c, i) => <Failed key={i} c={c} />)}
                       <button type="button" onClick={() => vote(r.model)} disabled={r.state !== "done"}
-                        className={cn("mt-auto rounded-full px-4 py-2 text-[13px] font-bold disabled:opacity-40",
+                        className={cn("mt-auto rounded-lg px-4 py-2 text-[13px] font-bold disabled:opacity-40",
                           best ? "bg-accent text-on-accent" : "text-text-2 ring-1 ring-border-strong hover:text-text")}>
                         {best ? "★ Your pick" : "★ Best"}
                       </button>
@@ -352,21 +352,10 @@ export default function ChartDesk() {
   }, [reload]);
 
   return (
-    <div className="space-y-4 px-4 pb-8 md:px-8">
-      <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
-        <PageIntro kicker="Admin · Chart agent" title="Charts for your ideas">
-          Tell the chart agent an idea and it proposes charts from Trade Lab&apos;s 12 forms, drawn by code from live FRED and Yahoo data.
-          Compare models runs one prompt on several models side by side. Its models are its own: nothing here changes another workflow.
-        </PageIntro>
-        <div className="flex w-fit rounded-full border border-border bg-surface-2 p-[3px]">
-          {(["chat", "compare"] as const).map((m) => (
-            <button key={m} type="button" onClick={() => setMode(m)}
-              className={cn("rounded-full px-4 py-1.5 text-[13px] font-semibold", m === mode ? "bg-surface text-text ring-1 ring-border" : "text-text-2 hover:text-text")}>
-              {m === "chat" ? "Chat" : "Compare models"}
-            </button>
-          ))}
-        </div>
-      </div>
+    <div className="space-y-4 p-5 md:p-8">
+      <HeaderActions>
+        <Segmented label="Mode" value={mode} onChange={setMode} options={[["chat", "Chat"], ["compare", "Compare models"]]} />
+      </HeaderActions>
       {err && <div className="card p-4 text-sm text-danger">Couldn&apos;t load the chart desk: {err}</div>}
       {!ov && !err && <p className="text-sm text-muted">Loading…</p>}
       {ov && (mode === "chat" ? <Chat ov={ov} reload={reload} onZoom={setZoom} /> : <Compare ov={ov} reload={reload} onZoom={setZoom} />)}

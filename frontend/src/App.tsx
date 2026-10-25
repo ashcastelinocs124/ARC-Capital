@@ -31,12 +31,14 @@ const PAGES: [string, React.ReactNode][] = [
   ["/docs", <DocsPage />],
   ["/resources", <ResourcesPage />],
   ["/about", <AboutPage />],
-  ["/admin", <AdminPage />], // not in the tabs; password-gated on the public site (middleware.ts)
 ];
 
 export default function App() {
-  // the admin sign-in page stands alone, without the site's top bar and footer
-  if (useLocation().pathname.replace(/\/$/, "") === "/admin/login") return <AdminLoginPage />;
+  const path = useLocation().pathname.replace(/\/$/, "");
+  // the admin sign-in page and the admin console stand alone, without the site's top bar and footer;
+  // both are password-gated on the public site (middleware.ts)
+  if (path === "/admin/login") return <AdminLoginPage />;
+  if (path === "/admin" || path.startsWith("/admin/")) return <AdminPage />;
   return (
     <AppShell>
       <Routes>

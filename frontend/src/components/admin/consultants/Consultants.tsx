@@ -229,7 +229,7 @@ function NewConsultant({ onCreated }: { onCreated: (r: Row) => void }) {
           onKeyDown={(e) => e.key === "Enter" && plan()} placeholder="AI models and chips"
           className={cn("min-w-0 flex-1 rounded-xl border border-border-strong bg-surface-2 px-4 py-2.5 text-[15px]", FOCUS)} />
         <button type="button" onClick={plan} disabled={busy !== ""}
-          className={cn("rounded-full border border-border-strong px-4 py-2 text-[13px] font-semibold disabled:opacity-50", FOCUS)}>
+          className={cn("rounded-lg border border-border-strong px-4 py-2 text-[13px] font-semibold disabled:opacity-50", FOCUS)}>
           {busy === "plan" ? "Suggesting…" : "Suggest watchlist"}
         </button>
       </div>
@@ -241,7 +241,7 @@ function NewConsultant({ onCreated }: { onCreated: (r: Row) => void }) {
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
             <span className="text-xs text-muted">The first build runs now (a few minutes). Up to $1 a day per consultant.</span>
             <button type="button" onClick={start} disabled={busy !== ""}
-              className={cn("rounded-full bg-accent px-4 py-2 text-[13px] font-semibold text-on-accent disabled:opacity-50", FOCUS)}>
+              className={cn("rounded-lg bg-accent px-4 py-2 text-[13px] font-semibold text-on-accent disabled:opacity-50", FOCUS)}>
               {busy === "start" ? "Starting…" : "Start consultant"}
             </button>
           </div>
@@ -295,21 +295,21 @@ function ConsultantView({ d, onChange, onDeleted }: { d: Detail; onChange: () =>
       <div className="rounded-2xl border border-border bg-surface px-5 py-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="font-serif text-xl font-bold">{c.topic}</h2>
+          <h2 className="text-xl font-semibold">{c.topic}</h2>
           <p className="text-xs text-muted">Started {c.created} · status: {c.status}{t ? ` · view v${t.version}` : ""}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <PostKnob on={c.post_to_x} onSet={(v) => act(consultants.setPostToX(c.slug, v))} />
           {c.status === "failed" && (
-            <button type="button" onClick={() => act(consultants.build(c.slug))} className={cn("rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-on-accent", FOCUS)}>Build now</button>
+            <button type="button" onClick={() => act(consultants.build(c.slug))} className={cn("rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-on-accent", FOCUS)}>Build now</button>
           )}
           {c.status === "paused"
-            ? <button type="button" onClick={() => act(consultants.resume(c.slug))} className={cn("rounded-full border border-border-strong px-3 py-1.5 text-xs font-semibold", FOCUS)}>Resume</button>
-            : <button type="button" onClick={() => act(consultants.pause(c.slug))} className={cn("rounded-full border border-border-strong px-3 py-1.5 text-xs font-semibold", FOCUS)}>Pause</button>}
+            ? <button type="button" onClick={() => act(consultants.resume(c.slug))} className={cn("rounded-lg border border-border-strong px-3 py-1.5 text-xs font-semibold", FOCUS)}>Resume</button>
+            : <button type="button" onClick={() => act(consultants.pause(c.slug))} className={cn("rounded-lg border border-border-strong px-3 py-1.5 text-xs font-semibold", FOCUS)}>Pause</button>}
           {confirm
             ? <>
                 <button type="button" onClick={() => act(consultants.remove(c.slug), onDeleted)} className={cn("rounded-full bg-danger px-3 py-1.5 text-xs font-semibold text-surface", FOCUS)}>Yes, delete</button>
-                <button type="button" onClick={() => setConfirm(false)} className={cn("rounded-full border border-border-strong px-3 py-1.5 text-xs font-semibold", FOCUS)}>Cancel</button>
+                <button type="button" onClick={() => setConfirm(false)} className={cn("rounded-lg border border-border-strong px-3 py-1.5 text-xs font-semibold", FOCUS)}>Cancel</button>
               </>
             : <button type="button" onClick={() => setConfirm(true)} className={cn("rounded-full border border-danger/50 px-3 py-1.5 text-xs font-semibold text-danger", FOCUS)}>Delete</button>}
         </div>
@@ -331,7 +331,7 @@ function ConsultantView({ d, onChange, onDeleted }: { d: Detail; onChange: () =>
         <div className="space-y-3.5">
           <section className="rounded-2xl border border-border bg-surface p-5" aria-labelledby="happening">
             <h3 id="happening" className="eyebrow">What's happening</h3>
-            <p className="mt-2 font-serif text-[16px] leading-relaxed">{t ? t.happening.text : "No view yet."}</p>
+            <p className="mt-2 text-[16px] leading-relaxed">{t ? t.happening.text : "No view yet."}</p>
             {reviewLine(d.history[0], c.post_to_x) && (
               <>
                 <h4 className="eyebrow mt-4">Last evening review</h4>
@@ -407,10 +407,10 @@ export default function Consultants() {
 
   const groups = GROUPS.map((g) => [g, (rows ?? []).filter((r) => groupOf(r) === g)] as const);
   return (
-    <div className="grid items-start gap-4 px-4 pb-8 md:grid-cols-[250px_1fr] md:px-8">
+    <div className="grid items-start gap-4 p-5 md:grid-cols-[250px_1fr] md:p-8">
       <aside className="rounded-2xl border border-border bg-surface p-2.5" aria-label="Consultants">
         <button type="button" onClick={() => { setSel(null); setD(null); }}
-          className={cn("mb-2 w-full rounded-full bg-accent py-2 text-[13px] font-semibold text-on-accent", FOCUS)}>+ New consultant</button>
+          className={cn("mb-2 w-full rounded-lg bg-accent py-2 text-[13px] font-semibold text-on-accent", FOCUS)}>+ New consultant</button>
         {rows === null && <p className="p-2 text-xs text-muted">Loading…</p>}
         {rows?.length === 0 && <p className="p-2 text-xs text-muted">No consultants yet.</p>}
         {groups.map(([g, list]) => list.length > 0 && (
