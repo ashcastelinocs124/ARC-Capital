@@ -20,7 +20,7 @@ _SUBTITLE = re.compile(
     r"^ARC Weekly Deep Dive\s*\S*\s*(\w{3} \d{1,2})\s*[–-]\s*(\w{3} \d{1,2}), (\d{4})"
 )
 # Other posts listed on /deep-research beside the weekly reports, by Substack slug (hand-kept).
-EXTRA = {"india-diversifies-from-chips-but"}
+EXTRA = {"india-diversifies-from-chips-but", "brazil-2026-the-runoff-the-market"}
 
 
 def _listed(p: dict) -> bool:
