@@ -30,7 +30,7 @@ export type Section = { id: string; label: string; group: Group; icon: LucideIco
 
 export const SECTIONS: Section[] = [
   { id: "overview", label: "Overview", group: "", icon: House, blurb: "What needs you, what's running and what went out today.", el: () => <Overview /> },
-  { id: "daily-desk", label: "Daily desk", group: "Publish", icon: FileText, blurb: "Read each analyst's findings, ask follow-ups, rebuild the note and send its Substack draft.", el: () => <DailyDesk /> },
+  { id: "daily-desk", label: "Daily desk", group: "Publish", icon: FileText, blurb: "Read each analyst's findings, edit the note with the Editor or by hand, and send its Substack draft.", el: () => <DailyDesk /> },
   { id: "x-posts", label: "X posts", group: "Publish", icon: AtSign, blurb: "Draft and post the X thread for each published note and deep dive.", el: () => <XPosts /> },
   { id: "research", label: "Research", group: "Studio", icon: FlaskConical, blurb: "Deep research on any topic, with an editor desk to question and rewrite each point.", el: () => <Research /> },
   { id: "trade-lab", label: "Trade Lab", group: "Studio", icon: Scale, blurb: "Take one trade idea through a debate, your view and research to a Substack draft.", el: () => <TradeLab /> },

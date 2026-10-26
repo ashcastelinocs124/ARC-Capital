@@ -14,15 +14,18 @@ from datetime import datetime
 
 import httpx
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from castelino import costs as cost_log
-from castelino.agents.update import desk
+from castelino.agents.update import desk, desk_edit
 
 router = APIRouter(prefix="/admin/desk")
 _DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_CHART = re.compile(r"^exhibit_\d+\.png$")
 
-# one background job at a time per day: {"kind", "state": running|done|failed, "message", "at"}
+# one background job at a time per day: {"kind", "state": running|done|failed, "message", "at"},
+# plus "steps" (an edit's progress lines) and "result" (what an edit did) when the job has them
 _jobs: dict[str, dict] = {}
 _jobs_lock = threading.Lock()
 
@@ -248,9 +251,29 @@ def day_detail(day: str):
             f.model_dump(include={"id", "agent", "claim", "fact_ids", "source_title", "source_url"})
             for f in record.findings
         ],
+        "exhibits": [e.model_dump() for e in record.exhibits],
+        "calendar": record.calendar,
+        "hand_edited_at": record.hand_edited_at,
+        "proposal": desk_edit.proposal(day),
         "draft": _draft(day),
         "job": _jobs.get(day),
     }
+
+
+@router.get("/{day}/charts/{name}")
+def chart(day: str, name: str):
+    return _png(desk._dirs()[1] / "charts" / _day_ok(day), name)
+
+
+@router.get("/{day}/proposal/charts/{name}")
+def proposal_chart(day: str, name: str):
+    return _png(desk._dirs()[1] / "proposals" / _day_ok(day) / "charts", name)
+
+
+def _png(folder, name: str):
+    if not _CHART.match(name) or not (folder / name).is_file():
+        raise HTTPException(404, "no such chart")
+    return FileResponse(folder / name, media_type="image/png")
 
 
 class ChatIn(BaseModel):
@@ -294,7 +317,9 @@ def rate(body: RateIn):
     return {"ok": True}
 
 
-def _start(day: str, kind: str, fn, **record) -> dict:
+def _start(day: str, kind: str, fn, *, steps: bool = False, **record) -> dict:
+    """Run `fn` in a thread as the day's one job. With steps=True, `fn(progress)` reports each
+    step (shown live on the desk) and may return a dict: the result an edit reports."""
     from castelino import benchmark
 
     with _jobs_lock:
@@ -307,9 +332,15 @@ def _start(day: str, kind: str, fn, **record) -> dict:
             "at": datetime.now().isoformat(timespec="seconds"),
         }
 
+    if steps:
+        job["steps"] = []
+
     def work():
         try:
-            job.update(state="done", message=fn())
+            out = fn(job["steps"].append) if steps else fn()
+            if isinstance(out, dict):
+                job.update(result=out, message=out.get("message", ""))
+            job.update(state="done", message=job.get("message") or out)
         except Exception as e:  # noqa: BLE001 — reported to the page
             job.update(state="failed", message=str(e)[:400])
         action = {"re-run": "rerun", "substack": "push_draft"}.get(kind.split()[0], kind.split()[0])
@@ -347,3 +378,78 @@ def substack(day: str):
     from castelino.substack import push_draft
 
     return _start(_day_ok(day), "substack", lambda: push_draft(day))
+
+
+# ── edits: ask the Editor (a draft to approve), or by hand ─────────────────
+
+
+class EditIn(BaseModel):
+    ask: str
+
+
+@router.post("/{day}/edit")
+def edit(day: str, body: EditIn):
+    ask = body.ask.strip()[: desk.MAX_CHARS]
+    if not ask:
+        raise HTTPException(400, "write what the Editor should change or add")
+    return _start(
+        _day_ok(day),
+        "edit",
+        lambda progress: desk_edit.edit(day, ask, progress),
+        steps=True,
+        text=ask,
+    )
+
+
+def _idle(day: str) -> str:
+    if (_jobs.get(day) or {}).get("state") == "running":
+        raise HTTPException(409, f"{_jobs[day]['kind']} is still running for {day}")
+    return day
+
+
+@router.post("/{day}/edit/approve")
+def approve(day: str):
+    from castelino import benchmark
+
+    day = _idle(_day_ok(day))
+    try:
+        msg = desk_edit.approve(day)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e)) from e
+    except (desk_edit.StaleProposalError, RuntimeError) as e:  # stale, or the day's lock is taken
+        raise HTTPException(409, str(e)) from e
+    benchmark.record_action("approve_edit", day=day, result=msg[:400])
+    return {"message": msg}
+
+
+@router.post("/{day}/edit/reject")
+def reject(day: str):
+    from castelino import benchmark
+
+    desk_edit.reject(_idle(_day_ok(day)))
+    benchmark.record_action("reject_edit", day=day)
+    return {"ok": True}
+
+
+class HandIn(BaseModel):
+    edit: desk_edit.HandEdit
+
+
+@router.post("/{day}/note/check")
+def check_note(day: str, body: HandIn):
+    """Figures a hand edit adds that its facts don't give: warnings, never a refusal."""
+    try:
+        return {"warnings": desk_edit.check_hand_edit(_day_ok(day), body.edit)}
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@router.post("/{day}/note")
+def save_note(day: str, body: HandIn):
+    day = _idle(_day_ok(day))
+    _, updates = desk._dirs()
+    try:  # refuse a bad edit now, not in the job
+        desk_edit.apply_hand_edit(desk.load_day(updates, day)[0], body.edit)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return _start(day, "save", lambda: desk_edit.save_hand_edit(day, body.edit))

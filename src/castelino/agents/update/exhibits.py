@@ -191,11 +191,15 @@ def make_note_exhibits(
     out_dir: Path,
     fetch=default_fetch,
     series=default_series,
+    order: list[int] | None = None,
 ) -> list[Exhibit]:
+    """One exhibit per item, numbered in rank order, or in `order` (item ranks, the order a
+    reader meets their charts after a move on the desk; items it leaves out follow by rank)."""
     by = {f.id: f for f in facts}
     find_by = {f.id: f for f in findings}
     out: list[Exhibit] = []
-    for it in sorted(note.items, key=lambda i: i.rank):
+    pos = {r: i for i, r in enumerate(order or [])}
+    for it in sorted(note.items, key=lambda i: (pos.get(i.rank, len(pos)), i.rank)):
         n = len(out) + 1
         path = Path(out_dir) / f"exhibit_{n}.png"
         anchor = it.chart or (it.finding_ids[0] if it.finding_ids else "")

@@ -79,31 +79,39 @@ def _run_fn(agent: str):
 def rerun(day: str, agent: str, ask: str) -> str:
     if agent not in AGENTS:
         raise ValueError(f"unknown agent {agent!r}")
-    data_dir, updates_dir = _dirs()
+    data_dir, _ = _dirs()
     if not acquire_lock(data_dir, _LOCK_SECONDS):
         raise RuntimeError("another run is using the day's files; try again in a few minutes")
     try:
-        record, facts = load_day(updates_dir, day)
-        briefs_path = updates_dir / "briefs" / f"{day}.json"
-        brief = (
-            getattr(Briefs.model_validate_json(briefs_path.read_text()), agent)
-            if briefs_path.exists()
-            else ""
-        ) or f"Cover what matters for markets on {day}."
-        d = date.fromisoformat(day)
-        out = _run_fn(agent)(brief, ask, **({} if d == date.today() else {"day": d}))
-        findings, facts, added = merge_output(record.findings, facts, out)
-        atomic_write_text(
-            updates_dir / "raw" / f"{day}.json",
-            json.dumps([f.model_dump() for f in facts], indent=1),
-        )
-        atomic_write_text(
-            updates_dir / f"{day}.json",
-            record.model_copy(update={"findings": findings}).model_dump_json(indent=2),
-        )
+        added = rerun_locked(day, agent, ask)
         return f"{agent} added {added} finding(s). Rebuild the note to use them."
     finally:
         release_lock(data_dir)
+
+
+def rerun_locked(day: str, agent: str, ask: str) -> int:
+    """Run one analyst again with `ask` and merge its findings into the day; returns how many it
+    added. The caller holds the day's lock."""
+    _, updates_dir = _dirs()
+    record, facts = load_day(updates_dir, day)
+    briefs_path = updates_dir / "briefs" / f"{day}.json"
+    brief = (
+        getattr(Briefs.model_validate_json(briefs_path.read_text()), agent)
+        if briefs_path.exists()
+        else ""
+    ) or f"Cover what matters for markets on {day}."
+    d = date.fromisoformat(day)
+    out = _run_fn(agent)(brief, ask, **({} if d == date.today() else {"day": d}))
+    findings, facts, added = merge_output(record.findings, facts, out)
+    atomic_write_text(
+        updates_dir / "raw" / f"{day}.json",
+        json.dumps([f.model_dump() for f in facts], indent=1),
+    )
+    atomic_write_text(
+        updates_dir / f"{day}.json",
+        record.model_copy(update={"findings": findings}).model_dump_json(indent=2),
+    )
+    return added
 
 
 def rebuild(day: str) -> str:

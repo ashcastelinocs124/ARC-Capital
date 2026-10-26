@@ -87,8 +87,8 @@ def build_doc(record: dict, uploaded: dict[str, dict]) -> dict:
     """Substack editor doc for a v2 record. `uploaded` maps exhibit file name -> image upload reply."""
     note, day = record["note"], record["date"]
     all_ex = record.get("exhibits", [])
-    by_item = {e["item"]: e for e in all_ex if e.get("item") is not None}
-    exhibits = {} if by_item else {e["finding_id"]: e for e in all_ex}  # older notes
+    placed = any(e.get("item") is not None for e in all_ex)
+    exhibits = {} if placed else {e["finding_id"]: e for e in all_ex}  # older notes
     content: list[dict] = [
         {
             "type": "bullet_list",
@@ -105,12 +105,18 @@ def build_doc(record: dict, uploaded: dict[str, dict]) -> dict:
                 "content": [_text(f"{item['rank']}. {item['title']}")],
             }
         )
-        for para in re.split(r"\n\s*\n", item["body"]):
-            if para.strip():
-                content.append(_p(*_rich(para.strip())))
-        ex = by_item.get(item["rank"]) or exhibits.get(item.get("chart") or "")
-        if ex and ex["file"] in uploaded:
-            content.append(_image(uploaded[ex["file"]], ex["title"]))
+        paras = [p.strip() for p in re.split(r"\n\s*\n", item["body"]) if p.strip()]
+        slots = chart_slots(item["rank"], len(paras), all_ex) if placed else {}
+        if not placed and (ex := exhibits.get(item.get("chart") or "")):
+            slots = {len(paras): [ex]}
+        for i in range(len(paras) + 1):  # slot 0 = under the heading, i = after paragraph i
+            if i:
+                content.append(_p(*_rich(paras[i - 1])))
+            content += [
+                _image(uploaded[e["file"]], e["title"])
+                for e in slots.get(i, [])
+                if e["file"] in uploaded
+            ]
         if view := item.get("view"):  # a topic consultant's analysis, after what happened
             label = f"**ARC view · {view.get('topic') or view['consultant']}**"
             content.append(
@@ -132,6 +138,19 @@ def build_doc(record: dict, uploaded: dict[str, dict]) -> dict:
     )
     content.append(_p(_text("Not investment advice.")))
     return {"type": "doc", "content": content}
+
+
+def chart_slots(rank: int, n_paras: int, exhibits: list[dict]) -> dict[int, list[dict]]:
+    """The charts item `rank` shows, keyed by the paragraph they follow (0 = under the heading,
+    n_paras = after the last). A chart sits in its own item after the last paragraph unless the
+    desk moved it (`at`, `after`); an `after` past the end (a later edit cut paragraphs) means the end.
+    The admin preview (NotePreview.tsx) places them the same way."""
+    out: dict[int, list[dict]] = {}
+    mine = [e for e in exhibits if (e.get("at") or e.get("item")) == rank]
+    for e in sorted(mine, key=lambda e: e["n"]):
+        after = e.get("after")
+        out.setdefault(n_paras if after is None else min(after, n_paras), []).append(e)
+    return out
 
 
 def _subtitle(day: str) -> str:

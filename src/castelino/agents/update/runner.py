@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import shutil
 from collections.abc import Callable
 from datetime import date, datetime
@@ -224,11 +225,26 @@ class UpdateRunner:
         atomic_write_text(self.updates_dir / f"{self._day}.json", record.model_dump_json(indent=2))
 
     def _compose(
-        self, findings: list[Finding], facts: list[Fact], mem: str, long: str
+        self,
+        findings: list[Finding],
+        facts: list[Fact],
+        mem: str,
+        long: str,
+        request_md: str = "",
+        charts_dir: Path | None = None,
+        merge: Callable[[MorningNote], MorningNote] | None = None,
+        known: frozenset[str] = frozenset(),
+        context: bool = True,
     ) -> tuple[MorningNote, list[Exhibit], list[Finding], list[Fact]]:
         """Background → Editor → guard (with retries) → charts. Raises before touching any file
-        if the guard fails. Returns the findings and facts with the background linked in."""
-        if self.background_fn is not None:
+        if the guard fails. Returns the findings and facts with the background linked in.
+        `request_md` is a desk edit the Editor must make (kept in every retry), `merge` fixes
+        up each draft before the guard (the desk puts back what the edit didn't touch), and
+        `known` are guard errors the note already had (a figure the editor typed and accepted),
+        which don't count again. `charts_dir` defaults to the day's charts. context=False keeps
+        the day's saved background, calendar and sentiment facts instead of recomputing them (a
+        desk edit: recomputed prices would no longer match the note's figures)."""
+        if context and self.background_fn is not None:
             try:
                 findings, facts, gaps = self.background_fn(
                     findings, facts, self._day, self.updates_dir
@@ -237,13 +253,13 @@ class UpdateRunner:
             except Exception as exc:  # noqa: BLE001 — background is never load-bearing
                 log.warning("background step failed; writing without it", exc_info=True)
                 self._gaps.append(f"background step failed: {exc}")
-        if self.calendar_fn is not None:
+        if context and self.calendar_fn is not None:
             try:
                 findings, facts, self._calendar = self.calendar_fn(findings, facts, self._day)
             except Exception as exc:  # noqa: BLE001 — the calendar is never load-bearing
                 log.warning("calendar step failed; writing without it", exc_info=True)
                 self._gaps.append(f"calendar step failed: {exc}")
-        if self.sentiment_fn is not None:
+        if context and self.sentiment_fn is not None:
             try:
                 findings, facts, gaps = self.sentiment_fn(findings, facts, self._day)
                 self._gaps += gaps
@@ -270,9 +286,23 @@ class UpdateRunner:
         passed: MorningNote | None = None  # the last draft that passed the note's own guard
         for _attempt in range(self.max_retries + 1):
             self._set(Stage.WRITING)
-            note = self.editor_fn(findings, facts, mem, long, feedback, consult.prompt_md)
+            note = self.editor_fn(
+                findings,
+                facts,
+                mem,
+                long,
+                feedback,
+                consult.prompt_md,
+                **({"request_md": request_md} if request_md else {}),
+            )
+            if merge is not None:
+                note = merge(note)
             self._set(Stage.GUARDING)
-            errors = check_note(note, findings, facts, items=self.max_items)
+            errors = [
+                e
+                for e in check_note(note, findings, facts, items=self.max_items)
+                if bare_error(e) not in known
+            ]
             views = bad_views(note)
             if not errors:
                 passed = note
@@ -309,7 +339,9 @@ class UpdateRunner:
 
         note = clean_picks(note, findings, facts)
         self._set(Stage.CHARTING)
-        exhibits = self.chart_fn(note, findings, facts, self.updates_dir / "charts" / self._day)
+        exhibits = self.chart_fn(
+            note, findings, facts, charts_dir or self.updates_dir / "charts" / self._day
+        )
         return note, exhibits, findings, facts
 
     def rebuild(self, day: str) -> str:
@@ -324,14 +356,7 @@ class UpdateRunner:
         facts = [
             Fact(**f) for f in json.loads((self.updates_dir / "raw" / f"{day}.json").read_text())
         ]
-        backup = self.updates_dir / f"hidden-rebuild-{datetime.now():%Y%m%d-%H%M%S}"
-        backup.mkdir(parents=True)
-        shutil.copy2(path, backup / path.name)
-        if (raw := self.updates_dir / "raw" / f"{day}.json").exists():  # rebuild rewrites it too
-            (backup / "raw").mkdir()
-            shutil.copy2(raw, backup / "raw" / raw.name)
-        if (charts := self.updates_dir / "charts" / day).exists():
-            shutil.copytree(charts, backup / "charts" / day)
+        backup_day(self.updates_dir, day)
 
         self._day = day
         self._consulted = None  # reload that day's saved consultant input, not today's theses
@@ -349,11 +374,72 @@ class UpdateRunner:
                 "exhibits": exhibits,
                 "calendar": self._calendar or old.calendar,  # a failed fetch keeps the old lines
                 "generated_at": datetime.now().isoformat(timespec="seconds"),
+                "hand_edited_at": None,  # a fresh note: the hand edits are in the backup
             }
         )
         atomic_write_text(path, new.model_dump_json(indent=2))
         self._set(Stage.DONE)
         return note.headline
+
+    def propose(
+        self,
+        day: str,
+        request_md: str,
+        charts_dir: Path,
+        merge: Callable[[MorningNote], MorningNote] | None = None,
+    ) -> tuple[DailyRecordV2, list[Fact]]:
+        """`day`'s note rewritten for a desk edit, NOT saved: the desk keeps it as a proposal
+        until the editor approves it. Charts are drawn into `charts_dir`. Raises on a guard
+        failure, like rebuild; errors the current note already has don't count."""
+        old = DailyRecordV2.model_validate_json((self.updates_dir / f"{day}.json").read_text())
+        facts = [
+            Fact(**f) for f in json.loads((self.updates_dir / "raw" / f"{day}.json").read_text())
+        ]
+        self._day = day
+        self._consulted = None  # that day's saved consultant input, as in rebuild
+        known = frozenset(
+            bare_error(e) for e in check_note(old.note, old.findings, facts, items=self.max_items)
+        )
+        note, exhibits, findings, facts = self._compose(
+            old.findings,
+            facts,
+            self.memory.read_short(),
+            self.memory.read_long(),
+            request_md=request_md,
+            charts_dir=charts_dir,
+            merge=merge,
+            known=known,
+            context=False,  # the note's figures come from the day's saved facts: keep them
+        )
+        self._set(Stage.DONE)
+        rec = old.model_copy(
+            update={
+                "findings": findings,
+                "note": note,
+                "exhibits": exhibits,
+                "calendar": self._calendar or old.calendar,
+            }
+        )
+        return rec, facts
+
+
+def bare_error(e: str) -> str:
+    """A guard error without its item number, so it still matches after the item moves."""
+    return re.sub(r"^item \d+: ", "", e)
+
+
+def backup_day(updates_dir: Path, day: str) -> Path:
+    """Copy the day's record, raw facts and charts to hidden-rebuild-<time>/ before a rewrite."""
+    path = updates_dir / f"{day}.json"
+    backup = updates_dir / f"hidden-rebuild-{datetime.now():%Y%m%d-%H%M%S-%f}"
+    backup.mkdir(parents=True)
+    shutil.copy2(path, backup / path.name)
+    if (raw := updates_dir / "raw" / f"{day}.json").exists():
+        (backup / "raw").mkdir()
+        shutil.copy2(raw, backup / "raw" / raw.name)
+    if (charts := updates_dir / "charts" / day).exists():
+        shutil.copytree(charts, backup / "charts" / day)
+    return backup
 
 
 # ── production wiring ──────────────────────────────────────────────────────

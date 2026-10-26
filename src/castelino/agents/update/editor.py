@@ -128,6 +128,7 @@ class UpdateEditor(StructuredAgent[MorningNote]):
         long_term_md: str,
         guard_errors: list[str] | None = None,
         consultants_md: str = "",
+        request_md: str = "",
     ) -> str:
         by_id = {f.id: f for f in facts}
         blocks = []
@@ -147,6 +148,8 @@ class UpdateEditor(StructuredAgent[MorningNote]):
         ]
         if consultants_md:
             parts.append(f"## Consultants (for the ARC view)\n{consultants_md}")
+        if request_md:  # an edit asked for on the admin Daily desk
+            parts.append(f"## The desk editor's request\n{request_md}")
         if guard_errors:
             parts.append(
                 "## Correction\nYour previous draft failed these checks: "
@@ -164,6 +167,7 @@ def write_note(
     long_term_md: str,
     guard_errors: list[str] | None = None,
     consultants_md: str = "",
+    request_md: str = "",
 ) -> MorningNote:
     return UpdateEditor()(
         findings=findings,
@@ -172,4 +176,5 @@ def write_note(
         long_term_md=long_term_md,
         guard_errors=guard_errors,
         consultants_md=consultants_md,
+        request_md=request_md,
     )

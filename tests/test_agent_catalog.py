@@ -178,7 +178,7 @@ def test_pipelines_reference_real_agents_nodes_and_edges():
             assert set(s["nodes"]) <= boxes, where
             assert {e.replace(" ", "") for e in s["edges"]} <= edges, where
     # admin-only agents (the Daily desk chat and Trade Lab) stay off the public pipeline graphs
-    admin_only = {"desk_chat"} | {
+    admin_only = {"desk_chat", "desk_edit"} | {
         e["id"] for e in body["agents"] if e["group"] in ("Trade Lab", "Deep research")
     }
     assert ids - drawn == admin_only, f"draw these agents in a pipeline: {ids - drawn - admin_only}"
@@ -214,7 +214,7 @@ def test_trade_lab_stays_off_the_public_catalog():
     assert "Trade Lab" not in public["groups"]
 
 
-def test_update_agent_family_groups_its_seven_agents():
+def test_update_agent_family_groups_its_eight_agents():
     fam = [e["id"] for e in cat.build_catalog()["agents"] if e.get("family") == "Update Agent"]
     assert fam == [
         "update_orchestrator",
@@ -224,6 +224,7 @@ def test_update_agent_family_groups_its_seven_agents():
         "ai_agent",
         "update_editor",
         "desk_chat",
+        "desk_edit",
     ]
 
 

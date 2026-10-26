@@ -256,6 +256,10 @@ class Exhibit(BaseModel):
     title: str
     subtitle: str
     file: str
+    # where it sits, once moved on the admin desk: in item `at` (None = `item`), after paragraph
+    # `after` of that item (0 = right under the heading, None = after the last one)
+    at: int | None = None
+    after: int | None = None
 
 
 class DailyRecordV2(BaseModel):
@@ -272,3 +276,4 @@ class DailyRecordV2(BaseModel):
     calendar: list[
         str
     ] = []  # "On the calendar today" lines (agents/update/calendar.py), since 2026-10-20
+    hand_edited_at: str | None = None  # last hand edit on the admin desk; Rebuild asks first

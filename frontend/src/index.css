@@ -195,3 +195,31 @@ html:not(.dark) .splash-logo { filter: brightness(1.06); } /* its tile is off-wh
 /* sideways-scrolling tab rows on phones: swipeable, no grey bar */
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+/* Admin Daily desk preview (components/admin/NotePreview.tsx): the note as its Substack post looks, a light page
+   in both themes, with a desk edit marked in place: removed = red and struck through, added = green, each labelled
+   so color is never the only cue. */
+.paper {
+  --p-bg: 255 255 255; --p-ink: 31 31 31; --p-muted: 100 100 100; --p-line: 230 230 230;
+  --p-brand: 0 135 68; --p-del: 253 236 236; --p-del-bar: 198 40 40; --p-del-ink: 138 28 28;
+  --p-add: 231 245 236; --p-add-bar: 0 135 68; --p-edit: 201 211 206;
+  background: rgb(var(--p-bg)); color: rgb(var(--p-ink));
+}
+.paper .post { font: 19px/1.6 "Source Serif 4", Georgia, serif; }
+.paper .post h2, .paper .post h3 { font-family: "Source Serif 4", Georgia, serif; font-weight: 700; }
+.paper .post p { margin: 0 0 16px; }
+.paper .post blockquote { margin: 0 0 18px; border-left: 4px solid rgb(var(--p-ink)); padding: 2px 0 2px 18px; }
+.paper .post blockquote p + p { font-style: italic; }
+.paper .del, .paper .add { margin: 10px -12px; padding: 4px 12px 2px; border-left: 4px solid; border-radius: 4px; }
+.paper .del { background: rgb(var(--p-del)); border-color: rgb(var(--p-del-bar)); }
+.paper .del, .paper .del * { color: rgb(var(--p-del-ink)); }
+.paper .del :is(p, li, h3, h2) { text-decoration: line-through; text-decoration-color: rgb(var(--p-del-bar) / .45); }
+.paper .del img { opacity: .55; }
+.paper .add { background: rgb(var(--p-add)); border-color: rgb(var(--p-add-bar)); }
+.paper .tag { display: inline-block; font: 700 10.5px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: .06em;
+  text-transform: uppercase; padding: 2px 7px; border-radius: 4px; margin: 6px 0 2px; color: rgb(var(--p-bg)); }
+.paper .del .tag { background: rgb(var(--p-del-bar)); color: rgb(var(--p-bg)); text-decoration: none; }
+.paper .add .tag { background: rgb(var(--p-add-bar)); }
+.paper [contenteditable="true"] { outline: 1px dashed rgb(var(--p-edit)); outline-offset: 3px; border-radius: 3px; cursor: text; }
+.paper [contenteditable="true"]:focus { outline: 2px solid rgb(var(--p-brand)); }
+.paper .moving { outline: 1px dashed rgb(var(--p-edit)); outline-offset: 6px; border-radius: 3px; }
+.paper .dropline { height: 4px; background: rgb(var(--p-brand)); border-radius: 2px; margin: 4px 0; }

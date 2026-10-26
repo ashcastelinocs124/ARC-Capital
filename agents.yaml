@@ -379,6 +379,22 @@ agents:
     tools: []
     memory: {reads: ["The day's findings and facts for that agent (the Editor also sees the note)", "The conversation so far, sent by the browser"], writes: [], persists: "Nothing."}
 
+  - id: desk_edit
+    name: Edit Router
+    group: Briefings
+    family: Update Agent
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "LLM call (gpt-6-luna)"}
+    class: castelino.agents.update.desk_edit.EditRouter
+    summary: >-
+      On the private admin Daily desk, reads an edit you ask the Editor for and decides whether
+      it changes what the note says or adds a new point. A new point the day's findings don't
+      cover goes to the one analyst that covers it (Macro, News, Alt or AI) for a mini run; then
+      the Editor rewrites the note with your request, through the number guard and charts, as a
+      draft you approve or reject. Nothing changes until you approve.
+    tools: []
+    memory: {reads: ["Your request", "The day's note (headline, takeaways, item titles) and findings"], writes: ["updates/proposals/<day>/ (the draft, until you approve or reject it)"], persists: "The draft only."}
+
   - id: cover_artist
     name: Cover Artist
     group: Briefings
@@ -1101,6 +1117,8 @@ systems:
         loops: [{from: 2, to: 1, label: "retry with errors"}]
       - title: "Admin · Daily desk"
         flow: [["Your question on /admin"], ["agent:desk_chat|one day · one agent"], ["end:Answer with fact ids"]]
+      - title: "Admin · Edit the note"
+        flow: [["agent:desk_edit|change or new point?"], ["code:Mini run|one analyst · new points only"], ["agent:update_editor|draft with your request"], ["code:Number guard|then charts"], ["gate:Your Approve|then it's the note"]]
       - title: "Sector Sentiment"
         flow: [["Refresh"], ["code:Divergence scores|top-10 per sector", "code:Fear & Greed|5 market signals"], ["agent:sector_narrative|1 call", "agent:sector_prose|11 calls"], ["end:Card on Radar"]]
 
