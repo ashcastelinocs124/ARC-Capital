@@ -9,6 +9,8 @@ echo "== $(date) publish_server $*"
 python scripts/export_snapshot.py "$@" # writes frontend/public/api/
 # SKIP_SUBSTACK=1 (CI's code-only republish): leave the day's draft alone so hand edits in Substack survive
 [ -n "${SKIP_SUBSTACK:-}" ] || python -m castelino.substack || echo "substack: push failed, continuing with the deploy"
+# The newest Weekly Deep Dive as a draft: Sunday's run creates it, later runs skip it (draft newer than report)
+[ -n "${SKIP_SUBSTACK:-}" ] || python -m castelino.substack_weekly || echo "substack weekly: push failed, continuing with the deploy"
 
 cd frontend # VERCEL_ORG_ID / VERCEL_PROJECT_ID come from fly.toml, VERCEL_TOKEN from fly secrets
 vercel pull --yes --environment=production --token "$VERCEL_TOKEN" >/dev/null
