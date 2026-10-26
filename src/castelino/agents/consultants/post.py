@@ -36,7 +36,8 @@ other words. A figure marked unchanged since an earlier day is not news.
 Also pick ONE chart that shows the point, from these forms:
 {forms}
 series: "fred:SERIES_ID" or "yahoo:TICKER", as many as the form takes; start from the consultant's
-watchlist. names: a short reader name per series, no figures. window_days: 30 to 730. threshold: the level
+watchlist (its series, or its companies as yahoo:TICKER), and never chart the same series as a post
+under Already posted. names: a short reader name per series, no figures. window_days: 30 to 730. threshold: the level
 for threshold_band, else null. chart_title: the claim the chart shows, under 60 characters, no figures."""
 
 
@@ -52,13 +53,21 @@ class PostDraft(BaseModel):  # LLM output (closed schema: no defaults)
 
 
 def errors(
-    d: PostDraft, facts: dict[str, Fact], lookup=None, fresh: set[str] | None = None
+    d: PostDraft,
+    facts: dict[str, Fact],
+    lookup=None,
+    fresh: set[str] | None = None,
+    used: list[set[str]] | None = None,
 ) -> list[str]:
-    """What's wrong with a draft: an unknown fact id, no fact new today (`fresh`), a figure its facts
-    don't give, a link, over 280 characters, or a ticker that doesn't trade."""
+    """What's wrong with a draft: an unknown fact id, no fact new today (`fresh`), a chart of the same
+    series as a recent post (`used`), a figure its facts don't give, a link, over 280 characters, or a
+    ticker that doesn't trade."""
     bad = [f"{i} is not one of the facts given to you" for i in d.fact_ids if i not in facts]
     if fresh is not None and not fresh & set(d.fact_ids):
         bad.append("the post cites no fact marked (new today); a point already out is not news")
+    # ponytail: exact set match, so adding one series to a recent pair passes
+    if used and set(d.series) in used:
+        bad.append("the chart plots the same series as a recent post; chart something else")
     nums = {n for i in d.fact_ids if i in facts for n in facts[i].numbers}
     bad += [
         b.replace("the source line or the chart data", "the facts you cite")
@@ -79,6 +88,7 @@ def write(
     meter: llm.Meter,
     fresh: set[str] | None = None,
     seen: dict[str, str] | None = None,
+    used: list[set[str]] | None = None,
 ) -> PostDraft:
     """One Post Writer call, one retry with the errors; raises ValueError when both fail the checks.
     Each fact is marked new today (`fresh`), unchanged since an earlier day (`seen`) or by its day."""
@@ -96,7 +106,7 @@ def write(
     by_id = {f.id: f for f in facts}
     companies = ", ".join(f"{c.name} ({c.ticker})" for c in wl.companies) or "none"
     user = (
-        f"Topic: {topic}\nWatchlist companies: {companies}\nWatchlist series: "
+        f"Topic: {topic}\nWatchlist companies (chart as yahoo:TICKER): {companies}\nWatchlist series: "
         f"{', '.join(wl.series) or 'none'}\n\n{context_md}\n\n## Facts you may cite\n"
         + ("\n".join(f"- [{f.id}] {f.text} ({f.source_title}){mark(f)}" for f in facts) or "(none)")
     )
@@ -107,7 +117,7 @@ def write(
     model = get_settings().consultants.note_model
     for _ in range(2):
         d = llm.structured("consultant_post", model, msgs, PostDraft, meter)
-        if not (bad := errors(d, by_id, fresh=fresh)):
+        if not (bad := errors(d, by_id, fresh=fresh, used=used)):
             return d
         msgs += [
             {"role": "assistant", "content": d.model_dump_json()},
@@ -118,9 +128,10 @@ def write(
 
 def run(
     slug: str, day: str, context_md: str, facts: list[Fact], meter: llm.Meter
-) -> tuple[str, str] | None:
-    """Write, chart and post today's point; returns (text, chart form), or None when it already posted
-    today. Raises when the draft fails its checks twice, no chart can be drawn or X refuses."""
+) -> tuple[str, str, list[str]] | None:
+    """Write, chart and post today's point; returns (text, chart form, chart series), or None when it
+    already posted today. Raises when the draft fails its checks twice, no chart can be drawn or X
+    refuses."""
     if store.day_log(slug, day).post_id:
         return None
     seen = store.earlier_texts(slug, day)
@@ -131,7 +142,8 @@ def run(
         raise ValueError("nothing new today: every fact was gathered on an earlier day")
     c = store.load(slug)
     context_md += f"\n\n## Already posted (never repeat these)\n{store.posts_md(slug)}"
-    d = write(c.topic, context_md, c.watchlist, facts, meter, fresh, seen)
+    used = [set(h.chart_series) for h in store.recent_posts(slug) if h.chart_series]
+    d = write(c.topic, context_md, c.watchlist, facts, meter, fresh, seen, used)
     png = store.cdir(slug) / "posts" / f"{day}.png"
     png.parent.mkdir(parents=True, exist_ok=True)
     pick = x_scout.ScoutPick(
@@ -159,4 +171,4 @@ def run(
         log.note_id = noted["note_id"]
         if err := noted.get("note_error"):
             log.notes.append(f"Substack Note failed: {err}")
-    return d.text, form
+    return d.text, form, d.series

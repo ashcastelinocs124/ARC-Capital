@@ -84,6 +84,7 @@ class HistoryLine(BaseModel):
     p_post: float | None = None  # asked only while the knob is on
     post: str | None = None  # the text posted to X
     chart_form: str | None = None  # its chart, posts/<day>.png
+    chart_series: list[str] = Field(default_factory=list)  # what it plotted, kept from reuse
 
 
 class Ask(BaseModel):

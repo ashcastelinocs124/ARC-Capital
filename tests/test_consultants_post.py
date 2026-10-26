@@ -91,8 +91,8 @@ def test_run_retries_once_then_posts_with_its_chart(monkeypatch, x):
         draft("Sales fell 37%.", ["K1-20261015-1"]),
         draft("A 4.1% stake sale.", ["K1-20261015-1"]),
     )
-    text, form = post.run(c.slug, DAY, "ctx", [fact()], llm.Meter())
-    assert (text, form) == ("A 4.1% stake sale.", "compare")
+    text, form, series = post.run(c.slug, DAY, "ctx", [fact()], llm.Meter())
+    assert (text, form, series) == ("A 4.1% stake sale.", "compare", ["yahoo:SMH", "yahoo:DLR"])
     assert x["posts"] == [("A 4.1% stake sale.", "m1")]
     assert x["charts"] == [("compare", "AI MODELS AND CHIPS")]
     assert x["notes"] == [("A 4.1% stake sale.", f"{DAY}.png")]
@@ -160,18 +160,20 @@ def test_daily_posts_a_notable_point_when_the_knob_is_on(monkeypatch):
 
     def fake_run(slug, day, context_md, facts, meter):
         calls.append(context_md)
-        return "Builders are pulling listings.", "compare"
+        return "Builders are pulling listings.", "compare", ["yahoo:SMH", "yahoo:DLR"]
 
     monkeypatch.setattr(post, "run", fake_run)
     line = review.daily(c.slug, DAY, [finding()], llm.Meter())
     assert (
         "post" in asked[0][1] and "AirTrunk" in calls[0] and "Funding is the squeeze." in calls[0]
     )
-    assert (line.p_post, line.post, line.chart_form) == (
+    assert (line.p_post, line.post, line.chart_form, line.chart_series) == (
         0.74,
         "Builders are pulling listings.",
         "compare",
+        ["yahoo:SMH", "yahoo:DLR"],
     )
+    assert store.history(c.slug)[-1].chart_series == ["yahoo:SMH", "yahoo:DLR"]
 
 
 def test_daily_logs_a_failed_post_and_still_finishes(monkeypatch):
@@ -247,3 +249,34 @@ def test_writer_sees_what_was_already_posted_and_which_facts_are_new(monkeypatch
     assert "[K1-20261015-1] Digital Realty" in seen[0] and "(new today)" in seen[0]
     assert "[K1-20261015-2] Ramp" in seen[0] and "unchanged since 2026-10-14" in seen[0]
     assert len(x["posts"]) == 1
+
+
+def test_run_refuses_a_chart_a_recent_post_drew(monkeypatch, x):
+    """Oct 23, 24 and 26: three posts with the same WCLD vs IGV chart; series order doesn't matter."""
+    from castelino.agents.consultants.models import HistoryLine
+
+    c = consultant()
+    store.append_history(
+        c.slug,
+        HistoryLine(
+            day="2026-10-14",
+            kind="daily",
+            verdict="held",
+            post="Chip makers keep outrunning landlords.",
+            chart_form="compare",
+            chart_series=["yahoo:DLR", "yahoo:SMH"],
+        ),
+    )
+    seen = []
+    other = draft(ids=["K1-20261015-1"]).model_copy(update={"series": ["yahoo:EQIX"]})
+    out = [draft(ids=["K1-20261015-1"]), other]
+
+    def fake(agent, model, messages, schema, meter, **kw):
+        seen.append(messages[-1]["content"])
+        return out.pop(0)
+
+    monkeypatch.setattr(llm, "structured", fake)
+    _, _, series = post.run(c.slug, DAY, "ctx", [fact()], llm.Meter())
+    assert "[chart: compare of yahoo:DLR, yahoo:SMH]" in seen[0] and "yahoo:TICKER" in seen[0]
+    assert "same series as a recent post" in seen[1]
+    assert series == ["yahoo:EQIX"] and len(x["posts"]) == 1

@@ -132,12 +132,14 @@ def daily(slug: str, day: str, findings: list[Finding], meter: llm.Meter) -> His
             with store.edit_day(slug, day) as d:
                 d.notes.append(f"memory note failed: {str(e)[:120]}")
     posted = form = None
+    series: list[str] = []
     if p.get("post", 0.0) >= cfg.threshold:
         now = store.read_thesis(slug) or old  # the rewritten thesis, if today changed it
         facts = {f.id: f for f in [*store.facts_by_id(slug, _cited(now)), *own]}
         ctx = f"## Thesis\n{_thesis_md(now)}\n\n## Today's Daily Update findings\n{_findings_md(findings)}"
         try:
-            posted, form = post.run(slug, day, ctx, list(facts.values()), meter) or (None, None)
+            got = post.run(slug, day, ctx, list(facts.values()), meter)
+            posted, form, series = got or (None, None, [])
         except Exception as e:  # noqa: BLE001 - a failed post never fails the review
             with store.edit_day(slug, day) as d:
                 d.notes.append(f"X post skipped: {str(e)[:160]}")
@@ -153,6 +155,7 @@ def daily(slug: str, day: str, findings: list[Finding], meter: llm.Meter) -> His
         p_post=p.get("post"),
         post=posted,
         chart_form=form,
+        chart_series=series,
     )
     store.append_history(slug, line)
     with store.edit_day(slug, day) as d:

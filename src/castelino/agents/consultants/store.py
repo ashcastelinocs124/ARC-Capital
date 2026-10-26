@@ -224,9 +224,17 @@ def history(slug: str) -> list[HistoryLine]:
 
 
 def posts_md(slug: str, n: int = 5) -> str:
-    """The last `n` posts, one "- day: text" line each, so a new post can be told apart from them."""
-    lines = [f"- {h.day}: {h.post}" for h in history(slug) if h.post][-n:]
+    """The last `n` posts, one "- day: text [chart: …]" line each, so a new post can be told apart from them."""
+    lines = [
+        f"- {h.day}: {h.post}"
+        + (f" [chart: {h.chart_form} of {', '.join(h.chart_series)}]" if h.chart_series else "")
+        for h in recent_posts(slug, n)
+    ]
     return "\n".join(lines) or "(none)"
+
+
+def recent_posts(slug: str, n: int = 5) -> list[HistoryLine]:
+    return [h for h in history(slug) if h.post][-n:]
 
 
 def day_log(slug: str, day: str) -> DayLog:
