@@ -52,7 +52,6 @@ import math
 import os
 import re
 import sys
-import textwrap
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -738,7 +737,8 @@ FALLBACK = {
     "day": CAL_TAG["day"] + "What's out today and when.",
 }
 SESSION = {"pre": ("Pre-open", "06:00"), "post": ("After close", "16:05")}  # label, sort time
-CHARS = 95  # characters a full-width card line holds at 8 pt
+CARD_PT = 6.4 * 72 * (0.88 - 0.06)  # the card's table width in points (_frame's figure, left=0.06)
+WIDE = 1.085  # the week card's table runs on to the logo's right edge, past the axes
 WATCH_COLOR = "#C2410C"
 
 CARD = """You write the short read on top of ARC Research's calendar card on X: the week ahead, or
@@ -844,14 +844,22 @@ def _rank(e: dict) -> float | None:
     return next((float(i) for i, t in enumerate(TIERS) if t.search(e["name"])), None)
 
 
-def pick(events: list[dict], day: str, data: int, earnings: int) -> list[dict]:
-    """A day's card rows: its `data` most important releases, then its `earnings` largest reporters."""
+def pick(events: list[dict], day: str, data: int, earnings: int, by_release: bool = False) -> list[dict]:  # fmt: skip
+    """A day's card rows: its `data` most important rows (by_release: releases, each with all its
+    measures, as the week card counts them), then its `earnings` largest reporters, one row per
+    company (Alphabet's GOOG and GOOGL are one report)."""
     rows = [e for e in events if e["date"] == day]
     econ_rows = [e for e in rows if e["kind"] != "earnings" and _rank(e) is not None]
-    econ_rows = sorted(econ_rows, key=lambda e: (_rank(e), e.get("time_et") or ""))[:data]
-    earn = [e for e in rows if e["kind"] == "earnings"]
-    earn = sorted(earn, key=_earn_rank)[:earnings]
-    return econ_rows + earn
+    econ_rows = sorted(econ_rows, key=lambda e: (_rank(e), e.get("time_et") or ""))
+    if by_release:
+        keep = list(dict.fromkeys(map(group, econ_rows)))[:data]
+        econ_rows = [e for e in econ_rows if group(e) in keep]
+    else:
+        econ_rows = econ_rows[:data]
+    firms: dict[str, dict] = {}
+    for e in sorted((e for e in rows if e["kind"] == "earnings"), key=_earn_rank):
+        firms.setdefault(company(e), e)
+    return econ_rows + list(firms.values())[:earnings]
 
 
 def _earn_rank(e: dict) -> tuple[bool, float]:
@@ -872,8 +880,9 @@ def label(e: dict) -> str:
 
 
 def company(e: dict) -> str:
-    """The universe's name without a trailing '(The)': 'Travelers Companies (The)' -> 'Travelers Companies'."""
-    return re.sub(r"\s*\(The\)$", "", e["company"])
+    """The universe's name without a trailing aside: 'Travelers Companies (The)' -> 'Travelers
+    Companies', 'Lilly (Eli)' -> 'Lilly', 'Alphabet Inc. (Class A)' -> 'Alphabet Inc.'."""
+    return re.sub(r"\s*\([^)]*\)$", "", e["company"])
 
 
 def upcoming(events: list[dict], now: datetime) -> list[dict]:
@@ -916,8 +925,28 @@ def _time(e: dict) -> tuple[str, str]:
     return t.lstrip("0") if t[:1] == "0" else t, t or "12:00"
 
 
+def _text_pt(s: str, size: float = 8) -> float:
+    """A line's width as the card draws it: Helvetica on a Mac, the wider DejaVu Sans on Fly."""
+    from matplotlib.font_manager import FontProperties
+    from matplotlib.textpath import TextToPath
+
+    prop = FontProperties(family=["Helvetica", "Arial", "DejaVu Sans"], size=size)
+    return TextToPath().get_text_width_height_descent(s, prop, ismath=False)[0]
+
+
 def _wrap(s: str, width: float) -> str:
-    return "\n".join(textwrap.fill(line, int(width * CHARS)) for line in s.split("\n"))
+    """Wraps each line to `width` (a share of the table), measured in the font, less a 6 pt gap."""
+    room, out = width * CARD_PT - 6, []
+    for para in s.split("\n"):
+        line = ""
+        for word in para.split(" "):
+            if line and _text_pt(f"{line} {word}") > room:
+                out.append(line)
+                line = word
+            else:
+                line = f"{line} {word}".strip()
+        out.append(line)
+    return "\n".join(out)
 
 
 def day_table(rows: list[dict], watched: set[str] = frozenset()) -> tuple[list[str], list[list[str]], list[float]]:  # fmt: skip
@@ -938,29 +967,50 @@ def day_table(rows: list[dict], watched: set[str] = frozenset()) -> tuple[list[s
 
 
 def week_table(by_day: dict[str, list[dict]]) -> tuple[list[str], list[list[str]], list[float]]:
-    widths = [0.08, 0.54, 0.38]
+    """One row a day: each release on its own line (its first measure) with the expected and previous
+    figures in their own columns, then the day's reporters by session, in the order they report."""
+    widths = [0.075, 0.075, 0.375, 0.115, 0.09, WIDE - 0.73]
     cells = []
     for day, rows in by_day.items():
-        data = []
-        for e in [e for e in rows if e["kind"] != "earnings"]:
-            u = e.get("unit") or ""
-            prev = f" · prev {fmt(e['previous'], u)}" if e.get("previous") is not None else ""
-            data.append(
-                f"{_time(e)[0]} {label(e).removeprefix('US ')} · {fmt(e['consensus'], u)}{prev}"
-            )
-        groups: dict[str, list[str]] = {}
-        for e in [e for e in rows if e["kind"] == "earnings"]:
-            groups.setdefault({"pre": "Pre", "post": "After"}.get(e.get("session") or "", "Day"), []).append(e["ticker"])  # fmt: skip
-        earn = " · ".join(f"{k}: {', '.join(v)}" for k, v in groups.items())
-        cells.append([f"{date.fromisoformat(day):%a}", _wrap("\n".join(data) or "—", widths[1]), _wrap(earn or "—", widths[2])])  # fmt: skip
-    return ["Day", "Data (ET) · consensus · previous", "Earnings"], cells, widths
+        first: dict[str, dict] = {}
+        for e in rows:
+            if e["kind"] != "earnings":
+                first.setdefault(group(e), e)
+        lines = []
+        for e in sorted(first.values(), key=lambda e: _time(e)[1]):
+            name, u = _wrap(label(e).removeprefix("US "), widths[2]), e.get("unit") or ""
+            pad = "\n" * name.count("\n")  # keeps the figures beside a wrapped name's first line
+            lines.append((_time(e)[0] + pad, name, fmt(e["consensus"], u) + pad, fmt(e["previous"], u) + pad))  # fmt: skip
+        t, r, x, p = (
+            ("\n".join(c) for c in zip(*lines, strict=True)) if lines else ("", "—", "", "")
+        )
+        sessions: dict[str, list[str]] = {}
+        for e in sorted((e for e in rows if e["kind"] == "earnings"), key=lambda e: _time(e)[1]):
+            # a listing abroad ("005930.KS") reads as its first name ("Samsung")
+            name = company(e).split()[0] if "." in e["ticker"] else e["ticker"]
+            sessions.setdefault(_time(e)[0], []).append(name)
+        earn = "\n".join(f"{k}: {', '.join(v)}" for k, v in sessions.items()) or "—"
+        d = date.fromisoformat(day)
+        cells.append([f"{d:%a}\n{d.day}", t, r, x, p, _wrap(earn, widths[5])])
+    return ["Day", "ET", "Release", "Expected", "Prior", "Earnings"], cells, widths
+
+
+def _brief(e: dict) -> str:
+    """A card row as one plain line for the Card Writer (the week card's columns would split it)."""
+    when = f"{date.fromisoformat(e['date']):%a} {_time(e)[0]}"
+    if e["kind"] == "earnings":
+        est = f"; EPS expected {fmt(e['eps_est'])}" if e.get("eps_est") is not None else ""
+        return f"{when}: {company(e)} ({e['ticker']}) reports{est}"
+    u = e.get("unit") or ""
+    prior = f", prior {fmt(e['previous'], u)}" if e.get("previous") is not None else ""
+    return f"{when}: {label(e)} expected {fmt(e['consensus'], u)}{prior}"
 
 
 def draw_card(title: str, sub: str, header: list[str], cells: list[list[str]], widths: list[float], kicker: str, path: Path) -> None:  # fmt: skip
     """The card as a table in the ARC chart frame (no "Exhibit" number)."""
     from castelino.agents.weekly import charts as wc
 
-    xs = [sum(widths[:i]) for i in range(len(widths))]
+    xs, right = [sum(widths[:i]) for i in range(len(widths))], max(1.0, sum(widths))
     lines = [max(c.count("\n") + 1 for c in row) for row in cells]
     step = min(0.062, 0.94 / (1.6 + sum(lines) + 0.45 * len(cells)))  # one text line, in axes units
 
@@ -971,7 +1021,12 @@ def draw_card(title: str, sub: str, header: list[str], cells: list[list[str]], w
             ax.text(x, y, h.upper(), fontsize=6.5, fontweight="bold", color=wc.INK2, va="top", transform=ax.transAxes)  # fmt: skip
         y -= step * 1.25
         ax.plot(
-            [0, 1], [y + step * 0.2] * 2, color=wc.INK, lw=1, transform=ax.transAxes, clip_on=False
+            [0, right],
+            [y + step * 0.2] * 2,
+            color=wc.INK,
+            lw=1,
+            transform=ax.transAxes,
+            clip_on=False,
         )
         for row, n in zip(cells, lines, strict=True):
             y -= step * 0.2
@@ -980,9 +1035,9 @@ def draw_card(title: str, sub: str, header: list[str], cells: list[list[str]], w
                 ax.text(x, y, c, fontsize=7 if watch else 8, fontweight="bold" if i == 0 or watch else "normal",
                         va="top", linespacing=1.3, color=WATCH_COLOR if watch else wc.INK, transform=ax.transAxes)  # fmt: skip
             y -= step * (n + 0.25)
-            ax.plot([0, 1], [y + step * 0.1] * 2, color="#E5E5E8", lw=0.6, transform=ax.transAxes, clip_on=False)  # fmt: skip
+            ax.plot([0, right], [y + step * 0.1] * 2, color="#E5E5E8", lw=0.6, transform=ax.transAxes, clip_on=False)  # fmt: skip
 
-    wc._frame(1, title, sub, "Nasdaq economic and earnings calendars", path, draw, left=0.06, bottom=0.11, kicker=kicker, numbered=False)  # fmt: skip
+    wc._frame(1, title, sub, "Trading Economics (data) and Nasdaq (earnings) calendars", path, draw, left=0.06, bottom=0.11, kicker=kicker, numbered=False)  # fmt: skip
 
 
 # ── records ────────────────────────────────────────────────────────────────
@@ -1038,7 +1093,11 @@ def read(kind: str, title: str, card: str, nums: set[float]) -> str:
         except Exception as e:  # noqa: BLE001 - the card goes out with the fallback line
             print(f"  card read failed: {e}")
             break
-        fix = check(text, "", "", nums)
+        fix = _untraced([text], nums)  # not check(): that one wants a scout thread and a source
+        if _LINK.search(text):
+            fix.append("the read has a link or web address; X posts here carry none")
+        if (n := x_post.xlen(text)) > x_post.LIMIT:
+            fix.append(f"the read is {n} characters; X allows 280")
         if not fix:
             return text
         print("  check: " + "; ".join(fix))
@@ -1067,7 +1126,7 @@ def card(now: datetime | None = None, root: Path | None = None, dry: bool = Fals
     if now.weekday() == 0:
         kind, s, e = "week", date.fromisoformat(start), date.fromisoformat(end)
         days = [f"{s + timedelta(days=i):%Y-%m-%d}" for i in range((e - s).days + 1)]
-        by_day = {d: pick(events, d, data=2, earnings=6) for d in days}
+        by_day = {d: pick(events, d, data=2, earnings=6, by_release=True) for d in days}
         header, cells, widths = week_table(by_day)
         rows, today = (
             [r for d in days for r in by_day[d]],
@@ -1090,7 +1149,7 @@ def card(now: datetime | None = None, root: Path | None = None, dry: bool = Fals
     png.parent.mkdir(parents=True, exist_ok=True)
     draw_card(title, sub, header, cells, widths, "WEEK AHEAD" if kind == "week" else "TODAY", png)
     nums = {float(r[k]) for r in rows for k in ("consensus", "previous", "eps_est") if r.get(k) is not None}  # fmt: skip
-    text = read(kind, title, "\n".join(" | ".join(c.replace("\n", "; ") for c in row) for row in cells), nums)  # fmt: skip
+    text = read(kind, title, "\n".join(map(_brief, rows)), nums)
     live = _live(dry)
     post_id = x_post.post(text, media_id=x_post.upload_image(png.read_bytes())) if live else None
     rec["card"] = {

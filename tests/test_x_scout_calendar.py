@@ -151,7 +151,8 @@ def test_monday_posts_the_week_and_tuesday_the_day(monkeypatch, tmp_path):
     fake_card(monkeypatch)
     monkeypatch.delenv("X_SCOUT_LIVE", raising=False)
     mon = x_scout.card(now=MON, root=tmp_path)
-    assert mon["kind"] == "week" and mon["text"].startswith("WEEK AHEAD · ")
+    assert mon["kind"] == "week"
+    assert mon["text"] == "WEEK AHEAD · Big Tech's week: Meta and Tesla report Wednesday."
     assert [w["key"] for w in x_scout.day_record(tmp_path, MON)["watch"]] == ["E|FITB"]
     tue = x_scout.card(now=TUE, root=tmp_path)
     assert tue["kind"] == "day" and tue["text"].startswith("TODAY · ") and tue["dry_run"]
@@ -166,6 +167,25 @@ def test_card_read_with_an_invented_figure_falls_back_to_code(monkeypatch, tmp_p
     rec = x_scout.card(now=WED, root=tmp_path)
     assert len(calls) == 2 and "5%" in " ".join(calls[1]["fix"])
     assert rec["text"] == x_scout.FALLBACK["day"]
+
+
+def test_week_card_shows_one_line_a_release_and_one_alphabet():
+    pce = {**us("2026-10-29", "08:30", "Core PCE Price Index", 0.3, 0.2, "%", "inflation"), "measure": "m/m"}  # fmt: skip
+    ev = [pce, {**pce, "measure": "y/y", "consensus": 3.1, "previous": 3.0},
+          earn("2026-10-29", "GOOG", "Alphabet Inc. (Class C)", 4e12, 2.94, "post"),
+          earn("2026-10-29", "GOOGL", "Alphabet Inc. (Class A)", 4e12, 2.94, "post"),
+          {**earn("2026-10-29", "005930.KS", "Samsung Electronics", None, 1.0, None), "group": "ai_extra"}]  # fmt: skip
+    rows = x_scout.pick(ev, "2026-10-29", data=2, earnings=6, by_release=True)
+    assert len(rows) == 4  # both PCE measures stay for the watch list; Alphabet once
+    day, t, release, exp, prior, earnings = x_scout.week_table({"2026-10-29": rows})[1][0]
+    assert (day, t, release, exp, prior) == (
+        "Thu\n29",
+        "8:30",
+        "Core PCE Price Index m/m",
+        "0.3%",
+        "0.2%",
+    )
+    assert earnings == "During day: Samsung\nAfter close: GOOG"
 
 
 def test_another_weeks_file_posts_nothing(monkeypatch, tmp_path):
