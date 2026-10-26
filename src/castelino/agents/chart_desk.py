@@ -1,6 +1,9 @@
 """Chart desk (admin → Charts): talk to the chart agent about any idea, or run one prompt on several
 models side by side and vote for the best.
 
+A chat thread's first message gets 2 or 3 questions with suggested answers and no charts (clarify(),
+user ask 2026-10-24: ask first, then draw creative charts); the answers, or any later message, draw.
+
 The model names forms and fred:/yahoo: series (Trade Lab's 12 forms); code fetches the data and draws
 every chart (agents/trade/forms.py). For data FRED and Yahoo lack (a country's market P/E), it asks for
 up to MAX_SEARCHES cited web searches and charts what they return with two cited forms (bars, a line):
@@ -59,9 +62,19 @@ each with a citation and the date or period it refers to, exactly as published."
 KICKER = "CHART DESK"
 MODEL_ID = re.compile(r"^[a-z0-9][a-z0-9._-]*(/[a-z0-9][a-z0-9._:-]*)?$")
 
-SYSTEM = """You are ARC Research's chart desk. The user describes an idea; propose up to 4 charts
-that make its point fastest (or exactly what a follow-up asks for: change one, add one). Be inventive:
-prefer the non-plain forms. You never supply numbers: name a form, its series (fred:ID or
+SYSTEM = """You are ARC Research's chart desk. The user describes an idea (and may have answered your
+questions about it); propose up to 4 charts that make its point (or exactly what a follow-up asks for:
+change one, add one). Be creative, not basic: ask what a sharp strategist would show that a newspaper
+wouldn't (a return split into stocks and currency, how far a market sits below its last peak, whether
+two markets move together and when that broke, how one market did on a benchmark's worst days, where a
+market sits in its range, what a fund really holds) and pick the form that shows it. Give each chart a
+different form. Use a plain form (line, compare, bars) at most once per reply, and only when no other
+form shows the point; the cited forms don't count, they are the only way to chart data FRED and Yahoo
+lack. Reach past the obvious series too: the currency that splits a return, a peer group, a benchmark.
+Unless the user asks for one chart, give 3 or 4 that look at the idea from different angles: the figure
+they asked about, and around it the market moves that explain or test it (for a valuation: how far
+prices fell, how much the currency took, whether peers moved with it). Follow the user's answers to your
+questions. You never supply numbers: name a form, its series (fred:ID or
 yahoo:TICKER, subject first), names (each series' full name in the same order, e.g. iShares MSCI
 Japan ETF, 10-year Treasury yield), a window in days and, for threshold_band, the threshold. Titles are short
 claims with no figures and no dashes. `why` says in one sentence what the chart shows for the idea.
@@ -76,6 +89,14 @@ ones; cited charts take no series. Leave `searches` empty when FRED/Yahoo have t
 Forms:
 {catalog}
 {cited}"""
+ASK = """You are ARC Research's chart desk. The user just described a new idea for charts. Before
+drawing anything, ask 2 or 3 short questions whose answers would change which charts you draw: what
+it should be measured against, what question sits behind it (what would prove or break it), which
+markets or peers, what period. Never ask what the idea already says. Give each question 2 to 4 short
+suggested answers (a few words each) that open different angles, including ones the user may not have
+thought of and that lead to the unusual forms below. `reply` is one sentence on why the answers change
+the charts. Forms you can draw:
+{catalog}"""
 
 
 class CitedPoint(BaseModel):
@@ -98,6 +119,16 @@ class ChartIdea(BaseModel):  # what the model emits; forms.render reads the same
     unit: str | None = None  # cited forms: "x", "%", "$"
 
 
+class Question(BaseModel):
+    text: str
+    options: list[str]  # 2 to 4 short suggested answers; the UI adds Other
+
+
+class Questions(BaseModel):  # what the model emits on a thread's first message
+    reply: str
+    questions: list[Question]
+
+
 class Proposal(BaseModel):
     reply: str
     charts: list[ChartIdea]
@@ -114,6 +145,7 @@ class Reply(BaseModel):
     state: Literal["running", "done", "failed"] = "running"
     text: str = ""
     charts: list[Chart] = []
+    questions: list[Question] = []  # a thread's first reply: asked before anything is drawn
     seconds: float = 0.0
     usd: float = 0.0
     error: str | None = None  # the model call itself failed
@@ -213,11 +245,15 @@ def cached(src: forms.Sources) -> forms.Sources:
 
 
 def _history(turns: list[Turn]) -> list[dict]:
-    """Earlier turns as chat messages: the asks, and each reply's text plus its charts' specs."""
+    """Earlier turns as chat messages: the asks, and each reply's text, questions and charts' specs."""
     msgs = []
     for t in turns:
         r = t.replies[0]
         msgs.append({"role": "user", "content": t.ask})
+        if r.questions:
+            qs = "\n".join(f"- {q.text} (suggested: {'; '.join(q.options)})" for q in r.questions)
+            msgs.append({"role": "assistant", "content": f"{r.text}\nQuestions:\n{qs}"})
+            continue
         charts = "\n".join(
             f"- {c.form} {', '.join(c.series)} {c.window_days}d: {c.title}"
             + (f" (not drawn: {c.error})" if c.error else "")
@@ -411,6 +447,33 @@ def propose(
     return reply
 
 
+def clarify(idea: str, model: str) -> Reply:
+    """A thread's first reply: 2 or 3 questions with suggested answers, nothing drawn."""
+    meter = llm.Meter()
+    started = time.monotonic()
+    reply = Reply(model=model)
+    msgs = [
+        {"role": "system", "content": ASK.format(catalog=forms.catalog_text())},
+        {"role": "user", "content": idea},
+    ]
+    try:
+        q = llm.structured("chart_desk", model, msgs, Questions, meter)
+        reply.text = q.reply
+        reply.questions = [
+            Question(text=x.text.strip(), options=[o.strip() for o in x.options if o.strip()][:4])
+            for x in q.questions
+            if x.text.strip()
+        ][:3]
+        if not reply.questions:
+            raise ValueError("the agent asked no questions; say what you want drawn")
+        reply.state = "done"
+    except Exception as e:  # noqa: BLE001 - the thread stays open: the next message draws
+        reply.state, reply.error = "failed", str(e)[:300]
+    reply.seconds = round(time.monotonic() - started, 1)
+    reply.usd = round(meter.total, 5)
+    return reply
+
+
 # ---------- jobs ----------
 
 
@@ -458,6 +521,8 @@ def chat(ask: str, model: str | None, run_id: str | None, *, sync=False, src=Non
         n = len(r.turns)
 
     def work():
+        if not history:  # a new idea: ask first
+            return _finish(run.id, 0, clarify(ask, model))
         reply = propose(
             ask, model, history, src or cached(forms.Sources.live()), run_dir(run.id), f"t{n}"
         )

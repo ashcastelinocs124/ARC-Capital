@@ -7,13 +7,15 @@ import { BASE, call } from "@/components/admin/DailyDesk";
 // Admin Charts (src/castelino/agents/chart_desk.py): talk to the chart agent about any idea, or run
 // one prompt on several models side by side and vote for the best. The model only names forms and
 // series; code draws every chart from FRED / Yahoo. Its models are its own (config.yaml chart_desk).
+// A chat thread's first reply is questions with clickable answers; nothing is drawn until you answer.
 type Chart = {
   form: string; series: string[]; window_days: number; threshold: number | null; title: string; why: string;
   file: string | null; error: string | null;
 };
+type Question = { text: string; options: string[] };
 type Reply = {
   model: string; state: "running" | "done" | "failed"; text: string; charts: Chart[]; seconds: number; usd: number;
-  error: string | null;
+  error: string | null; questions?: Question[];
 };
 type Run = {
   id: string; kind: "chat" | "compare"; title: string; created_at: string; updated_at: string;
@@ -26,6 +28,10 @@ const png = (run: Run, c: Chart) => `${BASE}/charts/${run.id}/png/${c.file}`;
 const busy = (run: Run | null) => !!run?.turns.some((t) => t.replies.some((r) => r.state === "running"));
 const short = (m: string) => m.split("/").pop()!;
 const money = (x: number) => (x > 0 && x < 0.001 ? "<$0.001" : `$${x.toFixed(3)}`);
+const at = <T,>(xs: T[], i: number, v: T) => xs.map((x, j) => (j === i ? v : x));
+const ring = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+const OTHER = "Other…";
+const JUST_DRAW = "Just draw it: use your best judgment on anything I didn't answer.";
 const when = (iso: string) =>
   new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
@@ -66,7 +72,53 @@ function Failed({ c }: { c: Chart }) {
   );
 }
 
-function ReplyView({ run, r, onZoom }: { run: Run; r: Reply; onZoom: (s: string) => void }) {
+// The questions a new idea gets. Answers go back as your next message; once answered, the chips are inert.
+function QuestionsCard({ qs, onAnswer }: { qs: Question[]; onAnswer?: (text: string) => void }) {
+  const [picked, setPicked] = useState<(string | null)[]>(() => qs.map(() => null));
+  const [other, setOther] = useState<string[]>(() => qs.map(() => ""));
+  const answer = (i: number) => (picked[i] === OTHER ? other[i].trim() : picked[i]) || "your call";
+  return (
+    <div className="grid gap-3.5 rounded-xl border border-border bg-surface-2 px-4 py-3.5">
+      {qs.map((q, i) => (
+        <div key={i}>
+          <p id={`cq-${i}`} className="mb-1.5 text-[13.5px] font-semibold text-text">{i + 1}. {q.text}</p>
+          <div role="group" aria-labelledby={`cq-${i}`} className="flex flex-wrap gap-1.5">
+            {[...q.options, OTHER].map((o) => (
+              <button key={o} type="button" disabled={!onAnswer} aria-pressed={picked[i] === o}
+                onClick={() => setPicked((p) => at(p, i, p[i] === o ? null : o))}
+                className={cn("rounded-full border px-3 py-1 text-[12.5px] disabled:cursor-default", ring,
+                  picked[i] === o ? "border-accent/50 bg-accent-soft font-semibold text-accent" : "border-border-strong bg-surface text-text-2 enabled:hover:text-text")}>
+                {o}
+              </button>
+            ))}
+          </div>
+          {picked[i] === OTHER && (
+            <input autoFocus value={other[i]} onChange={(e) => setOther((p) => at(p, i, e.target.value))}
+              aria-label={`Your own answer to question ${i + 1}`} placeholder="Type your answer"
+              className={cn("mt-1.5 w-full rounded-lg border border-border bg-surface px-2.5 py-1.5 text-[13px] text-text", ring)} />
+          )}
+        </div>
+      ))}
+      {onAnswer && (
+        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+          <button type="button" onClick={() => onAnswer(qs.map((q, i) => `${i + 1}. ${q.text} → ${answer(i)}`).join("\n"))}
+            className={cn("rounded-lg bg-accent px-4 py-1.5 text-[13px] font-bold text-on-accent", ring)}>
+            Draw with these answers
+          </button>
+          <button type="button" onClick={() => onAnswer(JUST_DRAW)}
+            className={cn("rounded-lg border border-border-strong px-4 py-1.5 text-[13px] font-bold text-text-2 hover:text-text", ring)}>
+            Just draw it
+          </button>
+          <span className="text-xs text-muted">A question you skip is left to the agent. You can also type in the box below.</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReplyView({ run, r, onZoom, asking = false, onAnswer }: {
+  run: Run; r: Reply; onZoom: (s: string) => void; asking?: boolean; onAnswer?: (text: string) => void;
+}) {
   const tick = useTicker(r.state === "running");
   const drawn = r.charts.filter((c) => c.file).length;
   return (
@@ -74,17 +126,19 @@ function ReplyView({ run, r, onZoom }: { run: Run; r: Reply; onZoom: (s: string)
       <div className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full border border-border-strong text-[9px] font-extrabold text-accent">ARC</div>
       <div className="min-w-0 flex-1">
         {r.state === "running" ? (
-          <p className="text-[13px] italic text-muted">
-            <span className="font-mono not-italic">{short(r.model)}</span> is picking forms and series, then code fetches FRED / Yahoo and
-            draws… {tick}s
+          <p role="status" className="text-[13px] italic text-muted">
+            <span className="font-mono not-italic">{short(r.model)}</span>{" "}
+            {asking ? "is reading your idea and writing a few questions" : "is picking forms and series, then code fetches FRED / Yahoo and draws"}… {tick}s
           </p>
         ) : (
           <>
             <div className="mb-2 text-[11.5px] text-muted">
-              Chart agent · <span className="font-mono">{r.model}</span> · {r.charts.length} proposed, {drawn} drawn · {r.seconds} s · {money(r.usd)}
+              Chart agent · <span className="font-mono">{r.model}</span> ·{" "}
+              {r.questions?.length ? `${r.questions.length} questions` : `${r.charts.length} proposed, ${drawn} drawn`} · {r.seconds} s · {money(r.usd)}
             </div>
             {r.error && <p className="text-sm text-danger">The model call failed: {r.error}</p>}
             {r.text && <p className="mb-2.5 text-sm leading-relaxed text-text-2">{r.text}</p>}
+            {!!r.questions?.length && <QuestionsCard qs={r.questions} onAnswer={onAnswer} />}
             <div className="grid gap-3 md:grid-cols-2">
               {r.charts.map((c, i) =>
                 c.file ? (
@@ -136,12 +190,12 @@ function Chat({ ov, reload, onZoom }: { ov: Overview; reload: () => void; onZoom
     box.current?.scrollTo({ top: box.current.scrollHeight });
   }, [run]);
 
-  const send = async () => {
-    if (ask.trim().length < 3 || busy(run)) return;
+  const send = async (text = ask) => {
+    if (text.trim().length < 3 || busy(run)) return;
     setErr(null);
     try {
-      const r = await call<Run>("/charts/chat", { ask, model, run_id: id });
-      setAsk("");
+      const r = await call<Run>("/charts/chat", { ask: text, model, run_id: id });
+      if (text === ask) setAsk("");
       setRun(r);
       setId(r.id);
       reload();
@@ -172,14 +226,16 @@ function Chat({ ov, reload, onZoom }: { ov: Overview; reload: () => void; onZoom
         <div ref={box} className="flex max-h-[70vh] flex-1 flex-col gap-5 overflow-y-auto p-5">
           {!run && (
             <p className="m-auto max-w-md text-center text-sm text-muted">
-              Describe an idea, e.g. &ldquo;Is the yen carry trade unwinding? Japan vs the US.&rdquo; The agent proposes up to 4 charts;
-              follow up to change one. Replies take from about 15 seconds to a few minutes, depending on the model.
+              Describe an idea, e.g. &ldquo;Is the yen carry trade unwinding? Japan vs the US.&rdquo; The agent asks you 2 or 3 questions
+              first, then proposes up to 4 charts; follow up to change one. Charts take from about 15 seconds to a few minutes,
+              depending on the model.
             </p>
           )}
           {run?.turns.map((t, i) => (
             <div key={i} className="flex flex-col gap-4">
-              <div className="max-w-[70%] self-end rounded-[14px_14px_4px_14px] border border-accent/30 bg-accent-soft px-3.5 py-2.5 text-sm leading-relaxed">{t.ask}</div>
-              <ReplyView run={run} r={t.replies[0]} onZoom={onZoom} />
+              <div className="max-w-[70%] self-end whitespace-pre-line rounded-[14px_14px_4px_14px] border border-accent/30 bg-accent-soft px-3.5 py-2.5 text-sm leading-relaxed">{t.ask}</div>
+              <ReplyView run={run} r={t.replies[0]} onZoom={onZoom} asking={i === 0}
+                onAnswer={i === run.turns.length - 1 && !busy(run) ? send : undefined} />
             </div>
           ))}
         </div>
@@ -187,13 +243,13 @@ function Chat({ ov, reload, onZoom }: { ov: Overview; reload: () => void; onZoom
         <div className="flex items-end gap-2.5 border-t border-border p-3">
           <textarea value={ask} onChange={(e) => setAsk(e.target.value)} rows={2}
             onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send(); }}
-            placeholder={run ? "Ask for a change or a new chart…" : "Describe your idea…"}
+            placeholder={run ? "Answer, or ask for a change or a new chart…" : "Describe your idea…"}
             className="flex-1 resize-none rounded-[10px] border border-border bg-surface-2 px-3 py-2.5 text-sm text-text" />
           <div className="grid gap-1.5">
             <select value={model} onChange={(e) => setModel(e.target.value)} className="rounded-lg border border-border bg-surface-2 px-2 py-1.5 font-mono text-xs text-text">
               {models.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
-            <button type="button" onClick={send} disabled={busy(run) || ask.trim().length < 3}
+            <button type="button" onClick={() => send()} disabled={busy(run) || ask.trim().length < 3}
               className="rounded-lg bg-accent px-4 py-2 text-[13px] font-bold text-on-accent disabled:opacity-50">
               {busy(run) ? "Drawing…" : "Send"}
             </button>

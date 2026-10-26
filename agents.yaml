@@ -602,8 +602,9 @@ agents:
     prompt: "castelino.agents.chart_desk:SYSTEM"
     schema: "castelino.agents.chart_desk:Proposal"
     summary: >-
-      On the private admin Charts tab, turns your idea (and the thread so far) into up to 4 charts from
-      Trade Lab's 12 forms; code fetches FRED / Yahoo data and draws each one. Compare models runs one
+      On the private admin Charts tab, first asks 2 or 3 questions about a new idea (clickable suggested
+      answers), then turns your answers and the thread so far into up to 4 charts from Trade Lab's 12 forms,
+      reaching for the unusual ones; code fetches FRED / Yahoo data and draws each one. Compare models runs one
       prompt on several models side by side and you vote for the best. gpt-6-luna by default, only here.
     tools:
       - {name: "Chart forms (code)", does: "The same 12 forms as Trade Lab, kicker CHART DESK; a chart that can't be drawn shows why"}

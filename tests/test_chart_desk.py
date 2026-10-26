@@ -27,6 +27,16 @@ def chart(form, *series, title="Japan lags the US"):
     )
 
 
+def questions():
+    return desk.Questions(
+        reply="The answers decide the comparison.",
+        questions=[
+            desk.Question(text="Against what?", options=["The US", "Asian peers", "Both"]),
+            desk.Question(text="Over what period?", options=["1 year", "5 years"]),
+        ],
+    )
+
+
 @pytest.fixture(autouse=True)
 def tmp_runs(tmp_path, monkeypatch):
     monkeypatch.setenv("ARC_CHART_DESK_DIR", str(tmp_path / "chart_desk"))
@@ -59,23 +69,57 @@ def test_chat_draws_retries_failures_and_sends_the_thread_back(monkeypatch):
     )
     retry = desk.Proposal(reply="", charts=[chart("underwater", "yahoo:EWJ", "yahoo:SPY")])
     later = desk.Proposal(reply="Swapped.", charts=[chart("line", "yahoo:FXY")])
-    sent = fake_llm(monkeypatch, {"gpt-6-luna": [first, retry, later]})
+    sent = fake_llm(monkeypatch, {"gpt-6-luna": [questions(), first, retry, later]})
 
     run = desk.chat("Is the yen carry trade unwinding?", None, None, sync=True, src=FAKE)
-    reply = run.turns[0].replies[0]
+    run = desk.chat("1. Against what? → The US", None, run.id, sync=True, src=FAKE)
+    reply = run.turns[1].replies[0]
     assert (reply.model, reply.state, reply.text) == ("gpt-6-luna", "done", "Two angles.")
     assert [c.form for c in reply.charts if c.file] == ["compare", "underwater"]
     errors = [c.error for c in reply.charts if c.error]
     assert "empty" in errors[0] and "bad series" in errors[1]
-    assert "couldn't be drawn" in sent[1][1][-1]["content"]  # the retry is told why
+    assert "couldn't be drawn" in sent[2][1][-1]["content"]  # the retry is told why
     assert reply.usd == pytest.approx(0.002)
     assert (desk.run_dir(run.id) / reply.charts[0].file).exists()
 
     run = desk.chat("Swap the calendar for the yen", None, run.id, sync=True, src=FAKE)
     history = sent[-1][1]
     assert history[1] == {"role": "user", "content": "Is the yen carry trade unwinding?"}
-    assert "compare yahoo:EWJ, yahoo:SPY" in history[2]["content"]  # earlier charts' specs
-    assert len(run.turns) == 2 and run.turns[1].replies[0].charts[0].file
+    assert "Against what? (suggested: The US; Asian peers; Both)" in history[2]["content"]
+    assert history[3] == {"role": "user", "content": "1. Against what? → The US"}
+    assert "compare yahoo:EWJ, yahoo:SPY" in history[4]["content"]  # earlier charts' specs
+    assert len(run.turns) == 3 and run.turns[2].replies[0].charts[0].file
+
+
+def test_a_new_idea_gets_questions_and_nothing_is_drawn(monkeypatch):
+    many = desk.Questions(
+        reply="r",
+        questions=[
+            desk.Question(text=f"Q{i}?", options=["a", " ", "b", "c", "d", "e"]) for i in range(5)
+        ],
+    )
+    sent = fake_llm(monkeypatch, {"gpt-6-luna": [many]})
+    run = desk.chat("Is Indonesia cheap?", None, None, sync=True, src=FAKE)
+    reply = run.turns[0].replies[0]
+    assert (reply.state, reply.charts) == ("done", [])
+    assert [q.text for q in reply.questions] == ["Q0?", "Q1?", "Q2?"]  # at most 3
+    assert reply.questions[0].options == ["a", "b", "c", "d"]  # blanks dropped, at most 4
+    assert "ask 2 or 3 short questions" in sent[0][1][0]["content"]
+    assert list(desk.run_dir(run.id).glob("*.png")) == []
+
+
+def test_a_failed_question_call_leaves_the_thread_open(monkeypatch):
+    fake_llm(monkeypatch, {"gpt-6-luna": [
+        desk.Questions(reply="r", questions=[]),
+        desk.Proposal(reply="Drawn.", charts=[chart("line", "yahoo:EWJ")]),
+    ]})  # fmt: skip
+    run = desk.chat("Japan", None, None, sync=True, src=FAKE)
+    assert (
+        run.turns[0].replies[0].state == "failed"
+        and "no questions" in run.turns[0].replies[0].error
+    )
+    run = desk.chat("Just draw it", None, run.id, sync=True, src=FAKE)
+    assert run.turns[1].replies[0].charts[0].file
 
 
 def test_compare_keeps_a_failing_model_from_breaking_the_others_and_tallies_votes(monkeypatch):
@@ -139,12 +183,13 @@ def test_data_fred_and_yahoo_lack_comes_from_cited_searches_and_every_point_is_c
         charts=[good, chart("line", "yahoo:EWJ"), invented],
     )
     retry = desk.Proposal(reply="", charts=[])
-    sent = fake_llm(monkeypatch, {"gpt-6-luna": [ask, answer, retry]})
+    sent = fake_llm(monkeypatch, {"gpt-6-luna": [questions(), ask, answer, retry]})
 
-    reply = desk.chat("Indonesia and P/E", None, None, sync=True, src=FAKE).turns[0].replies[0]
+    run = desk.chat("Indonesia and P/E", None, None, sync=True, src=FAKE)
+    reply = desk.chat("Both, 5 years", None, run.id, sync=True, src=FAKE).turns[1].replies[0]
     assert searched == ["Indonesia IDX Composite P/E, latest and 5-year average"]
     assert any(
-        "[W1] Indonesia IDX Composite trailing P/E 12.4" in m["content"] for m in sent[1][1]
+        "[W1] Indonesia IDX Composite trailing P/E 12.4" in m["content"] for m in sent[2][1]
     )  # lines go back
     drawn = [c for c in reply.charts if c.file]
     assert [c.form for c in drawn] == ["cited_bars", "line"]  # mixed with Yahoo in one reply
