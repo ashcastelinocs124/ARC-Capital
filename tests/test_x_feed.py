@@ -199,3 +199,19 @@ def test_an_old_cache_is_rebuilt_once_with_threads(tmp_path, monkeypatch):
     assert [t["id"] for t in posts[0]["thread"]] == ["901", "902", "903"]
     x_feed.refresh(now=2000, get=get)
     assert asked[1]["since_id"] == "950"  # the newest post seen, replies included
+
+
+def test_a_check_time_in_the_future_does_not_freeze_the_feed(tmp_path, monkeypatch):
+    p = tmp_path / "x_feed.json"
+    p.write_text('{"v": 2, "posts": [], "checked": 1000000000000, "newest": "900"}')
+    monkeypatch.setattr(x_feed, "_path", lambda: p)
+    for k in x_post.KEYS:
+        monkeypatch.setenv(k, "k")
+    asked = []
+
+    def get(url, params, headers, timeout):
+        asked.append(params)
+        return Reply(THREAD)
+
+    x_feed.refresh(now=1000, get=get)
+    assert asked  # it asked X instead of serving the file forever

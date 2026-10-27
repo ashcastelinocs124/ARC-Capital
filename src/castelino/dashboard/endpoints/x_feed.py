@@ -101,7 +101,8 @@ def refresh(now: float | None = None, get=httpx.get) -> list[dict]:
     p = _path()
     cache = json.loads(p.read_text()) if p.exists() else {"posts": [], "checked": 0}
     now = time.time() if now is None else now
-    if not x_post.can_post() or now - cache.get("checked", 0) < TTL_S:
+    # a check time in the future (as on Fly, Oct 22-27) would freeze the feed for good
+    if not x_post.can_post() or 0 <= now - cache.get("checked", 0) < TTL_S:
         return cache["posts"]
     params = {
         "max_results": str(PER_CALL),
