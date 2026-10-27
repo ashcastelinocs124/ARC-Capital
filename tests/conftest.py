@@ -27,3 +27,12 @@ def _no_visual_decisions(monkeypatch):
     from castelino.agents.research.deep import visuals
 
     monkeypatch.setattr(visuals, "_picks_diagram", lambda p, meter: False)
+
+
+@pytest.fixture(autouse=True)
+def _no_x_feed_decisions(monkeypatch):
+    """No test reaches OpenAI's Decisions API from the X feed: every post counts as a market post.
+    tests/test_x_feed.py replaces it to test the filter."""
+    from castelino.dashboard.endpoints import x_feed
+
+    monkeypatch.setattr(x_feed, "predicates", lambda text, q, meter, agent: {"market": 1.0})

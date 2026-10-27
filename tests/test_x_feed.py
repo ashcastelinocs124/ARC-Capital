@@ -215,3 +215,24 @@ def test_a_check_time_in_the_future_does_not_freeze_the_feed(tmp_path, monkeypat
 
     x_feed.refresh(now=1000, get=get)
     assert asked  # it asked X instead of serving the file forever
+
+
+def test_only_market_posts_show_and_each_is_asked_once(tmp_path, monkeypatch):
+    p = tmp_path / "x_feed.json"
+    p.write_text('{"v": 2, "posts": [], "checked": 0, "newest": "1"}')
+    monkeypatch.setattr(x_feed, "_path", lambda: p)
+    for k in x_post.KEYS:
+        monkeypatch.setenv(k, "k")
+    asked = []
+
+    def ask(text, q, meter, agent):
+        asked.append(text)
+        return {"market": 0.1 if "kane" in text else 0.9}
+
+    monkeypatch.setattr(x_feed, "predicates", ask)
+    body = {
+        "data": [{"id": "11", "text": "well deserved harry kane"}, {"id": "10", "text": "CPI rose"}]
+    }
+    assert [x["id"] for x in x_feed.refresh(now=1000, get=lambda *a, **k: Reply(body))] == ["10"]
+    x_feed.refresh(now=2000, get=lambda *a, **k: Reply({"data": []}))
+    assert len(asked) == 2  # the kept post carries its answer; the dropped one is gone

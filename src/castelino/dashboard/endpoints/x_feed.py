@@ -5,11 +5,15 @@
 X's API bills each post it returns (about $0.005), so data/x_feed.json keeps the last KEEP posts and
 asks X only for posts newer than its newest (since_id), at most every TTL_S: an export with nothing
 new costs nothing. Without the X user keys (only Fly has them) it serves that file as it is.
+
+Only market posts show (user rule, 2026-10-27, after a football post led Home's strip): one Decisions API
+call per post, kept with it as `market`, so each post is asked once.
 """
 
 from __future__ import annotations
 
 import html
+import itertools
 import json
 import time
 
@@ -17,6 +21,8 @@ import httpx
 from fastapi import APIRouter
 
 from castelino import benchmark, x_post
+from castelino.agents.trade import llm
+from castelino.agents.trade.decide import predicates
 from castelino.agents.update.fsio import atomic_write_text
 from castelino.config import get_settings
 
@@ -31,6 +37,13 @@ PER_CALL = 50  # a thread's posts count too; since_id keeps each one billed once
 REPORT_PREFIX = "https://archresearch.substack.com/p/"  # the only report link a card may carry
 VERSION = 2  # 2: posts carry `thread` + `report`; an older file is rebuilt once
 # ponytail: a post deleted on X stays here until KEEP newer ones push it out
+QUESTION = {
+    "market": (
+        "The post is about markets, the economy, companies, investing, AI as an industry or ARC Research's "
+        "work. Sports, personal life, small talk and jokes do not count."
+    )
+}
+PROMPT = QUESTION["market"]  # shown on /admin → Agents
 
 
 def _path():
@@ -97,6 +110,17 @@ def parse(reply: dict, cached: list[dict] | None = None) -> list[dict]:
     return sorted(leads.values(), key=lambda p: int(p["id"]), reverse=True)
 
 
+def _market(p: dict) -> bool:
+    """Whether the feed shows a post: asked once (a probability of 0.5 or more), the answer kept with it."""
+    if "market" not in p:
+        try:
+            ask = predicates(p.get("text", ""), QUESTION, llm.Meter(), agent="x_feed_filter")
+            p["market"] = ask["market"] >= 0.5
+        except Exception:  # noqa: BLE001 - the fallback failed too: show it, ask again next refresh
+            return True
+    return p["market"]
+
+
 def refresh(now: float | None = None, get=httpx.get) -> list[dict]:
     p = _path()
     cache = json.loads(p.read_text()) if p.exists() else {"posts": [], "checked": 0}
@@ -119,13 +143,13 @@ def refresh(now: float | None = None, get=httpx.get) -> list[dict]:
     r.raise_for_status()
     reply = r.json()
     benchmark.record_x("read", len(reply.get("data", [])))  # X bills each post it returns
-    posts = parse(reply, cache["posts"] if fresh else None)[:KEEP]
+    posts = parse(reply, cache["posts"] if fresh else None)
     if not fresh:  # keep older posts the refetch didn't reach
         seen = {x["id"] for x in posts}
         posts += [
             {**x, "thread": [], "report": None} for x in cache["posts"] if x["id"] not in seen
         ]
-        posts = posts[:KEEP]
+    posts = list(itertools.islice((x for x in posts if _market(x)), KEEP))  # asks only as needed
     ids = [str(t["id"]) for t in reply.get("data", []) if str(t.get("id", "")).isdigit()]
     newest = max([*ids, cache.get("newest") or "0"] if fresh else [*ids, "0"], key=int)
     p.parent.mkdir(parents=True, exist_ok=True)

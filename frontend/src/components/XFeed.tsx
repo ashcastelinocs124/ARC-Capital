@@ -124,19 +124,34 @@ function XGrid({ posts }: { posts: XPost[] }) {
   );
 }
 
-// Home: the 3 newest side by side in one bordered strip.
+// The newest `first` posts, 3 to a row, then "Show more" for up to 9 (the export keeps 10).
+function MoreGrid({ posts, first }: { posts: XPost[]; first: number }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <XGrid posts={posts.slice(0, open ? 9 : first)} />
+      {posts.length > first && (
+        <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}
+          className="block w-full border-t border-border px-4 py-3.5 text-left text-[15px] text-accent hover:bg-surface-3/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent">
+          {open ? "Show fewer" : "Show more"}
+        </button>
+      )}
+    </>
+  );
+}
+
+// Home: the 3 newest side by side in one bordered strip, then "Show more".
 export function XStrip({ posts }: { posts: XPost[] }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-border">
-      <XGrid posts={posts.slice(0, 3)} />
+      <MoreGrid posts={posts} first={3} />
     </div>
   );
 }
 
-// About: the 6 newest side by side, 3 to a row, then "Show more" for a third row (the export keeps 10).
+// About: the 6 newest side by side, 3 to a row, then "Show more".
 export function XFeedCard() {
   const posts = useXFeed().data ?? [];
-  const [open, setOpen] = useState(false);
   if (!posts.length) return null;
   return (
     <section aria-label="On X" className="overflow-hidden rounded-2xl border border-border bg-background">
@@ -146,13 +161,7 @@ export function XFeedCard() {
         </div>
         <FollowOnX />
       </div>
-      <XGrid posts={posts.slice(0, open ? 9 : 6)} />
-      {posts.length > 6 && (
-        <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}
-          className="block w-full border-t border-border px-4 py-3.5 text-left text-[15px] text-accent hover:bg-surface-3/45">
-          {open ? "Show fewer" : "Show more"}
-        </button>
-      )}
+      <MoreGrid posts={posts} first={6} />
     </section>
   );
 }

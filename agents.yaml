@@ -359,6 +359,24 @@ agents:
       writes: ["The search times, in the same file"]
       persists: "Up to 12 searches per company a day."
 
+  - id: x_feed_filter
+    name: X feed filter
+    group: X Scout
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "OpenAI Decisions API (gpt-6-luna), structured yes/no fallback"}
+    prompt: "castelino.dashboard.endpoints.x_feed:PROMPT"
+    schema: "castelino.agents.trade.decide:YesNo"
+    summary: >-
+      Decides which of your X posts show on Home's "Latest on X" and About's "On X": only posts about
+      markets, the economy, companies, investing, AI as an industry or ARC's work. Asked once per post
+      when the feed fetches it; a post it can't decide on shows and is asked again next time.
+    tools:
+      - {name: "decide.predicates (code)", does: "One Decisions API call per post; a probability of 0.5 or more shows it"}
+    memory:
+      reads: ["The post's text"]
+      writes: ["`market` on each post in data/x_feed.json"]
+      persists: "The answer, with the post, until 10 newer posts push it out."
+
   - id: x_segment_reader
     name: Segment Reader
     group: X Scout
@@ -1254,6 +1272,8 @@ systems:
         flow: [["Every 2 h"], ["agent:x_scout_search|cited macro + AI"], ["agent:x_scout|1 item, 24h retry", "agent:x_scout_data_chart|the story's own data"], ["agent:x_scout_writer|post + reply"], ["end:X + Substack Note|+ chart · or dry-run log"]]
       - title: "Calendar"
         flow: [["7:00 · every 5 min"], ["code:Week Ahead|pick + card · watch list"], ["agent:x_calendar_writer|week or day read"], ["agent:x_earnings_reader|earnings from cited news", "agent:x_segment_reader|segments from the 8-K", "agent:x_release_writer|one line per release"], ["end:X + Notes|card on both · releases X only ≤6/day"]]
+      - title: "On the site"
+        flow: [["Each publish"], ["code:Your new X posts|since the last fetch"], ["agent:x_feed_filter|market post?"], ["end:Home + About|the 10 newest kept"]]
 
   - group: Research metrics
     trigger: "Refresh (AI Adoption Index); recipes are written by hand"
@@ -1501,6 +1521,9 @@ pipelines:
       - {id: stop, kind: stop, layer: delivery, x: 330, name: Nothing worth posting, sub: until next run, does: "Most findings runs find nothing worth a post, and the run simply stops."}
       - {id: post, kind: out, layer: delivery, x: 490, name: Finding, sub: X + Substack Note, does: "The finding is posted to X with its chart, naming its source, and the analysis follows as a reply; the same finding goes out as one Substack Note with the chart and the source link. While the feature is in test mode, posts are only logged."}
       - {id: cardpost, kind: out, layer: delivery, x: 950, name: Calendar card, sub: X + Substack Note, does: "The week's or today's calendar card posted to X with its read, and as a Substack Note. While the feature is in test mode, posts are only logged."}
+      - {id: xposts, kind: source, layer: sources, x: 1430, name: Your X posts, sub: new since last fetch, does: "The account's own new posts on X (replies to others and reposts left out), fetched at most every 10 minutes when the site publishes."}
+      - {id: feedfilter, kind: llm, agent: x_feed_filter, layer: agents, x: 1430, name: Feed filter, sub: market posts only, does: "At each site publish, every new post on the account is asked once whether it is about markets, the economy, companies, AI or ARC's work; only those show on the site."}
+      - {id: sitefeed, kind: out, layer: delivery, x: 1430, name: On the site, sub: Home + About, does: "The newest market posts, each with its thread and the ARC report it links, on Home's Latest on X and About's On X."}
       - {id: relpost, kind: out, layer: delivery, x: 1110, name: Release post, sub: with charts, does: "A post on X as each watched release or earnings report lands, with its charts: actual vs forecast for data; where the sales and the profit came from and the beat or miss for earnings. While the feature is in test mode, posts are only logged."}
     edges:
       - schedule > search
@@ -1528,13 +1551,16 @@ pipelines:
       - releasew > relpost
       - sec > segread
       - segread > relpost
+      - xposts > feedfilter
+      - feedfilter > sitefeed
     steps:
       - {title: Find, nodes: [schedule, search, web], edges: [schedule > search, web > search], io: ["in: last 6 hours of news", "out: cited items"], text: "Every hour the Scout search agent lists the macro and AI news of the last 6 hours, and only lines with a citation go on."}
       - {title: Pick, nodes: [scout, limits, stop], edges: [search > scout, limits > scout, scout > stop], io: ["in: cited items + past posts", "out: one item or stop"], text: "The Scout agent picks the one item worth a post and the series that chart it. It skips anything already posted, and most runs stop here."}
-      - {title: Chart, write and post, nodes: [datachart, writer, series, check, post], edges: [scout > datachart, web > datachart, datachart > writer, scout > writer, series > writer, writer > check, check > post], io: ["in: item + chart data", "out: finding on X"], text: "Code draws the chart: the story's own figures from a cited web search (the Data charter picks them, code checks each one) or, for a market, FRED and Yahoo series. The Writer agent writes the post and its analysis; code checks every number, then the finding goes out on X."}
+      - {title: "Chart, write and post", nodes: [datachart, writer, series, check, post], edges: [scout > datachart, web > datachart, datachart > writer, scout > writer, series > writer, writer > check, check > post], io: ["in: item + chart data", "out: finding on X"], text: "Code draws the chart: the story's own figures from a cited web search (the Data charter picks them, code checks each one) or, for a market, FRED and Yahoo series. The Writer agent writes the post and its analysis; code checks every number, then the finding goes out on X."}
       - {title: Calendar card, nodes: [calsched, pick, calendar, cardw], edges: [calsched > pick, calendar > pick, pick > cardw], io: ["in: the week's calendar", "out: card + read"], text: "At 7:00 on weekdays code picks the key releases and reporters and draws the card; the Calendar writer adds a short read."}
       - {title: Check and post the card, nodes: [cardcheck, cardpost], edges: [cardw > cardcheck, cardcheck > cardpost], io: ["in: card + read", "out: card on X"], text: "Code checks every figure in the read against the card, then the card goes out on X."}
       - {title: Release posts, nodes: [watchcap, nasdaq, earnread, sec, segread, releasew, relpost], edges: [cardcheck > watchcap, watchcap > releasew, nasdaq > releasew, web > earnread, earnread > releasew, sec > segread, segread > relpost, releasew > relpost], io: ["in: watch list + live calendar + cited news + SEC filings", "out: release posts with charts"], text: "Every 5 minutes code checks Trading Economics' live calendar for the morning's watched data, and a cited news search (read by the Earnings Reader) for each watched company once its session opens; each release that lands posts once with its numbers against what was expected, plus one plain sentence and its charts: actual vs forecast for data; for earnings, where the sales and the profit came from (the Segment Reader copies the SEC filing's segment table) and the beat or miss."}
+      - {title: On the site, nodes: [xposts, feedfilter, sitefeed], edges: [xposts > feedfilter, feedfilter > sitefeed], io: ["in: new posts on the account", "out: market posts on the site"], text: "Each site publish fetches the account's new posts; the Feed filter keeps only posts about markets, the economy, companies, AI or ARC's work for Home and About."}
 
   - id: consultants
     name: Topic Consultants
