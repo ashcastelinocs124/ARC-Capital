@@ -12,7 +12,13 @@ import httpx
 from fastapi import APIRouter
 
 from castelino.dashboard.endpoints.themes import themes_posts
-from castelino.dashboard.endpoints.videos import _CONTENT, POST_PREFIX, THUMB_OVERRIDES, feed_xml
+from castelino.dashboard.endpoints.videos import (
+    _CONTENT,
+    POST_PREFIX,
+    THUMB_OVERRIDES,
+    archive_json,
+    feed_xml,
+)
 
 router = APIRouter()
 
@@ -64,6 +70,31 @@ def parse_daily_posts(xml: str) -> list[dict]:
     return sorted(out, key=lambda p: p["date"], reverse=True)
 
 
+def archive_daily_posts(archive: list[dict], seen: set[str]) -> list[dict]:
+    """The notes and Theme Charts posts the RSS feed (its newest 20) no longer carries, from the archive.
+    The archive list has no body, so these show no takeaways."""
+    out = []
+    for p in archive:
+        m = _SUBTITLE.match((p.get("subtitle") or "").strip())
+        url = p.get("canonical_url") or ""
+        if not m or not url.startswith(POST_PREFIX) or url in seen:
+            continue
+        cover = p.get("cover_image") or ""
+        out.append(
+            {
+                "date": datetime.strptime(m.group(2), "%B %d, %Y").date().isoformat(),
+                "kind": "charts" if m.group(1) == "Theme Charts" else "note",
+                "title": (p.get("title") or "").strip(),
+                "takeaways": [],
+                "image": THUMB_OVERRIDES.get(
+                    url.rsplit("/", 1)[-1], cover if cover.startswith("https://") else None
+                ),
+                "url": url,
+            }
+        )
+    return out
+
+
 @router.get("/daily_posts")
 def daily_posts():
     try:
@@ -74,4 +105,8 @@ def daily_posts():
     # so add the runs we published ourselves (data/themes/substack/) that the feed doesn't carry yet.
     seen = {p["url"] for p in posts}
     posts += [{**p, "kind": "charts"} for p in themes_posts() if p["url"] not in seen]
+    try:
+        posts += archive_daily_posts(archive_json(), {p["url"] for p in posts})
+    except (httpx.HTTPError, ValueError):
+        pass  # the RSS feed's posts still show
     return sorted(posts, key=lambda p: p["date"], reverse=True)

@@ -31,3 +31,34 @@ def test_parse_daily_posts_keeps_only_daily_notes_and_theme_charts_on_the_substa
     p = posts[4]
     assert p["date"] == "2026-10-08" and p["image"] == "https://cdn/x.png"
     assert p["takeaways"] == ["Waller left room for a pause.", "Auction pressure."]
+
+
+def test_archive_adds_the_posts_the_feed_dropped():
+    from castelino.dashboard.endpoints.daily_posts import archive_daily_posts
+
+    archive = [
+        {
+            "title": "Saudi strikes",
+            "subtitle": "ARC Morning Note · Monday, October 12, 2026",
+            "canonical_url": "https://archresearch.substack.com/p/saudi-strikes",
+        },
+        {
+            "title": "Fed pause",
+            "subtitle": "ARC Daily Note · Thursday, October 8, 2026",
+            "canonical_url": "https://archresearch.substack.com/p/fed-pause",
+            "cover_image": "https://cdn/c.png",
+        },
+        {
+            "title": "Neolabs",
+            "subtitle": "AI",
+            "canonical_url": "https://archresearch.substack.com/p/n",
+        },
+    ]
+    seen = {"https://archresearch.substack.com/p/saudi-strikes"}
+    (p,) = archive_daily_posts(archive, seen)
+    assert (p["date"], p["kind"], p["image"], p["takeaways"]) == (
+        "2026-10-08",
+        "note",
+        "https://cdn/c.png",
+        [],
+    )

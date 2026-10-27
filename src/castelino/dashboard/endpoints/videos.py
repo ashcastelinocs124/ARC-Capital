@@ -13,7 +13,10 @@ from fastapi import APIRouter
 router = APIRouter()
 
 FEED = "https://archresearch.substack.com/feed"
-ARCHIVE = "https://archresearch.substack.com/api/v1/archive?sort=new&limit=50"  # has video covers and durations
+ARCHIVE = "https://archresearch.substack.com/api/v1/archive"  # has video covers and durations
+ARCHIVE_PAGES = (
+    10  # Substack sends ~25 posts a call whatever the limit (75 posts = 3 calls on 2026-10-27)
+)
 POST_PREFIX = "https://archresearch.substack.com/p/"
 _CONTENT = "{http://purl.org/rss/1.0/modules/content/}encoded"
 _TTL_S = 3600
@@ -54,15 +57,24 @@ def feed_xml() -> str:
 
 
 def archive_json() -> list[dict]:
-    """Substack's post archive (covers, durations, sections), cached for an hour. Raises on an error."""
+    """Substack's whole post archive (covers, durations, sections), newest first, cached for an hour.
+    Paged: one call stopped at Oct 9 by Oct 27, so the AI posts fell off their pages. Raises on an error."""
     global _archive
     if time.time() - _archive[0] >= _TTL_S:
-        r = httpx.get(ARCHIVE, timeout=20)
-        r.raise_for_status()
-        data = r.json()
-        if not isinstance(data, list):
-            raise ValueError("unexpected archive reply")
-        _archive = (time.time(), data)
+        posts: dict = {}
+        for _ in range(ARCHIVE_PAGES):
+            params = {"sort": "new", "limit": 50, "offset": len(posts)}
+            r = httpx.get(ARCHIVE, params=params, timeout=20)
+            r.raise_for_status()
+            page = r.json()
+            if not isinstance(page, list):
+                raise ValueError("unexpected archive reply")
+            new = {p.get("id") or p.get("slug"): p for p in page}
+            new = {k: p for k, p in new.items() if k not in posts}
+            if not new:
+                break
+            posts.update(new)
+        _archive = (time.time(), list(posts.values()))
     return _archive[1]
 
 

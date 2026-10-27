@@ -54,3 +54,26 @@ def test_feed_fetch_asks_for_a_fresh_build(monkeypatch):
     monkeypatch.setattr(videos.httpx, "get", lambda url, **kw: seen.append(kw) or Reply())
     videos.feed_xml()
     assert "t" in (seen[0].get("params") or {})
+
+
+def test_archive_pages_until_nothing_new(monkeypatch):
+    """Substack sends ~25 posts a call whatever the limit: one call lost the AI posts by 2026-10-27."""
+    from castelino.dashboard.endpoints import videos
+
+    pages = {0: [{"id": 3}, {"id": 2}], 2: [{"id": 2}, {"id": 1}], 3: [{"id": 1}]}
+
+    class Reply:
+        def __init__(self, body):
+            self.body = body
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self.body
+
+    monkeypatch.setattr(videos, "_archive", (0.0, []))
+    monkeypatch.setattr(
+        videos.httpx, "get", lambda url, params, **kw: Reply(pages[params["offset"]])
+    )
+    assert [p["id"] for p in videos.archive_json()] == [3, 2, 1]
