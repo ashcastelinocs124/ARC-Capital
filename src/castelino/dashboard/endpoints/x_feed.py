@@ -31,11 +31,11 @@ router = APIRouter()
 HANDLE = "AshleynCas46131"
 USER_ID = "1702425364474044416"  # GET /2/users/me with Fly's X keys, 2026-10-20
 TIMELINE = f"https://api.x.com/2/users/{USER_ID}/tweets"
-KEEP = 10  # top-level posts, each with its thread; About shows 6, then "Show more"
+KEEP = 20  # top-level posts, each with its thread; Home and About show 6, then "Show more" for all
 TTL_S = 600
 PER_CALL = 50  # a thread's posts count too; since_id keeps each one billed once
 REPORT_PREFIX = "https://archresearch.substack.com/p/"  # the only report link a card may carry
-VERSION = 2  # 2: posts carry `thread` + `report`; an older file is rebuilt once
+VERSION = 3  # 2: posts carry `thread` + `report`; 3: refetched once to fill KEEP = 20; an older file is rebuilt once
 # ponytail: a post deleted on X stays here until KEEP newer ones push it out
 QUESTION = {
     "market": (
@@ -147,7 +147,7 @@ def refresh(now: float | None = None, get=httpx.get) -> list[dict]:
     if not fresh:  # keep older posts the refetch didn't reach
         seen = {x["id"] for x in posts}
         posts += [
-            {**x, "thread": [], "report": None} for x in cache["posts"] if x["id"] not in seen
+            {"thread": [], "report": None, **x} for x in cache["posts"] if x["id"] not in seen
         ]
     posts = list(itertools.islice((x for x in posts if _market(x)), KEEP))  # asks only as needed
     ids = [str(t["id"]) for t in reply.get("data", []) if str(t.get("id", "")).isdigit()]

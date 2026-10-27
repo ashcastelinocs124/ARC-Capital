@@ -124,12 +124,12 @@ function XGrid({ posts }: { posts: XPost[] }) {
   );
 }
 
-// The newest `first` posts, 3 to a row, then "Show more" for up to 9 (the export keeps 10).
+// The newest `first` posts, 3 to a row, then "Show more" for the rest (the export keeps 20).
 function MoreGrid({ posts, first }: { posts: XPost[]; first: number }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <XGrid posts={posts.slice(0, open ? 9 : first)} />
+      <XGrid posts={open ? posts : posts.slice(0, first)} />
       {posts.length > first && (
         <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}
           className="block w-full border-t border-border px-4 py-3.5 text-left text-[15px] text-accent hover:bg-surface-3/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent">
@@ -140,11 +140,11 @@ function MoreGrid({ posts, first }: { posts: XPost[]; first: number }) {
   );
 }
 
-// Home: the 3 newest side by side in one bordered strip, then "Show more".
+// Home: the 6 newest, 3 to a row, in one bordered strip, then "Show more".
 export function XStrip({ posts }: { posts: XPost[] }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-border">
-      <MoreGrid posts={posts} first={3} />
+      <MoreGrid posts={posts} first={6} />
     </div>
   );
 }

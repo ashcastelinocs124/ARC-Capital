@@ -1,3 +1,5 @@
+import json
+
 from castelino import x_post
 from castelino.dashboard.endpoints import x_feed
 
@@ -203,7 +205,7 @@ def test_an_old_cache_is_rebuilt_once_with_threads(tmp_path, monkeypatch):
 
 def test_a_check_time_in_the_future_does_not_freeze_the_feed(tmp_path, monkeypatch):
     p = tmp_path / "x_feed.json"
-    p.write_text('{"v": 2, "posts": [], "checked": 1000000000000, "newest": "900"}')
+    p.write_text('{"v": 3, "posts": [], "checked": 1000000000000, "newest": "900"}')
     monkeypatch.setattr(x_feed, "_path", lambda: p)
     for k in x_post.KEYS:
         monkeypatch.setenv(k, "k")
@@ -219,7 +221,7 @@ def test_a_check_time_in_the_future_does_not_freeze_the_feed(tmp_path, monkeypat
 
 def test_only_market_posts_show_and_each_is_asked_once(tmp_path, monkeypatch):
     p = tmp_path / "x_feed.json"
-    p.write_text('{"v": 2, "posts": [], "checked": 0, "newest": "1"}')
+    p.write_text('{"v": 3, "posts": [], "checked": 0, "newest": "1"}')
     monkeypatch.setattr(x_feed, "_path", lambda: p)
     for k in x_post.KEYS:
         monkeypatch.setenv(k, "k")
@@ -236,3 +238,17 @@ def test_only_market_posts_show_and_each_is_asked_once(tmp_path, monkeypatch):
     assert [x["id"] for x in x_feed.refresh(now=1000, get=lambda *a, **k: Reply(body))] == ["10"]
     x_feed.refresh(now=2000, get=lambda *a, **k: Reply({"data": []}))
     assert len(asked) == 2  # the kept post carries its answer; the dropped one is gone
+
+
+def test_a_rebuild_keeps_the_threads_of_posts_it_did_not_reach(tmp_path, monkeypatch):
+    p = tmp_path / "x_feed.json"
+    old = {"id": "5", "text": "CPI rose", "thread": [{"id": "6"}], "report": {"url": "r"}}
+    p.write_text(json.dumps({"v": 2, "posts": [old], "checked": 0, "newest": "6"}))
+    monkeypatch.setattr(x_feed, "_path", lambda: p)
+    for k in x_post.KEYS:
+        monkeypatch.setenv(k, "k")
+    posts = x_feed.refresh(
+        now=1000, get=lambda *a, **k: Reply({"data": [{"id": "10", "text": "PPI"}]})
+    )
+    assert [x["id"] for x in posts] == ["10", "5"]
+    assert posts[1]["thread"] == [{"id": "6"}] and posts[1]["report"] == {"url": "r"}
