@@ -17,7 +17,7 @@ agents:
       - {key: OPENAI_API_KEY, required: true, why: "LLM calls (gpt-6-sol)"}
     class: castelino.agents.update.orchestrator.UpdateOrchestrator
     summary: >-
-      Runs the morning research desk: briefs the Macro, News and Alt agents from memory, then
+      Runs the morning research desk: briefs the Macro, News, Alt and AI agents from memory, then
       reviews what they found and sends up to one follow-up ask per agent (max 2 rounds).
     tools:
       - {name: "plan()", does: "One brief per agent, no numbers"}
@@ -100,6 +100,9 @@ agents:
       run what happened, why, then how it came about from code-pulled background) and picks each
       item's chart form. Under an item a topic consultant covers it adds a one-paragraph ARC view: that
       consultant's reading of what is happening and what could happen. A number guard checks every figure.
+      On the admin Daily desk it also drafts the edits you ask for: the Edit Router sends it your
+      request and the current note, code puts back word for word everything the request isn't
+      about, and the draft waits for your Approve.
     tools:
       - {name: "Background (code)", does: "Stock price history, a release's last 12 readings or a series' recent moves, and earlier ARC notes, linked to the findings as facts"}
       - {name: "Market sentiment (code)", does: "ARC's Fear & Greed needle recomputed from the day's close, its 5 signals ordered by how far they moved, and each sector's Sector Sentiment reading in words (price trend vs fundamentals, sector-wide or one stock), as one finding the Editor may cite only to explain another item's move"}
@@ -107,9 +110,10 @@ agents:
       - {name: "check_note (guard)", does: "Every %, bp or pp, and every Fear & Greed or sector score, must be in the facts behind the cited findings; an item can't rest on sentiment alone; one retry"}
       - {name: "Consult step (code)", does: "The day's consultant theses and up to 15 of their facts, saved per day so a rebuild uses that day's"}
       - {name: "view_errors (guard)", does: "An ARC view may cite only its consultant's facts, at most 2 figures and about 80 words; one retry, then the box is dropped, never the note"}
+      - {name: "keep_untouched (code, desk edits)", does: "After each draft of a desk edit, puts back every item, the headline and the takeaways the request isn't about; an item citing a new point's findings stays the Editor's"}
     memory:
-      reads: ["MEMORY.md — top 5 themes", "long-term.md — older themes"]
-      writes: ["Theme notes (touched and new)", "data/updates/<date>.json — written last, marks the day done"]
+      reads: ["MEMORY.md — top 5 themes", "long-term.md — older themes", "On a desk edit: your request and the current note; the day's saved background, calendar and sentiment facts (not recomputed)"]
+      writes: ["Theme notes (touched and new)", "data/updates/<date>.json — written last, marks the day done", "On a desk edit: updates/proposals/<day>/ instead, until you approve it"]
       persists: >-
         Two-tier markdown in data/update_agent/memory/. Caps (5 short / 20 long) and eviction by
         importance minus whole months unused are enforced in code, not the prompt.
@@ -121,6 +125,7 @@ agents:
       - {key: OPENAI_API_KEY, required: true, why: "LLM call (gpt-6-sol) + web search (gpt-6-luna)"}
       - {key: FRED_API_KEY, required: false, why: "FRED series; falls back to the keyless CSV endpoint when unset"}
       - {key: X_API_KEY, required: false, why: "With X_API_SECRET, X_ACCESS_TOKEN and X_ACCESS_SECRET, the 08:00 weekday run posts its X thread; else it only logs it"}
+      - {key: SUBSTACK_SID, required: false, why: "Publishes the run on Substack; unset = no post, and the X thread links the site"}
     class: castelino.agents.themes.ThemePicker
     summary: >-
       At 08:00 ET on weekdays, picks the US macro theme an analyst or trader must know before the
@@ -128,8 +133,8 @@ agents:
       and today's calendar (Week Ahead's releases and biggest earnings), then picks 6 charts that
       each answer a pre-open question (what moved overnight, what's priced, how stretched, what
       trades together; at least 5 must draw). Code fetches and draws every plotted number. Each
-      run is published on Substack (a card on /themes) and posted to X as a thread
-      linking that post, with no approval step for either.
+      run is drawn on Radar's Today's theme card, published on Substack with a cover, and posted to
+      X as a thread linking that post, with no approval step.
     tools:
       - {name: "gather() (code)", does: "One cited web search for the most-discussed macro themes, 1d/1w/1m market moves, Polymarket economy + Fed odds swings, and today's calendar from data/week_ahead.json (C facts: US releases and inflation/jobs abroad with consensus, the 5 biggest earnings)"}
       - {name: "resolve() (code)", does: "Fetches each fred:/yahoo: series a chart names; the weekly guard drops a chart that can't be drawn"}
@@ -222,7 +227,8 @@ agents:
     summary: >-
       Every hour (10:15-23:15 ET on weekdays, 08:15-23:15 at weekends), one cited web search lists up to 8 macro and AI
       items from the last 6 hours: data releases against forecasts, central banks, model and chip
-      launches, AI capex. Lines without a citation are dropped before the Scout sees them.
+      launches, AI capex. Lines without a citation are dropped before the Scout sees them. When
+      that pass posts nothing, a second search covers everything since midnight ET.
     tools:
       - {name: "web_search", does: "One cited search per run; each cited line becomes a fact with its numbers and source"}
     memory: {reads: ["The time of the run"], writes: ["Nothing; the cited items go straight to the Scout"], persists: "Nothing between runs."}
@@ -235,17 +241,18 @@ agents:
       - {key: FRED_API_KEY, required: false, why: "A fred: chart series; falls back to the keyless CSV endpoint when unset"}
     class: castelino.x_scout.Scout
     summary: >-
-      Picks the one cited item a macro investor would stop scrolling for and names 1-4 FRED or
-      Yahoo series to chart it. When nothing clears the bar (or the pick can't be charted or
-      written), code searches the last 24 hours and the Scout must pick the best item not yet
-      posted, so a run posts unless everything is old. Code fetches and draws every plotted value.
+      Picks the one cited item a macro investor would stop scrolling for, and names a chart form
+      and the FRED or Yahoo series it needs. The form comes from Trade Lab's 12 forms, never the
+      previous post's form, with at most 2 line or compare charts a day. When nothing clears the bar
+      (or the pick can't be charted or written), code searches again from midnight ET and the Scout
+      must pick the best item not yet posted. Code fetches and draws every plotted value.
       A story about a company's or an industry's own figures (compute, capacity, capex) also gets up
       to 3 data requests, charted by the Data Charter; a share price is the chart only when its move
       is the story.
     tools:
-      - {name: "chart() (code)", does: "fetch_series per series, drawn as one line or 2-4 compared (prices rebased to 100) with the Daily Update renderer; the fallback when the data requests find nothing to chart"}
+      - {name: "chart() (code)", does: "Draws the picked Trade Lab form from fetch_series; line and compare use the Daily Update renderer; a form that fails falls back to dial, bars, then line. The fallback when the data requests find nothing to chart"}
     memory:
-      reads: ["The cited items", "This account's posts from the last 7 days (data/x_posts/scout/)", "Today's market alerts (data/x_posts/moves/)"]
+      reads: ["The cited items", "This account's posts from the last 7 days (data/x_posts/scout/)", "This account's release posts from the last 7 days (data/x_posts/calendar/)", "Today's market alerts (data/x_posts/moves/)"]
       writes: ["data/x_posts/scout/<date>/<HHMM>.png"]
       persists: "Each day's posts; code also refuses a source URL already posted in the last 7 days."
 
@@ -253,7 +260,7 @@ agents:
     name: Data Charter
     group: X Scout
     dependencies:
-      - {key: OPENAI_API_KEY, required: true, why: "Cited web searches and the LLM call (x_scout.writer_model, gpt-6-luna)"}
+      - {key: OPENAI_API_KEY, required: true, why: "Cited web searches (web_search.model, gpt-5.4-mini) and the LLM call (x_scout.writer_model, gpt-6-luna)"}
     class: castelino.x_scout.DataCharter
     summary: >-
       When the Scout's story is about a company's or an industry's own figures (SpaceX's computing
@@ -272,20 +279,24 @@ agents:
     dependencies:
       - {key: OPENAI_API_KEY, required: true, why: "LLM call (x_scout.writer_model, gpt-6-luna)"}
       - {key: X_API_KEY, required: false, why: "With X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET and X_SCOUT_LIVE=1, posts go live; else dry run"}
+      - {key: SUBSTACK_SID, required: false, why: "Posts the same text and chart as a Substack Note; unset = X only"}
     class: castelino.x_scout.Writer
     summary: >-
-      Writes the lead post (the finding and what the chart shows) and one reply (2-3 sentences of
-      analysis) from the cited line and the chart's code-computed numbers. Any number not among
-      them, a link or web address, or a post over 280 characters, gets one retry, then nothing is
-      posted. It names the source; code adds the topic tag and "Source: <name>" to the lead (no link:
-      X bills a post with one at $0.200, a plain post $0.015).
+      Writes the lead post (the finding and what the chart shows) and a 3-post analysis thread:
+      what happened, why it matters, what to watch. It writes from the cited line, one cited
+      context search and the chart's code-computed numbers. Any number not among them, a link or
+      web address, a ticker that doesn't trade on Yahoo, or a post over 280 characters gets one
+      retry, then nothing is posted. Code adds "Source: <name>" to the lead, with no link (X bills
+      $0.200 for a post with one, $0.015 for a plain post). The same text goes out as a Substack
+      Note, with the link.
     tools:
       - {name: "check() (code)", does: "Every figure must be in the source line or the chart data (unit figures via the Daily Update guard); no link or domain anywhere; each post ≤280"}
-      - {name: "x_post (code)", does: "Uploads the chart, posts the lead, then the reply under it; dry-run log until X_SCOUT_LIVE=1"}
+      - {name: "x_post (code)", does: "Uploads the chart, posts the lead, then the thread under it; dry-run log until X_SCOUT_LIVE=1"}
+      - {name: "substack.post_note (code)", does: "The same text and chart as a Substack Note, with the link; a failure never blocks X"}
     memory:
-      reads: ["The picked cited line", "The chart's numbers: last, change, high, low, below the high, rebased level"]
-      writes: ["data/x_posts/scout/<date>.json (texts, chart, X ids, dry_run)"]
-      persists: "Each day's posts: at most 2 a day."
+      reads: ["The picked cited line", "One cited context search (K facts)", "The chart's numbers: last, change, high, low, below the high, rebased level"]
+      writes: ["data/x_posts/scout/<date>.json (texts, chart, X ids, Note id, dry_run)"]
+      persists: "Each day's posts: at most 16 a day."
 
   - id: x_calendar_writer
     name: Calendar Writer
@@ -293,14 +304,16 @@ agents:
     dependencies:
       - {key: OPENAI_API_KEY, required: true, why: "LLM call (x_scout.writer_model, gpt-6-luna)"}
       - {key: X_API_KEY, required: false, why: "With X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET and X_SCOUT_LIVE=1, posts go live; else dry run"}
+      - {key: SUBSTACK_SID, required: false, why: "Posts the card as a Substack Note; unset = X only"}
     class: castelino.x_scout.CardWriter
     summary: >-
       At 07:00 ET on weekdays code draws the calendar card from Week Ahead (Monday: the week; Tuesday
       to Friday: today, with the rows it will watch marked) and this call writes the short read on
-      top. Every figure must be on the card; one retry, then a code-written line.
+      top. Every figure must be on the card; one retry, then a code-written line. The card also goes
+      out as a Substack Note.
     tools:
       - {name: "pick() + draw_card() (code)", does: "Key US releases by tier with a consensus, inflation and jobs abroad, the largest companies reporting; drawn in the ARC chart frame"}
-      - {name: "x_scout.check (code)", does: "Every figure in the read must be one of the card's numbers; ≤280 characters"}
+      - {name: "_untraced (code)", does: "Every figure in the read must be one of the card's numbers; no link; ≤280 characters"}
     memory:
       reads: ["The card's rows (time, release, consensus, previous; company, session, EPS estimate)"]
       writes: ["data/x_posts/calendar/<date>.json (card post, today's watch list)", "data/x_posts/calendar/<date>/card.png"]
@@ -317,13 +330,15 @@ agents:
       Every 5 minutes from 07:00 to 23:55 ET, every day, code checks Trading Economics' live calendar
       (data) and the Earnings Reader (earnings); when a watched release lands, code writes the numbers line
       (actual vs expected, previous) and this call adds one plain sentence with no digit, dropped if it has one.
+      Each post carries code-drawn charts: for earnings, where sales and profit came from (Segment
+      Reader) and the beat or miss; for data, actual vs forecast vs previous. A chart that fails is left out.
     tools:
       - {name: "landed() (code)", does: "Today's Trading Economics rows (the watched countries' pages) matched to the morning's watch list; a release's m/m and y/y post together"}
       - {name: "x_post (code)", does: "One post per release, once, at most 7 a day; may post in the Theme Charts quiet hour"}
     memory:
       reads: ["The release's numbers line"]
-      writes: ["data/x_posts/calendar/<date>.json (releases posted, X ids)"]
-      persists: "Each day's release posts: never twice, at most 6."
+      writes: ["data/x_posts/calendar/<date>.json (releases posted, X ids)", "The chart PNGs beside the day's file"]
+      persists: "Each day's release posts: never twice, at most 7."
 
   - id: x_earnings_reader
     name: Earnings Reader
@@ -335,7 +350,7 @@ agents:
       Nasdaq's day calendar never shows reported EPS, so for each watched company code runs a cited
       web search once its session opens (06:30 for pre-market, 16:05 after the close), at most every
       15 minutes. This call reads those cited lines: reported today or not, and the numbers line
-      ("SpaceX (SPCX) Q3: EPS $0.35 vs $0.13 expected; revenue ..."). Code posts it only if every
+      ("$SPCX Q3: EPS $0.35 vs $0.13 expected; revenue ..."). Code posts it only if every
       figure is a cited line's and the ticker trades on Yahoo.
     tools:
       - {name: "earnings_result() (code)", does: "One cited search per check; the reader's line is dropped if a figure is not in the cited lines or the ticker doesn't trade"}
@@ -374,8 +389,9 @@ agents:
     class: castelino.agents.update.desk.DeskChatAgent
     summary: >-
       On the private admin Daily desk, answers questions about one agent's work on one day
-      (Macro, News, Alt, AI or the Editor), from that day's saved findings and facts only, citing
-      their ids. Read-only: re-runs, rebuilds and Substack drafts are separate buttons.
+      (Macro, News, Alt, AI or the Editor; on the Editor tab it is the chat's Ask mode), from that
+      day's saved findings and facts only, citing their ids. Read-only: edits, re-runs, rebuilds
+      and Substack drafts are separate.
     tools: []
     memory: {reads: ["The day's findings and facts for that agent (the Editor also sees the note)", "The conversation so far, sent by the browser"], writes: [], persists: "Nothing."}
 
@@ -392,7 +408,9 @@ agents:
       cover goes to the one analyst that covers it (Macro, News, Alt or AI) for a mini run; then
       the Editor rewrites the note with your request, through the number guard and charts, as a
       draft you approve or reject. Nothing changes until you approve.
-    tools: []
+    tools:
+      - {name: "Mini run (desk.rerun_locked)", does: "A new point the day's findings don't cover: runs only the analyst that covers it, with the router's brief; its findings join the day. None found = nothing changes"}
+      - {name: "Draft (runner.propose)", does: "The Editor rewrites the note with your request through the number guard and charts, from the day's saved facts, into updates/proposals/<day>/; Approve swaps it in (old note backed up), Reject drops it, a draft older than the note is refused"}
     memory: {reads: ["Your request", "The day's note (headline, takeaways, item titles) and findings"], writes: ["updates/proposals/<day>/ (the draft, until you approve or reject it)"], persists: "The draft only."}
 
   - id: cover_artist
@@ -403,18 +421,20 @@ agents:
       - {key: SUBSTACK_SID, required: false, why: "Sets the image as the draft's cover; unset = no draft, no cover"}
     class: castelino.cover.CoverArtist
     summary: >-
-      Gives each Daily Update and Weekly Deep Dive Substack draft a cover image. One fast call turns
-      the headline and stories into a 2-3 word title, the public figures the post names (Fed
-      officials, CEOs) and a few things to draw, with the companies' logos; code keeps only people
-      the post names, wraps it in a fixed style and the image model draws a 16:9 cover (redrawn
-      once with generic people if it refuses a real person). Only a draft with no cover gets one, so a
-      cover set by hand is kept; a failure leaves the draft without one.
+      Gives each Daily Update, Weekly Deep Dive and Theme Charts Substack draft a cover image. One
+      fast call turns the post into a 2-3 word title, 2 or 3 public figures and a few things to
+      draw. The figures are people the post names or the leaders of companies it covers; a central
+      banker appears only when a story is that bank's decision. Nobody from the last 3 covers appears
+      again. For someone the post doesn't name, one web search checks who holds the role today. The
+      image model draws a 16:9 cover in a fixed style, and redraws it once with generic people if it
+      refuses a real person. Only a draft with no cover gets one, so a cover set by hand is kept; a
+      failure leaves the draft without one.
     tools:
       - {name: "draw() (code)", does: "One image call (config cover: gpt-image-2, 1536x864, high) with the fixed STYLE prompt + title + scene"}
       - {name: "substack.push(cover=)", does: "Uploads the PNG and sets it as the draft's cover_image"}
     memory:
       reads: ["The finished note: headline + story titles (weekly: report title + trend titles)"]
-      writes: ["data/updates/covers/<day>.png", "data/deep/covers/<week>.png"]
+      writes: ["data/updates/covers/<day>.png", "data/deep/covers/<week>.png", "data/themes/covers/<run>.png", "data/cover_people.json (who was on each cover)"]
       persists: "The PNG, so a rerun never pays twice; `python -m castelino.cover <day|week>` redraws it."
 
   # ── Trade Lab (/admin only) ─────────────────────────────────────────────
@@ -453,6 +473,7 @@ agents:
       Every number must be in a fact it cites.
     tools:
       - {name: "yahoo_prices / fred_series / technicals / polymarket_odds / web_search", does: "Facts computed by code or cited lines"}
+      - {name: "post_to_board / read_board / consult", does: "Share facts with the other side; ask a topic consultant, answered from its file"}
     memory:
       reads: ["Frame, framer facts, the bear's last turn"]
       writes: ["Turns + B facts"]
@@ -471,6 +492,7 @@ agents:
       Argues against the idea the same way: its own research, then two rebuttals. No winner is named.
     tools:
       - {name: "yahoo_prices / fred_series / technicals / polymarket_odds / web_search", does: "Facts computed by code or cited lines"}
+      - {name: "post_to_board / read_board / consult", does: "Share facts with the other side; ask a topic consultant, answered from its file"}
     memory:
       reads: ["Frame, framer facts, the bull's last turn"]
       writes: ["Turns + R facts"]
@@ -482,6 +504,7 @@ agents:
     family: Trade Lab
     dependencies:
       - {key: OPENROUTER_API_KEY, required: false, why: "DeepSeek V4.1 Flash via OpenRouter; unset = gpt-6-sol"}
+      - {key: OPENAI_API_KEY, required: true, why: "The fallback model (gpt-6-sol)"}
     prompt: "castelino.agents.trade.debate:MODERATOR"
     schema: "castelino.agents.trade.models:Moderation"
     summary: >-
@@ -499,6 +522,7 @@ agents:
     family: Trade Lab
     dependencies:
       - {key: OPENROUTER_API_KEY, required: true, why: "Claude Haiku 5.5 via OpenRouter; edits it fails twice go to Claude Sonnet 5.5"}
+      - {key: OPENAI_API_KEY, required: true, why: "Talk 2's news desk and its searches (gpt-6-luna)"}
     prompt: "castelino.agents.trade.talk:SYSTEM"
     schema: "castelino.agents.trade.talk:Reply"
     summary: >-
@@ -594,7 +618,8 @@ agents:
     group: Trade Lab
     family: Trade Lab
     dependencies:
-      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-luna; \"+ Another idea\" on the talk model (Claude Haiku 5.5)"}
+      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-luna"}
+      - {key: OPENROUTER_API_KEY, required: false, why: "\"+ Another idea\" on the talk model (Claude Haiku 5.5)"}
     prompt: "castelino.agents.trade.chartist:SYSTEM"
     schema: "castelino.agents.trade.models:SpecList"
     summary: >-
@@ -613,7 +638,7 @@ agents:
     group: Trade Lab
     family: Trade Lab
     dependencies:
-      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-luna, the chat default"}
+      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-luna, the chat default; cited web searches on web_search.model (gpt-5.4-mini)"}
       - {key: OPENROUTER_API_KEY, required: false, why: "Kimi K3 and the other open-weights models, when picked in the chat or Compare"}
     prompt: "castelino.agents.chart_desk:SYSTEM"
     schema: "castelino.agents.chart_desk:Proposal"
@@ -624,6 +649,7 @@ agents:
       prompt on several models side by side and you vote for the best. gpt-6-luna by default, only here.
     tools:
       - {name: "Chart forms (code)", does: "The same 12 forms as Trade Lab, kicker CHART DESK; a chart that can't be drawn shows why"}
+      - {name: "Cited searches (code)", does: "For data FRED and Yahoo lack, up to 3 cited web searches (W facts); cited_bars or cited_line charts whose every value must equal a number in the line it names"}
     memory:
       reads: ["Your messages and the specs of the charts already drawn in this thread", "The 12-form catalog"]
       writes: ["data/chart_desk/<id>/run.json + PNGs; votes"]
@@ -725,7 +751,7 @@ agents:
       - {key: ANTHROPIC_API_KEY, required: true, why: "Claude Opus 5.5 (effort high)"}
     prompt: "castelino.agents.research.deep.synthesizer:SYSTEM"
     schema: "castelino.agents.research.deep.models:ReportDraft"
-    summary: "Writes the report as 5 to 10 points, each owned by the agent whose facts it uses; number guard, one retry. Angles you add get new points only, from the new agents."
+    summary: "Writes the report as 5 to 10 points, each three paragraphs of about 180-250 words (what the evidence shows, why, what it means) and owned by the agent whose facts it uses; number guard, one retry. Angles you add get new points only, from the new agents, placed at the start or the end as you asked."
     tools:
       - {name: "Number guard (code)", does: "Every %, bp or pp must be in the point's cited facts; X figures name their @handle"}
       - {name: "Latest-data check (code)", does: "Every point needs a figure from this year; one retry, then the point says its data is the latest available and is marked older data"}
@@ -760,12 +786,13 @@ agents:
     prompt: "castelino.agents.research.deep.charts:SYSTEM"
     schema: "castelino.agents.research.deep.models:ChartSet"
     summary: >-
-      Gives every point a chart from the figures it cites, in one call after the writer (bars, a line over
-      time, before and after, or a big-number tile); redraws a point after an approved edit. Every value must
-      be one of its fact's numbers, one retry; a point that still fails gets a code-made tile.
+      Charts every point not picked for a diagram, in one call after the writer: bars, a line over
+      time, or before and after. A chart never shows a single figure, and a before and after needs
+      two different values. Every value must be one of its fact's numbers; one retry. A point that
+      still fails, or has fewer than 2 comparable figures, gets no chart. It redraws a point after an
+      approved edit.
     tools:
-      - {name: "Chart guard (code)", does: "Each value is one of its cited fact's numbers; form sizes (bars 2-10, line 3-10, dumbbell 2, stat 1)"}
-      - {name: "Tile fallback (code)", does: "The first figure the point's text states that a cited fact holds, never a year"}
+      - {name: "Chart guard (code)", does: "Each value is one of its cited fact's numbers; form sizes (bars 2-10, line 3-10, dumbbell 2 with different values)"}
     memory:
       reads: ["Each point's headline, body and cited facts with their numbers"]
       writes: ["Point.chart"]
@@ -833,8 +860,9 @@ agents:
       - {key: OPENAI_API_KEY, required: false, why: "LLM call (OpenAI); without it the Sector Sentiment numbers still ship, just without the narrative"}
     class: castelino.agents.sector_explainer.SectorNarrativeAgent
     summary: >-
-      Once a day after the Sector Sentiment refresh on dashboard start: a 3-5 sentence read
-      of the sector divergence table, shown on /models. Describes only; never recommends.
+      After each Sector Sentiment refresh (Fly's 09:30 and 17:00 runs, or Refresh): a 3-5 sentence
+      read of the sector divergence table, shown in Radar's Fear & Greed · Sector Sentiment card.
+      Describes only; never recommends.
     tools: []
     memory:
       reads: ["Today's SectorSentimentSnapshot (sectors, verdicts, notable stocks)", "The previous snapshot's narrative"]
@@ -849,7 +877,7 @@ agents:
       - {key: OPENAI_API_KEY, required: false, why: "LLM call (OpenAI); without it each sector drawer shows only the computed stats"}
     class: castelino.agents.sector_explainer.SectorProseAgent
     summary: >-
-      One call per sector (11/day): 2-3 sentences explaining whether a sector's divergence is
+      One call per sector row (12 a refresh, Semiconductors included): 2-3 sentences explaining whether a sector's divergence is
       one stock's story or the whole sector's. The verdict is computed in code; the agent only
       explains it.
     tools: []
@@ -864,7 +892,7 @@ agents:
     group: Consultants
     family: Topic consultants
     dependencies:
-      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-sol"}
+      - {key: OPENAI_API_KEY, required: true, why: "gpt-6-sol; the data-page search on gpt-6-luna (consultants.links_model)"}
     prompt: "castelino.agents.consultants.planner:SYSTEM"
     schema: "castelino.agents.consultants.models:WatchlistDraft"
     summary: "Turns the topic you type into a suggested watchlist (companies with tickers, FRED/Yahoo series, news queries) plus up to 5 live data pages specific to the topic (the ones its specialists follow, never a quote or general macro site) from one cited web search, all of which you can trim before Start; code drops tickers Yahoo can't price, and only pages the search cites are proposed."
@@ -958,12 +986,16 @@ agents:
     dependencies:
       - {key: OPENAI_API_KEY, required: true, why: "gpt-6-luna"}
       - {key: X_API_KEY, required: false, why: "X write keys (with X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET); without them nothing posts"}
+      - {key: SUBSTACK_SID, required: false, why: "The Substack Note; unset = X only"}
     prompt: "castelino.agents.consultants.post:SYSTEM"
     schema: "castelino.agents.consultants.post:PostDraft"
     summary: >-
       Only for a consultant whose "Post to X" knob is on, when the evening review finds a notable new point:
       writes one post (what's happening, then what could happen) and picks a chart, which code draws and posts
       with it on X and as a Substack Note. Every number must be a cited fact's; no links; tickers must trade; at most one post a day.
+      It must cite a fact new today, never repeat a point it already posted (it sees its last 5
+      posts and their charts), and never chart the same series as one of its last 5 posts. A day
+      with no new fact posts nothing.
     tools:
       - {name: "x_scout.chart (code)", does: "Fetches the FRED/Yahoo series and draws the picked form (Trade Lab's 12), falling back to dial, bars, line; no chart, no post"}
       - {name: "x_post.post (code)", does: "Posts the text with the chart image; strips emoji, keeps one cashtag"}
@@ -1061,7 +1093,7 @@ agents:
     summary: >-
       Reads AI passages from a company's latest 10-K/10-Q and returns verbatim quotes rated
       1 pilot, 2 deployed, 3 revenue-linked. Feeds the Talk pillar of the AI Adoption Index
-      (`ckm adoption run`); research metric, not wired into the trading pipeline.
+      (the 17:00 Refresh run or `ckm adoption run`); admin-only research metric.
     tools:
       - {name: "ai_passages", does: "Deterministic keyword prefilter: only text windows around AI mentions are sent"}
       - {name: "keep_verified (quote guard)", does: "Drops any claim whose quote is not in the filing text, has a depth outside 1-3, or repeats"}
