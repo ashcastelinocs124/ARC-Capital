@@ -147,25 +147,27 @@ function Heading({ n, kicker, title }: { n?: string; kicker: string; title: stri
   );
 }
 
+// The newest post of each kind (Memo, Charts, Deep Dive, AI, Special Topics, Video), topped up with the
+// next newest so both rows of 3 stay full, newest first.
 function StartHere() {
-  const daily = useDailyPosts().data?.find(isNote);
-  const weekly = useWeeklyPosts().data?.[0];
-  const video = useVideos().data?.find((v) => isPost(v.url));
-  const reads = [
-    daily && { url: daily.url, img: daily.image, tag: `Memo · ${short(daily.date)}`, title: daily.title },
-    weekly && { url: weekly.url, img: weekly.image, tag: `Deep Dive · ${weekLabel(weekly)}`, title: weekly.title },
-    video && { url: video.url, img: video.thumbnail, tag: "Video", title: video.title },
-  ].filter((r): r is { url: string; img: string | null; tag: string; title: string } => !!r && isPost(r.url));
+  const items = useResearch();
+  const picks = new Set<Item>();
+  for (const [k] of KINDS) {
+    const it = items.find((x) => x.kinds.has(k) && !picks.has(x));
+    if (it) picks.add(it);
+  }
+  for (const it of items) if (picks.size < 6) picks.add(it);
+  const reads = [...picks].sort((a, b) => b.date.localeCompare(a.date));
   if (!reads.length) return null;
   return (
     <section>
-      <Heading kicker="Your first three reads" title="Start with the latest." />
+      <Heading kicker="The newest in each series" title="Start with the latest." />
       <div className="mt-4 grid gap-4 md:grid-cols-3">
         {reads.map((r) => (
           <a key={r.url} href={r.url} target="_blank" rel="noopener noreferrer" className="card flex flex-col overflow-hidden transition-shadow hover:shadow-card-hover">
-            <span className="aspect-video"><Cover src={r.img} /></span>
+            <span className="aspect-video"><Cover src={r.image} /></span>
             <span className="px-4 pb-4 pt-3">
-              <span className="pill">{r.tag}</span>
+              <span className="pill">{[...r.kinds].map((k) => KIND_LABEL[k]).join(" · ")} · {r.when}</span>
               <span className="mt-2 block text-base font-semibold leading-snug text-text">{r.title}</span>
             </span>
           </a>
