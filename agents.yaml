@@ -419,6 +419,25 @@ agents:
       writes: ["data/dashboards/ai_capex/releases/<ticker>-<accession>.json"]
       persists: "Each release is read once and cached by its accession."
 
+  - id: capex_cited_reader
+    name: Cited Reader
+    group: Dashboards
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "Cited web search + LLM call (ai_capex.reader_model, gpt-6-luna)"}
+    class: castelino.dashboards.ai_capex.cited.CitedReader
+    summary: >-
+      For the AI Demand & Capex dashboard, reads the cited lines of one web search per company and
+      topic: its latest capex guidance and last full-year actual, new bonds and loans and their rates,
+      leases and joint ventures off the balance sheet, data center delays, and a private neocloud's
+      power. Code keeps a figure only if its own cited line prints it.
+    tools:
+      - {name: "web_search.search_cited() (code)", does: "One cited search per company and topic; lines without a citation are dropped"}
+      - {name: "cited.cited_items() (code)", does: "Drops a figure its own line doesn't print, and one that names no real line"}
+    memory:
+      reads: ["The cited lines of one search"]
+      writes: ["data/dashboards/ai_capex/cited/<ticker>-<topic>-<key>.json"]
+      persists: "Cached by the newest filing's accession, or by ISO week for delays and power, so a search is never paid for twice."
+
   - id: desk_chat
     name: Desk Chat
     group: Briefings
@@ -1328,11 +1347,12 @@ systems:
     output: "The public AI Demand & Capex dashboard at /dashboards/ai-capex and its link card"
     blurb: >-
       Code reads every company's figures from its SEC filings. The Release Reader copies what only an
-      earnings release prints, and code keeps a figure only if the release prints it. Free daily reads
+      earnings release prints, the Cited Reader what only the news and earnings calls carry (guidance,
+      new debt, delays), and code keeps a figure only if its release or cited line prints it. Free daily reads
       (FRED, Ramp, OpenRouter, Silicon Data, Census, ARC's AI Adoption Index) fill in the rest.
     lanes:
       - title: "AI Demand & Capex"
-        flow: [["Refresh 17:00"], ["code:SEC XBRL|capex · cash · debt", "agent:capex_release_reader|earnings release"], ["code:Number check|printed numbers only"], ["end:/dashboards/ai-capex|+ link card"]]
+        flow: [["Refresh 17:00"], ["code:SEC XBRL|capex · cash · debt", "agent:capex_release_reader|earnings release", "agent:capex_cited_reader|guidance · debt · delays"], ["code:Number check|printed or cited only"], ["end:/dashboards/ai-capex|+ link card"]]
 
 # Pipelines on the public /agents page: one layered graph per product, with a ▶ Play run walk-through.
 # Layers, top to bottom: sources (where facts come from), agents, guardrails (code that checks their
@@ -1726,6 +1746,7 @@ pipelines:
     delivery: "Public dashboard + link card"
     nodes:
       - {id: sec, kind: source, layer: sources, x: 220, name: SEC EDGAR, sub: filings · releases, does: "Every company's 10-Q and 10-K figures (XBRL) and the earnings release it files as an 8-K, or a 6-K for Nebius."}
+      - {id: web, kind: source, layer: sources, x: 460, name: web search, sub: cited sources, does: "A web search that returns cited sources; only lines with a citation are kept."}
       - {id: market, kind: source, layer: sources, x: 700, name: FRED · Ramp · OpenRouter, sub: rates · AI spend, does: "Treasury and high-yield bond yields, the share of US businesses paying for AI by size and vendor, and the AI models businesses use most."}
       - {id: silicon, kind: source, layer: sources, x: 900, name: Silicon Data, sub: GPU prices · daily, does: "The hourly price to rent an H100, H200, B200, B300, A100 or MI300X, read once a day; the history is ARC's own readings."}
       - {id: census, kind: source, layer: sources, x: 1100, name: Census survey, sub: AI use by firm size, does: "The Census Bureau's survey every two weeks: the share of US firms using AI, by number of employees."}
@@ -1733,6 +1754,7 @@ pipelines:
       - {id: schedule, kind: trigger, layer: agents, x: 20, w: 120, name: Schedule, sub: 17:00 ET, does: "Runs in ARC's 5 pm New York publish every day. The paid reads run only after a company files something new."}
       - {id: xbrl, kind: code, layer: agents, x: 220, dy: -40, name: Filing figures, sub: code only, does: "Plain code turns the filings into quarters: capex, revenue, operating cash, debt and shares raised, interest and backlog."}
       - {id: relread, kind: llm, agent: capex_release_reader, layer: agents, x: 220, dy: 40, name: Release reader, sub: what only releases print, does: "Copies the figures only an earnings release prints, such as cloud growth, headline backlog and a neocloud's power, each with the sentence it came from."}
+      - {id: citread, kind: llm, agent: capex_cited_reader, layer: agents, x: 460, name: Cited reader, sub: guidance · debt · delays, does: "Reads the cited lines of one search per company and topic: capex guidance, new bonds and loans and their rates, leases off the balance sheet, data center delays and private neoclouds' power."}
       - {id: reads, kind: code, layer: agents, x: 1000, name: Daily reads, sub: prices · surveys · index, does: "Plain code reads the rates, AI spend, GPU prices, the Census survey and ARC's index every evening."}
       - {id: check, kind: guard, layer: guardrails, x: 340, name: Number check, sub: printed or cited only, does: "Code keeps a figure only if its sentence is in the release, or its cited line, and prints the number."}
       - {id: page, kind: out, layer: delivery, x: 620, name: Dashboard, sub: /dashboards/ai-capex, does: "The public page: spending, funding, demand, compute and adoption, with every figure's source."}
@@ -1742,6 +1764,8 @@ pipelines:
       - sec > xbrl
       - sec > relread
       - relread > check
+      - web > citread
+      - citread > check
       - xbrl > page
       - check > page
       - market > reads
@@ -1754,5 +1778,6 @@ pipelines:
       - {title: Trigger, nodes: [schedule], edges: [schedule > xbrl], io: ["in: clock", "out: start the run"], text: "ARC's 5 pm publish starts the run every day."}
       - {title: Filing figures, nodes: [sec, xbrl], edges: [sec > xbrl], io: ["in: 10-Q and 10-K data", "out: quarters"], text: "Plain code reads each company's quarters from its SEC filings: capex, revenue, cash, debt, shares and backlog."}
       - {title: Release figures, nodes: [relread, check], edges: [sec > relread, relread > check], io: ["in: earnings release", "out: checked figures"], text: "After a company reports, the Release reader copies what only its release prints. Code keeps a figure only if the release prints it."}
+      - {title: Cited figures, nodes: [web, citread, check], edges: [web > citread, citread > check], io: ["in: cited search", "out: checked figures"], text: "The Cited reader picks guidance, new debt and its rates, leases, delays and private neoclouds' power from cited lines. Code keeps a figure only if its own line prints it."}
       - {title: Daily reads, nodes: [market, silicon, census, arcindex, reads], edges: [market > reads, silicon > reads, census > reads, arcindex > reads], io: ["in: free sources", "out: prices, surveys, index"], text: "Every evening plain code reads bond yields, AI spend, GPU rental prices, the Census survey and ARC's index."}
       - {title: Page and card, nodes: [page, card], edges: [xbrl > page, check > page, reads > page, page > card], io: ["in: every figure + its source", "out: page + link card"], text: "The figures go to the public dashboard, and code redraws the link card that shows when the page is shared."}
