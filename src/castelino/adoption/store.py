@@ -193,8 +193,17 @@ class AdoptionStore:
             rows = c.execute(
                 "SELECT period, bucket, ew FROM index_cell WHERE sector='' ORDER BY period"
             ).fetchall()
+            sizes = dict(
+                c.execute("SELECT period, COUNT(*) FROM company_period GROUP BY period").fetchall()
+            )
         by: dict[str, dict] = {}
         for r in rows:
-            by.setdefault(r["period"], {"period": r["period"], "large_ew": None, "small_ew": None})
+            by.setdefault(
+                r["period"],
+                # n: companies that period; scores are standardized across the universe, so a change
+                # in n (mid caps joined on 2026-10-28) breaks the trend once
+                {"period": r["period"], "large_ew": None, "mid_ew": None, "small_ew": None,
+                 "n": sizes.get(r["period"], 0)},
+            )  # fmt: skip
             by[r["period"]][f"{r['bucket']}_ew"] = r["ew"]
         return list(by.values())

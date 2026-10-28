@@ -76,7 +76,9 @@ def test_filing_cache_and_claims(store):
 def test_series_has_none_for_missing_bucket(store):
     sc = make_scores()
     store.save_period("2026-10-01", sc, aggregate(sc))
-    assert store.series() == [{"period": "2026-10-01", "large_ew": 70.0, "small_ew": None}]
+    assert store.series() == [
+        {"period": "2026-10-01", "large_ew": 70.0, "mid_ew": None, "small_ew": None, "n": 2}
+    ]
 
 
 def test_period_stats_counts_companies_claims_and_pillar_coverage(store):

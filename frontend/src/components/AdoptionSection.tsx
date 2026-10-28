@@ -62,6 +62,7 @@ function CompanyRows({ rows }: { rows: AdoptionCompany[] }) {
 // Side drawer per sector, same shape as the Sector Sentiment drawer.
 function AdoptionDrawer({ sector, onClose }: { sector: string; onClose: () => void }) {
   const large = useAdoptionCompanies(sector, "large");
+  const mid = useAdoptionCompanies(sector, "mid");
   const small = useAdoptionCompanies(sector, "small");
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => ev.key === "Escape" && onClose();
@@ -116,6 +117,7 @@ function AdoptionDrawer({ sector, onClose }: { sector: string; onClose: () => vo
           </button>
         </div>
         {block("Large cap", pick(large.data))}
+        {block("Mid cap", pick(mid.data))}
         {block("Small cap", pick(small.data))}
         <p className="mt-4 text-xs text-muted">Quotes are verbatim from the company's latest filing; claims not found in the filing are dropped.</p>
       </div>
@@ -181,7 +183,7 @@ function Summary({ data, expanded, onToggle }: { data: AdoptionSummary; expanded
     <>
       <CardHead
         name="AI Adoption Index"
-        kind={s ? `${KIND} · ${s.n_companies} companies` : `${KIND} · ${nBucket("large")} large + ${nBucket("small")} small caps`}
+        kind={s ? `${KIND} · ${s.n_companies} companies` : `${KIND} · ${nBucket("large")} large + ${nBucket("mid")} mid + ${nBucket("small")} small caps`}
         badge={
           <StatusBadge
             status={ageDays <= CADENCE_DAYS ? "fresh" : "stale"}
@@ -198,6 +200,7 @@ function Summary({ data, expanded, onToggle }: { data: AdoptionSummary; expanded
         fill={h.large_ew ?? 0}
       />
       <StatGrid>
+        <StatCell label="Mid caps (EW)" value={f(h.mid_ew)} />
         <StatCell label="Small caps (EW)" value={f(h.small_ew)} />
         <StatCell label="Size spread (small − large)" value={signed(h.spread)} />
         <StatCell label="Large-cap concentration" value={signed(h.large_concentration)} />
@@ -228,6 +231,7 @@ function SectorGrid({ data, onOpen }: { data: AdoptionSummary; onOpen: (s: strin
           <tr>
             <th className="text-left py-1 font-medium">Sector</th>
             <th className="text-right font-medium">Large</th>
+            <th className="text-right font-medium">Mid</th>
             <th className="text-right font-medium">Small</th>
           </tr>
         </thead>
@@ -236,6 +240,7 @@ function SectorGrid({ data, onOpen }: { data: AdoptionSummary; onOpen: (s: strin
             <tr key={sec} data-stop onClick={() => onOpen(sec)} className="border-t border-border cursor-pointer hover:bg-surface-2">
               <td className="py-1.5">{sec}</td>
               <td className="text-right"><Score cell={cell(sec, "large")} /></td>
+              <td className="text-right"><Score cell={cell(sec, "mid")} /></td>
               <td className="text-right"><Score cell={cell(sec, "small")} /></td>
             </tr>
           ))}
@@ -255,13 +260,16 @@ const pct = (v: unknown) => (typeof v === "number" ? `${v >= 0 ? "+" : ""}${v.to
 
 function Trend({ data }: { data: AdoptionSummary }) {
   const [view, setView] = useState<"level" | "change">("level");
-  const rows = data.series.map((p) => ({ period: p.period, Large: p.large_ew, Small: p.small_ew }));
+  const rows = data.series.map((p) => ({ period: p.period, Large: p.large_ew, Mid: p.mid_ew ?? null, Small: p.small_ew }));
   if (rows.length < 2) return <div className="text-xs text-muted">A trend needs at least two periods; the next run adds the line.</div>;
   const changes = rows.slice(1).map((r, i) => ({
     period: r.period,
     Large: pctChange(r.Large, rows[i].Large),
+    Mid: pctChange(r.Mid, rows[i].Mid),
     Small: pctChange(r.Small, rows[i].Small),
   }));
+  // scores are standardized across the whole universe, so a period with more companies breaks the line once
+  const grew = [...data.series].reverse().find((p, i, rev) => i + 1 < rev.length && p.n != null && rev[i + 1].n != null && p.n !== rev[i + 1].n);
   return (
     <>
       <div className="mb-2 flex items-center gap-1">
@@ -274,6 +282,11 @@ function Trend({ data }: { data: AdoptionSummary }) {
         ))}
         {view === "change" && <span className="ml-2 text-[11px] text-muted">% change vs the previous run</span>}
       </div>
+      {grew && (
+        <div className="mb-2 text-[11px] text-warning">
+          The universe changed to {grew.n} companies on {grew.period}: scores before and after aren't comparable.
+        </div>
+      )}
       <ResponsiveContainer width="100%" height={180}>
         {view === "level" ? (
           <LineChart data={rows}>
@@ -283,6 +296,7 @@ function Trend({ data }: { data: AdoptionSummary }) {
             <Tooltip />
             <Legend />
             <Line type="monotone" dataKey="Large" stroke={C.accent} strokeWidth={2} dot={false} connectNulls />
+            <Line type="monotone" dataKey="Mid" stroke={C.jobs} strokeWidth={2} strokeDasharray="1 3" dot={false} connectNulls />
             <Line type="monotone" dataKey="Small" stroke={C.muted} strokeWidth={2} strokeDasharray="4 3" dot={false} connectNulls />
           </LineChart>
         ) : (
@@ -294,6 +308,7 @@ function Trend({ data }: { data: AdoptionSummary }) {
             <Tooltip formatter={pct} />
             <Legend />
             <Line type="monotone" dataKey="Large" stroke={C.accent} strokeWidth={2} dot={{ r: 3 }} connectNulls />
+            <Line type="monotone" dataKey="Mid" stroke={C.jobs} strokeWidth={2} strokeDasharray="1 3" dot={{ r: 3 }} connectNulls />
             <Line type="monotone" dataKey="Small" stroke={C.muted} strokeWidth={2} strokeDasharray="4 3" dot={{ r: 3 }} connectNulls />
           </LineChart>
         )}

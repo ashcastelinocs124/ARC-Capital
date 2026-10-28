@@ -57,7 +57,9 @@ def test_summary_with_data(client, tmp_path):
     assert body["period"] == "2026-10-01"
     assert body["headline"]["large_ew"] == pytest.approx(52.5)
     assert body["headline"]["spread"] == pytest.approx(-22.5)
-    assert body["series"] == [{"period": "2026-10-01", "large_ew": 52.5, "small_ew": 30.0}]
+    assert body["series"] == [
+        {"period": "2026-10-01", "large_ew": 52.5, "mid_ew": None, "small_ew": 30.0, "n": 3}
+    ]
     assert {(c["sector"], c["bucket"], c["n"], c["thin"]) for c in body["cells"]} == {
         ("Energy", "large", 2, True),
         ("Energy", "small", 1, True),
@@ -76,7 +78,9 @@ def test_companies_drilldown(client, tmp_path):
 
 def test_companies_rejects_bad_bucket_and_handles_empty_store(client):
     assert (
-        client.get("/adoption/companies", params={"sector": "Energy", "bucket": "mid"}).status_code
+        client.get(
+            "/adoption/companies", params={"sector": "Energy", "bucket": "micro"}
+        ).status_code
         == 400
     )
     assert (

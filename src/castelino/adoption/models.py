@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel
 
-BUCKETS = ("large", "small")
+BUCKETS = ("large", "mid", "small")
 PILLARS = ("talk", "hire", "spend")
 GICS_SECTORS = (
     "Information Technology",

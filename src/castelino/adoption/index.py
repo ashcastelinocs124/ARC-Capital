@@ -44,13 +44,15 @@ def _concentration(cell: Cell | None) -> float | None:
 
 def headline(cells: list[Cell]) -> dict[str, float | None]:
     by = {c.bucket: c for c in cells if c.sector is None}
-    large, small = by.get("large"), by.get("small")
+    large, mid, small = by.get("large"), by.get("mid"), by.get("small")
     large_ew = large.ew if large else None
     small_ew = small.ew if small else None
     return {
         "large_ew": large_ew,
+        "mid_ew": mid.ew if mid else None,
         "small_ew": small_ew,
         "spread": (small_ew - large_ew) if large_ew is not None and small_ew is not None else None,
         "large_concentration": _concentration(large),
+        "mid_concentration": _concentration(mid),
         "small_concentration": _concentration(small),
     }

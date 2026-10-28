@@ -2,7 +2,7 @@
 
 import { api } from "./client";
 
-export type Bucket = "large" | "small";
+export type Bucket = "large" | "mid" | "small";
 
 export interface AdoptionCell {
   sector: string;
@@ -15,16 +15,19 @@ export interface AdoptionCell {
 
 export interface AdoptionHeadline {
   large_ew: number | null;
+  mid_ew: number | null;
   small_ew: number | null;
   spread: number | null;
   large_concentration: number | null;
+  mid_concentration: number | null;
   small_concentration: number | null;
 }
 
 export interface AdoptionSummary {
   period: string | null;
   headline: Partial<AdoptionHeadline>;
-  series: { period: string; large_ew: number | null; small_ew: number | null }[];
+  // n: companies in that period; a change (mid caps joined) breaks the trend once
+  series: { period: string; large_ew: number | null; mid_ew?: number | null; small_ew: number | null; n?: number }[];
   cells: AdoptionCell[];
   stats?: {
     n_companies: number;

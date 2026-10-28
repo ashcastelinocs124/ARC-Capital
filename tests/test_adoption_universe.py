@@ -39,8 +39,8 @@ def test_build_universe_ranks_top_n_per_bucket_and_skips_bad_rows():
 
 def test_load_seed_validates_bucket(tmp_path):
     p = tmp_path / "seed.csv"
-    p.write_text("ticker,bucket\naapl,large\nxyz,mid\n")
-    with pytest.raises(ValueError, match="mid"):
+    p.write_text("ticker,bucket\naapl,large\nxyz,micro\n")
+    with pytest.raises(ValueError, match="micro"):
         load_seed(p)
     p.write_text("ticker,bucket\naapl,large\n")
     assert load_seed(p) == [("AAPL", "large")]

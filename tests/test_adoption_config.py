@@ -11,6 +11,6 @@ def test_adoption_defaults():
 
 
 def test_constants():
-    assert BUCKETS == ("large", "small")
+    assert BUCKETS == ("large", "mid", "small")
     assert PILLARS == ("talk", "hire", "spend")
     assert len(GICS_SECTORS) == 11
