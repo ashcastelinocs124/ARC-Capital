@@ -164,6 +164,11 @@ x_scout:
   scout_model: gpt-6-sol    # picks the item worth posting, or nothing
   writer_model: gpt-6-luna  # the lead post and its reply
 
+ai_capex:
+  # AI Demand & Capex dashboard (dashboards/ai_capex/): the nightly Refresh job behind /dashboards/ai-capex.
+  enabled: true
+  reader_model: gpt-6-luna  # reads earnings releases and cited search lines; code checks every number
+
 cover:
   # Cover art on the Morning Note and Weekly Deep Dive Substack drafts (src/castelino/cover.py).
   model: gpt-image-2

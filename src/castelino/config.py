@@ -118,6 +118,13 @@ class XScoutCfg(BaseModel):
     writer_model: str = "gpt-6-luna"
 
 
+class AiCapexCfg(BaseModel):
+    """The AI Demand & Capex dashboard (dashboards/ai_capex/): one nightly Refresh job."""
+
+    enabled: bool = True
+    reader_model: str = "gpt-6-luna"  # reads earnings releases and cited search lines
+
+
 class CoverCfg(BaseModel):
     """Cover art for the Morning Note and Weekly Deep Dive drafts (cover.py)."""
 
@@ -321,6 +328,7 @@ class Settings(BaseModel):
     update_agent: UpdateAgentCfg = UpdateAgentCfg()
     themes: ThemesCfg = ThemesCfg()
     x_scout: XScoutCfg = XScoutCfg()
+    ai_capex: AiCapexCfg = AiCapexCfg()
     cover: CoverCfg = CoverCfg()
     model_refit: ModelRefitCfg = ModelRefitCfg()
     sector_sentiment: SectorSentimentCfg = SectorSentimentCfg()

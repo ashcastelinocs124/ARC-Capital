@@ -398,6 +398,27 @@ agents:
       writes: ["The chart PNGs, beside data/x_posts/calendar/<date>.json"]
       persists: "Nothing between posts."
 
+  - id: capex_release_reader
+    name: Release Reader
+    group: Dashboards
+    dependencies:
+      - {key: OPENAI_API_KEY, required: true, why: "LLM call (ai_capex.reader_model, gpt-6-luna)"}
+      - {key: SEC_USER_AGENT, required: true, why: "SEC's required contact string for EDGAR"}
+    class: castelino.dashboards.ai_capex.releases.KpiReader
+    summary: >-
+      For the AI Demand & Capex dashboard, reads each company's quarterly earnings release as filed with
+      the SEC (an 8-K, or a 6-K for Nebius, which files no quarterly data) and copies the figures only a
+      release prints: Azure, Google Cloud, AWS and Oracle Cloud growth, headline backlog, a neocloud's
+      power online and contracted, Nvidia's data center sales, and Nebius's whole quarter. Code keeps a
+      figure only if its sentence is in the release and prints the number.
+    tools:
+      - {name: "EdgarClient.earnings_releases() (code)", does: "The newest 8-K with item 2.02, or 6-K results release, and the one a year earlier"}
+      - {name: "releases.checked_kpis() (code)", does: "Drops a figure whose sentence isn't in the release or doesn't print its value"}
+    memory:
+      reads: ["One earnings release's text"]
+      writes: ["data/dashboards/ai_capex/releases/<ticker>-<accession>.json"]
+      persists: "Each release is read once and cached by its accession."
+
   - id: desk_chat
     name: Desk Chat
     group: Briefings
@@ -1302,6 +1323,17 @@ systems:
         regions: [{from: 0, to: 1, label: "Loop · max 2 grill rounds"}]
         loops: [{from: 1, to: 0, label: "next round"}]
 
+  - group: Dashboards
+    trigger: "Fly's 17:00 publish (Refresh job ai_capex); paid reads only after a company files"
+    output: "The public AI Demand & Capex dashboard at /dashboards/ai-capex and its link card"
+    blurb: >-
+      Code reads every company's figures from its SEC filings. The Release Reader copies what only an
+      earnings release prints, and code keeps a figure only if the release prints it. Free daily reads
+      (FRED, Ramp, OpenRouter, Silicon Data, Census, ARC's AI Adoption Index) fill in the rest.
+    lanes:
+      - title: "AI Demand & Capex"
+        flow: [["Refresh 17:00"], ["code:SEC XBRL|capex · cash · debt", "agent:capex_release_reader|earnings release"], ["code:Number check|printed numbers only"], ["end:/dashboards/ai-capex|+ link card"]]
+
 # Pipelines on the public /agents page: one layered graph per product, with a ▶ Play run walk-through.
 # Layers, top to bottom: sources (where facts come from), agents, guardrails (code that checks their
 # work), delivery (where you read it). A node sits in its layer at x (px on the canvas, left edge;
@@ -1686,3 +1718,41 @@ pipelines:
       - {title: Write a recipe, nodes: [hand, careers, recipe], edges: [careers > recipe, hand > recipe], io: ["in: careers site", "out: proposed recipe"], text: "For a careers site no standard reader covers, someone runs the Recipe writer by hand: it explores the site once and proposes where the job titles live."}
       - {title: Replay test, nodes: [replay, recipe], edges: [recipe > replay, replay > recipe], io: ["in: recipe", "out: saved or rejected"], text: "Our own code replays the recipe and saves it only if it returns real job titles covering at least 90% of what the site shows."}
       - {title: Hire score, nodes: [hire], edges: [replay > hire], io: ["in: saved recipe", "out: Hire score"], text: "Every index run replays the saved recipes with no model and counts AI and ML job titles in code."}
+
+  - id: ai-capex
+    name: AI Demand & Capex
+    trigger: "cron · 17:00 ET · paid reads after each filing"
+    guardrails: "numbers from filings or cited lines"
+    delivery: "Public dashboard + link card"
+    nodes:
+      - {id: sec, kind: source, layer: sources, x: 220, name: SEC EDGAR, sub: filings · releases, does: "Every company's 10-Q and 10-K figures (XBRL) and the earnings release it files as an 8-K, or a 6-K for Nebius."}
+      - {id: market, kind: source, layer: sources, x: 700, name: FRED · Ramp · OpenRouter, sub: rates · AI spend, does: "Treasury and high-yield bond yields, the share of US businesses paying for AI by size and vendor, and the AI models businesses use most."}
+      - {id: silicon, kind: source, layer: sources, x: 900, name: Silicon Data, sub: GPU prices · daily, does: "The hourly price to rent an H100, H200, B200, B300, A100 or MI300X, read once a day; the history is ARC's own readings."}
+      - {id: census, kind: source, layer: sources, x: 1100, name: Census survey, sub: AI use by firm size, does: "The Census Bureau's survey every two weeks: the share of US firms using AI, by number of employees."}
+      - {id: arcindex, kind: source, layer: sources, x: 1300, name: ARC AI Adoption Index, sub: filing claims, does: "ARC's own index: the AI claims each company makes in its latest filing, rated pilot, in use or earning revenue."}
+      - {id: schedule, kind: trigger, layer: agents, x: 20, w: 120, name: Schedule, sub: 17:00 ET, does: "Runs in ARC's 5 pm New York publish every day. The paid reads run only after a company files something new."}
+      - {id: xbrl, kind: code, layer: agents, x: 220, dy: -40, name: Filing figures, sub: code only, does: "Plain code turns the filings into quarters: capex, revenue, operating cash, debt and shares raised, interest and backlog."}
+      - {id: relread, kind: llm, agent: capex_release_reader, layer: agents, x: 220, dy: 40, name: Release reader, sub: what only releases print, does: "Copies the figures only an earnings release prints, such as cloud growth, headline backlog and a neocloud's power, each with the sentence it came from."}
+      - {id: reads, kind: code, layer: agents, x: 1000, name: Daily reads, sub: prices · surveys · index, does: "Plain code reads the rates, AI spend, GPU prices, the Census survey and ARC's index every evening."}
+      - {id: check, kind: guard, layer: guardrails, x: 340, name: Number check, sub: printed or cited only, does: "Code keeps a figure only if its sentence is in the release, or its cited line, and prints the number."}
+      - {id: page, kind: out, layer: delivery, x: 620, name: Dashboard, sub: /dashboards/ai-capex, does: "The public page: spending, funding, demand, compute and adoption, with every figure's source."}
+      - {id: card, kind: out, layer: delivery, x: 900, name: Link card, sub: drawn each publish, does: "The picture that shows when the link is shared on X, LinkedIn or Slack, redrawn with each day's numbers."}
+    edges:
+      - schedule > xbrl
+      - sec > xbrl
+      - sec > relread
+      - relread > check
+      - xbrl > page
+      - check > page
+      - market > reads
+      - silicon > reads
+      - census > reads
+      - arcindex > reads
+      - reads > page
+      - page > card
+    steps:
+      - {title: Trigger, nodes: [schedule], edges: [schedule > xbrl], io: ["in: clock", "out: start the run"], text: "ARC's 5 pm publish starts the run every day."}
+      - {title: Filing figures, nodes: [sec, xbrl], edges: [sec > xbrl], io: ["in: 10-Q and 10-K data", "out: quarters"], text: "Plain code reads each company's quarters from its SEC filings: capex, revenue, cash, debt, shares and backlog."}
+      - {title: Release figures, nodes: [relread, check], edges: [sec > relread, relread > check], io: ["in: earnings release", "out: checked figures"], text: "After a company reports, the Release reader copies what only its release prints. Code keeps a figure only if the release prints it."}
+      - {title: Daily reads, nodes: [market, silicon, census, arcindex, reads], edges: [market > reads, silicon > reads, census > reads, arcindex > reads], io: ["in: free sources", "out: prices, surveys, index"], text: "Every evening plain code reads bond yields, AI spend, GPU rental prices, the Census survey and ARC's index."}
+      - {title: Page and card, nodes: [page, card], edges: [xbrl > page, check > page, reads > page, page > card], io: ["in: every figure + its source", "out: page + link card"], text: "The figures go to the public dashboard, and code redraws the link card that shows when the page is shared."}
