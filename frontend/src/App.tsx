@@ -13,6 +13,7 @@ import AboutPage from "./pages/AboutPage";
 import ResourcesPage from "./pages/ResourcesPage";
 import SectionPage from "./pages/SectionPage";
 import ThemesPage from "./pages/ThemesPage";
+import AiCapexPage from "./pages/dashboards/AiCapexPage";
 
 const HOME = "/";
 
@@ -27,6 +28,7 @@ const PAGES: [string, React.ReactNode][] = [
   ["/ai/models", <SectionPage slugs={["ai-models", "artificial-intelligence-update"]} kicker="AI · Models" title="Models, labs and releases" blurb="Every AI Models post, newest first." />],
   ["/ai/chips", <SectionPage slugs={["semis-chips"]} kicker="AI · Semis & Chips" title="Semis, chips and the compute supply chain" blurb="Every Semis & Chips post, newest first." />],
   ["/special-topics", <SectionPage slugs={["special-topics"]} kicker="Special Topics" title="Deeper dives and presentations" blurb="Every Special Topics post, newest first." />],
+  ["/dashboards/ai-capex", <AiCapexPage />],
   ["/agents", <PipelinesPage />],
   ["/docs", <DocsPage />],
   ["/resources", <ResourcesPage />],
@@ -47,6 +49,8 @@ export default function App() {
         ))}
         {/* the models went admin-only on 2026-10-15; the one public card, Fear & Greed, is on Radar */}
         <Route path="/ai" element={<Navigate to="/ai/models" replace />} />
+        {/* ponytail: one dashboard so far, so /dashboards is it; a list page when there's a second */}
+        <Route path="/dashboards" element={<Navigate to="/dashboards/ai-capex" replace />} />
         <Route path="/models" element={<Navigate to="/macro#sector-sentiment" replace />} />
         <Route path="/sector-sentiment" element={<Navigate to="/macro#sector-sentiment" replace />} />
         <Route path="*" element={<Navigate to={HOME} replace />} />

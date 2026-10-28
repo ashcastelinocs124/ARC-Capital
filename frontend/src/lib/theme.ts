@@ -20,4 +20,9 @@ export const C = {
   jobs: v("cat-jobs"),
   ai: v("cat-ai"),
   earnings: v("cat-earnings"),
+  // AI Demand & Capex: one color per company, keyed by ticker
+  co: {
+    MSFT: v("co-msft"), GOOGL: v("co-googl"), AMZN: v("co-amzn"), META: v("co-meta"), ORCL: v("co-orcl"),
+    CRWV: v("co-crwv"), NBIS: v("co-nbis"), IREN: v("co-iren"), private: v("co-private"),
+  } as Record<string, string>,
 };

@@ -35,6 +35,16 @@
     --c-cat-jobs: 28 126 214;
     --c-cat-ai: 112 72 232;
     --c-cat-earnings: 0 135 68;
+    /* AI Demand & Capex companies (the approved mockup's colors; every bar is also labelled by name) */
+    --c-co-msft: 28 126 214;
+    --c-co-googl: 0 135 68;
+    --c-co-amzn: 217 72 15;
+    --c-co-meta: 112 72 232;
+    --c-co-orcl: 217 119 6;
+    --c-co-crwv: 214 51 132;
+    --c-co-nbis: 13 148 136;
+    --c-co-iren: 100 116 139;
+    --c-co-private: 140 140 145;
   }
   /* Not in print: Download PDF always prints on white. */
   @media not print {
@@ -69,6 +79,15 @@
     --c-cat-jobs: 51 154 240;
     --c-cat-ai: 151 117 250;
     --c-cat-earnings: 47 163 110;
+    --c-co-msft: 51 154 240;
+    --c-co-googl: 47 163 110;
+    --c-co-amzn: 232 89 12;
+    --c-co-meta: 151 117 250;
+    --c-co-orcl: 251 191 36;
+    --c-co-crwv: 236 72 153;
+    --c-co-nbis: 20 184 166;
+    --c-co-iren: 148 163 184;
+    --c-co-private: 110 120 115;
     }
   }
 

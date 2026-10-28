@@ -20,6 +20,9 @@ const NAV: Entry[] = [
     { to: "/ai/models", label: "Models", desc: "Frontier and open-weight models, labs and releases" },
     { to: "/ai/chips", label: "Semis & Chips", desc: "GPUs, foundries and the compute supply chain" },
   ] },
+  { label: "Dashboards", items: [
+    { to: "/dashboards/ai-capex", label: "AI Demand & Capex", desc: "Hyperscaler and neocloud spending, funding, demand and compute" },
+  ] },
   { label: "Special Topics", to: "/special-topics" },
   { label: "Resources", items: [
     { to: "/resources", label: "Resources", desc: "Talks, slides and the Global Macro Cookbook" },

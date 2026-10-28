@@ -7,7 +7,7 @@ export function PageIntro({ kicker, title, children, steps, highlight, when }: {
   children: React.ReactNode;
   steps?: string[];
   highlight?: number; // index of the step to tint green
-  when?: { label: string; value: string; note?: string };
+  when?: { label: string; value: string; note?: React.ReactNode };
 }) {
   return (
     <section className="bg-surface border border-border rounded-xl shadow-card px-5 py-4 md:px-6 md:py-5 grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
