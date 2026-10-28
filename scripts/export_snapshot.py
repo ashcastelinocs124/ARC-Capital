@@ -116,6 +116,21 @@ def copy_theme_charts(run_id: str, rec: dict, themes_dir: Path | None = None) ->
     return n
 
 
+def copy_dashboard_card(doc: dict, cache: Path | None = None) -> bool:
+    """The AI Demand & Capex link card, under a dated name: X, LinkedIn and Slack cache per image URL."""
+    if cache is None:
+        from castelino.dashboards.ai_capex.run import cache_dir
+
+        cache = cache_dir()
+    src = cache / "card.png"
+    if not (doc.get("as_of") and src.is_file()):
+        return False
+    dst = OUT / "dashboards" / "ai-capex" / f"card-{doc['as_of']}.png"
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(src, dst)
+    return True
+
+
 def run_refresh(only: list[str] | None = None) -> None:
     for key, fn in refresh._RUNNERS.items():
         if only and key not in only:
@@ -151,6 +166,8 @@ def export() -> int:
             copy_weekly_charts(path.rsplit("/", 1)[1], data)
         if re.fullmatch(r"/themes/(\d{4}-\d{2}-\d{2}-(am|pm)|latest)", path):
             copy_theme_charts(data["run_id"], data)
+        if path == "/dashboards/ai-capex":
+            copy_dashboard_card(data)
         # Fan out to the parameterised GETs the pages make.
         if path == "/update/history":
             queue += [f"/update/{d}" for d in data.get("dates", [])]

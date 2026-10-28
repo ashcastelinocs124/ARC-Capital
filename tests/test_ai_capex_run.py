@@ -209,3 +209,18 @@ def test_endpoint_serves_file(tmp_path, monkeypatch):
     monkeypatch.setattr(ai_run, "out_path", lambda: f)
     assert TestClient(app).get("/dashboards/ai-capex").json() == {"companies": []}
     assert TestClient(app).get("/dashboards/ai-capex/card.png").status_code == 404
+
+
+def test_card_drawn_and_a_card_failure_is_only_a_gap(tmp_path, monkeypatch):
+    out = tmp_path / "ai_capex.json"
+    ai_run.run(NOW, out=out, deps=deps(tmp_path))
+    assert (tmp_path / "ai_capex" / "card.png").exists()
+
+    from castelino.dashboards.ai_capex import card
+
+    def boom(doc, path):
+        raise RuntimeError("no fonts")
+
+    monkeypatch.setattr(card, "draw", boom)
+    ai_run.run(NOW, out=out, deps=deps(tmp_path))
+    assert any(g["lane"] == "card" for g in json.loads(out.read_text())["gaps"])

@@ -550,6 +550,12 @@ def run(now: datetime | None = None, *, out: Path | None = None, deps: Deps | No
         raise RuntimeError("ai_capex: every lane failed; previous file kept")
     doc["totals"] = totals(companies)
     doc["sentences"] = sentences(doc)
+    try:  # the link card; without it a shared link shows the plain page, never a failed run
+        from castelino.dashboards.ai_capex import card
+
+        card.draw(doc, cache / "card.png")
+    except Exception as e:  # noqa: BLE001
+        gaps.append({"lane": "card", "error": QS.sub("", str(e))[:200]})
     doc["gaps"] = gaps
     _write(out, doc)
     return f"{len(companies)} companies; {len(gaps)} gaps"

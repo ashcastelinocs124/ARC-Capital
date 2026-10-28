@@ -1,6 +1,7 @@
 {
   "rewrites": [
     { "source": "/api/admin/live/:path*", "destination": "https://arc-research-backend.fly.dev/admin/desk/:path*" },
+    { "source": "/dashboards/ai-capex", "destination": "/dashboards/ai-capex.html" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

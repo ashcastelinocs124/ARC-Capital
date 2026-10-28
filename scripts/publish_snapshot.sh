@@ -40,11 +40,14 @@ EXCLUDE=()
 rsync -a --delete "${EXCLUDE[@]}" frontend/public/api/ "$WT/frontend/public/api/" # the snapshot is gitignored
 cp -R frontend/.vercel "$WT/frontend/"                            # project link
 
+ROOT=$PWD # the main checkout: its venv runs the post-build steps
 cd "$WT/frontend"
 npm ci --silent
 # ponytail: prebuilt deploy so the gitignored public/api snapshot ships without being committed.
 vercel pull --yes --environment=production >/dev/null
 VITE_STATIC=1 vercel build --prod
+# the dashboard page's own link-preview tags (a failure only loses the card, never the deploy)
+uv run --project "$ROOT" python "$ROOT/scripts/og_pages.py" .vercel/output/static || echo "og: failed, continuing with the deploy"
 vercel deploy --prebuilt --prod
 echo "$DEPLOY" >"$LAST"
 echo "Deployed ${DEPLOY:0:7}"

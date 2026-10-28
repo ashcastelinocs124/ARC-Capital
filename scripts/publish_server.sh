@@ -15,5 +15,7 @@ python scripts/export_snapshot.py "$@" # writes frontend/public/api/
 cd frontend # VERCEL_ORG_ID / VERCEL_PROJECT_ID come from fly.toml, VERCEL_TOKEN from fly secrets
 vercel pull --yes --environment=production --token "$VERCEL_TOKEN" >/dev/null
 VITE_STATIC=1 vercel build --prod --token "$VERCEL_TOKEN"
+# the dashboard page's own link-preview tags (a failure only loses the card, never the deploy)
+python ../scripts/og_pages.py .vercel/output/static || echo "og: failed, continuing with the deploy"
 vercel deploy --prebuilt --prod --token "$VERCEL_TOKEN"
 echo "Deployed $(date)"
