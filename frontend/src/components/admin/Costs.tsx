@@ -82,8 +82,9 @@ function Chip({ p }: { p: Provider }) {
 // What each provider may cost a month (estimates set 2026-10-17); edit here to change them.
 export const BUDGET: Record<Exclude<Provider, "x">, number> = { openai: 100, anthropic: 100, openrouter: 20, fly: 50 };
 // X's API is prepaid credit, not a monthly bill: the balance on a day, spent down by every post and
-// read logged since. Edit both when you top up (user: $2.90 on 2026-10-24).
-const X_CREDITS = { usd: 2.9, since: "2026-10-24" };
+// read logged since. Edit both when you top up (user: $2.90 on 2026-10-24; topped up $20 on 2026-10-28,
+// counted as the whole balance since what was left of the $2.90 wasn't known).
+const X_CREDITS = { usd: 20, since: "2026-10-28" };
 const MONTH = new Intl.DateTimeFormat("en-US", { month: "long", timeZone: "UTC" });
 
 // This calendar month's spend per provider against its budget, and where it lands at month-end if
