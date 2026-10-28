@@ -37,6 +37,7 @@ PATHS = [
     "/agents/catalog",
     "/sector_sentiment",
     "/week_ahead",
+    "/dashboards/ai-capex",  # the public AI Demand & Capex dashboard
     "/ai_sentiment",
     "/research",
     "/refresh/status",

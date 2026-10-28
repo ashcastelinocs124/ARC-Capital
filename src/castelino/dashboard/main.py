@@ -100,6 +100,7 @@ from castelino.dashboard.endpoints import (  # noqa: E402
     consultants,
     cross_asset,
     daily_posts,
+    dashboards,
     deep_research,
     macro,
     models,
@@ -126,6 +127,7 @@ app.include_router(sector_sentiment_router.router)
 app.include_router(adoption.router)
 app.include_router(cross_asset.router)
 app.include_router(week_ahead.router)
+app.include_router(dashboards.router)
 app.include_router(ai_sentiment.router)
 app.include_router(refresh.router)
 app.include_router(videos.router)

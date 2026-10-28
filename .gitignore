@@ -67,6 +67,7 @@ data/news_cache.json
 data/calendar_cache.json
 data/regime_forecast.json
 data/week_ahead.json
+data/dashboards/
 data/sector_sentiment.json
 data/cross_asset.json
 data/cross_asset/

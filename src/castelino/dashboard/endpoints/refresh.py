@@ -105,6 +105,15 @@ def job_week_ahead() -> str:
     return week_ahead.run()
 
 
+def job_ai_capex() -> str:
+    from castelino import config
+    from castelino.dashboards.ai_capex import run as ai_capex
+
+    if not config.get_settings().ai_capex.enabled:
+        raise Skipped("disabled in config.yaml (ai_capex.enabled)")
+    return ai_capex.run()
+
+
 def job_ai_sentiment() -> str:
     from castelino.ai_sentiment import run as ai_sentiment
 
@@ -137,6 +146,7 @@ LABELS = {
     "adoption": "AI Adoption Index",
     "cross_asset": "Cross-Asset Drivers",
     "week_ahead": "Week Ahead",
+    "ai_capex": "AI Demand & Capex",
     "ai_sentiment": "AI Model Sentiment",
     "weekly_deep_dive": "Weekly Deep Dive",
 }
@@ -148,6 +158,7 @@ _RUNNERS: dict[str, Callable[[], str]] = {
     "adoption": job_adoption,
     "cross_asset": job_cross_asset,
     "week_ahead": job_week_ahead,
+    "ai_capex": job_ai_capex,
     "ai_sentiment": job_ai_sentiment,
     "weekly_deep_dive": job_weekly_deep_dive,
 }
