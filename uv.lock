@@ -192,6 +192,7 @@ dependencies = [
     { name = "openbb-fred" },
     { name = "openbb-platform-api" },
     { name = "openbb-yfinance" },
+    { name = "openpyxl" },
     { name = "pandas" },
     { name = "plotly" },
     { name = "pyarrow" },
@@ -235,6 +236,7 @@ requires-dist = [
     { name = "openbb-fred", specifier = ">=1.6" },
     { name = "openbb-platform-api" },
     { name = "openbb-yfinance", specifier = ">=1.6" },
+    { name = "openpyxl", specifier = ">=3.1" },
     { name = "pandas", specifier = ">=2.2" },
     { name = "playwright", marker = "extra == 'browser'", specifier = ">=1.63.0" },
     { name = "plotly", specifier = ">=5.18" },
@@ -508,6 +510,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e0/4d/f332313098c1de1b2d2ff91cf2674415cc7cddab2ca1b01ae29774bd5fdf/docstring_parser-0.18.0.tar.gz", hash = "sha256:292510982205c12b1248696f44959db3cdd1740237a968ea1e2e7a900eeb2015", size = 29341, upload-time = "2026-04-14T04:09:19.867Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a7/5f/ed01f9a3cdffbd5a008556fc7b2a08ddb1cc6ace7effa7340604b1d16699/docstring_parser-0.18.0-py3-none-any.whl", hash = "sha256:b3fcbed555c47d8479be0796ef7e19c2670d428d72e96da63f3a40122860374b", size = 22484, upload-time = "2026-04-14T04:09:18.638Z" },
+]
+
+[[package]]
+name = "et-xmlfile"
+version = "2.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d3/38/af70d7ab1ae9d4da450eeec1fa3918940a5fafb9055e934af8d6eb0c2313/et_xmlfile-2.0.0.tar.gz", hash = "sha256:dab3f4764309081ce75662649be815c4c9081e88f0837825f90fd28317d4da54", size = 17234, upload-time = "2024-10-25T17:25:40.039Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c1/8b/5fe2cc11fee489817272089c4203e679c63b570a5aaeb18d852ae3cbba6a/et_xmlfile-2.0.0-py3-none-any.whl", hash = "sha256:7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa", size = 18059, upload-time = "2024-10-25T17:25:39.051Z" },
 ]
 
 [[package]]
@@ -1204,6 +1215,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/10/62/810ce26ce3bdda302104780d9fa70a727ce9dceb50e41968c27c049787e7/openbb_yfinance-1.6.3.tar.gz", hash = "sha256:b25bc0fe17552f2331c771f9f91ab66c138e7bb54b07af282381dec2c273bd5b", size = 39225, upload-time = "2026-05-26T16:25:04.513Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6e/11/05f7a5d28a6ddea35a1bf02153e4f90e0243304b03231904f4130dde428e/openbb_yfinance-1.6.3-py3-none-any.whl", hash = "sha256:45c1cb61ddeb748cfe3b2d03bd5c4dd949e35119f346f018bcd4f48510199ea1", size = 66253, upload-time = "2026-05-26T16:25:05.69Z" },
+]
+
+[[package]]
+name = "openpyxl"
+version = "3.1.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "et-xmlfile" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3d/f9/88d94a75de065ea32619465d2f77b29a0469500e99012523b91cc4141cd1/openpyxl-3.1.5.tar.gz", hash = "sha256:cf0e3cf56142039133628b5acffe8ef0c12bc902d2aadd3e0fe5878dc08d1050", size = 186464, upload-time = "2024-06-28T14:03:44.161Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c0/da/977ded879c29cbd04de313843e76868e6e13408a94ed6b987245dc7c8506/openpyxl-3.1.5-py2.py3-none-any.whl", hash = "sha256:5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2", size = 250910, upload-time = "2024-06-28T14:03:41.161Z" },
 ]
 
 [[package]]

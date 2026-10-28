@@ -63,6 +63,12 @@ def _series(url: str, key: str) -> list:
     return rows
 
 
+def ramp_rows(key: str) -> list[dict]:
+    """Ramp AI Index rows as the page embeds them (adoptionSize, adoptionVendor, ...), for the
+    AI Demand & Capex dashboard, which charts the numbers rather than citing facts."""
+    return _series(RAMP, key)
+
+
 def _month(d: str) -> str:
     return f"{date.fromisoformat(d):%B %Y}"
 

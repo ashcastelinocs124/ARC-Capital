@@ -21,6 +21,7 @@ dependencies = [
     "requests>=2.31",
     "beautifulsoup4>=4.12,<5",
     "httpx>=0.27,<1",
+    "openpyxl>=3.1",  # the Census Bureau's business survey downloads are .xlsx
     "openbb-platform-api",
     # OpenBB data extensions (providers + routers). Without these, `from openbb
     # import obb` yields a bare App with no `.equity`/`.economy` — every adapter
