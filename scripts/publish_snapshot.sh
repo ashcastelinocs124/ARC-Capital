@@ -47,7 +47,8 @@ npm ci --silent
 vercel pull --yes --environment=production >/dev/null
 VITE_STATIC=1 vercel build --prod
 # the dashboard page's own link-preview tags (a failure only loses the card, never the deploy)
-uv run --project "$ROOT" python "$ROOT/scripts/og_pages.py" .vercel/output/static || echo "og: failed, continuing with the deploy"
+uv run --project "$ROOT" python "$ROOT/scripts/og_pages.py" .vercel/output/static ||
+  { mkdir -p .vercel/output/static/dashboards && cp .vercel/output/static/index.html .vercel/output/static/dashboards/ai-capex.html; echo "og: failed, plain page copied"; }
 vercel deploy --prebuilt --prod
 echo "$DEPLOY" >"$LAST"
 echo "Deployed ${DEPLOY:0:7}"
