@@ -58,7 +58,7 @@ export function Compute({ data }: { data: AiCapex }) {
                     <tr key={r.gpu} className="border-t border-border">
                       <td className="py-1.5">{GPU_NAME[r.gpu] ?? `Nvidia ${r.gpu}`}</td>
                       <td className="num text-right">${r.price.toFixed(2)}</td>
-                      <td className={`num text-right ${r.change_7d_pct < 0 ? "text-danger" : "text-success"}`}>
+                      <td className={`num text-right ${r.change_7d_pct < 0 ? "text-danger" : "text-accent"}`}>
                         {r.change_7d_pct < 0 ? "▼" : "▲"} {Math.abs(r.change_7d_pct)}%
                       </td>
                     </tr>
@@ -84,8 +84,9 @@ export function Compute({ data }: { data: AiCapex }) {
             <ul className="mt-1 text-[12.5px] leading-[18px] text-text-2">
               {events.map((e, i) => (
                 <li key={i} className="border-t border-border py-2">
-                  <span className="font-mono text-[11px] text-warning mr-1.5">{e.date}</span>
-                  <b className="text-text">{e.name}</b> {e.text} <SourceLink title="source" url={e.source.url} />
+                  <span className="font-mono text-[11px] text-muted mr-1.5">{e.date}</span>
+                  <b className="text-text">{e.name}</b>{e.text ? <> said: "{e.text}"</> : " reported a delay."}{" "}
+                  <SourceLink title="source" url={e.source.url} />
                 </li>
               ))}
             </ul>

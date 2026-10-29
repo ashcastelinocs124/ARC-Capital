@@ -45,6 +45,8 @@
     --c-co-nbis: 13 148 136;
     --c-co-iren: 100 116 139;
     --c-co-private: 140 140 145;
+    /* text printed on a colored chart segment: near-black reads on every segment color, both themes */
+    --c-ink: 10 14 12;
   }
   /* Not in print: Download PDF always prints on white. */
   @media not print {
@@ -88,6 +90,7 @@
     --c-co-nbis: 20 184 166;
     --c-co-iren: 148 163 184;
     --c-co-private: 110 120 115;
+    --c-ink: 10 14 12;
     }
   }
 

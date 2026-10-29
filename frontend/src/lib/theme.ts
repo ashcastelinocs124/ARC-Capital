@@ -20,6 +20,7 @@ export const C = {
   jobs: v("cat-jobs"),
   ai: v("cat-ai"),
   earnings: v("cat-earnings"),
+  ink: v("ink"), // text on a colored chart segment
   // AI Demand & Capex: one color per company, keyed by ticker
   co: {
     MSFT: v("co-msft"), GOOGL: v("co-googl"), AMZN: v("co-amzn"), META: v("co-meta"), ORCL: v("co-orcl"),

@@ -31,6 +31,14 @@ def _latest_full(doc: dict) -> dict | None:
     return full[-1] if full else None
 
 
+def chart_quarters(doc: dict) -> list[dict]:
+    """The card's bars: up to the latest quarter every company has filed. A partial one (3 of 5)
+    would read as capex collapsing on the most-shared image; the page marks it, the card leaves it out."""
+    qs = (doc.get("totals") or {}).get("quarters", [])
+    last = _latest_full(doc)
+    return [q for q in qs if last and q["q"] <= last["q"]][-10:]
+
+
 def _kpis(doc: dict) -> list[tuple[str, str, str | None]]:
     tot, out = doc.get("totals") or {}, []
     if q := _latest_full(doc):
@@ -109,7 +117,7 @@ def draw(doc: dict, path: Path) -> Path:
                 fontsize=14,
                 fontweight="bold",
             )
-    tot = (doc.get("totals") or {}).get("quarters", [])[-10:]
+    tot = chart_quarters(doc)
     if tot:
         ax = fig.add_axes([560 / W, 1 - 520 / H, 600 / W, 330 / H], facecolor=BG)
         labels = [q["q"] for q in tot]

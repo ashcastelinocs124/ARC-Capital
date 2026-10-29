@@ -30,7 +30,7 @@ export interface CapexCompany {
   } | null;
   borrowing: { label: string; rate_pct: number; date: string; source: Source }[];
   off_balance: { label: string; value: number; source: Source }[];
-  events?: { date: string; text: string; source: Source }[];
+  events?: { date: string; text: string | null; source: Source }[]; // text: the company's quoted words only
   sources: { xbrl: Source; release: Source | null };
 }
 

@@ -12,6 +12,8 @@ export function Spending({ data }: { data: AiCapex }) {
     return { key: c.ticker, name: c.name, color: C.co[c.ticker] ?? C.muted, values: labels.map((l) => by.get(l) ?? null) };
   });
   const guided = hyp.filter((c) => c.guidance);
+  const full = [...tq].reverse().find((t) => t.reported === t.of); // a partial quarter isn't "the latest"
+  const anyActual = guided.some((c) => c.guidance!.actual != null);
   return (
     <Chapter
       id="spending" n="01" tag="SPENDING" question="How much are they spending?" sentence={data.sentences.spending}
@@ -26,14 +28,14 @@ export function Spending({ data }: { data: AiCapex }) {
                 labels={labels.map(qShort)}
                 series={series}
                 totals={tq.map((t) => ({ total: t.capex, note: t.reported < t.of ? `${t.reported} of ${t.of}` : undefined }))}
-                label={`Quarterly capex of ${hyp.map((c) => c.name).join(", ")} from ${qShort(labels[0])} to ${qShort(labels[labels.length - 1])}, rising to ${usd(tq[tq.length - 1].capex)}`}
+                label={`Quarterly capex of ${hyp.map((c) => c.name).join(", ")} from ${qShort(labels[0])} to ${qShort(labels[labels.length - 1])}${full ? `; ${usd(full.capex)} in ${qShort(full.q)}, the latest quarter all of them have filed` : ""}`}
               />
               <Legend items={hyp.map((c) => [c.name, C.co[c.ticker] ?? C.muted])} />
             </>
           ) : <Unavailable what="SEC filings" />}
         </div>
         <div className="min-w-0">
-          <ChartTitle>Last full year vs latest guidance, $bn</ChartTitle>
+          <ChartTitle>{anyActual ? "Last full year vs latest guidance, $bn" : "Latest full-year guidance, $bn"}</ChartTitle>
           {guided.length ? (
             <GuidanceRows
               rows={guided.map((c) => {

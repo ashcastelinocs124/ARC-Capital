@@ -56,6 +56,13 @@ export default function AiCapexPage() {
           <CardBoundary name="Compute"><Compute data={data} /></CardBoundary>
           <CardBoundary name="Adoption"><Adoption data={data} /></CardBoundary>
           <CardBoundary name="Company table"><CompanyTable data={data} /></CardBoundary>
+          {data.gaps.length > 0 && (
+            // a lane that failed keeps its last value: say so, rather than pass it off as today's
+            <p className="text-xs text-muted">
+              Not updated today, showing the last good reading:{" "}
+              {data.gaps.map((g) => g.lane.replace("company:", "")).join(", ")}.
+            </p>
+          )}
         </>
       )}
     </div>

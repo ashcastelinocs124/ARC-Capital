@@ -41,8 +41,10 @@ function Panel({ eyebrow, title, src, children }: { eyebrow: string; title: stri
 }
 
 const Note = ({ children }: { children: React.ReactNode }) => (
-  <p className="mt-2.5 rounded-md bg-warning-soft px-2.5 py-1.5 text-xs leading-[17px] text-warning">{children}</p>
+  <p className="mt-2.5 rounded-md border-l-2 border-warning bg-warning-soft px-2.5 py-1.5 text-xs leading-[17px] text-text">{children}</p>
 );
+// pressed = solid accent (passes 4.5:1 in both themes); the focus ring is inset so no parent clips it
+const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent";
 
 export function Adoption({ data }: { data: AiCapex }) {
   const [params, setParams] = useSearchParams();
@@ -64,7 +66,11 @@ export function Adoption({ data }: { data: AiCapex }) {
   const arc = data.adoption?.buckets[size];
   const census = data.census;
   const classes = census?.by_class.filter((c) => size === "all" || c.bucket === size) ?? [];
-  const censusPct = size === "all" ? census?.overall_pct : classes.length ? Math.round((classes.reduce((s, c) => s + c.pct, 0) / classes.length) * 10) / 10 : null;
+  // Census prints a share per size class, not per bucket: a bucket shows its classes' range, never an average
+  const lo = classes.length ? Math.min(...classes.map((c) => c.pct)) : null;
+  const hi = classes.length ? Math.max(...classes.map((c) => c.pct)) : null;
+  const censusPct = size === "all" ? (census?.overall_pct != null ? `${census.overall_pct}%` : null)
+    : lo == null ? null : lo === hi ? `${lo}%` : `${lo}–${hi}%`;
   const nv = data.nvidia;
   const nvLast = nv?.quarters[nv.quarters.length - 1];
   const or = data.openrouter;
@@ -75,7 +81,7 @@ export function Adoption({ data }: { data: AiCapex }) {
     : [
         ramp && (rampSize ? `**${rampSize.pct}%** of ${rampSize.label.toLowerCase()} on Ramp pay for AI tools.` : ramp.sizes.length ? `Between **${Math.min(...ramp.sizes.map((s) => s.pct))}%** and **${Math.max(...ramp.sizes.map((s) => s.pct))}%** of US businesses on Ramp pay for AI tools, depending on size.` : ""),
         arc && arc.pct != null ? `**${arc.pct}%** of ${SIZE_WORDS[size]} in ARC's index (outside the companies above) make a concrete AI claim in their latest filing.` : "",
-        censusPct != null ? `In the Census survey, **${censusPct}%** of ${size === "all" ? "US firms" : `firms with ${CENSUS_SIZE[size]} employees`} say they used AI in the last two weeks.` : "",
+        censusPct != null ? `In the Census survey, **${censusPct}** of ${size === "all" ? "US firms" : `firms with ${CENSUS_SIZE[size]} employees, by size class,`} say they used AI in the last two weeks.` : "",
       ].filter(Boolean).join(" ");
 
   return (
@@ -88,7 +94,7 @@ export function Adoption({ data }: { data: AiCapex }) {
           <div className="eyebrow">Nvidia data center sales</div>
           {nvLast?.value != null ? (
             <>
-              <div className="num text-[22px] font-bold mt-1">{usd(nvLast.value)}{nv!.growth_pct != null && <span className="text-success text-[13px] ml-1.5">▲ {nv!.growth_pct}%</span>}</div>
+              <div className="num text-[22px] font-bold mt-1">{usd(nvLast.value)}{nv!.growth_pct != null && <span className={cn("text-[13px] ml-1.5", nv!.growth_pct >= 0 ? "text-accent" : "text-danger")}>{nv!.growth_pct >= 0 ? "▲" : "▼"} {Math.abs(nv!.growth_pct)}%</span>}</div>
               <div className="text-xs text-muted mb-1.5">Quarterly, {qShort(nv!.quarters[0].q)} → {qShort(nvLast.q)}</div>
               <Spark values={nv!.quarters.map((q) => q.value ?? 0)} label={`Nvidia data center sales by quarter, latest ${usd(nvLast.value)}`} />
             </>
@@ -111,8 +117,8 @@ export function Adoption({ data }: { data: AiCapex }) {
           <span className="inline-flex overflow-hidden rounded-lg border border-border-strong">
             {SIZES.map(([s, label]) => (
               <button key={s} type="button" aria-pressed={size === s} onClick={() => set("size", s)}
-                className={cn("px-3 py-1.5 text-[13px] font-semibold border-l border-border-strong first:border-l-0",
-                  size === s ? "bg-accent-soft text-accent" : "bg-surface text-text-2 hover:text-text")}>{label}</button>
+                className={cn("px-3 py-1.5 text-[13px] font-semibold border-l border-border-strong first:border-l-0", FOCUS,
+                  size === s ? "bg-accent text-on-accent" : "bg-surface text-text-2 hover:text-text")}>{label}</button>
             ))}
           </span>
         </div>
@@ -120,8 +126,8 @@ export function Adoption({ data }: { data: AiCapex }) {
           <span id="f-product" className="eyebrow">AI product</span>
           {[["all", "All products"] as const, ...vendors.map((v) => [v.vendor, PRODUCT_NAMES[v.vendor] ?? v.vendor] as const)].map(([v, label]) => (
             <button key={v} type="button" aria-pressed={product === v} onClick={() => set("product", v)}
-              className={cn("rounded-full border px-3 py-1 text-[13px] font-semibold",
-                product === v ? "border-accent bg-accent-soft text-accent" : "border-border-strong bg-surface text-text-2 hover:text-text")}>{label}</button>
+              className={cn("rounded-full border px-3 py-1 text-[13px] font-semibold", FOCUS,
+                product === v ? "border-accent bg-accent text-on-accent" : "border-border-strong bg-surface text-text-2 hover:text-text")}>{label}</button>
           ))}
         </div>
       </div>
@@ -173,9 +179,9 @@ export function Adoption({ data }: { data: AiCapex }) {
           src={census ? <>Business Trends and Outlook Survey · every two weeks{census.ref_end && ` · to ${census.ref_end}`}</> : "Census Bureau"}>
           {!census ? <Unavailable what="Census Bureau" /> : (
             <>
-              <div className="num text-[24px] font-bold">{censusPct ?? "—"}%</div>
+              <div className="num text-[24px] font-bold">{censusPct ?? "—"}</div>
               <div className="text-xs text-muted mb-2.5">
-                of {size === "all" ? "US firms" : `firms with ${CENSUS_SIZE[size]} employees (average of their size classes)`} used AI in the last two weeks
+                of {size === "all" ? "US firms" : `firms with ${CENSUS_SIZE[size]} employees (the range across their size classes)`} used AI in the last two weeks
               </div>
               <BarList rows={census.by_class.map((c) => ({ label: `${c.label} staff`, value: c.pct }))} max={Math.max(...census.by_class.map((c) => c.pct)) * 1.1}
                 on={(i) => size === "all" || census.by_class[i].bucket === size} />

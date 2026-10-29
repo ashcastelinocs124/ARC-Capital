@@ -67,7 +67,7 @@ export function StackedBars({ labels, series, totals, label, height = 240 }: {
             })}
             <Txt x={x + w / 2} y={y(base) - 5} anchor="middle" fill={C.text2} size={10.5} weight={600}>{Math.round(totals[i]?.total ?? base)}</Txt>
             {(i % 3 === 0 || i === labels.length - 1) && <Txt x={x + w / 2} y={B + 15} anchor="middle">{q}</Txt>}
-            {totals[i]?.note && <Txt x={x + w / 2} y={B + 28} anchor="middle" fill={C.warning} size={9.5}>{totals[i].note}</Txt>}
+            {totals[i]?.note && <Txt x={x + w / 2} y={B + 28} anchor="middle" fill={C.text2} size={9.5} weight={600}>{totals[i].note}</Txt>}
           </g>
         );
       })}
@@ -99,7 +99,7 @@ export function HBars({ rows, max, fmt, refLine, ghostLabel, label }: {
             ) : (
               <>
                 <rect x={L} y={y + 5} width={Math.max(1, x(r.value) - L)} height={RH - 12} rx={3} fill={r.color} />
-                {r.value > max && <Txt x={x(r.value) - 4} y={y + 15} anchor="end" fill={C.surface} size={12} weight={700}>»</Txt>}
+                {r.value > max && <Txt x={x(r.value) - 4} y={y + 15} anchor="end" fill={C.ink} size={12} weight={700}>»</Txt>}
                 <Txt x={x(r.value) + 6} y={y + 15} fill={C.text2} size={11.5} weight={600}>{fmt(r.value)}</Txt>
               </>
             )}
@@ -146,8 +146,13 @@ export function GuidanceRows({ rows, label }: {
           </g>
         );
       })}
-      <rect x={L} y={rows.length * RH + 12} width={14} height={8} fill={C.borderStrong} />
-      <Txt x={L + 20} y={rows.length * RH + 20}>last full year</Txt>
+      {/* the "last full year" key only when one is drawn: the cited search rarely returns it */}
+      {rows.some((r) => r.actual != null) && (
+        <>
+          <rect x={L} y={rows.length * RH + 12} width={14} height={8} fill={C.borderStrong} />
+          <Txt x={L + 20} y={rows.length * RH + 20}>last full year</Txt>
+        </>
+      )}
       <rect x={L + 110} y={rows.length * RH + 10} width={14} height={12} rx={2} fill={C.text2} />
       <Txt x={L + 130} y={rows.length * RH + 20}>latest guidance (cited)</Txt>
     </svg>
@@ -232,12 +237,13 @@ export function DotRows({ rows, refs, label }: {
   );
 }
 
+// colors chosen so the near-black % label (C.ink) passes 4.5:1 on each, in both themes
 export const MIX_PARTS: [keyof import("@/api/aiCapex").Mix, string, string][] = [
   ["own_cash", "Own operating cash", C.muted2],
   ["debt", "New debt", C.jobs],
-  ["convertible", "Convertible notes", C.warning], // light enough for its % label in both themes
-  ["shares", "New shares", C.ai],
-  ["cash_on_hand", "Cash on hand", C.text2],
+  ["convertible", "Convertible notes", C.warning],
+  ["shares", "New shares", C.inflation],
+  ["cash_on_hand", "Cash on hand", C.earnings],
 ];
 
 /** Where each company's cash for capex came from, as one 100% bar per company. */
@@ -252,15 +258,16 @@ export function Mix100({ rows, label }: { rows: { name: string; mix: import("@/a
         return (
           <g key={r.name}>
             <Txt x={L - 8} y={y + 15} anchor="end" fill={C.text} size={12}>{r.name}</Txt>
-            {MIX_PARTS.map(([k, , color]) => {
+            {MIX_PARTS.map(([k, name, color]) => {
               const p = r.mix[k];
               if (!p) return null;
               const x0 = x(acc);
               acc += p;
               return (
                 <g key={k}>
-                  <rect x={x0} y={y + 3} width={Math.max(0, x(acc) - x0 - 1)} height={RH - 8} fill={color} />
-                  {p >= 10 && <Txt x={(x0 + x(acc)) / 2} y={y + 15} anchor="middle" fill={C.surface} size={10.5} weight={700}>{`${p}%`}</Txt>}
+                  {/* a segment too thin for its label still names itself on hover */}
+                  <rect x={x0} y={y + 3} width={Math.max(0, x(acc) - x0 - 1)} height={RH - 8} fill={color}><title>{`${r.name}: ${name} ${p}%`}</title></rect>
+                  {p >= 10 && <Txt x={(x0 + x(acc)) / 2} y={y + 15} anchor="middle" fill={C.ink} size={10.5} weight={700}>{`${p}%`}</Txt>}
                 </g>
               );
             })}

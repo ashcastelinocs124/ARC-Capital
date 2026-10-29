@@ -17,6 +17,17 @@ DOC = {
 }  # fmt: skip
 
 
+def test_card_chart_ends_at_the_latest_full_quarter():
+    # a 3-of-5 quarter drawn as the last bar reads as capex collapsing on the most-shared image
+    doc = {
+        "totals": {
+            "quarters": DOC["totals"]["quarters"]
+            + [{"q": "2026Q3", "capex": 102.0, "reported": 3, "of": 5}]
+        }
+    }
+    assert [q["q"] for q in card.chart_quarters(doc)] == ["2026Q1", "2026Q2"]
+
+
 def test_draw_writes_1200x630_png(tmp_path):
     p = card.draw(DOC, tmp_path / "card.png")
     assert mpimg.imread(p).shape[:2] == (630, 1200)

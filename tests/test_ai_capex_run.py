@@ -187,8 +187,8 @@ def test_sentence_omitted_when_numbers_missing():
     s = ai_run.sentences(
         {
             "companies": [
-                {"ticker": "AMZN", "name": "Amazon", "kind": "hyperscaler", "quarters": [{"q": "2026Q2", "capex": 50.0}], "yoy_pct": 56},
-                {"ticker": "ORCL", "name": "Oracle", "kind": "hyperscaler", "quarters": [{"q": "2026Q2", "capex": 17.0}], "yoy_pct": 105},
+                {"ticker": "AMZN", "name": "Amazon", "kind": "hyperscaler", "quarters": [{"q": "2025Q2", "capex": 32.2}, {"q": "2026Q2", "capex": 50.0}], "yoy_pct": 56},
+                {"ticker": "ORCL", "name": "Oracle", "kind": "hyperscaler", "quarters": [{"q": "2025Q2", "capex": 8.5}, {"q": "2026Q2", "capex": 17.0}], "yoy_pct": 105},
             ],
             "totals": {"quarters": [{"q": "2026Q2", "capex": 181.2, "reported": 5, "of": 5}], "yoy_pct": 74, "ttm_capex": 611.0},
         }
@@ -267,20 +267,132 @@ def test_borrowing_keeps_rates_not_spreads():
     assert len(ai_run._borrowing(many)) == 3  # three a company keeps the chart readable
 
 
-def test_off_balance_one_per_kind_at_least_a_billion():
-    items = [item("leases not yet commenced", 329.1), item("Leases not yet commenced", 92.7),
+def test_off_balance_newest_per_kind_at_least_a_billion():
+    items = [item("leases not yet commenced", 92.7, date="2026-09"), item("Leases not yet commenced", 329.1, date="2026-03"),
              item("maximum exposure to loss", 45.95), item("power commitments", 0.006), item("x", 5, "percent")]  # fmt: skip
     got = ai_run._off_balance(items)
     assert [(o["label"], o["value"]) for o in got] == [
-        ("leases not yet commenced", 329.1),
+        ("leases not yet commenced", 92.7),  # the newest of the two, not the largest
         ("maximum exposure to loss", 45.95),
     ]
 
 
-def test_funding_sentence_gives_the_range_of_new_debt_rates():
+def test_cited_items_older_than_the_latest_quarter_are_dropped():
+    # Google Cloud's "June 2025" backlog came back as the latest in Oct 2026; the line's date gives it away
+    items = [
+        item("backlog", 108.2, date="2025-06"),
+        item("backlog", 155.0, date="2026-07"),
+        item("no date", 1.0, date=""),
+    ]
+    assert [i["value"] for i in ai_run._fresh(items, "2026-06-30")] == [
+        155.0
+    ]  # 100 days before the quarter end
+
+
+def test_fiscal_year_guidance_is_checked_too():
+    # Oracle: "~$35bn for fiscal 2027" while its filings show $28.5bn spent in the first quarter of FY27
+    q = [{"q": "2026Q2", "capex": 16.5}, {"q": "2026Q3", "capex": 28.5}]
+    stale = [item("guidance", 35, period="fiscal year 2027")]
+    assert ai_run._guidance(stale, q, year=2026, fy_end=5) is None
+    assert ai_run._guidance([item("guidance", 35, period="FY27")], q, year=2026, fy_end=5) is None
+    ok = ai_run._guidance(
+        [item("guidance", 25, period="FY27", high=30)],
+        [{"q": "2026Q2", "capex": 1.3}],
+        year=2026,
+        fy_end=6,
+    )
+    assert ok["low"] == 25  # IREN: FY27 (Jul 2026-Jun 2027) has no quarters filed yet
+    assert (
+        ai_run._guidance([item("guidance", 50, period="FY2026")], q, year=2026, fy_end=5) is None
+    )  # FY26 ended in May
+
+
+def test_funding_sentence_says_what_the_mix_measures():
     c = {"ticker": "ORCL", "name": "Oracle", "kind": "hyperscaler", "quarters": [],
          "mix": {"own_cash": 45, "debt": 35, "convertible": 0, "shares": 20, "cash_on_hand": 0},
          "borrowing": [{"label": "coupon", "rate_pct": r} for r in (4.55, 5.7)] + [{"label": "convertible notes coupon", "rate_pct": 1.0}]}  # fmt: skip
     s = ai_run.sentences({"companies": [c], "totals": {}})["funding"]
-    assert "Oracle borrows **35%** of it; its new bonds and loans this year pay **4.55–5.7%**." in s
-    assert "bp" not in s
+    # the mix is each source's share of all incoming cash, not of capex
+    assert "New debt was **35%** of the cash coming into Oracle over the last four quarters" in s
+    assert "its new bonds and loans this year pay **4.55–5.7%**." in s
+    assert "of it" not in s and "bp" not in s
+
+
+def test_spending_sentence_compares_the_quarter_it_names():
+    def co(t, name, caps):
+        qs = [
+            {"q": q, "capex": v}
+            for q, v in zip(("2025Q2", "2025Q3", "2026Q1", "2026Q2", "2026Q3"), caps, strict=True)
+        ]
+        return {"ticker": t, "name": name, "kind": "hyperscaler", "quarters": qs, "yoy_pct": None}
+
+    # Oracle's newest quarter (2026Q3) grew most, but in 2026Q2, the quarter named, Microsoft did
+    cos = [co("MSFT", "Microsoft", [10, 11, 12, 21, 22]), co("ORCL", "Oracle", [5, 1, 6, 9, 30])]
+    tot = {"quarters": [{"q": "2026Q2", "capex": 30, "reported": 2, "of": 2}], "yoy_pct": 100}
+    s = ai_run.sentences({"companies": cos, "totals": tot})["spending"]
+    assert "Microsoft spends the most" in s and "Microsoft's spending is growing fastest" not in s
+    assert (
+        "Oracle" not in s or "up 80%" in s
+    )  # Oracle 2026Q2 vs 2025Q2: 9 / 5 - 1 = 80%; Microsoft +110%
+    assert "up 110%" not in s.split("spends the most")[0]
+
+
+def test_power_labels_and_compute_sentence_name_the_companies():
+    assert ai_run._power([item("active power capacity", 0.5, "gigawatts"), item("contracted power", 2.5, "gigawatts")]) == {"online_gw": 0.5, "contracted_gw": 2.5}  # fmt: skip
+    one = {
+        "ticker": "CRWV",
+        "name": "CoreWeave",
+        "kind": "neocloud",
+        "quarters": [],
+        "power": {"online_gw": 1.5, "contracted_gw": 3.7},
+    }
+    s = ai_run.sentences({"companies": [one], "totals": {}})["compute"]
+    assert s.startswith("CoreWeave has **1.5 GW** running against **3.7 GW** contracted")
+
+
+def test_event_text_is_only_the_quoted_words():
+    assert (
+        ai_run._quoted(
+            "Aug 2026: Nebius said “on-demand capacity in the region was reduced” after a storm."
+        )
+        == "on-demand capacity in the region was reduced"
+    )
+    assert ai_run._quoted("This was an outage, not a guidance cut.") is None
+
+
+def test_a_failed_gpu_read_is_unavailable_not_yesterdays(tmp_path):
+    out = tmp_path / "ai_capex.json"
+    out.write_text(
+        json.dumps({"gpu": {"as_of": "2026-10-27", "rows": [{"gpu": "H100", "price": 2.8}]}})
+    )
+
+    def no_silicon(url):
+        raise RuntimeError("down")
+
+    ai_run.run(NOW, out=out, deps=deps(tmp_path, get_text=no_silicon))
+    doc = json.loads(out.read_text())
+    assert doc["gpu"] is None and any(g["lane"] == "gpu" for g in doc["gaps"])
+
+
+def test_backlog_a_year_ago_survives_the_freshness_check(tmp_path):
+    # the current figure must be recent; the year-ago one is old by definition
+    line = "July 2026: AWS backlog was $496 billion, up from $195 billion a year earlier."
+
+    def search(system, user):
+        return line, [("AWS", "https://aws.example/q2", 0, 5)]
+
+    class Reader:
+        def __call__(self, **ctx):
+            if ctx["topic"] != "backlog":
+                return Items(items=[])
+            from castelino.dashboards.ai_capex.cited import Item
+
+            return Items(items=[
+                Item(label="backlog", value=496, value_high=None, unit="billions", period="Q2 2026", date="2026-07", fact_id="W1"),
+                Item(label="backlog a year ago", value=195, value_high=None, unit="billions", period="Q2 2025", date="2025-07", fact_id="W1"),
+            ])  # fmt: skip
+
+    out = tmp_path / "ai_capex.json"
+    ai_run.run(NOW, out=out, deps=deps(tmp_path, search=search, cited_reader=Reader))
+    amzn = next(c for c in json.loads(out.read_text())["companies"] if c["ticker"] == "AMZN")
+    assert amzn["backlog"] == {"label": "AWS backlog", "value": 496.0, "year_ago": 195.0}

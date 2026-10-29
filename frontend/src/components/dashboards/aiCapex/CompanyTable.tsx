@@ -3,7 +3,7 @@ import { company } from "@/lib/company";
 import { C } from "@/lib/theme";
 import { SourceLink } from "./Chapter";
 
-const dash = <span className="text-muted-2">—</span>;
+const dash = <span className="text-muted">—</span>;
 
 function Row({ c }: { c: CapexCompany }) {
   const q = c.quarters[c.quarters.length - 1];
@@ -16,12 +16,12 @@ function Row({ c }: { c: CapexCompany }) {
         {company(c.name, c.ticker)}
       </th>
       <td className="num text-right px-2">{q?.capex != null ? usd(q.capex) : dash}</td>
-      <td className="num text-right px-2">{c.yoy_pct != null ? <span className={c.yoy_pct >= 0 ? "text-success" : "text-danger"}>{c.yoy_pct >= 0 ? "▲" : "▼"} {Math.abs(c.yoy_pct)}%</span> : dash}</td>
+      <td className="num text-right px-2">{c.yoy_pct != null ? <span className={c.yoy_pct >= 0 ? "text-accent" : "text-danger"}>{c.yoy_pct >= 0 ? "▲" : "▼"} {Math.abs(c.yoy_pct)}%</span> : dash}</td>
       <td className="num text-right px-2">{c.cents_per_dollar != null ? <>{c.cents_per_dollar}¢{c.cents_year_ago != null && <span className="text-muted"> ({c.cents_year_ago}¢)</span>}</> : dash}</td>
       <td className={`num text-right px-2 ${c.ocf_share != null && c.ocf_share > 100 ? "text-danger" : ""}`}>{c.ocf_share != null ? `${c.ocf_share.toLocaleString()}%` : "n/m"}</td>
       <td className="num text-right px-2">{debt != null ? `${debt}%${c.mix!.convertible > c.mix!.debt ? " conv." : ""}` : dash}</td>
       <td className="num text-right px-2">{c.avg_rate != null ? `${c.avg_rate}%` : dash}</td>
-      <td className="num text-right px-2">{c.backlog ? usd(c.backlog.value) : c.kind === "hyperscaler" && !c.cloud ? <span className="text-muted-2">no cloud</span> : dash}</td>
+      <td className="num text-right px-2">{c.backlog ? usd(c.backlog.value) : c.kind === "hyperscaler" && !c.cloud ? <span className="text-muted">no cloud</span> : dash}</td>
       <td className="num text-right pl-2 whitespace-nowrap">
         {g && g.low != null ? (
           <SourceLink title={`${g.high != null && g.high !== g.low ? `${usd(g.low)}–${usd(g.high)}` : `~${usd(g.low)}`}`} url={g.source.url} />

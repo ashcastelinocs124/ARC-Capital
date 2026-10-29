@@ -36,7 +36,8 @@ BACKLOG = {  # ticker -> (label, release KPI; None = from a cited search)
     "AMZN": ("AWS backlog", None),
     "ORCL": ("Total RPO", "remaining performance obligations"),
     "CRWV": ("Revenue backlog", "revenue backlog"),
-    "IREN": ("Contracted AI cloud revenue", "contracted AI cloud revenue"),
+    # not IREN: its release's "contracted AI cloud revenue" is an annual run rate, not backlog, so
+    # its backlog is the filings' remaining performance obligations
 }
 POWER = {  # ticker -> (online KPI, contracted KPI)
     "CRWV": ("active power", "contracted power"),
@@ -132,10 +133,37 @@ def _rel_label(filed: str) -> str:
 _SPREAD = re.compile(r"spread|margin", re.I)  # a SOFR spread is not a rate: 0.44% would read as one
 
 
-def _guidance(items: list[dict], quarters: list[dict], year: int | None = None) -> dict | None:
-    """The latest full-year guidance. A calendar year's guidance that would leave the rest of the year
-    at under half the latest quarter's pace is stale (a search's old line under a new date: Alphabet's
-    2025 "$91-93bn" came back as 2026's after it had spent $80.6bn in the first half) and is dropped.
+_YEAR = re.compile(r"FY\s?'?(\d{2,4})\b|\b(20\d\d)\b", re.I)
+
+
+def _fresh(items: list[dict], since: str, days: int = 100) -> list[dict]:
+    """Cited items dated within `days` before `since` (a quarter end) or later. A cited line can be
+    years old under "latest" (Google Cloud's June 2025 backlog came back in Oct 2026); its own date,
+    which the search must give, is the only check. An undated line is dropped."""
+    cut = (date.fromisoformat(since[:10]) - timedelta(days=days)).isoformat()[:7]
+    return [i for i in items if (i.get("date") or "")[:7] >= cut and i.get("date")]
+
+
+def _quoted(line: str) -> str | None:
+    """The company's own words in a cited line: the search model's prose around them never reaches
+    the page (no model-written text on the dashboard)."""
+    m = re.search(r"[“\"]([^”\"]{12,240})[”\"]", line)
+    return m.group(1).strip() if m else None
+
+
+def _in_year(label: str, fy: int, fy_end: int) -> bool:
+    """Does quarter `label` ("2026Q3") fall in fiscal year `fy` ending in month `fy_end`?"""
+    y, mid = int(label[:4]), (int(label[5]) - 1) * 3 + 2  # the quarter's middle month
+    return (y == fy - 1 and mid > fy_end) or (y == fy and mid <= fy_end) if fy_end < 12 else y == fy
+
+
+def _guidance(
+    items: list[dict], quarters: list[dict], year: int | None = None, fy_end: int = 12
+) -> dict | None:
+    """The newest full-year guidance. Guidance for a year that has ended is dropped, and so is
+    guidance that would leave the rest of its year at under half the latest quarter's pace: a search's
+    old line under a new date (Alphabet's 2025 "$91-93bn" came back as 2026's after $80.6bn was spent
+    in the first half; Oracle's "$35bn for fiscal 2027" after $28.5bn in its first quarter).
     Conservative: the filings' capex excludes finance leases, which some guidance includes."""
     guides = sorted(
         (i for i in items if "guidance" in i["label"].lower()), key=lambda i: i["date"] or ""
@@ -148,18 +176,16 @@ def _guidance(items: list[dict], quarters: list[dict], year: int | None = None) 
         _bn(guide["value"], guide["unit"]),
         _bn(guide["value_high"] or guide["value"], guide["unit"]),
     )
-    named = re.search(r"\b(20\d\d)\b", guide["period"])
-    if named and int(named.group(1)) < (year or date.today().year):
-        return None  # a past year's guidance is not guidance any more
-    year = named
-    if (
-        high is not None
-        and year
-        and "fiscal" not in guide["period"].lower()
-        and not re.search(r"\bFY", guide["period"])
-    ):
-        done = [q for q in quarters if q["q"].startswith(year.group(1)) and q["capex"] is not None]
-        if done:
+    fiscal = bool(re.search(r"fiscal|\bFY", guide["period"], re.I)) and fy_end < 12
+    if m := _YEAR.search(guide["period"]):
+        fy = int(m.group(1) or m.group(2))
+        fy = fy + 2000 if fy < 100 else fy
+        end, today = (fy_end if fiscal else 12), date.today()
+        ended = (fy, end) < (today.year, today.month) if fiscal else fy < (year or today.year)
+        if ended:
+            return None  # that year is over: not guidance any more
+        done = [q for q in quarters if q["capex"] is not None and _in_year(q["q"], fy, end)]
+        if high is not None and done:
             floor = sum(q["capex"] for q in done) + (4 - len(done)) * done[-1]["capex"] * 0.5
             if high < floor:
                 return None
@@ -183,14 +209,13 @@ def _borrowing(items: list[dict]) -> list[dict]:
 
 
 def _off_balance(items: list[dict]) -> list[dict]:
-    """One tile per kind (the largest), $1bn or more, at most two per company."""
-    best: dict[str, dict] = {}
-    for i in items:
+    """One tile per kind (its newest figure), $1bn or more, at most two per company."""
+    newest: dict[str, dict] = {}
+    for i in sorted(items, key=lambda i: i.get("date") or ""):
         v = _bn(i["value"], i["unit"]) if i["value"] is not None else None
-        k = i["label"].lower()
-        if v is not None and v >= 1 and (k not in best or v > best[k]["value"]):
-            best[k] = {"label": i["label"], "value": v, "source": _src(i)}
-    return sorted(best.values(), key=lambda o: -o["value"])[:2]
+        if v is not None and v >= 1:
+            newest[i["label"].lower()] = {"label": i["label"], "value": v, "source": _src(i)}
+    return sorted(newest.values(), key=lambda o: -o["value"])[:2]
 
 
 def _year_before(label: str) -> str:
@@ -270,23 +295,25 @@ def _company(co, d: Deps, edgar, cache: Path, week: str, year: int) -> dict:
             "growth_pct": g["value"] if g else None,
             "revenue": _bn(r["value"], r["unit"]) if r else None,
         }
-    if t in BACKLOG:
-        label, kname = BACKLOG[t]
-        if kname:
-            k, k0 = _kpi(now, kname), _kpi(ago, kname)
-            val = _bn(k["value"], k["unit"]) if k else None
-            val0 = _bn(k0["value"], k0["unit"]) if k0 else None
-        else:
-            items = topic("backlog")
-            cur = next((i for i in items if i["label"] == "backlog"), None)
-            old = next((i for i in items if "year ago" in i["label"]), None)
-            val = _bn(cur["value"], cur["unit"]) if cur else None
-            val0 = _bn(old["value"], old["unit"]) if old else None
-        if val is None and f.rpo is not None:
-            label, val = "Remaining performance obligations", f.rpo
-        out["backlog"] = (
-            {"label": label, "value": val, "year_ago": val0} if val is not None else None
-        )
+    # a cited line is kept only if dated near the company's latest quarter (see _fresh)
+    as_of = f.as_of or date.today().isoformat()
+    year_ago = date.today() - timedelta(days=365)
+    label, kname = BACKLOG.get(t, ("Remaining performance obligations", ""))
+    val = val0 = None
+    if kname:
+        k, k0 = _kpi(now, kname), _kpi(ago, kname)
+        val = _bn(k["value"], k["unit"]) if k else None
+        val0 = _bn(k0["value"], k0["unit"]) if k0 else None
+    elif kname is None:
+        items = topic("backlog")
+        # the current figure must be recent; the year-ago one is old by definition
+        cur = next((i for i in _fresh(items, as_of) if i["label"] == "backlog"), None)
+        old = next((i for i in items if "year ago" in i["label"]), None)
+        val = _bn(cur["value"], cur["unit"]) if cur else None
+        val0 = _bn(old["value"], old["unit"]) if old and cur else None
+    if val is None and f.rpo is not None:  # the filings' own figure, dated by the filing
+        label, val, val0 = "Remaining performance obligations", f.rpo, None
+    out["backlog"] = {"label": label, "value": val, "year_ago": val0} if val is not None else None
     if co.kind == "neocloud":
         on, con = POWER.get(t, (None, None))
         a, c = _kpi(now, on), _kpi(now, con)
@@ -295,21 +322,29 @@ def _company(co, d: Deps, edgar, cache: Path, week: str, year: int) -> dict:
             "contracted_gw": _gw(c["value"], c["unit"]) if c else None,
         }
         if power["online_gw"] is None or power["contracted_gw"] is None:
-            power = _power(topic("power", week)) or power
+            power = _power(_fresh(topic("power", week), as_of)) or power
         out["power"] = power
         out["events"] = [
-            {"date": i["date"], "text": i["source"]["line"], "source": _src(i)}
-            for i in topic("delays", week)
+            {"date": i["date"], "text": _quoted(i["source"]["line"]), "source": _src(i)}
+            for i in _fresh(topic("delays", week), year_ago.isoformat(), days=0)
         ][:3]
-    out["guidance"] = _guidance(topic("guidance"), f.quarters, year)
-    out["borrowing"] = _borrowing(topic("borrowing"))
-    out["off_balance"] = _off_balance(topic("off_balance"))
+    out["guidance"] = _guidance(
+        _fresh(topic("guidance"), year_ago.isoformat(), days=0), f.quarters, year, co.fy_end
+    )
+    out["borrowing"] = _borrowing(
+        [i for i in topic("borrowing") if (i.get("date") or "").startswith(str(year))]
+    )
+    out["off_balance"] = _off_balance(_fresh(topic("off_balance"), as_of))
     return out
 
 
+_ONLINE = re.compile(r"online|active|operat|energi[sz]ed|\blive\b|in service", re.I)
+_CONTRACTED = re.compile(r"contract|secured|signed|committed", re.I)
+
+
 def _power(items: list[dict]) -> dict | None:
-    on = next((i for i in items if "online" in i["label"]), None)
-    con = next((i for i in items if "contracted" in i["label"]), None)
+    con = next((i for i in items if _CONTRACTED.search(i["label"])), None)
+    on = next((i for i in items if _ONLINE.search(i["label"]) and i is not con), None)
     if not (on and con):
         return None
     return {
@@ -437,28 +472,33 @@ def sentences(doc: dict) -> dict[str, str]:
             if tot.get("ttm_capex")
             else "."
         )
-        latest = [c for c in hyp if c["quarters"] and c["quarters"][-1].get("capex") is not None]
-        if latest:
-            top = max(latest, key=lambda c: c["quarters"][-1]["capex"])
-            fast = max(
-                (c for c in hyp if c.get("yoy_pct") is not None),
-                key=lambda c: c["yoy_pct"],
-                default=None,
-            )
-            s += f" {top['name']} spends the most"
-            s += (
-                f"; {fast['name']}'s spending is growing fastest: up {fast['yoy_pct']}%."
-                if fast and fast is not top
-                else "."
-            )
+        # every company compared in the quarter the sentence names, not each one's own newest
+        at = {c["name"]: {x["q"]: x.get("capex") for x in c["quarters"]} for c in hyp}
+        spend = {n: v[q["q"]] for n, v in at.items() if v.get(q["q"]) is not None}
+        growth = {
+            n: round((spend[n] / v[_year_before(q["q"])] - 1) * 100)
+            for n, v in at.items()
+            if n in spend and v.get(_year_before(q["q"]))
+        }
+        if spend:
+            top = max(spend, key=spend.get)
+            s += f" {top} spends the most"
+            if growth and (fast := max(growth, key=growth.get)) != top:
+                s += f"; {fast}'s spending is growing fastest: up {growth[fast]}%."
+            elif growth:
+                s += f" and is growing fastest: up {growth[top]}%."
+            else:
+                s += "."
         if tot.get("neocloud_capex_q"):
             s += f" The three neoclouds add {_usd(tot['neocloud_capex_q'])} a quarter."
         out["spending"] = s
     mixed = [c for c in cos if c.get("mix")]
     if mixed:
+        # the mix is each source's share of all the cash coming in, not of capex: say so
         own = max(mixed, key=lambda c: c["mix"]["own_cash"])
         parts = [
-            f"{own['name']} pays for {own['mix']['own_cash']}% of its capex from its own cash."
+            f"Over the last four quarters, {own['mix']['own_cash']}% of the cash coming into "
+            f"{own['name']} came from its own business."
         ]
         for group in (hyp, neo):
             lend = [
@@ -468,7 +508,8 @@ def sentences(doc: dict) -> dict[str, str]:
                 continue
             b = max(lend, key=lambda c: c["mix"]["debt"] + c["mix"]["convertible"])
             share = b["mix"]["debt"] + b["mix"]["convertible"]
-            p = f"{b['name']} borrows **{share}%** of it"
+            what = "New debt" if not b["mix"]["convertible"] else "New debt and convertible notes"
+            p = f"{what} was **{share}%** of the cash coming into {b['name']} over the last four quarters"
             # bonds and loans only: a convertible's coupon is low because it can turn into shares
             rates = [
                 d["rate_pct"]
@@ -497,13 +538,22 @@ def sentences(doc: dict) -> dict[str, str]:
             s += f" Cloud revenue is growing {min(growth):g}–{max(growth):g}%."
         out["demand"] = s
     powered = [
-        c["power"]
+        c
         for c in neo
         if c.get("power") and c["power"].get("online_gw") and c["power"].get("contracted_gw")
     ]
     if powered:
-        on, con = sum(p["online_gw"] for p in powered), sum(p["contracted_gw"] for p in powered)
-        s = f"The listed neoclouds have **{on:.1f} GW** running against **{con:.1f} GW** contracted, so {round(on / con * 100)}% is online."
+        on = sum(c["power"]["online_gw"] for c in powered)
+        con = sum(c["power"]["contracted_gw"] for c in powered)
+        names = [
+            c["name"] for c in powered
+        ]  # only those with figures: never "the neoclouds" for one
+        who = (
+            names[0] + " has"
+            if len(names) == 1
+            else ", ".join(names[:-1]) + f" and {names[-1]} have"
+        )
+        s = f"{who} **{on:.1f} GW** running against **{con:.1f} GW** contracted, so {round(on / con * 100)}% is online."
         yrs = [(c["backlog"]["value"] / c["ttm"]["revenue"], c["name"]) for c in neo
                if c.get("backlog") and (c.get("ttm") or {}).get("revenue")]  # fmt: skip
         if yrs:
@@ -554,9 +604,11 @@ def run(now: datetime | None = None, *, out: Path | None = None, deps: Deps | No
     def private():
         rows = []
         for name in PRIVATE:
-            items = cited.cited_items(
-                name, name, "power", week, cache, search=d.search, reader=d.cited_reader
-            )
+            items = _fresh(
+                cited.cited_items(name, name, "power", week, cache, search=d.search, reader=d.cited_reader),
+                today.isoformat(),
+                days=200,  # private companies report no quarters: six months or so
+            )  # fmt: skip
             if p := _power(items):
                 rows.append({"name": name, **p, "source": _src(items[0])})
         return rows
@@ -585,7 +637,8 @@ def run(now: datetime | None = None, *, out: Path | None = None, deps: Deps | No
         "ramp": lane("ramp", lambda: market.ramp(d.ramp_rows), prev.get("ramp")),
         "openrouter": lane("openrouter", lambda: market.openrouter(d.get_text), prev.get("openrouter")),
         "census": lane("census", lambda: census.fetch(d.census_get), prev.get("census")),
-        "gpu": lane("gpu", lambda: gpu.lane(cache / "gpu_prices.jsonl", d.get_text, today), prev.get("gpu")),
+        # no fallback: a failed read is "unavailable", never yesterday's prices under today's date
+        "gpu": lane("gpu", lambda: gpu.lane(cache / "gpu_prices.jsonl", d.get_text, today), None),
         "adoption": lane(
             "adoption",
             # Nvidia too: it sells the chips (it has its own tile), so it isn't adoption beyond the buyers
