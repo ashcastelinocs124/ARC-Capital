@@ -1,11 +1,12 @@
 """Cover art for the Morning Note, Weekly Deep Dive and Theme Charts Substack drafts.
 
-The Cover Artist (fast tier) turns the finished post into a 2-3 word title, the public figures
-it names (Fed officials, CEOs) and a few things to draw; code keeps only people whose name is in
-the post, wraps it all in one fixed style (the look of the hand-made covers of October 2026) and
-the image model draws it once. If the image model refuses a real person, it redraws once with
-generic people. Nobody on the last 3 covers appears again (`RECENT`, logged in
-`data/cover_people.json`), so one face doesn't top every post. The PNG is cached next to the
+The Cover Artist (fast tier) turns the finished post into a 2-3 word title, one visual idea for the
+main story (a tug of war, a see-saw), 1 or 2 public figures acting in it and a few background
+details; code keeps only people tied to the post and the image model draws it once, in the next of
+four styles (`STYLES`, so no two covers in a row look alike; user ask 2026-10-29: more creative,
+bright not gloomy, people with tension in their faces, no numbers). If the image model refuses a real person, it redraws once with
+generic people. Nobody on the last 3 covers appears again (`RECENT`, logged with each cover's
+style in `data/cover_people.json`), so one face doesn't top every post. The PNG is cached next to the
 post's data, so a rerun never pays twice. substack.push() asks for a cover only when the draft has none, so a cover set by hand in
 Substack is never replaced. The site and X read Substack's cover, so nothing else changes.
 
@@ -41,44 +42,65 @@ class Person(BaseModel):
 
 class CoverBrief(BaseModel):
     title: str
+    concept: str  # one visual metaphor for the main story, people by role only
     people: list[Person]
     scene: list[str]
 
 
-BRIEF = """You design the cover image for an ARC Research markets newsletter post.
+BRIEF = """You design the cover image for an ARC Research markets newsletter post. The cover must
+make a reader stop scrolling: one clever visual idea, not a collage of chart screens.
 From its headline and stories, return:
 - title: 2 or 3 punchy words naming the main story, like a magazine cover ("INFLATION HEATS UP",
   "MIXED SIGNALS", "PRICE PRESSURE"). No numbers, tickers or punctuation.
-- people: 2 or 3 public figures who put a face on the main stories, the most newsworthy first.
-  Look at the companies and data the stories cover and take the people linked to them: anyone
-  the post names, then the leader of a company it covers (Tesla -> Elon Musk, Meta -> Mark
-  Zuckerberg, NVIDIA -> Jensen Huang, TSMC -> its CEO). A central banker or minister only when a
-  story is about that institution's own decision or that person's own words, not when the post
-  only mentions rate expectations. Only someone who holds that
-  role on the date given; leave out anyone you are not sure of. People only, by full name: never
-  a company, fund or index (those go in the scene). For each: role, org (the company or
-  institution exactly as the post writes it, e.g. "NVIDIA", "Fed") and a dignified, newsroom
-  look ("thoughtful, hand on chin", "studying a report", "speaking at a podium"). Empty if
-  nobody fits.
-- scene: 3 to 5 concrete things to draw, one per main story, naming the companies the post
-  covers so their logos or nameplates show: a labelled market screen with a rising or falling
-  trend line ("a screen labelled TREASURY YIELDS with a falling blue line"), a place ("the
-  Federal Reserve building at dusk", "a TSMC chip fab") or an object ("racks of CoreWeave
-  servers", "a Bank of America nameplate beside a Q3 EARNINGS report"). Labels are 1-3 words."""
+- concept: ONE visual metaphor for the main story, in one sentence: a concrete, surprising scene a
+  reader gets in a second. Examples: "a tug of war on Wall Street between a giant Fed seal and an
+  oil barrel, Treasury notes caught in the middle"; "a traffic light over Wall Street with red,
+  amber and green all lit at once"; "a gleaming cloud-shaped data centre held down by ropes tied
+  to a cash register". Name the companies or institutions in it so their logos or nameplates show.
+  Avoid people staring at screens and avoid charts, unless a chart is itself the joke. Refer to
+  people in it by role ("the Fed chair"), never by name: their names go in people.
+  The mood is bright, clever and upbeat even on bad news: show tension with balance, weight, a
+  race or a tug of war, never with fire, smoke, storms, cracks, ruins or sad faces.
+- people: 1 or 2 public figures acting inside the concept (pulling the rope, steadying the scale,
+  running the race), the most newsworthy first. Always at least one: every post covers a company,
+  a central bank or a government, so take its leader. Prefer anyone the post names, then the
+  leader of a company the stories name (Tesla -> Elon Musk, NVIDIA -> Jensen Huang), never the
+  leader of a company the stories don't name. A central banker or minister only when a story is
+  about that institution's own decision or that person's own words. Give the role as of the date
+  given; if unsure who holds it, give your best guess (code checks it). People only, by full name.
+  For each: role, org (the company or institution exactly as the post writes it, e.g. "NVIDIA",
+  "Fed") and look = what they are doing inside the concept, with tension in their face (gritted
+  teeth, furrowed brow, straining), never fear or sadness ("straining at the rope, jaw set").
+- scene: 1 to 3 small background details for the other stories ("an oil tanker on the horizon",
+  "a Vertiv cooling unit"). Labels are 1-3 words."""
 
-STYLE = """Cinematic, photo-real 16:9 editorial cover for a financial markets newsletter. Dusk
-lighting, deep navy and warm amber palette, dramatic depth of field. A dense collage of: {scene}.
+# The art style rotates in this order, one step per cover (next_style); the gold title is the constant.
+STYLES = {
+    "photo": "Photo-real editorial photograph in bright, clear morning light under a blue sky: crisp, "
+    "optimistic, navy and warm amber accents, shallow depth of field.",
+    "illustration": "Bold editorial magazine-cover illustration: flat colour shapes, clean confident "
+    "lines on a light cream background, a cheerful palette of navy, sky blue, amber and teal, subtle "
+    "paper grain.",
+    "poster": "1930s art deco travel-poster lithograph: strong geometry, sunlit sunburst rays, "
+    "screen-printed texture, a bright palette of sky blue, gold, cream and navy.",
+    "papercut": "Layered paper-cut diorama photographed in a studio: cut card in cream, sky blue, "
+    "navy and amber, soft daylight shadows between the layers, shallow depth of field.",
+}
+
+STYLE = """A 16:9 cover image for a financial markets newsletter. {style} The mood is light and
+upbeat: a bright, open background, no fire, smoke, storm clouds or gloom.
+The idea: {concept}. {scene}
 {people} No other recognisable real person appears: never draw Jerome Powell or anyone who looks
-like him, as he is no longer Fed chair (Kevin Warsh is); a Fed official not named here is shown from
-behind. Large gold serif capital letters across the lower third read "{title}", spelled
-exactly, with a thin gold rule beneath. No other words except the short labels on the screens,
-logos and nameplates."""
+like him, as he is no longer Fed chair (Kevin Warsh is). Add no other people; if the idea needs a
+crowd, it is small generic figures. Large gold serif capital letters across the lower third read
+"{title}", spelled exactly, with a thin gold rule beneath. No other words except short labels,
+logos and nameplates, and no numbers, prices or percentages anywhere in the image."""
 
-PEOPLE = """In the foreground, large and in sharp focus, editorial portraits of {who}: recognisable
-likenesses in their public roles, in dark business suits, with dignified expressions."""
+PEOPLE = """In the foreground, large and in sharp focus, {who}: recognisable likenesses in their
+public roles, in business suits, faces tense with effort and focus, dignified, never a caricature."""
 
-GENERIC = """Two or three generic businesspeople in dark suits react in the foreground
-(thoughtful, concerned); they must not resemble any real, recognisable person."""
+GENERIC = """Anyone the idea needs is a generic businessperson in a dark suit, face tense with
+effort, who must not resemble any real, recognisable person."""
 
 
 class CoverArtist(StructuredAgent[CoverBrief]):
@@ -102,16 +124,18 @@ class CoverArtist(StructuredAgent[CoverBrief]):
         return f"Date: {date.today():%B %-d, %Y}\n\n{ask}Headline: {headline}\n\nStories:\n\n" + "\n\n".join(stories)  # fmt: skip
 
 
-def prompt(brief: CoverBrief, text: str, *, people: bool = True) -> str:
+def prompt(brief: CoverBrief, text: str, *, people: bool = True, style: str = "photo") -> str:
     """The image prompt. Code keeps only people tied to the post's `text`: named in it, or leading
     a company or institution it names (its CEO for NVIDIA), by full name (so a company listed as a
     person can't become a face), and clamps the title so a chatty brief can't fill the cover."""
     tied = [p for p in brief.people if p.name in text or (p.org.strip() and p.org in text)]
-    named = [p for p in tied if len(p.name.split()) >= 2][:3] if people else []
+    named = [p for p in tied if len(p.name.split()) >= 2][:2] if people else []
     who = "; ".join(f"{p.name} ({p.role}), {p.look}" for p in named)
     title = " ".join(brief.title.upper().split()[:3])[:28]
     return STYLE.format(
-        scene="; ".join(brief.scene[:5]),
+        style=STYLES[style],
+        concept=brief.concept.strip().rstrip("."),
+        scene=f"In the background: {'; '.join(brief.scene[:3])}." if brief.scene else "",
         people=PEOPLE.format(who=who) if named else GENERIC,
         title=title,
     )
@@ -157,10 +181,21 @@ def recent_people(key: str) -> list[str]:
     return list(dict.fromkeys(n for r in rows for n in r["people"]))
 
 
-def _remember(key: str, people: list[str]) -> None:
+def next_style(key: str) -> str:
+    """The style after the previous cover's (`key`'s own row doesn't count, so a redraw keeps the
+    rotation); rows from before the rotation were all photo."""
+    rows = [r for r in _rows() if r["key"] != key]
+    names = list(STYLES)
+    last = rows[-1].get("style", "photo") if rows else None
+    return names[(names.index(last) + 1) % len(names)] if last in names else names[0]
+
+
+def _remember(key: str, people: list[str], style: str = "photo") -> None:
     from castelino.agents.update.fsio import atomic_write_text
 
-    rows = [r for r in _rows() if r["key"] != key] + [{"key": key, "people": people}]
+    rows = [r for r in _rows() if r["key"] != key] + [
+        {"key": key, "people": people, "style": style}
+    ]
     _log().parent.mkdir(parents=True, exist_ok=True)
     atomic_write_text(_log(), json.dumps(rows[-20:]))
 
@@ -205,17 +240,22 @@ def make(
             if p.name in text or (who := holder(p))
         ]
         brief.people = [p for p in brief.people if p.name not in avoid]
+        style = next_style(path.name)
         try:
-            draw(prompt(brief, text), path)
+            draw(prompt(brief, text, style=style), path)
         except Exception:  # e.g. the image model refused a real person: redraw with generic people
             if not brief.people:
                 raise
             log.warning("cover: %s with people failed; redrawing without", path.name, exc_info=True)
-            draw(prompt(brief, text, people=False), path)
+            draw(prompt(brief, text, people=False, style=style), path)
         log.info(
-            "cover: %s drew %r with %s", path.name, brief.title, [p.name for p in brief.people]
+            "cover: %s drew %r (%s) with %s",
+            path.name,
+            brief.title,
+            style,
+            [p.name for p in brief.people],
         )
-        _remember(path.name, [p.name for p in brief.people])
+        _remember(path.name, [p.name for p in brief.people], style)
         return path
     except Exception:
         log.warning("cover: %s failed; the draft goes out without one", path.name, exc_info=True)

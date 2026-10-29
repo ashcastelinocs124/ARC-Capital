@@ -10,19 +10,51 @@ def test_prompt_clamps_title_and_scene_and_keeps_only_people_the_post_names():
     firm = cover.Person(name="NVIDIA", role="chipmaker", org="NVIDIA", look="stern")  # not a person
     brief = cover.CoverBrief(
         title="inflation heats up again today",
+        concept="a tug of war between the Fed seal and an NVIDIA chip.",
         people=[daly, ghost, firm, huang],
         scene=list("abcdefg"),
     )
     text = cover.prompt(brief, "Mary Daly said the Fed can wait as NVIDIA fell.")
     assert '"INFLATION HEATS UP"' in text
-    assert "a; b; c; d; e." in text
-    who = text.split("portraits of")[1]  # named in the post, or leads a company it names
+    assert (
+        "The idea: a tug of war between the Fed seal and an NVIDIA chip. In the background: a; b; c."
+        in text
+    )
+    who = text.split("sharp focus,")[1]  # named in the post, or leads a company it names
     assert who.lstrip().startswith(
         "Mary Daly (SF Fed President), thoughtful; Jensen Huang (NVIDIA CEO)"
     )
     assert "Someone Invented" not in text and "NVIDIA (chipmaker)" not in text
     generic = cover.prompt(brief, "Mary Daly said the Fed can wait.", people=False)
-    assert "Mary Daly" not in generic and "generic businesspeople" in generic
+    assert "Mary Daly" not in generic and "generic businessperson" in generic
+
+
+def test_prompt_draws_in_the_given_style_with_no_numbers_and_at_most_two_people():
+    people = [
+        cover.Person(name=n, role="CEO", org=o, look="straining")
+        for n, o in [
+            ("Sundar Pichai", "Alphabet"),
+            ("Satya Nadella", "Microsoft"),
+            ("Lisa Su", "AMD"),
+        ]
+    ]
+    brief = cover.CoverBrief(title="Cloud race", concept="a relay race", people=people, scene=[])
+    text = cover.prompt(brief, "Alphabet, Microsoft and AMD reported.", style="poster")
+    assert cover.STYLES["poster"] in text and cover.STYLES["photo"] not in text
+    assert "no numbers, prices or percentages" in text and "In the background" not in text
+    assert "Satya Nadella" in text and "Lisa Su" not in text  # 2 people at most
+
+
+def test_each_cover_takes_the_next_style_so_no_two_in_a_row_match(tmp_path, monkeypatch):
+    monkeypatch.setattr(cover, "_log", lambda: tmp_path / "cover_people.json")
+    assert cover.next_style("a.png") == "photo"  # no covers yet
+    (tmp_path / "cover_people.json").write_text('[{"key": "old.png", "people": []}]')
+    assert cover.next_style("a.png") == "illustration"  # covers before the rotation were photo
+    for key in ("a.png", "b.png", "c.png"):
+        cover._remember(key, [], cover.next_style(key))
+    assert [r["style"] for r in cover._rows()[1:]] == ["illustration", "poster", "papercut"]
+    assert cover.next_style("d.png") == "photo"  # wraps around
+    assert cover.next_style("c.png") == "papercut"  # a redraw keeps its own style
 
 
 def test_prompt_never_draws_jerome_powell_as_fed_chair():
@@ -31,7 +63,10 @@ def test_prompt_never_draws_jerome_powell_as_fed_chair():
         name="Susan M. Collins", role="Boston Fed President", org="Fed", look="calm"
     )
     brief = cover.CoverBrief(
-        title="Oil shock", people=[collins], scene=["the Federal Reserve building"]
+        title="Oil shock",
+        concept="the Fed chair on a see-saw",
+        people=[collins],
+        scene=["the Federal Reserve building"],
     )
     for text in (
         cover.prompt(brief, "Susan M. Collins said"),
@@ -134,7 +169,7 @@ def test_nobody_on_the_last_covers_comes_back_unless_named(tmp_path, monkeypatch
     musk = cover.Person(name="Elon Musk", role="Tesla CEO", org="Tesla", look="calm")
     asks, drawn = [], []
     monkeypatch.setattr(cover.CoverArtist, "__call__", lambda self, **kw: asks.append(kw) or
-                        cover.CoverBrief(title="T", people=[warsh, musk], scene=["s"]))  # fmt: skip
+                        cover.CoverBrief(title="T", concept="c", people=[warsh, musk], scene=["s"]))  # fmt: skip
     monkeypatch.setattr(
         cover, "draw", lambda text, path: drawn.append(text) or path.write_bytes(b"x")
     )

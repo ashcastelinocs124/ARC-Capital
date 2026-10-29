@@ -480,13 +480,14 @@ agents:
     class: castelino.cover.CoverArtist
     summary: >-
       Gives each Daily Update, Weekly Deep Dive and Theme Charts Substack draft a cover image. One
-      fast call turns the post into a 2-3 word title, 2 or 3 public figures and a few things to
-      draw. The figures are people the post names or the leaders of companies it covers; a central
-      banker appears only when a story is that bank's decision. Nobody from the last 3 covers appears
-      again. For someone the post doesn't name, one web search checks who holds the role today. The
-      image model draws a 16:9 cover in a fixed style, and redraws it once with generic people if it
-      refuses a real person. Only a draft with no cover gets one, so a cover set by hand is kept; a
-      failure leaves the draft without one.
+      fast call turns the post into a 2-3 word title, one bright visual idea for the main story (a
+      tug of war, a see-saw) and 1 or 2 public figures acting in it. The figures are people the post
+      names or the leaders of companies it covers; a central banker appears only when a story is that
+      bank's decision. Nobody from the last 3 covers appears again. For someone the post doesn't
+      name, one web search checks who holds the role today. The image model draws a 16:9 cover in
+      the next of four styles (photo, illustration, art deco poster, paper cut), with no numbers on
+      it, and redraws it once with generic people if it refuses a real person. Only a draft with no
+      cover gets one, so a cover set by hand is kept; a failure leaves the draft without one.
     tools:
       - {name: "draw() (code)", does: "One image call (config cover: gpt-image-2, 1536x864, high) with the fixed STYLE prompt + title + scene"}
       - {name: "substack.push(cover=)", does: "Uploads the PNG and sets it as the draft's cover_image"}
