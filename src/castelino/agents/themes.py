@@ -672,7 +672,7 @@ def run(
 
 SITE = "https://arcresearch.markets/themes"
 EXHIBIT = re.compile(r"^Exhibit \d+: ")  # the chart title's prefix; the thread numbers posts itself
-SECTION = 453292  # Substack section "financial-markets"
+SECTION = 493513  # Substack section "Daily Memo" (daily-memo), since 2026-10-28; was "Market Update" (453292)
 SIGNAL = {"coverage": "News & X", "move": "Biggest move", "odds": "Polymarket"}
 
 
