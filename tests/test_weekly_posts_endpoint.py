@@ -9,7 +9,7 @@ BODY = (
 ARCHIVE = [
     {
         "slug": "hike-risk-oil-shocks-and-an-ai-reality",
-        "title": "Hike Risk, Oil Shocks and an AI Reality Check Test Markets ",
+        "title": "Weekly Deep Dive | Hike Risk, Oil Shocks and an AI Reality Check Test Markets ",
         "subtitle": "ARC Weekly Deep Dive · Oct 5–Oct 9, 2026",
         "post_date": "2026-10-12T00:54:12.966Z",
         "cover_image": "https://substack-post-media.s3.amazonaws.com/public/images/x.png",

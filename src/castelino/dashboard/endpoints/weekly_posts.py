@@ -12,6 +12,7 @@ import httpx
 from fastapi import APIRouter
 
 from castelino.dashboard.endpoints.videos import POST_PREFIX, THUMB_OVERRIDES, archive_json
+from castelino.substack import plain_title
 
 router = APIRouter()
 
@@ -76,7 +77,7 @@ def parse_weekly_posts(
                 "start": start,
                 "end": end,
                 "topic": topic,
-                "title": (p.get("title") or "").strip(),
+                "title": plain_title((p.get("title") or "").strip()),
                 "takeaways": _takeaways(p.get("body_html") or ""),
                 "image": overrides.get(
                     p.get("slug") or "", cover if cover.startswith("https://") else None

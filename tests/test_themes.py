@@ -408,7 +408,9 @@ def test_published_run_is_a_substack_card_and_the_thread_links_its_post(tmp_path
     note = themes.ChartLine(n=1, heading="Supply", sentence="Brent is climbing as talks stall.")
     url = themes.publish_substack(rec, say(note))
     assert url == "https://archresearch.substack.com/p/oils-run"
-    assert got["title"] == rec.theme and got["subtitle"].startswith("ARC Theme Charts · Wednesday")
+    assert got["title"] == f"Daily Chart | {rec.theme}" and got["subtitle"].startswith(
+        "ARC Theme Charts · Wednesday"
+    )
     assert (got["section"], got["send"]) == (themes.SECTION, False)
     drawn = {}  # the cover: the Morning Note's style, from the theme, its why and its signals
     monkeypatch.setattr(cover, "make", lambda path, headline, stories, **kw: drawn.update(locals()))

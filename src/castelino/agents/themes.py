@@ -731,7 +731,7 @@ def publish_substack(rec: ThemeRun, commentator=None) -> str:
     charts = _dir() / "charts" / rec.run_id
     sb.push(
         marker=_marker(rec.run_id),
-        title=rec.theme,
+        title=sb.series_title("Daily Chart", rec.theme),
         subtitle=f"ARC Theme Charts · {datetime.fromisoformat(rec.date):%A, %B %-d, %Y}",
         pngs={e.file: charts / e.file for e in rec.exhibits},
         body=lambda up: substack_doc(rec, up, commentary(rec, commentator)),

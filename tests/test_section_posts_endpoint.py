@@ -15,7 +15,7 @@ ARCHIVE = [
     },
     {
         "section_slug": "special-topics",
-        "title": "Note",
+        "title": "Special Topic | Note",
         "canonical_url": P + "note",
         "post_date": "2026-09-28T04:00:00Z",
         "type": "newsletter",

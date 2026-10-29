@@ -6,6 +6,7 @@ import httpx
 from fastapi import APIRouter
 
 from castelino.dashboard.endpoints.videos import POST_PREFIX, THUMB_OVERRIDES, archive_json
+from castelino.substack import plain_title
 
 router = APIRouter()
 
@@ -32,7 +33,7 @@ def parse_section_posts(archive: list[dict]) -> list[dict]:
         out.append(
             {
                 "section": slug,
-                "title": (p.get("title") or "").strip(),
+                "title": plain_title((p.get("title") or "").strip()),
                 "url": url,
                 "date": (p.get("post_date") or "")[:10],
                 "summary": (p.get("description") or p.get("subtitle") or "").strip(),

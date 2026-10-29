@@ -19,6 +19,7 @@ from castelino.dashboard.endpoints.videos import (
     archive_json,
     feed_xml,
 )
+from castelino.substack import plain_title
 
 router = APIRouter()
 
@@ -58,7 +59,7 @@ def parse_daily_posts(xml: str) -> list[dict]:
             {
                 "date": datetime.strptime(m.group(2), "%B %d, %Y").date().isoformat(),
                 "kind": "charts" if m.group(1) == "Theme Charts" else "note",
-                "title": (item.findtext("title") or "").strip(),
+                "title": plain_title((item.findtext("title") or "").strip()),
                 "takeaways": takeaways,
                 "image": THUMB_OVERRIDES.get(
                     link.rsplit("/", 1)[-1],
@@ -84,7 +85,7 @@ def archive_daily_posts(archive: list[dict], seen: set[str]) -> list[dict]:
             {
                 "date": datetime.strptime(m.group(2), "%B %d, %Y").date().isoformat(),
                 "kind": "charts" if m.group(1) == "Theme Charts" else "note",
-                "title": (p.get("title") or "").strip(),
+                "title": plain_title((p.get("title") or "").strip()),
                 "takeaways": [],
                 "image": THUMB_OVERRIDES.get(
                     url.rsplit("/", 1)[-1], cover if cover.startswith("https://") else None

@@ -26,6 +26,19 @@ from castelino.x_post import for_substack
 
 SITE = "https://arcresearch.markets"
 
+# Every post the code makes is titled "<series> | <title>" on Substack (user rule, 2026-10-28);
+# the site's feeds show the plain title, since each card already names its series.
+SERIES = ("Daily Chart", "Daily Update", "Weekly Deep Dive", "Deep Research", "Special Topic")
+_SERIES_HEAD = re.compile(rf"^(?:{'|'.join(SERIES)}) \| ")
+
+
+def series_title(series: str, title: str) -> str:
+    return title if title.startswith(f"{series} | ") else f"{series} | {title}"
+
+
+def plain_title(title: str) -> str:
+    return _SERIES_HEAD.sub("", title)
+
 
 class CookieExpiredError(RuntimeError):
     pass
@@ -337,7 +350,7 @@ def push_draft(day: str) -> str:
     charts = updates / "charts" / day
     return push(
         marker=updates / "substack" / f"{day}.json",
-        title=record["note"]["headline"],
+        title=series_title("Daily Update", record["note"]["headline"]),
         subtitle=_subtitle(day),
         pngs={ex["file"]: charts / ex["file"] for ex in record.get("exhibits", [])},
         body=lambda up: build_doc(record, up),

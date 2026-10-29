@@ -26,6 +26,7 @@ from castelino.substack import (  # noqa: E402
     _p,
     _text,
     push,
+    series_title,
 )
 
 INK = "#0F172A"
@@ -189,7 +190,7 @@ def push_weekly_draft(week: str | None = None) -> str:
     start, end = date.fromisoformat(rec["start"]), date.fromisoformat(rec["end"])
     return push(
         marker=deep / "substack" / f"{week}.json",
-        title=rec["report"]["title"],
+        title=series_title("Weekly Deep Dive", rec["report"]["title"]),
         subtitle=f"ARC Weekly Deep Dive · {start:%b %-d}–{end:%b %-d, %Y}",
         pngs=pngs,
         body=lambda up: build_weekly_doc(rec, up),

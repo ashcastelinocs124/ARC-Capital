@@ -9,7 +9,7 @@ FEED = """<rss xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel
 <item><title>Oil supply fears</title><description>ARC Theme Charts &#183; Tuesday, October 20, 2026</description>
 <link>https://archresearch.substack.com/p/oil-supply-fears</link>
 <content:encoded><![CDATA[<p>why</p><ul><li><p><strong>News &amp; X: </strong>Oil leads.</p></li></ul>]]></content:encoded></item>
-<item><title>Tesla and Meta</title><description>ARC Daily Update &#183; Wednesday, October 21, 2026</description>
+<item><title>Daily Update | Tesla and Meta</title><description>ARC Daily Update &#183; Wednesday, October 21, 2026</description>
 <link>https://archresearch.substack.com/p/tesla-and-meta</link></item>
 <item><title>Hand-renamed</title><description>ARC Note &#183; Saturday, October 10, 2026</description>
 <link>https://archresearch.substack.com/p/hand-renamed</link></item>
@@ -28,6 +28,7 @@ def test_parse_daily_posts_keeps_only_daily_notes_and_theme_charts_on_the_substa
         ("2026-10-08", "note"),
     ]  # newest first
     assert posts[1]["takeaways"] == ["News & X: Oil leads."]
+    assert posts[0]["title"] == "Tesla and Meta"  # the series name is Substack-only
     p = posts[4]
     assert p["date"] == "2026-10-08" and p["image"] == "https://cdn/x.png"
     assert p["takeaways"] == ["Waller left room for a pause.", "Auction pressure."]
@@ -43,7 +44,7 @@ def test_archive_adds_the_posts_the_feed_dropped():
             "canonical_url": "https://archresearch.substack.com/p/saudi-strikes",
         },
         {
-            "title": "Fed pause",
+            "title": "Daily Update | Fed pause",
             "subtitle": "ARC Daily Note · Thursday, October 8, 2026",
             "canonical_url": "https://archresearch.substack.com/p/fed-pause",
             "cover_image": "https://cdn/c.png",
@@ -62,3 +63,4 @@ def test_archive_adds_the_posts_the_feed_dropped():
         "https://cdn/c.png",
         [],
     )
+    assert p["title"] == "Fed pause"

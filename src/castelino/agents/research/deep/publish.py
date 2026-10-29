@@ -197,7 +197,7 @@ def push(sid: str) -> None:
             marker = store.root() / sid / "substack.json"
             msg = sb.push(
                 marker=marker,
-                title=s.report.title,
+                title=sb.series_title("Deep Research", s.report.title),
                 subtitle=f"ARC Deep Research · {s.report.subtitle}",
                 pngs=render(s),
                 body=lambda up: doc(s, up),

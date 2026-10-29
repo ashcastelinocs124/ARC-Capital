@@ -133,3 +133,22 @@ def test_view_renders_as_blockquote_after_item():
     bq = doc["content"][4]
     assert bq["content"][0]["content"][0]["text"] == "ARC view · AI models and chips"
     assert bq["content"][1]["content"][0]["text"] == "The squeeze is moving to financing."
+
+
+def test_series_title_puts_the_series_name_first_once():
+    from castelino.substack import series_title
+
+    assert series_title("Daily Chart", "Fed hold looms") == "Daily Chart | Fed hold looms"
+    assert (
+        series_title("Daily Chart", "Daily Chart | Fed hold looms")
+        == "Daily Chart | Fed hold looms"
+    )
+
+
+def test_plain_title_drops_only_a_series_name():
+    from castelino.substack import plain_title
+
+    assert plain_title("Daily Update | Oil eased") == "Oil eased"
+    assert plain_title("Special Topic | Brazil 2026: the runoff") == "Brazil 2026: the runoff"
+    assert plain_title("Money for Machines") == "Money for Machines"
+    assert plain_title("Brazil | a note") == "Brazil | a note"
