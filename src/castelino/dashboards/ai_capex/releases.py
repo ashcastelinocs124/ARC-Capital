@@ -67,6 +67,7 @@ class KpiReader(StructuredAgent[KpiTable]):
     name = "capex_release_reader"
     output_schema = KpiTable
     tier = "fast"
+    max_output_tokens = 8000  # the default 2048 can all go on reasoning, leaving no answer
 
     def __init__(self) -> None:
         self.model = get_settings().ai_capex.reader_model

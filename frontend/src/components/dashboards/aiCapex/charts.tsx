@@ -140,7 +140,7 @@ export function GuidanceRows({ rows, label }: {
             <Txt x={L - 8} y={y + 15} anchor="end" fill={C.text} size={12}>{r.name}</Txt>
             {r.actual != null && <rect x={L} y={y + 9} width={x(r.actual) - L} height={8} rx={2} fill={C.borderStrong} />}
             {r.low != null && r.high != null && (
-              <rect x={x(r.low)} y={y + 5} width={Math.max(4, x(r.high) - x(r.low))} height={16} rx={3} fill={r.color} />
+              <rect x={x(r.low)} y={y + 5} width={Math.max(10, x(r.high) - x(r.low))} height={16} rx={3} fill={r.color} />
             )}
             <Txt x={r.high != null ? x(r.high) + 6 : L} y={y + 17} fill={C.text2} size={11}>{r.text}</Txt>
           </g>
@@ -218,7 +218,9 @@ export function DotRows({ rows, refs, label }: {
         return (
           <g key={`${r.name}-${r.sub}-${i}`}>
             <text x={L - 8} y={y + 4} textAnchor="end" fontSize={11.5} fill={C.muted}>
-              <tspan fill={C.text} fontWeight={600}>{r.name}</tspan> · {r.sub}
+              {/* cut long labels: they'd run left out of the chart, over its neighbour */}
+              <tspan fill={C.text} fontWeight={600}>{r.name}</tspan> · {r.sub.length > 17 ? `${r.sub.slice(0, 16)}…` : r.sub}
+              <title>{`${r.name} · ${r.sub}`}</title>
             </text>
             <line x1={L} x2={W - R} y1={y} y2={y} stroke={C.grid} />
             <circle cx={x(r.value)} cy={y} r={6} fill={r.color} />
@@ -233,7 +235,7 @@ export function DotRows({ rows, refs, label }: {
 export const MIX_PARTS: [keyof import("@/api/aiCapex").Mix, string, string][] = [
   ["own_cash", "Own operating cash", C.muted2],
   ["debt", "New debt", C.jobs],
-  ["convertible", "Convertible notes", C.soft2],
+  ["convertible", "Convertible notes", C.warning], // light enough for its % label in both themes
   ["shares", "New shares", C.ai],
   ["cash_on_hand", "Cash on hand", C.text2],
 ];

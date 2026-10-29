@@ -55,7 +55,8 @@ delay), its value exactly as the line prints it (value_high for the top of a ran
 period or year it covers, its date (YYYY-MM or YYYY-MM-DD), and the id of the one line it came from.
 A dated event with no figure (a delay) has value null and unit "none". A guidance with no full-year
 dollar figure is a "guidance" item with value null. Never compute or combine figures; use only what one
-line prints. Return nothing for a line that isn't about the topic."""
+line prints. Return nothing for a line that isn't about the topic. When lines give different figures for
+the same thing (guidance raised, a newer backlog), return only the most recent line's, by its date."""
 
 
 class Item(BaseModel):  # LLM output (closed schema: no defaults)
@@ -76,6 +77,7 @@ class CitedReader(StructuredAgent[Items]):
     name = "capex_cited_reader"
     output_schema = Items
     tier = "fast"
+    max_output_tokens = 8000  # gpt-6-luna spent the default 2048 on reasoning and returned nothing
 
     def __init__(self) -> None:
         self.model = get_settings().ai_capex.reader_model
@@ -110,7 +112,11 @@ def cited_items(
         return json.loads(path.read_text())
     from datetime import date
 
-    ask = TOPICS[topic].format(company=company, ticker=ticker, year=year or date.today().year)
+    today = date.today()
+    # the date matters: without it the search returned last year's guidance under this year's label
+    ask = f"Today is {today:%B} {today.day}, {today.year}. " + TOPICS[topic].format(
+        company=company, ticker=ticker, year=year or today.year
+    )
     text, cites = (search or _search)(SYSTEM, ask)
     facts = {f.id: f for f in facts_from_search("W", text, cites)}
     out: list[dict] = []

@@ -74,14 +74,14 @@ export function Adoption({ data }: { data: AiCapex }) {
     ? `**${vendor.pct}%** of US businesses on Ramp pay ${PRODUCT_NAMES[vendor.vendor] ?? vendor.vendor}.${size !== "all" ? " Ramp doesn't split this by company size." : ""}`
     : [
         ramp && (rampSize ? `**${rampSize.pct}%** of ${rampSize.label.toLowerCase()} on Ramp pay for AI tools.` : ramp.sizes.length ? `Between **${Math.min(...ramp.sizes.map((s) => s.pct))}%** and **${Math.max(...ramp.sizes.map((s) => s.pct))}%** of US businesses on Ramp pay for AI tools, depending on size.` : ""),
-        arc && arc.pct != null ? `**${arc.pct}%** of ${SIZE_WORDS[size]} outside big tech make a concrete AI claim in their latest filing.` : "",
+        arc && arc.pct != null ? `**${arc.pct}%** of ${SIZE_WORDS[size]} in ARC's index (outside the companies above) make a concrete AI claim in their latest filing.` : "",
         censusPct != null ? `In the Census survey, **${censusPct}%** of ${size === "all" ? "US firms" : `firms with ${CENSUS_SIZE[size]} employees`} say they used AI in the last two weeks.` : "",
       ].filter(Boolean).join(" ");
 
   return (
     <Chapter
       id="adoption" n="05" tag="ADOPTION" question="Is demand spreading beyond the big buyers?" sentence={lede}
-      note="Three separate reads: what companies pay for (Ramp), what they tell investors (ARC's AI Adoption Index, from SEC filings) and what they tell the Census Bureau. The hyperscalers and neoclouds above are left out of ARC's index."
+      note="Three separate reads: what companies pay for (Ramp), what they tell investors (ARC's AI Adoption Index, from SEC filings) and what they tell the Census Bureau. The hyperscalers, neoclouds and Nvidia are left out of ARC's index here."
     >
       <div className="grid gap-3 sm:grid-cols-2 mb-3.5">
         <div className="rounded-lg border border-border bg-surface-2 p-3">

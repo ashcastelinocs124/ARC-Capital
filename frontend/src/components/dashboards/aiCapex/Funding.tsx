@@ -69,7 +69,9 @@ export function Funding({ data }: { data: AiCapex }) {
               />
               <p className="text-xs text-muted mt-1">
                 Convertible notes pay little because buyers can swap them for shares. Sources:{" "}
-                {deals.map((d, i) => <span key={i}>{i > 0 && " · "}<SourceLink title={d.name} url={d.source.url} /></span>)}
+                {[...new Map(deals.map((d) => [d.name, d.source.url])).entries()].map(([name, url], i) => (
+                  <span key={name}>{i > 0 && " · "}<SourceLink title={name} url={url} /></span>
+                ))}
               </p>
             </>
           ) : <Unavailable what="earnings calls and filings (cited search)" />}

@@ -1,6 +1,6 @@
 import { usd, qShort, type AiCapex } from "@/api/aiCapex";
 import { C } from "@/lib/theme";
-import { Chapter, Unavailable } from "./Chapter";
+import { Chapter, SourceLink, Unavailable } from "./Chapter";
 import { ChartTitle, GuidanceRows, Legend, StackedBars } from "./charts";
 
 export function Spending({ data }: { data: AiCapex }) {
@@ -47,7 +47,12 @@ export function Spending({ data }: { data: AiCapex }) {
           ) : <Unavailable what="earnings calls (cited search)" />}
           {guided.some((c) => c.guidance!.low == null) && (
             <p className="text-xs text-muted mt-1">
-              {guided.filter((c) => c.guidance!.low == null).map((c) => `${c.name}: "${c.guidance!.line}"`).join(" ")}
+              {/* the cited line is the search's own words, so link it rather than quote it */}
+              No full-year figure from{" "}
+              {guided.filter((c) => c.guidance!.low == null).map((c, i) => (
+                <span key={c.ticker}>{i > 0 && ", "}<SourceLink title={c.name} url={c.guidance!.source.url} /></span>
+              ))}{" "}
+              yet.
             </p>
           )}
         </div>

@@ -123,9 +123,74 @@ def _kpi(rel: dict | None, name: str | None) -> dict | None:
 
 
 def _rel_label(filed: str) -> str:
-    """A release's quarter: results come out within about six weeks of the quarter's end."""
-    d = date.fromisoformat(filed) - timedelta(days=45)
+    """A release's quarter: results come out 3-8 weeks after the quarter ends (Nvidia ~4, Nebius ~6),
+    so 70 days before the filing lands inside the quarter reported."""
+    d = date.fromisoformat(filed) - timedelta(days=70)
     return f"{d.year}Q{(d.month - 1) // 3 + 1}"
+
+
+_SPREAD = re.compile(r"spread|margin", re.I)  # a SOFR spread is not a rate: 0.44% would read as one
+
+
+def _guidance(items: list[dict], quarters: list[dict], year: int | None = None) -> dict | None:
+    """The latest full-year guidance. A calendar year's guidance that would leave the rest of the year
+    at under half the latest quarter's pace is stale (a search's old line under a new date: Alphabet's
+    2025 "$91-93bn" came back as 2026's after it had spent $80.6bn in the first half) and is dropped.
+    Conservative: the filings' capex excludes finance leases, which some guidance includes."""
+    guides = sorted(
+        (i for i in items if "guidance" in i["label"].lower()), key=lambda i: i["date"] or ""
+    )
+    if not guides:
+        return None
+    guide = guides[-1]  # the newest line, whatever order the reader returned
+    actual = next((i for i in items if i["label"].lower() == "actual"), None)
+    low, high = (
+        _bn(guide["value"], guide["unit"]),
+        _bn(guide["value_high"] or guide["value"], guide["unit"]),
+    )
+    named = re.search(r"\b(20\d\d)\b", guide["period"])
+    if named and int(named.group(1)) < (year or date.today().year):
+        return None  # a past year's guidance is not guidance any more
+    year = named
+    if (
+        high is not None
+        and year
+        and "fiscal" not in guide["period"].lower()
+        and not re.search(r"\bFY", guide["period"])
+    ):
+        done = [q for q in quarters if q["q"].startswith(year.group(1)) and q["capex"] is not None]
+        if done:
+            floor = sum(q["capex"] for q in done) + (4 - len(done)) * done[-1]["capex"] * 0.5
+            if high < floor:
+                return None
+    return {
+        "low": low,
+        "high": high,
+        "label": guide["period"],
+        "actual": _bn(actual["value"], actual["unit"]) if actual else None,
+        "actual_label": actual["period"] if actual else None,
+        "line": guide["source"]["line"] if guide["value"] is None else None,
+        "source": _src(guide),
+    }  # fmt: skip
+
+
+def _borrowing(items: list[dict]) -> list[dict]:
+    return [
+        {"label": i["label"], "rate_pct": i["value"], "date": i["date"], "source": _src(i)}
+        for i in items
+        if i["unit"] == "percent" and i["value"] is not None and not _SPREAD.search(i["label"])
+    ][:3]
+
+
+def _off_balance(items: list[dict]) -> list[dict]:
+    """One tile per kind (the largest), $1bn or more, at most two per company."""
+    best: dict[str, dict] = {}
+    for i in items:
+        v = _bn(i["value"], i["unit"]) if i["value"] is not None else None
+        k = i["label"].lower()
+        if v is not None and v >= 1 and (k not in best or v > best[k]["value"]):
+            best[k] = {"label": i["label"], "value": v, "source": _src(i)}
+    return sorted(best.values(), key=lambda o: -o["value"])[:2]
 
 
 def _year_before(label: str) -> str:
@@ -236,32 +301,9 @@ def _company(co, d: Deps, edgar, cache: Path, week: str, year: int) -> dict:
             {"date": i["date"], "text": i["source"]["line"], "source": _src(i)}
             for i in topic("delays", week)
         ][:3]
-    g = topic("guidance")
-    guide = next((i for i in g if "guidance" in i["label"].lower()), None)
-    actual = next((i for i in g if i["label"].lower() == "actual"), None)
-    out["guidance"] = (
-        {
-            "low": _bn(guide["value"], guide["unit"]),
-            "high": _bn(guide["value_high"] or guide["value"], guide["unit"]),
-            "label": guide["period"],
-            "actual": _bn(actual["value"], actual["unit"]) if actual else None,
-            "actual_label": actual["period"] if actual else None,
-            "line": guide["source"]["line"] if guide["value"] is None else None,
-            "source": _src(guide),
-        }
-        if guide
-        else None
-    )
-    out["borrowing"] = [
-        {"label": i["label"], "rate_pct": i["value"], "date": i["date"], "source": _src(i)}
-        for i in topic("borrowing")
-        if i["unit"] == "percent" and i["value"] is not None
-    ][:4]
-    out["off_balance"] = [
-        {"label": i["label"], "value": _bn(i["value"], i["unit"]), "source": _src(i)}
-        for i in topic("off_balance")
-        if i["value"] is not None and i["unit"] in ("billions", "millions")
-    ][:3]
+    out["guidance"] = _guidance(topic("guidance"), f.quarters, year)
+    out["borrowing"] = _borrowing(topic("borrowing"))
+    out["off_balance"] = _off_balance(topic("off_balance"))
     return out
 
 
@@ -418,7 +460,6 @@ def sentences(doc: dict) -> dict[str, str]:
         parts = [
             f"{own['name']} pays for {own['mix']['own_cash']}% of its capex from its own cash."
         ]
-        ty = (doc.get("rates") or {}).get("treasury_10y", {}).get("value")
         for group in (hyp, neo):
             lend = [
                 c for c in group if c.get("mix") and c["mix"]["debt"] + c["mix"]["convertible"] > 0
@@ -428,11 +469,16 @@ def sentences(doc: dict) -> dict[str, str]:
             b = max(lend, key=lambda c: c["mix"]["debt"] + c["mix"]["convertible"])
             share = b["mix"]["debt"] + b["mix"]["convertible"]
             p = f"{b['name']} borrows **{share}%** of it"
-            if b.get("borrowing"):
-                r = b["borrowing"][0]["rate_pct"]
-                p += f", and its newest borrowing pays **{r}%**"
-                if ty is not None:
-                    p += f", {round((r - ty) * 100)}bp over Treasuries"
+            # bonds and loans only: a convertible's coupon is low because it can turn into shares
+            rates = [
+                d["rate_pct"]
+                for d in b.get("borrowing") or []
+                if "convertible" not in d["label"].lower()
+            ]
+            if rates:
+                lo, hi = min(rates), max(rates)
+                span = f"{lo:g}%" if lo == hi else f"{lo:g}–{hi:g}%"
+                p += f"; its new bonds and loans this year pay **{span}**"
             parts.append(p + ".")
         out["funding"] = " ".join(parts)
     if tot.get("backlog"):
@@ -542,7 +588,8 @@ def run(now: datetime | None = None, *, out: Path | None = None, deps: Deps | No
         "gpu": lane("gpu", lambda: gpu.lane(cache / "gpu_prices.jsonl", d.get_text, today), prev.get("gpu")),
         "adoption": lane(
             "adoption",
-            lambda: adoption.talk_slice(d.adoption_store or _store(), DASHBOARD_TICKERS, d.names if d.names is not None else _names()),
+            # Nvidia too: it sells the chips (it has its own tile), so it isn't adoption beyond the buyers
+            lambda: adoption.talk_slice(d.adoption_store or _store(), DASHBOARD_TICKERS | {"NVDA"}, d.names if d.names is not None else _names()),
             prev.get("adoption"),
         ),
     }  # fmt: skip

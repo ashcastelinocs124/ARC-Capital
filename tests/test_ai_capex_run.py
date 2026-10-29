@@ -224,3 +224,63 @@ def test_card_drawn_and_a_card_failure_is_only_a_gap(tmp_path, monkeypatch):
     monkeypatch.setattr(card, "draw", boom)
     ai_run.run(NOW, out=out, deps=deps(tmp_path))
     assert any(g["lane"] == "card" for g in json.loads(out.read_text())["gaps"])
+
+
+def test_release_quarter_from_filing_date():
+    # Nvidia files ~4 weeks after its quarter ends, Nebius ~6, so filed - 70 days sits mid-quarter
+    assert ai_run._rel_label("2026-08-26") == "2026Q2"  # Nvidia, quarter to Jul 26
+    assert ai_run._rel_label("2026-08-12") == "2026Q2"  # Nebius Q2
+    assert ai_run._rel_label("2026-05-13") == "2026Q1"
+    assert ai_run._rel_label("2026-10-28") == "2026Q3"  # Microsoft, quarter to Sep 30
+
+
+def item(label, value, unit="billions", period="2026", high=None, date="2026-10"):
+    return {"label": label, "value": value, "value_high": high, "unit": unit, "period": period,
+            "date": date, "fact_id": "W1", "source": {"title": "t", "url": "u", "line": "l"}}  # fmt: skip
+
+
+def test_stale_calendar_guidance_is_dropped():
+    q = [{"q": "2026Q1", "capex": 35.7}, {"q": "2026Q2", "capex": 44.9}]  # $80.6bn spent in H1
+    stale = [item("guidance", 91, period="full year 2026", high=93)]
+    assert ai_run._guidance(stale, q) is None
+    ok = ai_run._guidance([item("guidance", 175, period="calendar year 2026", high=185)], q)
+    assert (ok["low"], ok["high"], ok["label"]) == (175, 185, "calendar year 2026")
+    fiscal = ai_run._guidance([item("guidance", 35, period="fiscal 2027")], q)  # another year: kept
+    assert fiscal["low"] == 35
+    # a past year's guidance (Nebius came back with "2025") is no guidance at all
+    assert (
+        ai_run._guidance([item("guidance", None, unit="none", period="2025")], q, year=2026) is None
+    )
+    # several lines: the newest wins, whatever order the reader returned them in
+    two = [item("guidance", 175, date="2026-02"), item("guidance", 190, date="2026-10")]
+    assert ai_run._guidance(two, q)["low"] == 190
+
+
+def test_borrowing_keeps_rates_not_spreads():
+    items = [item("coupon, notes due 2036", 5.25, "percent"), item("SOFR spread", 0.44, "percent"),
+             item("interest margin", 0.625, "percent"), item("convertible notes coupon", 1.75, "percent")]  # fmt: skip
+    assert [b["label"] for b in ai_run._borrowing(items)] == [
+        "coupon, notes due 2036",
+        "convertible notes coupon",
+    ]
+    many = [item(f"notes {i}", 4 + i / 10, "percent") for i in range(6)]
+    assert len(ai_run._borrowing(many)) == 3  # three a company keeps the chart readable
+
+
+def test_off_balance_one_per_kind_at_least_a_billion():
+    items = [item("leases not yet commenced", 329.1), item("Leases not yet commenced", 92.7),
+             item("maximum exposure to loss", 45.95), item("power commitments", 0.006), item("x", 5, "percent")]  # fmt: skip
+    got = ai_run._off_balance(items)
+    assert [(o["label"], o["value"]) for o in got] == [
+        ("leases not yet commenced", 329.1),
+        ("maximum exposure to loss", 45.95),
+    ]
+
+
+def test_funding_sentence_gives_the_range_of_new_debt_rates():
+    c = {"ticker": "ORCL", "name": "Oracle", "kind": "hyperscaler", "quarters": [],
+         "mix": {"own_cash": 45, "debt": 35, "convertible": 0, "shares": 20, "cash_on_hand": 0},
+         "borrowing": [{"label": "coupon", "rate_pct": r} for r in (4.55, 5.7)] + [{"label": "convertible notes coupon", "rate_pct": 1.0}]}  # fmt: skip
+    s = ai_run.sentences({"companies": [c], "totals": {}})["funding"]
+    assert "Oracle borrows **35%** of it; its new bonds and loans this year pay **4.55–5.7%**." in s
+    assert "bp" not in s
