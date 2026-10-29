@@ -5,6 +5,7 @@ import { company } from "@/lib/company";
 import { C } from "@/lib/theme";
 import { Chapter, SourceLink, Unavailable } from "./Chapter";
 import { Spark } from "./charts";
+import { change, useHover, type Tip } from "./hover";
 
 type Size = "all" | "large" | "mid" | "small";
 const SIZES: [Size, string][] = [["all", "All"], ["large", "Large"], ["mid", "Mid"], ["small", "Small"]];
@@ -12,20 +13,29 @@ const SIZE_WORDS: Record<Size, string> = { all: "companies of all sizes", large:
 const CENSUS_SIZE: Record<Exclude<Size, "all">, string> = { large: "250+", mid: "50–249", small: "1–49" };
 const PRODUCT_NAMES: Record<string, string> = { Anthropic: "Anthropic (Claude)", OpenAI: "OpenAI (ChatGPT)", xAI: "xAI (Grok)" };
 
-/** Plain bars as a list: each row says its label and value in text, the bar only repeats it. */
-function BarList({ rows, max, on }: { rows: { label: string; value: number }[]; max: number; on: (i: number) => boolean }) {
+/** Plain bars as a list: each row says its label and value in text, the bar only repeats it; hovering
+ * a row (or arrow keys once the list has focus) shows what the figure is and where it's from. */
+function BarList({ rows, max, on, tip }: {
+  rows: { label: string; value: number }[]; max: number; on: (i: number) => boolean; tip: (i: number) => Tip;
+}) {
+  const h = useHover(rows.map((_, i) => tip(i)));
+  const { className, ...focus } = h.chart;
   return (
-    <ul className="grid gap-1.5 text-[12px]">
-      {rows.map((r, i) => (
-        <li key={r.label} className="grid grid-cols-[minmax(0,7.5rem)_1fr_3.2rem] items-center gap-2">
-          <span className={cn("truncate text-right", on(i) ? "text-text font-semibold" : "text-muted")}>{r.label}</span>
-          <span className="h-2.5 rounded-sm bg-surface-3" aria-hidden>
-            <span className="block h-full rounded-sm" style={{ width: `${Math.min(100, (r.value / max) * 100)}%`, background: on(i) ? C.accent : C.borderStrong }} />
-          </span>
-          <span className="num text-text-2 font-semibold">{r.value}%</span>
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul {...focus} className={cn("grid gap-1 text-[12px]", className)}>
+        {rows.map((r, i) => (
+          <li key={r.label} ref={h.item(i).ref} onMouseMove={h.item(i).onMouseMove} onMouseLeave={h.item(i).onMouseLeave}
+            className={cn("grid grid-cols-[minmax(0,7.5rem)_1fr_3.2rem] items-center gap-2 rounded px-1 py-0.5", h.active === i && "bg-surface-3")}>
+            <span className={cn("truncate text-right", on(i) ? "text-text font-semibold" : "text-muted")}>{r.label}</span>
+            <span className="h-2.5 rounded-sm bg-surface-3" aria-hidden>
+              <span className="block h-full rounded-sm" style={{ width: `${Math.min(100, (r.value / max) * 100)}%`, background: on(i) ? C.accent : C.borderStrong }} />
+            </span>
+            <span className="num text-text-2 font-semibold">{r.value}%</span>
+          </li>
+        ))}
+      </ul>
+      {h.node}
+    </>
   );
 }
 
@@ -96,7 +106,11 @@ export function Adoption({ data }: { data: AiCapex }) {
             <>
               <div className="num text-[22px] font-bold mt-1">{usd(nvLast.value)}{nv!.growth_pct != null && <span className={cn("text-[13px] ml-1.5", nv!.growth_pct >= 0 ? "text-accent" : "text-danger")}>{nv!.growth_pct >= 0 ? "▲" : "▼"} {Math.abs(nv!.growth_pct)}%</span>}</div>
               <div className="text-xs text-muted mb-1.5">Quarterly, {qShort(nv!.quarters[0].q)} → {qShort(nvLast.q)}</div>
-              <Spark values={nv!.quarters.map((q) => q.value ?? 0)} label={`Nvidia data center sales by quarter, latest ${usd(nvLast.value)}`} />
+              <Spark values={nv!.quarters.map((q) => q.value ?? 0)} label={`Nvidia data center sales by quarter, latest ${usd(nvLast.value)}`}
+                tips={nv!.quarters.map((q, i, all) => {
+                  const yoy = i >= 4 ? change(q.value, all[i - 4].value) : null;
+                  return { title: `Nvidia data center · ${qShort(q.q)}`, lines: [q.value != null ? usd(q.value) : "—", ...(yoy ? [`${yoy} on a year ago`] : [])] };
+                })} />
             </>
           ) : <Unavailable what="Nvidia earnings releases" />}
         </div>
@@ -136,11 +150,13 @@ export function Adoption({ data }: { data: AiCapex }) {
         <Panel eyebrow="Paying for AI tools" title="Ramp AI Index" src={ramp ? <>Card and bill payments · {ramp.month} · monthly</> : "Ramp"}>
           {!ramp ? <Unavailable what="Ramp" /> : vendor ? (
             <>
-              <BarList rows={vendors.map((v) => ({ label: PRODUCT_NAMES[v.vendor] ?? v.vendor, value: v.pct }))} max={Math.max(...vendors.map((v) => v.pct))} on={(i) => vendors[i].vendor === product} />
+              <BarList rows={vendors.map((v) => ({ label: PRODUCT_NAMES[v.vendor] ?? v.vendor, value: v.pct }))} max={Math.max(...vendors.map((v) => v.pct))} on={(i) => vendors[i].vendor === product}
+                tip={(i) => ({ title: PRODUCT_NAMES[vendors[i].vendor] ?? vendors[i].vendor, lines: [`${vendors[i].pct}% of US businesses on Ramp paid for it in ${ramp.month}`, "All company sizes"] })} />
               {size !== "all" && <Note>Ramp doesn't split vendors by company size, so this shows all sizes.</Note>}
             </>
           ) : (
-            <BarList rows={ramp.sizes.map((s) => ({ label: s.label.replace(" businesses", ""), value: s.pct }))} max={100} on={(i) => size === "all" || ramp.sizes[i].size === size} />
+            <BarList rows={ramp.sizes.map((s) => ({ label: s.label.replace(" businesses", ""), value: s.pct }))} max={100} on={(i) => size === "all" || ramp.sizes[i].size === size}
+              tip={(i) => ({ title: ramp.sizes[i].label, lines: [`${ramp.sizes[i].pct}% paid for at least one AI tool in ${ramp.month}`, "Card and bill payments on Ramp"] })} />
           )}
         </Panel>
 
@@ -158,7 +174,11 @@ export function Adoption({ data }: { data: AiCapex }) {
                 <i style={{ width: `${arc.depth[2]}%`, background: C.accent }} />
               </div>
               <div className="text-xs text-muted mt-1 mb-2.5">Of those: {arc.depth[0]}% piloting · {arc.depth[1]}% using it today · {arc.depth[2]}% earning revenue from it</div>
-              <BarList rows={arc.sectors.map((s) => ({ label: `${s.sector}${s.thin ? " · thin" : ""}`, value: s.pct }))} max={100} on={() => true} />
+              <BarList rows={arc.sectors.map((s) => ({ label: `${s.sector}${s.thin ? " · thin" : ""}`, value: s.pct }))} max={100} on={() => true}
+                tip={(i) => {
+                  const s = arc.sectors[i];
+                  return { title: s.sector, lines: [`${s.pct}% of its ${s.n} ${SIZE_WORDS[size]} make a concrete AI claim`, ...(s.thin ? ["Fewer than 5 companies: indicative only"] : [])] };
+                }} />
               {product === "all" && arc.quotes.map((q) => (
                 <blockquote key={q.ticker} className="mt-2.5 border-l-2 border-accent pl-2.5 font-serif text-[13px] leading-[19px] text-text-2">
                   "{q.quote}"
@@ -184,7 +204,11 @@ export function Adoption({ data }: { data: AiCapex }) {
                 of {size === "all" ? "US firms" : `firms with ${CENSUS_SIZE[size]} employees (the range across their size classes)`} used AI in the last two weeks
               </div>
               <BarList rows={census.by_class.map((c) => ({ label: `${c.label} staff`, value: c.pct }))} max={Math.max(...census.by_class.map((c) => c.pct)) * 1.1}
-                on={(i) => size === "all" || census.by_class[i].bucket === size} />
+                on={(i) => size === "all" || census.by_class[i].bucket === size}
+                tip={(i) => {
+                  const c = census.by_class[i];
+                  return { title: `Firms with ${c.label} staff`, lines: [`${c.pct}% used AI in the last two weeks${census.ref_end ? ` (to ${census.ref_end})` : ""}`, `Counted as ${c.bucket} here`] };
+                }} />
               {product !== "all" && <Note>The Census survey doesn't ask which AI product, so this panel ignores the product filter.</Note>}
               <p className="text-[11px] text-muted mt-2"><SourceLink title="Census Bureau" url={census.source.url} /></p>
             </>

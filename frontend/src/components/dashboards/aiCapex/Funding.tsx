@@ -1,7 +1,7 @@
-import { usd, type AiCapex } from "@/api/aiCapex";
+import { qName, usd, type AiCapex } from "@/api/aiCapex";
 import { C } from "@/lib/theme";
 import { Chapter, SourceLink, Unavailable } from "./Chapter";
-import { ChartTitle, DotRows, HBars, Legend, MIX_PARTS, Mix100 } from "./charts";
+import { ChartTitle, ChartWidth, DotRows, HBars, Legend, MIX_PARTS, Mix100, SMALLER } from "./charts";
 
 const short = (d: string) => {
   const [y, m] = d.split("-");
@@ -22,12 +22,27 @@ export function Funding({ data }: { data: AiCapex }) {
       id="funding" n="02" tag="FUNDING" question="Can they afford it, and who's lending?" sentence={data.sentences.funding}
       note="The funding mix covers the last four quarters: each source's share of all the cash that came in. The rates are what each company paid on new borrowing this year."
     >
+      {/* drawn smaller than the other sections, like 01 (user, Oct 28) */}
+      <ChartWidth value={SMALLER}>
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="min-w-0">
           <ChartTitle>Capex per $1 of revenue, latest quarter</ChartTitle>
           {cents.length ? (
             <HBars
-              rows={cents.map((c) => ({ name: c.name, value: c.cents_per_dollar, ghost: c.cents_year_ago, color: color(c.ticker) }))}
+              rows={cents.map((c) => {
+                const q = c.quarters[c.quarters.length - 1];
+                return {
+                  name: c.name, value: c.cents_per_dollar, ghost: c.cents_year_ago, color: color(c.ticker),
+                  tip: {
+                    title: `${c.name} · ${q ? qName(q.q) : "latest quarter"}`,
+                    lines: [
+                      `${c.cents_per_dollar}¢ of capex for every $1 of revenue`,
+                      ...(q?.capex != null && q?.revenue != null ? [`${usd(q.capex)} of capex on ${usd(q.revenue)} of revenue`] : []),
+                      ...(c.cents_year_ago != null ? [`A year ago: ${c.cents_year_ago}¢`] : []),
+                    ],
+                  },
+                };
+              })}
               max={Math.min(400, Math.max(100, ...cents.map((c) => c.cents_per_dollar!)))}
               fmt={(v) => `${v}¢`}
               ghostLabel="a year ago"
@@ -39,7 +54,16 @@ export function Funding({ data }: { data: AiCapex }) {
           <ChartTitle>Capex ÷ the cash the business brings in, last four quarters</ChartTitle>
           {ocf.length ? (
             <HBars
-              rows={ocf.map((c) => ({ name: c.name, value: c.ocf_share, color: color(c.ticker) }))}
+              rows={ocf.map((c) => ({
+                name: c.name, value: c.ocf_share, color: color(c.ticker),
+                tip: {
+                  title: `${c.name} · last four quarters`,
+                  lines: [
+                    c.ocf_share != null ? `Capex was ${c.ocf_share.toLocaleString()}% of the cash its business brought in` : "Its business used cash, so the ratio isn't meaningful",
+                    ...(c.ttm.capex != null && c.ttm.ocf != null ? [`Capex ${usd(c.ttm.capex)} · operating cash ${usd(c.ttm.ocf)}`] : []),
+                  ],
+                },
+              }))}
               max={Math.min(700, Math.max(200, ...ocf.map((c) => c.ocf_share ?? 0)))}
               fmt={(v) => `${v.toLocaleString()}%`}
               refLine={{ at: 100, label: "100% = all of it" }}
@@ -63,7 +87,18 @@ export function Funding({ data }: { data: AiCapex }) {
           {deals.length ? (
             <>
               <DotRows
-                rows={deals.map((d) => ({ name: d.name, sub: `${d.label}${d.date ? `, ${short(d.date)}` : ""}`, value: d.rate_pct, color: color(d.ticker) }))}
+                rows={deals.map((d) => ({
+                  name: d.name, sub: `${d.label}${d.date ? `, ${short(d.date)}` : ""}`, value: d.rate_pct, color: color(d.ticker),
+                  tip: {
+                    title: `${d.name} · ${d.label}`,
+                    lines: [
+                      `${d.rate_pct}%${d.date ? `, ${short(d.date)}` : ""}`,
+                      ...(/convertible/i.test(d.label) ? ["A convertible: low coupon because it can turn into shares"] : []),
+                      ...(r ? [`For scale, today: 10-yr Treasury ${r.treasury_10y.value}%, high-yield ${r.high_yield.value}%`] : []),
+                      `Source: ${d.source.title}`,
+                    ],
+                  },
+                }))}
                 refs={r ? [{ at: r.treasury_10y.value, label: `10-yr Treasury ${r.treasury_10y.value}%` }, { at: r.high_yield.value, label: `High-yield bonds ${r.high_yield.value}%` }] : []}
                 label={`Rates on new borrowing: ${deals.map((d) => `${d.name} ${d.label} ${d.rate_pct} percent`).join(", ")}`}
               />
@@ -77,6 +112,7 @@ export function Funding({ data }: { data: AiCapex }) {
           ) : <Unavailable what="earnings calls and filings (cited search)" />}
         </div>
       </div>
+      </ChartWidth>
       {off.length > 0 && (
         <>
           <div className="eyebrow mt-5 mb-1.5">Funding outside the balance sheet</div>

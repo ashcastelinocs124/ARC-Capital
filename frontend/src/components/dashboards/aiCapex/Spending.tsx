@@ -1,7 +1,7 @@
-import { usd, qShort, type AiCapex } from "@/api/aiCapex";
+import { usd, qName, qShort, type AiCapex } from "@/api/aiCapex";
 import { C } from "@/lib/theme";
 import { Chapter, SourceLink, Unavailable } from "./Chapter";
-import { ChartTitle, GuidanceRows, Legend, StackedBars } from "./charts";
+import { ChartTitle, ChartWidth, GuidanceRows, Legend, SMALLER, StackedBars } from "./charts";
 
 export function Spending({ data }: { data: AiCapex }) {
   const hyp = data.companies.filter((c) => c.kind === "hyperscaler");
@@ -19,6 +19,8 @@ export function Spending({ data }: { data: AiCapex }) {
       id="spending" n="01" tag="SPENDING" question="How much are they spending?" sentence={data.sentences.spending}
       note="Capex here is cash paid for property and equipment, the same definition for every company. Guidance is as each company states it, for the year it covers."
     >
+      {/* drawn smaller than the other sections: the first thing on the page shouldn't shout (user, Oct 28) */}
+      <ChartWidth value={SMALLER}>
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="min-w-0">
           <ChartTitle>Quarterly capex, $bn</ChartTitle>
@@ -26,6 +28,7 @@ export function Spending({ data }: { data: AiCapex }) {
             <>
               <StackedBars
                 labels={labels.map(qShort)}
+                names={labels.map(qName)}
                 series={series}
                 totals={tq.map((t) => ({ total: t.capex, note: t.reported < t.of ? `${t.reported} of ${t.of}` : undefined }))}
                 label={`Quarterly capex of ${hyp.map((c) => c.name).join(", ")} from ${qShort(labels[0])} to ${qShort(labels[labels.length - 1])}${full ? `; ${usd(full.capex)} in ${qShort(full.q)}, the latest quarter all of them have filed` : ""}`}
@@ -42,7 +45,16 @@ export function Spending({ data }: { data: AiCapex }) {
                 const g = c.guidance!;
                 const text = g.low == null ? "No full-year figure"
                   : `${g.high != null && g.high !== g.low ? `${usd(g.low)}–${usd(g.high)}` : `~${usd(g.low)}`} · ${g.label}`;
-                return { name: c.name, color: C.co[c.ticker] ?? C.muted, actual: g.actual, low: g.low, high: g.high, text };
+                const tip = {
+                  title: `${c.name} · capex guidance`,
+                  lines: [
+                    g.low == null ? "No full-year dollar figure given yet" : `${text}, as the company states it`,
+                    ...(g.actual != null ? [`${g.actual_label}: ${usd(g.actual)}`] : []),
+                    ...(c.ttm?.capex != null ? [`Spent ${usd(c.ttm.capex)} in the last four quarters (cash capex, filings)`] : []),
+                    `Source: ${g.source.title}`,
+                  ],
+                };
+                return { name: c.name, color: C.co[c.ticker] ?? C.muted, actual: g.actual, low: g.low, high: g.high, text, tip };
               })}
               label={`Capex guidance: ${guided.map((c) => `${c.name} ${c.guidance!.low != null ? usd(c.guidance!.low) : "no full-year figure"}`).join(", ")}`}
             />
@@ -59,6 +71,7 @@ export function Spending({ data }: { data: AiCapex }) {
           )}
         </div>
       </div>
+      </ChartWidth>
     </Chapter>
   );
 }

@@ -1,4 +1,4 @@
-import { type AiCapex } from "@/api/aiCapex";
+import { usd, type AiCapex } from "@/api/aiCapex";
 import { C } from "@/lib/theme";
 import { Chapter, SourceLink, Unavailable } from "./Chapter";
 import { ChartTitle, HBars, PowerBars, Spark } from "./charts";
@@ -17,7 +17,17 @@ export function Compute({ data }: { data: AiCapex }) {
   ];
   const years = neo
     .filter((c) => c.backlog && c.ttm?.revenue)
-    .map((c) => ({ name: c.name, value: Math.round((c.backlog!.value / c.ttm.revenue!) * 10) / 10, color: C.co[c.ticker] ?? C.muted }));
+    .map((c) => ({
+      name: c.name, value: Math.round((c.backlog!.value / c.ttm.revenue!) * 10) / 10, color: C.co[c.ticker] ?? C.muted,
+      tip: {
+        title: `${c.name} · ${c.backlog!.label}`,
+        lines: [
+          `${usd(c.backlog!.value)} signed, not yet delivered`,
+          `${usd(c.ttm.revenue!)} of revenue in the last four quarters`,
+          `${(c.backlog!.value / c.ttm.revenue!).toFixed(1)} years to deliver at that pace`,
+        ],
+      },
+    }));
   const gpu = data.gpu;
   const dates = gpu ? [...new Set(gpu.history.map((h) => h.date))].sort() : [];
   const h100 = gpu?.history.filter((h) => h.gpu === "H100").map((h) => h.price) ?? [];
@@ -68,7 +78,8 @@ export function Compute({ data }: { data: AiCapex }) {
               {dates.length >= MIN_DAYS && h100.length >= 2 && (
                 <div className="mt-3">
                   <div className="text-xs text-muted mb-1">H100, since {day(dates[0])}</div>
-                  <Spark values={h100} label={`H100 rental price from $${h100[0]} to $${h100[h100.length - 1]} per GPU-hour`} />
+                  <Spark values={h100} label={`H100 rental price from $${h100[0]} to $${h100[h100.length - 1]} per GPU-hour`}
+                    tips={gpu.history.filter((x) => x.gpu === "H100").map((x) => ({ title: `Nvidia H100 · ${day(x.date)}`, lines: [`$${x.price.toFixed(2)} per GPU-hour`] }))} />
                 </div>
               )}
               <p className="text-xs text-muted mt-2">
