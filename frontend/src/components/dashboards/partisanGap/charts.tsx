@@ -52,7 +52,7 @@ export function Lines({ xs, xFmt, xTickFmt, xTicks, series, yFmt, tickFmt, refY,
   xFmt: (x: number) => string; // the tooltip's title
   xTickFmt?: (x: number) => string;
   xTicks?: (w: number) => number[];
-  series: { name: string; color: string; values: (number | null)[]; step?: boolean }[];
+  series: { name: string; color: string; values: (number | null)[]; step?: boolean; dots?: boolean[] }[];
   yFmt: (v: number) => string;
   tickFmt?: (v: number) => string;
   refY?: { at: number; label?: string };
@@ -101,7 +101,10 @@ export function Lines({ xs, xFmt, xTickFmt, xTicks, series, yFmt, tickFmt, refY,
         )}
         {ticks.map((t) => <Txt key={t} x={x(t)} y={B + 16} anchor="middle">{(xTickFmt ?? xFmt)(t)}</Txt>)}
         {series.map((s) => (
-          <path key={s.name} d={path(s)} fill="none" stroke={s.color} strokeWidth={2} strokeLinejoin="round" />
+          <g key={s.name}>
+            <path d={path(s)} fill="none" stroke={s.color} strokeWidth={2} strokeLinejoin="round" />
+            {s.dots?.map((on, i) => (on && ok(s.values[i]) ? <circle key={i} cx={x(xs[i])} cy={y(s.values[i]!)} r={3} fill={s.color} /> : null))}
+          </g>
         ))}
         {a != null && (
           <g>
@@ -145,6 +148,7 @@ export function VBars({ groups, series, values, ns, nUnit = "years", fmt, bands,
   const gw = (W - L - R) / groups.length;
   const bw = Math.min(36, (gw * 0.74) / series.length);
   const cx = (gi: number, si: number) => L + gi * gw + gw / 2 + (si - (series.length - 1) / 2) * bw * 1.14;
+  const labels = bw * 1.14 >= 30; // narrower and neighbouring labels collide: the tooltip has the value
   return (
     <div ref={ref} {...h.chart}>
       <svg viewBox={`0 0 ${W} ${height}`} width="100%" className="block overflow-visible" role="img" aria-label={label + hint}>
@@ -160,7 +164,7 @@ export function VBars({ groups, series, values, ns, nUnit = "years", fmt, bands,
           return (
             <g key={`${gi}-${si}`} {...h.item(k)} opacity={h.dim(h.active === k)}>
               <rect x={cx(gi, si) - bw / 2} y={Math.min(y(v), y(0))} width={bw} height={Math.max(1, Math.abs(y(v) - y(0)))} rx={3} fill={series[si][1]} />
-              <Txt x={cx(gi, si)} y={v >= 0 ? y(v) - 5 : y(v) + 13} anchor="middle" fill={C.text2} size={10.5} weight={600}>{fmt(v)}</Txt>
+              {labels && <Txt x={cx(gi, si)} y={v >= 0 ? y(v) - 5 : y(v) + 13} anchor="middle" fill={C.text2} size={10.5} weight={600}>{fmt(v)}</Txt>}
             </g>
           );
         })}
@@ -173,7 +177,7 @@ export function VBars({ groups, series, values, ns, nUnit = "years", fmt, bands,
 
 /** Rows of paired horizontal bars, the name above its bars so long names fit any width; dashed lines mark `refs`. */
 export function RowBars({ rows, series, refs, fmt, label }: {
-  rows: { name: string; values: (number | null)[]; faded?: boolean; tip: Tip }[];
+  rows: { name: string; values: (number | null)[]; color?: string; faded?: boolean; tip: Tip }[];
   series: [string, string][];
   refs?: (number | null)[]; // one per series, e.g. the all-years average
   fmt: (v: number) => string;
@@ -199,7 +203,8 @@ export function RowBars({ rows, series, refs, fmt, label }: {
                 <line key={si} x1={x(v)} x2={x(v)} y1={top + 15} y2={top + 21 + barsH} stroke={series[si][1]} strokeDasharray="3 2" opacity={0.8} />
               ) : null))}
               {lo < 0 && <line x1={x(0)} x2={x(0)} y1={top + 15} y2={top + 21 + barsH} stroke={C.borderStrong} />}
-              {series.map(([, color], si) => {
+              {series.map(([, sc], si) => {
+                const color = r.color ?? sc;
                 const v = r.values[si];
                 if (!ok(v)) return null;
                 const by = top + 18 + si * (bh + 3);
@@ -210,6 +215,45 @@ export function RowBars({ rows, series, refs, fmt, label }: {
                   </g>
                 );
               })}
+            </g>
+          );
+        })}
+      </svg>
+      {h.node}
+    </div>
+  );
+}
+
+/** Raw (hollow) to adjusted (filled) value per row, the line showing how far it moved; dashed = `at`. */
+export function Dots({ rows, at, atLabel, fmt, color, label }: {
+  rows: { name: string; from: number; to: number; tip: Tip }[];
+  at: number; // the dashed reference, e.g. the overall average
+  atLabel: string;
+  fmt: (v: number) => string;
+  color: string;
+  label: string;
+}) {
+  const [box, W] = useWidth();
+  const h = useHover(rows.map((r) => r.tip));
+  const vs = rows.flatMap((r) => [r.from, r.to]);
+  const lo = Math.min(...vs, at), hi = Math.max(...vs, at);
+  const L = 8, R = 56, RH = 36, H = rows.length * RH + 24;
+  const x = (v: number) => L + ((v - lo) / (hi - lo || 1)) * (W - L - R);
+  return (
+    <div ref={box} {...h.chart}>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" className="block overflow-visible" role="img" aria-label={label + hint}>
+        <line x1={x(at)} x2={x(at)} y1={0} y2={rows.length * RH} stroke={C.muted} strokeDasharray="4 3" />
+        <Txt x={x(at)} y={rows.length * RH + 15} anchor="middle" size={10.5}>{atLabel}</Txt>
+        {rows.map((r, i) => {
+          const top = i * RH, cy = top + 25;
+          return (
+            <g key={r.name} {...h.item(i)} opacity={h.dim(h.active === i)}>
+              <rect x={0} y={top} width={W} height={RH} fill="transparent" />
+              <Txt x={L} y={top + 11} fill={C.text} size={11.5} weight={h.active === i ? 700 : 400}>{r.name}</Txt>
+              <line x1={x(r.from)} x2={x(r.to)} y1={cy} y2={cy} stroke={C.muted2} strokeWidth={2} />
+              <circle cx={x(r.from)} cy={cy} r={4.5} fill={C.surface} stroke={color} strokeWidth={1.5} />
+              <circle cx={x(r.to)} cy={cy} r={5} fill={color} />
+              <Txt x={Math.max(x(r.from), x(r.to)) + 9} y={cy + 4} fill={C.text2} size={10.5} weight={600}>{fmt(r.to)}</Txt>
             </g>
           );
         })}

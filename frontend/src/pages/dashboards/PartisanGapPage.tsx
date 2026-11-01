@@ -3,7 +3,7 @@ import { PageIntro } from "@/components/layout/PageIntro";
 import { C } from "@/lib/theme";
 import { Chapter, SourceLink } from "@/components/dashboards/aiCapex/Chapter";
 import { ChartTitle, Legend } from "@/components/dashboards/aiCapex/charts";
-import { Coef, Lines, P, RowBars, Scatter, Table, VBars, pct, pp, pval, sgn, spct, type Cell } from "@/components/dashboards/partisanGap/charts";
+import { Coef, Dots, Lines, P, RowBars, Scatter, Table, VBars, pct, pp, pval, sgn, spct, type Cell } from "@/components/dashboards/partisanGap/charts";
 // a fixed 1921–2024 study, bundled from its outputs by scripts/build_partisan_gap_data.py
 import D from "@/components/dashboards/partisanGap/data.json";
 
@@ -29,8 +29,13 @@ const v4 = (o: string) => D.value.find((r) => r.version.startsWith("4") && r.out
 const cell = (o: string, gov: string, bel: string) => D.control_cells.find((r) => r.outcome === o && r.government === gov && r.beliefs === bel);
 const ctest = (o: string, test: string) => D.control_tests.find((r) => r.outcome === o && r.test === test);
 const legR = D.leg_tests.find((r) => r.outcome === "vote_gap" && r.spec === "Simple")?.corr;
-const { best, recent_sig, post_sig, min_years } = D.derived;
-const reliable = (p: number) => (p < 0.05 ? `statistically reliable, p ${pval(p)}` : `not statistically reliable, p ${pval(p)}`);
+const { best, recent_sig, post_sig, min_years, adj_summary, closeup } = D.derived;
+const MIX = "President, House, Senate"; // combo_adjusted's grouping for the seven mixes
+const STANDOUT = "Rep president, Dem House, Rep Senate";
+const adj = (group: string, o: string) => D.combo_adjusted.find((r) => r.grouping === MIX && r.group === group && r.outcome === o);
+const party = (o: string) => D.party_compare.find((r) => r.grouping === "President's party" && r.group === "Democratic president" && r.outcome === o)!;
+const recentEra = D.dem_rep_eras.find((r) => r.period === "2013–2025 (price only)")!;
+const bondRepShare = D.dem_rep_rolling.filter((r) => r.bond_tr_diff < 0).length / D.dem_rep_rolling.length;
 const ord = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
 
 function Card({ id, eyebrow, title, children }: { id: string; eyebrow: string; title: string; children: ReactNode }) {
@@ -65,7 +70,8 @@ function ShortAnswer() {
     <><b>Recent-decade signals were trend coincidences.</b> Since 1980, <b>{recent_sig.simple}</b> of <b>{recent_sig.total}</b> period tests looked significant; <b>{recent_sig.trend}</b> survive once the long-run trend is removed.</>,
     <><b>Elections don't change the picture.</b> Of <b>{post_sig.total}</b> tests of market moves 1–6 months after elections, <b>{post_sig.sig}</b> were significant.</>,
     <><b>Who holds power matters more.</b> 10-year Treasuries returned <b>{pct(cell("bond_tr", "Divided", "All")?.mean)}</b> a year under split government vs <b>{pct(cell("bond_tr", "Unified", "All")?.mean)}</b> under one-party control (p-value <b>{pval(ctest("bond_tr", "Divided vs unified")?.p)}</b>). Stocks showed no reliable difference.</>,
-    <><b>Which mix has been best?</b> Measured against its own era, stocks did best under <b>{best.sp_tr.combo}</b> ({pp(best.sp_tr.value)} a year over {best.sp_tr.n} years; {reliable(best.sp_tr.p)}) and bonds under <b>{best.bond_tr.combo}</b> ({pp(best.bond_tr.value)} a year over {best.bond_tr.n} years; {reliable(best.bond_tr.p)}).</>,
+    <><b>Democrat or Republican, adjusted for years covered?</b> For stocks, Democratic presidents averaged <b>{pp(party("sp_tr").diff)}</b> a year more than Republican ones (p-value <b>{pval(party("sp_tr").p)}</b>), and <b>{pp(party("sp_tr").diff_era)}</b> once each year is compared with its own decade (p-value <b>{pval(party("sp_tr").p_era)}</b>). For bonds it flips: 10-year Treasuries did <b>{pp(party("bond_tr").diff)}</b> a year under Democratic presidents relative to Republican ones (p-value <b>{pval(party("bond_tr").p)}</b>). Across the seven president–Congress mixes, adjusting for sample size squeezes stock averages into a narrow <b>{pct(adj_summary.stock_lo)}</b> to <b>{pct(adj_summary.stock_hi)}</b> band, so no mix stands out; for bonds, <b>{adj_summary.bond_combo}</b> stays clearly best at <b>{pct(adj_summary.bond_value)}</b> adjusted.</>,
+    <><b>The standout mix: a Republican president with a Democratic House and Republican Senate.</b> It is the best mix for bonds: <b>{pct(closeup.bond_all)}</b> a year, still <b>{pct(adj(STANDOUT, "bond_tr")?.adjusted)}</b> after adjusting for sample size, with a <b>{pct(adj(STANDOUT, "bond_tr")?.p_best, 0)}</b> chance of truly being best. For stocks it depends on which years count: <b>{pct(closeup.sp_all)}</b> a year over all <b>{closeup.n_all}</b> years, but <b>{pct(closeup.sp_ex)}</b> leaving out the 1931–32 Depression, and only a <b>{pct(adj(STANDOUT, "sp_tr")?.p_best, 0)}</b> chance of being the best stock mix after adjusting.</>,
     <><b>Words and votes diverge.</b> What parties write in platforms has a correlation of <b>{sgn(legR)}</b> with how divided Congress actually votes.</>,
   ];
   return (
@@ -292,55 +298,194 @@ function Power() {
 }
 
 function BestMix() {
-  const { era } = D.derived;
-  const raw = new Map(D.combos.map((r) => [r.combo, r]));
-  const rawDetail = new Map(D.control_detail.map((r) => [r.setup, r]));
-  const avg = raw.get("All years (average)");
-  const lead = era.combos.find((e) => e.name === "Dem president, Rep House, Rep Senate"); // the raw ranking's leader
-  const vs = (v: number | null) => `${pp(v)} a year vs its era`;
+  const all = D.combos.find((r) => r.government === "All")!;
+  const combos = D.combos.filter((r) => r.government !== "All");
   return (
     <Chapter id="best-mix" n="08" tag="BEST MIX" question="Which mix of president and Congress has been best?"
-      sentence={`Measured against its own era, stocks did best under **${best.sp_tr.combo}** (${pp(best.sp_tr.value)} a year over ${best.sp_tr.n} years; ${reliable(best.sp_tr.p)}) and bonds under **${best.bond_tr.combo}** (${pp(best.bond_tr.value)} a year over ${best.bond_tr.n} years; ${reliable(best.bond_tr.p)}).`}
-      note={<>Mixes fell in very different years, from the Depression to the 2010s, so each year's return is measured against the average of the {era.window} years around it (5 either side): 0 = that era's average. Raw averages are in the table. "p vs rest" shuffles whole Congresses 20,000 times. Mixes with fewer than {min_years} years are faded and not ranked as "best". Published studies (Edelman, Bespoke, CFRA, Retirement Researcher) rank raw returns, where a Democratic president with a Republican Congress leads{lead && <> at {pct(raw.get(lead.name)?.sp_tr)} a year; against its era that mix made {pp(lead.sp_tr)}</>}.</>}>
+      sentence={`Stocks: **${best.sp_tr.combo}**, ${pct(best.sp_tr.value)} a year over ${best.sp_tr.n} years vs ${pct(best.sp_tr.avg)} on average (not statistically reliable). Bonds: **${best.bond_tr.combo}**, ${pct(best.bond_tr.value)} vs ${pct(best.bond_tr.avg)}.`}
+      note={<>Raw average annual returns, 1921–2022, best for stocks first. Dashed lines are the all-years averages. Mixes with fewer than {min_years} years are faded; see the fair comparison below for a ranking adjusted for years covered. Published studies (Edelman, Bespoke, CFRA, Retirement Researcher) also find a Democratic president with a Republican or split Congress among the best mixes for stocks; some start in 1948 and so leave out 1931–32.</>}>
       <div className="grid gap-5">
         <Legend items={PAIR} />
         <Two>
-          <Box title="Every president / House / Senate mix, vs its era">
-            <RowBars series={PAIR} fmt={(v) => pp(v)}
-              rows={era.combos.map((e) => {
-                const r = raw.get(e.name);
-                return {
-                  name: `${e.name} · ${e.n} yrs`, values: [e.sp_tr, e.bond_tr], faded: e.n < min_years,
-                  tip: { title: e.name, lines: [
-                    `S&P 500 ${vs(e.sp_tr)} (raw ${pct(r?.sp_tr)}), p ${pval(e.sp_tr_p)}`,
-                    `10-yr Treasury ${vs(e.bond_tr)} (raw ${pct(r?.bond_tr)}), p ${pval(e.bond_tr_p)}`,
-                    `${e.n} years: ${r?.years}`,
-                  ] },
-                };
-              })}
-              label={`Average annual return against its era by party mix: ${era.combos.map((e) => `${e.name}, stocks ${pp(e.sp_tr)}, bonds ${pp(e.bond_tr)}`).join("; ")}.`} />
+          <Box title="Every president / House / Senate mix">
+            <RowBars series={PAIR} refs={[all.sp_tr, all.bond_tr]} fmt={(v) => pct(v)}
+              rows={combos.map((r) => ({
+                name: `${r.combo} · ${r.n} yrs`, values: [r.sp_tr, r.bond_tr], faded: r.n < min_years,
+                tip: { title: r.combo, lines: [`S&P 500 ${pct(r.sp_tr)} a year, up in ${pct(r.sp_up, 0)} of years`, `10-yr Treasury ${pct(r.bond_tr)} a year`, `All-years average ${pct(all.sp_tr)} / ${pct(all.bond_tr)}`, `${r.n} years: ${r.years}`] },
+              }))}
+              label={`Average annual returns by party mix: ${combos.map((r) => `${r.combo}, stocks ${pct(r.sp_tr)}, bonds ${pct(r.bond_tr)}`).join("; ")}.`} />
           </Box>
-          <Box title="By type of split, vs its era">
-            <RowBars series={PAIR} fmt={(v) => pp(v)}
-              rows={era.detail.map((e) => {
-                const r = rawDetail.get(e.name);
-                return {
-                  name: `${e.name} · ${e.n} yrs`, values: [e.sp_tr, e.bond_tr],
-                  tip: { title: e.name, lines: [`S&P 500 ${vs(e.sp_tr)} (raw ${pct(r?.sp_tr)})`, `10-yr Treasury ${vs(e.bond_tr)} (raw ${pct(r?.bond_tr)})`, `${e.n} years: ${r?.years}`] },
-                };
-              })}
-              label={`Average annual return against its era by who held the White House and Congress: ${era.detail.map((e) => `${e.name}, stocks ${pp(e.sp_tr)}, bonds ${pp(e.bond_tr)}`).join("; ")}.`} />
+          <Box title="By type of split">
+            <RowBars series={PAIR} refs={[all.sp_tr, all.bond_tr]} fmt={(v) => pct(v)}
+              rows={D.control_detail.map((r) => ({
+                name: `${r.setup} · ${r.n} yrs`, values: [r.sp_tr, r.bond_tr],
+                tip: { title: r.setup, lines: [`S&P 500 ${pct(r.sp_tr)} a year`, `10-yr Treasury ${pct(r.bond_tr)} a year`, `${r.n} years: ${r.years}`] },
+              }))}
+              label={`Average annual returns by who held the White House and Congress: ${D.control_detail.map((r) => `${r.setup}, stocks ${pct(r.sp_tr)}, bonds ${pct(r.bond_tr)}`).join("; ")}.`} />
             <Note>Small groups can swing on one crash: the Republican-president, split-Congress row includes 1931–32 and 2001–02.</Note>
           </Box>
         </Two>
         <Box title="The numbers">
-          <Table caption="Returns by party mix, against their era and raw" head={["President, House, Senate", "Years", "S&P 500 vs era", "p vs rest", "10-yr vs era", "p vs rest", "S&P 500 raw", "10-yr raw"]}
-            rows={era.combos.map((e) => {
-              const r = raw.get(e.name);
-              return [e.name, e.n, { v: pp(e.sp_tr), bold: e.sp_tr_p < 0.05 }, P(e.sp_tr_p), { v: pp(e.bond_tr), bold: e.bond_tr_p < 0.05 }, P(e.bond_tr_p), pct(r?.sp_tr), pct(r?.bond_tr)];
-            })} />
-          <Note>Bold = p &lt; 0.05. Raw average of all {avg?.n} years: {pct(avg?.sp_tr)} for stocks, {pct(avg?.bond_tr)} for 10-yr Treasuries.</Note>
+          <Table caption="Returns by party mix" head={["President, House, Senate", "Years", "S&P 500", "Stocks up", "p vs rest", "10-yr Treasury", "p vs rest"]}
+            rows={D.combos.map((r) => [r.combo, r.n, pct(r.sp_tr), pct(r.sp_up, 0), P(r.sp_p), pct(r.bond_tr), P(r.bond_p)])} />
+          <Note>Bold p-values are below 0.05.</Note>
         </Box>
+      </div>
+    </Chapter>
+  );
+}
+
+function Fair() {
+  const dots = (o: string) => D.combo_adjusted.filter((r) => r.grouping === MIX && r.outcome === o).sort((a, b) => b.adjusted - a.adjusted);
+  const parties = (o: string) => D.party_compare.filter((r) => r.grouping === "President's party" && r.outcome === o);
+  const panel = (o: string, title: string, color: string) => {
+    const rows = dots(o);
+    return (
+      <Box title={title}>
+        <Dots at={rows[0].grand} atLabel={`overall ${pct(rows[0].grand)}`} fmt={(v) => pct(v)} color={color}
+          rows={rows.map((r) => ({
+            name: `${r.group} · ${r.n} yrs`, from: r.raw, to: r.adjusted,
+            tip: { title: r.group, lines: [`Raw: ${pct(r.raw)} over ${r.n} years`, `Adjusted: ${pct(r.adjusted)}`, `Chance it is truly the best: ${pct(r.p_best, 0)}`] },
+          }))}
+          label={`${title} by party mix, raw to adjusted for years covered: ${rows.map((r) => `${r.group} ${pct(r.raw)} to ${pct(r.adjusted)}`).join("; ")}.`} />
+      </Box>
+    );
+  };
+  const partyBars = (o: string, title: string) => {
+    const rows = parties(o);
+    return (
+      <Box title={title}>
+        <VBars groups={rows.map((r) => `${r.group.replace(" president", "")} (${r.n})`)} series={[["Raw average", C.muted], ["Within decade", C.accent]]}
+          values={rows.map((r) => [r.raw, r.era_adjusted])} ns={rows.map((r) => [r.n, r.n])} fmt={(v) => pct(v)}
+          tipTitle={(g, s) => `${rows[g].group} · ${s ? "within decade" : "raw average"}`}
+          label={`${title} under Democratic and Republican presidents: ${rows.map((r) => `${r.group} ${pct(r.raw)} raw, ${pct(r.era_adjusted)} within decade`).join("; ")}.`} />
+      </Box>
+    );
+  };
+  return (
+    <Chapter id="fair" n="09" tag="FAIR COMPARISON" question="Which mix is best once years covered are counted?"
+      sentence={`Adjusted for sample size, stock averages across the seven mixes fall in a narrow **${pct(adj_summary.stock_lo)} to ${pct(adj_summary.stock_hi)}** band, so no mix stands out. For bonds, **${adj_summary.bond_combo}** stays clearly best at **${pct(adj_summary.bond_value)}** adjusted (${pct(adj_summary.bond_p_best, 0)} chance it is truly best).`}
+      note="Mixes with only a few years can post extreme averages by luck. Each average is pulled toward the overall average in proportion to how little data it has (a random-effects model fitted by REML), so a 4-year mix moves a lot and a 36-year mix barely moves.">
+      <div className="grid gap-5">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-2">
+          <span className="flex items-center gap-1.5"><i className="inline-block w-2.5 h-2.5 rounded-full border-[1.5px] border-text" aria-hidden />raw average</span>
+          <span className="flex items-center gap-1.5"><i className="inline-block w-2.5 h-2.5 rounded-full bg-text" aria-hidden />adjusted for years covered</span>
+          <span>line = how far it moved</span>
+        </div>
+        <Two>{panel("sp_tr", "S&P 500 total return", STOCKS)}{panel("bond_tr", "10-yr Treasury return", BONDS)}</Two>
+        <div>
+          <h3 className="text-[15px] font-semibold text-text mb-1">Democratic vs Republican presidents</h3>
+          <Note>These two groups cover almost the same number of years, so they compare directly without shrinkage. "Within decade" measures each year against its own decade's average and adds back the overall average, so neither party gets credit or blame for the era it happened to govern in.</Note>
+          <div className="mt-3"><Legend items={[["Raw average", C.muted], ["Within decade", C.accent]]} /></div>
+          <Two>{partyBars("sp_tr", "S&P 500 total return")}{partyBars("bond_tr", "10-yr Treasury return")}</Two>
+          <Note>Reading it: once sample size is accounted for, the stock gaps between mixes mostly disappear. The president's party matters more than the full mix: Democratic presidents have had better stock years and Republican presidents better bond years, and both gaps hold within decades. The bond standout is the 1980s, when rates fell from record highs.</Note>
+        </div>
+      </div>
+    </Chapter>
+  );
+}
+
+const DEM = C.jobs, REP = C.inflation; // party colors: blue and red, as usual
+
+function OverTime() {
+  const R = D.dem_rep_rolling;
+  const pres = D.president_returns.map((r) => ({ ...r, v: r.n_tr >= 4 ? r.sp_tr_ann : r.sp_px_ann, px: r.n_tr < 4 }));
+  return (
+    <Chapter id="over-time" n="10" tag="OVER TIME" question="Has this always been true, or is it recent?"
+      sentence={`Bonds have been better under Republican presidents in every era and in **${pct(bondRepShare, 0)}** of 30-year windows. The stock edge rests on a few crashes (1929–32, 2001–02, 2008), and 2013–2025 shows no gap: **${pct(recentEra.dem)}** under Democrats vs **${pct(recentEra.rep)}** under Republicans (price returns).`}
+      note="The Democratic-minus-Republican-president gap in average annual returns over every rolling 30-year window. Above zero = better under Democratic presidents. Dots = significant at 5%.">
+      <div className="grid gap-5">
+        <Box title="Democratic minus Republican president, rolling 30-year windows">
+          <Legend items={PAIR} />
+          <Lines xs={R.map((r) => r.end_year)} xFmt={(y) => R.find((r) => r.end_year === y)?.window ?? String(y)} xTickFmt={String}
+            yFmt={(v) => pp(v)} tickFmt={(v) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v * 100).toFixed(0)}%`} refY={{ at: 0, label: "no gap" }}
+            series={[
+              { name: "Stocks gap", color: STOCKS, values: R.map((r) => r.sp_tr_diff), dots: R.map((r) => r.sp_tr_p < 0.05) },
+              { name: "Bonds gap", color: BONDS, values: R.map((r) => r.bond_tr_diff), dots: R.map((r) => r.bond_tr_p < 0.05) },
+            ]}
+            label={`Democratic minus Republican president return gap over rolling 30-year windows ending ${R[0].end_year} to ${R[R.length - 1].end_year}: bonds below zero in ${pct(bondRepShare, 0)} of windows.`} />
+          <Note>x = last year of each 30-year window.</Note>
+        </Box>
+        <Two>
+          <Box title="Gap by era">
+            <Table caption="Democratic minus Republican president, average annual return, by era" head={["Period", "Outcome", "Dem", "Rep", "Gap", "p"]} left={2}
+              rows={D.dem_rep_eras.map((r) => [r.period, r.outcome_label, pct(r.dem), pct(r.rep), { v: pp(r.diff), bold: r.p < 0.05 }, P(r.p)])} />
+            <Note>Bold = p &lt; 0.05.</Note>
+          </Box>
+          <Box title="President by president, S&P 500 a year">
+            <Legend items={[["Democratic", DEM], ["Republican", REP]]} />
+            <RowBars series={[["S&P 500", STOCKS]]} fmt={(v) => pct(v)}
+              rows={pres.map((r) => ({
+                name: `${r.president} · ${r.years}`, values: [r.v], color: r.party === "Democratic" ? DEM : REP,
+                tip: { title: `${r.president} (${r.party}), ${r.years}`, lines: [
+                  `S&P 500: ${pct(r.v)} a year${r.px ? " (price return)" : ""}`,
+                  ...(r.bond_tr_ann != null ? [`10-yr Treasury: ${pct(r.bond_tr_ann)} a year${r.n_tr < 4 ? " (2021–22 only)" : ""}`] : []),
+                ] },
+              }))}
+              label={`Annualized S&P 500 return by president: ${pres.map((r) => `${r.president} (${r.party}) ${pct(r.v)}`).join(", ")}.`} />
+            <Note>Annualized S&amp;P 500 total return in each president's years; Biden uses price return because dividend data stops in 2022. Hover for bonds.</Note>
+          </Box>
+        </Two>
+        <Note>Reading it: the bond pattern is long-standing. Republican presidents have had the better bond years in every era, significantly so in most, peaking in the falling-rate 1980s. The stock pattern points the same way in most windows but is never significant within an era, and it rests on a few Republican-era crashes (1929–32, 2001–02, 2008): the median Republican presidency actually beat the median Democratic one. In the most recent stretch it has disappeared.</Note>
+      </div>
+    </Chapter>
+  );
+}
+
+function ThenNow() {
+  const T = D.combo_then_now;
+  const panel = (o: string, title: string) => {
+    const rs = T.filter((r) => r.outcome === o);
+    const since = rs.filter((r) => r.era === "since").sort((a, b) => b.mean - a.mean).map((r) => r.combo);
+    const combos = [...since, ...[...new Set(rs.map((r) => r.combo))].filter((c) => !since.includes(c))];
+    const get = (c: string, era: string) => rs.find((r) => r.combo === c && r.era === era);
+    const line = (r: (typeof rs)[number] | undefined) => (r ? `${r.period}: ${pct(r.mean)} a year (rank ${r.rank} of ${r.of}), ${r.n} years: ${r.years}` : null);
+    return (
+      <Box title={title}>
+        <RowBars series={[["1921–1990", C.muted], ["Since 1991", C.accent]]} fmt={(v) => pct(v)}
+          rows={combos.map((c) => ({
+            name: c, values: [get(c, "before")?.mean ?? null, get(c, "since")?.mean ?? null],
+            tip: { title: c, lines: [line(get(c, "before")), line(get(c, "since"))].filter((l): l is string => l != null) },
+          }))}
+          label={`${title} by party mix, 1921–1990 vs since 1991: ${combos.map((c) => `${c} ${pct(get(c, "before")?.mean)} then, ${pct(get(c, "since")?.mean)} since`).join("; ")}.`} />
+      </Box>
+    );
+  };
+  return (
+    <Chapter id="then-now" n="11" tag="THEN VS NOW" question="Which mix wins recently, and is it a change?"
+      sentence="For stocks the ranking has flipped: before 1991 **one-party government** did best; since 1991 **split government** has. For bonds the picture is steadier: Republican presidents facing a Democratic House sit at or near the top in both periods."
+      note="Average annual return for each president–Congress mix before 1991 and since. Stocks use S&P 500 price returns so the recent period runs through 2025 (total returns stop in 2022); bonds run through 2022. Each recent mix covers only two to eight years, often one or two presidencies.">
+      <div className="grid gap-5">
+        <Legend items={[["1921–1990", C.muted], ["Since 1991", C.accent]]} />
+        <Two>{panel("sp_px", "S&P 500 price return")}{panel("bond_tr", "10-yr Treasury return")}</Two>
+        <Note>Reading it: before 1991, Republican one-party government came first and Democratic second. Since 1991 the top spots go to a Democratic president with a Republican House (Clinton, Obama, Biden) and the 2019–20 Republican-president, Democratic-House years, while unified government fell to the middle. The "Democratic president with a Republican Congress" pattern in outside studies is largely a post-1991 result. Unified Democratic control is near the bottom for bonds in both periods.</Note>
+      </div>
+    </Chapter>
+  );
+}
+
+function Standout() {
+  const M = D.mix_closeup;
+  const starts = M.flatMap((r, i) => (i === 0 || M[i - 1].president !== r.president ? [{ from: i, label: r.president }] : []));
+  const a = (o: string) => adj(STANDOUT, o);
+  return (
+    <Chapter id="closeup" n="12" tag="STANDOUT MIX" question="What's behind the standout mix?"
+      sentence={`A Republican president with a Democratic House and Republican Senate has happened only three times: Hoover in 1931–32, Reagan in 1981–86 and Trump in 2019–20. For bonds it is reliably the best (**${pct(closeup.bond_all)}** a year); for stocks it depends on whether the 1931–32 crash counts (**${pct(closeup.sp_all)}** vs **${pct(closeup.sp_ex)}**).`}
+      note="Each bar is one year: S&P 500 price return and 10-yr Treasury return.">
+      <div className="grid gap-5">
+        <Box title="Every year of the mix">
+          <Legend items={[["S&P 500 price return", STOCKS], ["10-yr Treasury return", BONDS]]} />
+          <VBars groups={M.map((r) => String(r.year))} series={[["S&P 500", STOCKS], ["10-yr Treasury", BONDS]]} values={M.map((r) => [r.sp_px, r.bond_tr])}
+            fmt={(v) => pct(v)} bands={starts} height={240} tipTitle={(g, s) => `${M[g].year} · ${M[g].president} · ${s ? "10-yr Treasury" : "S&P 500"}`}
+            label={`Year-by-year returns under a Republican president, Democratic House and Republican Senate: ${M.map((r) => `${r.year} stocks ${pct(r.sp_px)}, bonds ${pct(r.bond_tr)}`).join("; ")}.`} />
+        </Box>
+        <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+          <Tile label="Stocks, all years" value={pct(closeup.sp_all)} sub="Average price return a year, including the 1931–32 crash" />
+          <Tile label="Stocks, without 1931–32" value={pct(closeup.sp_ex)} sub="Reagan and Trump years only, close to what outside studies starting in 1948 report" />
+          <Tile label="Bonds, all years" value={pct(closeup.bond_all)} sub="10-yr Treasury return a year; best of every mix" />
+          <Tile label="Chance it is truly the best bond mix" value={pct(a("bond_tr")?.p_best, 0)} sub={`After adjusting for sample size; for stocks it is ${pct(a("sp_tr")?.p_best, 0)}`} />
+        </div>
+        <Note>Reading it: for bonds this mix is reliably the best, helped most by the 1980s, when rates fell from record highs. For stocks it looks strong in the Reagan and Trump years and terrible in Hoover's, so with three short stretches the economy each president inherited likely matters more than the mix itself.</Note>
       </div>
     </Chapter>
   );
@@ -359,7 +504,7 @@ function Elections() {
     </Box>
   );
   return (
-    <Chapter id="post-election" n="09" tag="AFTER ELECTIONS" question="Do elections change the picture?"
+    <Chapter id="post-election" n="13" tag="AFTER ELECTIONS" question="Do elections change the picture?"
       sentence={`Of **${post_sig.total}** tests of market moves 1–6 months after elections, **${post_sig.sig}** were significant. Stocks usually rise after elections whatever the result, and the VIX usually falls as uncertainty clears.`}
       note={'All 52 November elections, 1920–2022. Returns run from October\'s level through 1, 3 and 6 months later. "Far apart" = the gap the election produced is above the median of all elections. Shiller monthly averages, so windows are approximate.'}>
       <div className="grid gap-5">
@@ -390,7 +535,7 @@ function Congress() {
   const raw = (v: number | null) => (v == null ? "—" : Math.abs(v) >= 10 ? sgn(v, 0) : sgn(v, 3));
   const share = (k: string) => k !== "public_laws" && k !== "law_pages";
   return (
-    <Chapter id="legislation" n="10" tag="CONGRESS" question="Do platform differences show up in Congress?"
+    <Chapter id="legislation" n="14" tag="CONGRESS" question="Do platform differences show up in Congress?"
       sentence={`What the parties write in platforms has a correlation of **${sgn(legR)}** with how divided Congress actually votes. Markets price what passes, not what parties say.`}
       note="The platform half of the index measures what the parties say they believe. Here it is tested against what each of the 52 Congresses from 1921 to 2024 did: how polarized the voting was, how often the parties voted together, and how many laws passed.">
       <div className="grid gap-5">
@@ -436,7 +581,7 @@ function Learned() {
         <li><b className="text-text">Polarization is real and rising.</b> The gap index puts 2023–24 at the widest point in over a century.</li>
         <li><b className="text-text">It is not a market signal.</b> Neither how far apart the parties are nor whether the gap is widening reliably explains stock returns, Treasury returns, volatility or the VIX: in any period, with or without controls, or in the months after elections. Out of sample, it made forecasts worse.</li>
         <li><b className="text-text">Early hints were coincidences.</b> Links to bonds and the VIX faded when foreign policy was added, and recent-decade results vanished once the long-run trend was removed.</li>
-        <li><b className="text-text">Power beats beliefs.</b> Split government has reliably come with better Treasury returns, plausibly because gridlock limits big spending and borrowing. For stocks, no difference between combinations is statistically reliable.</li>
+        <li><b className="text-text">Power beats beliefs.</b> Split government has reliably come with better Treasury returns, plausibly because gridlock limits big spending and borrowing. Adjusted for how many years each mix covers, no president–Congress mix stands out for stocks. The president's party matters more: Democratic presidents have had better stock years and Republican presidents better bond years, within decades as well as overall. The bond pattern is long-standing; the stock edge depends on a few crashes and has vanished since 2013. Among mixes, stocks favored one-party government before 1991 but split government since. A Republican president with a Democratic House and Republican Senate has been the most reliable mix for bonds.</li>
         <li><b className="text-text">Words and votes diverge.</b> Platform distance does not track how divided Congress votes or how much law it passes.</li>
       </ul>
     </Card>
@@ -453,6 +598,7 @@ function Method() {
           <li><b className="text-text">Composite:</b> each part standardized over 1921–2024; index = ½ voting gap + ½ average of the four platform topics, then re-standardized.</li>
           <li><b className="text-text">Party control:</b> majorities per Congress from the published party-division tables, cross-checked with Voteview. The 72nd House is counted Democratic, the 107th Senate Democratic (after the 2001 Jeffords switch), and 2021–22 unified Democratic.</li>
           <li><b className="text-text">Outcomes:</b> S&amp;P 500 calendar-year total return and realized volatility from Shiller's monthly data; 10-yr Treasury return as a constant-maturity par bond from Shiller's long rate; VIX from Cboe (1990 on). Shiller dividends end mid-2023, so return tests stop at 2022.</li>
+          <li><b className="text-text">Fair comparison of party mixes:</b> each mix's average shrunk toward the overall average with a random-intercept model fitted by REML (statsmodels MixedLM), weight = between-mix variance / (between-mix variance + within-mix variance / years); probability of being best from 20,000 draws. Within-decade figures subtract each decade's average return.</li>
           <li><b className="text-text">Tests:</b> Newey-West standard errors throughout, with era splits, the Depression excluded, time-trend controls, block permutation tests, expanding-window out-of-sample forecasts and a real-time version that uses only what was known on January 1.</li>
         </ol>
         <div>
@@ -523,6 +669,10 @@ export default function PartisanGapPage() {
       <Vix />
       <Power />
       <BestMix />
+      <Fair />
+      <OverTime />
+      <ThenNow />
+      <Standout />
       <Elections />
       <Congress />
       <Learned />
