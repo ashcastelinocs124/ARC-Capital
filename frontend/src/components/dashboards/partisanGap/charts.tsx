@@ -242,7 +242,6 @@ export function Dots({ rows, at, atLabel, fmt, color, label }: {
   return (
     <div ref={box} {...h.chart}>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" className="block overflow-visible" role="img" aria-label={label + hint}>
-        <line x1={x(at)} x2={x(at)} y1={0} y2={rows.length * RH} stroke={C.muted} strokeDasharray="4 3" />
         <Txt x={x(at)} y={rows.length * RH + 15} anchor="middle" size={10.5}>{atLabel}</Txt>
         {rows.map((r, i) => {
           const top = i * RH, cy = top + 25;
@@ -250,6 +249,8 @@ export function Dots({ rows, at, atLabel, fmt, color, label }: {
             <g key={r.name} {...h.item(i)} opacity={h.dim(h.active === i)}>
               <rect x={0} y={top} width={W} height={RH} fill="transparent" />
               <Txt x={L} y={top + 11} fill={C.text} size={11.5} weight={h.active === i ? 700 : 400}>{r.name}</Txt>
+              {/* the reference runs only through the dots, never across the names */}
+              <line x1={x(at)} x2={x(at)} y1={top + 16} y2={top + RH} stroke={C.muted} strokeDasharray="4 3" />
               <line x1={x(r.from)} x2={x(r.to)} y1={cy} y2={cy} stroke={C.muted2} strokeWidth={2} />
               <circle cx={x(r.from)} cy={cy} r={4.5} fill={C.surface} stroke={color} strokeWidth={1.5} />
               <circle cx={x(r.to)} cy={cy} r={5} fill={color} />
