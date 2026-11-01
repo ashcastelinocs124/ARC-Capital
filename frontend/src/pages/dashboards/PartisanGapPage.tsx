@@ -421,14 +421,6 @@ function Learned() {
         <li><b className="text-text">Power beats beliefs.</b> Split government has reliably come with better Treasury returns, plausibly because gridlock limits big spending and borrowing. For stocks, no difference between combinations is statistically reliable.</li>
         <li><b className="text-text">Words and votes diverge.</b> Platform distance does not track how divided Congress votes or how much law it passes.</li>
       </ul>
-      <h3 className="text-[15px] font-semibold text-text mt-4 mb-1">What's next</h3>
-      <p className="text-[13.5px] leading-[21px] text-text-2 max-w-4xl">
-        A Policy Output variable built from what Congress actually enacts: how much passes (laws and pages), how bipartisan it is
-        (minority-party support on final passage), and which way it moves policy, tested against market moves around each law's
-        enactment date. Then prediction, starting with AI data centers: forecasting the power-grid and permitting rules, energy tax
-        credits, chip subsidies and export controls, and AI regulation that decide how fast they get built, tested against
-        chipmakers, utilities and data-center operators.
-      </p>
     </Card>
   );
 }

@@ -53,8 +53,8 @@ export default function App() {
         ))}
         {/* the models went admin-only on 2026-10-15; the one public card, Fear & Greed, is on Radar */}
         <Route path="/ai" element={<Navigate to="/ai/models" replace />} />
-        {/* ponytail: /dashboards opens the first dashboard; the Dashboards menu lists them all */}
-        <Route path="/dashboards" element={<Navigate to="/dashboards/ai-capex" replace />} />
+        {/* /dashboards opens the newest dashboard, the top of the Dashboards menu (TopNav.tsx) */}
+        <Route path="/dashboards" element={<Navigate to="/dashboards/partisan-gap" replace />} />
         <Route path="/models" element={<Navigate to="/macro#sector-sentiment" replace />} />
         <Route path="/sector-sentiment" element={<Navigate to="/macro#sector-sentiment" replace />} />
         <Route path="*" element={<Navigate to={HOME} replace />} />

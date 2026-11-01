@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, NavLink, useLocation } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 // The logo is the way home, so Overview has no tab. Groups open as dropdowns: on desktop a pill
 // group centred in the top bar (hover or click), on phones a sideways row whose group, when
 // tapped, lists its pages underneath. A `to` with a #hash jumps to a card on that page
-// (AppShell scrolls to it), and doesn't mark its group active.
+// (AppShell scrolls to it), and doesn't mark its group active. A `latest` group's tab opens its first
+// (newest) page as well as the menu.
 type Item = { to: string; label: string; desc: string };
-type Entry = { label: string; to: string } | { label: string; items: Item[] };
+type Group = { label: string; items: Item[]; latest?: boolean };
+type Entry = { label: string; to: string } | Group;
 
 const NAV: Entry[] = [
   { label: "Radar", to: "/macro" },
@@ -20,9 +22,10 @@ const NAV: Entry[] = [
     { to: "/ai/models", label: "Models", desc: "Frontier and open-weight models, labs and releases" },
     { to: "/ai/chips", label: "Semis & Chips", desc: "GPUs, foundries and the compute supply chain" },
   ] },
-  { label: "Dashboards", items: [
-    { to: "/dashboards/ai-capex", label: "AI Demand & Capex", desc: "Hyperscaler and neocloud spending, funding, demand and compute" },
+  // newest first: the tab opens the top one (keep App.tsx's /dashboards redirect on it too)
+  { label: "Dashboards", latest: true, items: [
     { to: "/dashboards/partisan-gap", label: "Partisan Policy Gap", desc: "Does the gap between the parties move markets? 1921–2024" },
+    { to: "/dashboards/ai-capex", label: "AI Demand & Capex", desc: "Hyperscaler and neocloud spending, funding, demand and compute" },
   ] },
   { label: "Special Topics", to: "/special-topics" },
   { label: "Resources", items: [
@@ -39,9 +42,21 @@ export function TopNav({ pill = false }: { pill?: boolean }) {
   const { pathname, hash } = useLocation();
   const [open, setOpen] = useState<string | null>(null);
   const nav = useRef<HTMLElement>(null);
+  const navigate = useNavigate();
+  const keep = useRef<string | null>(null); // a menu to leave open across the navigation its own tab started
   useEffect(() => {
-    setOpen(null); // close after navigating
+    setOpen(keep.current); // close after navigating
+    keep.current = null;
   }, [pathname, hash]);
+  // a tab opens its menu; a `latest` group's tab also goes to its newest page, leaving the menu open
+  // (on phones the list under the bar is the only way to the older pages)
+  const tap = (g: Group) => {
+    if (g.latest && g.items[0].to !== pathname) {
+      keep.current = g.label;
+      return navigate(g.items[0].to); // even when hover already opened the menu
+    }
+    setOpen(open === g.label ? null : g.label);
+  };
   useEffect(() => {
     const away = (e: MouseEvent) => {
       if (!nav.current?.contains(e.target as Node)) setOpen(null);
@@ -63,7 +78,7 @@ export function TopNav({ pill = false }: { pill?: boolean }) {
           const isOpen = open === e.label;
           return (
             <div key={e.label} className="relative" onMouseEnter={() => setOpen(e.label)}>
-              <button type="button" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : e.label)} className={tab(holds(e.items, pathname))}>
+              <button type="button" aria-expanded={isOpen} onClick={() => tap(e)} className={tab(holds(e.items, pathname))}>
                 {e.label}
                 <ChevronDown className={cn("ml-1 h-3.5 w-3.5 opacity-70 transition-transform", isOpen && "rotate-180")} />
               </button>
@@ -87,7 +102,7 @@ export function TopNav({ pill = false }: { pill?: boolean }) {
     );
   }
 
-  const group = NAV.find((e) => e.label === open && "items" in e) as { items: Item[] } | undefined;
+  const group = NAV.find((e) => e.label === open && "items" in e) as Group | undefined;
   return (
     <nav ref={nav} className="shrink-0 border-b border-border bg-surface xl:hidden">
       <div className="no-scrollbar flex gap-7 overflow-x-auto px-4">
@@ -97,7 +112,7 @@ export function TopNav({ pill = false }: { pill?: boolean }) {
               active ? "border-text font-semibold text-text" : "border-transparent font-medium text-text-2 hover:text-text");
           if ("to" in e) return <NavLink key={e.label} to={e.to} className={({ isActive }) => line(isActive)}>{e.label}</NavLink>;
           return (
-            <button key={e.label} type="button" aria-expanded={open === e.label} onClick={() => setOpen(open === e.label ? null : e.label)}
+            <button key={e.label} type="button" aria-expanded={open === e.label} onClick={() => tap(e)}
               className={line(open === e.label || (!open && holds(e.items, pathname)))}>
               {e.label}
               <ChevronDown className={cn("ml-1 h-3.5 w-3.5 opacity-70 transition-transform", open === e.label && "rotate-180")} />
