@@ -8,6 +8,7 @@ Usage: python3 -I scripts/build_partisan_gap_data.py <path to partisan-policy-ga
 
 import csv
 import json
+import random
 import statistics
 import sys
 from pathlib import Path
@@ -17,6 +18,8 @@ OUT = (
     / "frontend/src/components/dashboards/partisanGap/data.json"
 )
 MIN_YEARS = 8  # a party mix needs this many years to rank as "best"
+ERA = 5  # years either side: a mix's years are measured against the 11 years around each one
+SHUFFLES = 20_000
 
 
 def num(v):
@@ -54,6 +57,51 @@ def thirds(rows, key, out):
         v = [r[out] for r in rows if t(r[key]) and r[out] is not None]
         res.append({"bucket": bucket, "mean": mean(v), "n": len(v)})
     return res
+
+
+def excess(annual, k):
+    """Each year's return minus the average of the 11 years around it (fewer at the ends), so a party
+    mix is judged against its own era: 1930s years against the 1930s, 2010s years against the 2010s."""
+    r = {a["year"]: a[k] for a in annual if a[k] is not None}
+    return {
+        y: v - statistics.fmean(r[t] for t in range(y - ERA, y + ERA + 1) if t in r)
+        for y, v in r.items()
+    }
+
+
+def shuffle_p(ex, years, rng):
+    """Share of random draws whose gap to the other years is at least as wide as these years' gap.
+    Draws take whole Congresses (2-year blocks), since a mix's years come in runs."""
+    ys = sorted(ex)
+    blocks = [ys[i : i + 2] for i in range(0, len(ys), 2)]
+    total, n_all, n = sum(ex.values()), len(ex), len(years)
+
+    def gap(pick):
+        s = sum(ex[y] for y in pick)
+        return s / len(pick) - (total - s) / (n_all - len(pick))
+
+    obs = abs(gap(years))
+    hits = 0
+    for _ in range(SHUFFLES):
+        pick = [y for b in rng.sample(blocks, -(-n // 2)) for y in b][:n]
+        hits += abs(gap(pick)) >= obs
+    return round(hits / SHUFFLES, 4)
+
+
+def era_rows(rows, name, ex, rng=None):
+    """Era-adjusted average returns per party mix; with `rng`, a shuffle p-value against the rest."""
+    out = []
+    for r in rows:
+        if r["government"] == "All":
+            continue
+        ys = [int(y) for y in str(r["years"]).split(", ")]
+        e = {"name": r[name], "n": len(ys)}
+        for k, xs in ex.items():
+            e[k] = mean([xs[y] for y in ys])
+            if rng:
+                e[k + "_p"] = shuffle_p(xs, ys, rng)
+        out.append(e)
+    return sorted(out, key=lambda e: -e["sp_tr"])
 
 
 def main(src):
@@ -147,9 +195,11 @@ def main(src):
         for k in ("far_p", "gap_p", "gap_trend_p", "chg_p")
         if r[k] is not None
     ]
-    avg = next(r for r in combos if r["government"] == "All")
-    ranked = [r for r in combos if r["government"] != "All" and r["n"] >= MIN_YEARS]
-    best = {k: max(ranked, key=lambda r: r[k]) for k in ("sp_tr", "bond_tr")}
+    ex = {k: excess(annual, k) for k in ("sp_tr", "bond_tr")}
+    era = era_rows(combos, "combo", ex, random.Random(1))
+    ranked = [e for e in era if e["n"] >= MIN_YEARS]
+    best = {k: max(ranked, key=lambda e: e[k]) for k in ex}
+    control_detail = read(src, "control_detail.csv")
 
     data = {
         "annual": annual,
@@ -164,7 +214,7 @@ def main(src):
         ),
         "control_tests": read(src, "gap_control_tests.csv"),
         "combos": combos,
-        "control_detail": read(src, "control_detail.csv"),
+        "control_detail": control_detail,
         "post_cells": read(src, "post_election_cells.csv"),
         "post_tests": post_tests,
         "legislative": legislative,
@@ -182,9 +232,14 @@ def main(src):
                 "trend": sum(r["p_trend"] < 0.05 for r in late),
             },
             "post_sig": {"total": len(ps), "sig": sum(p < 0.05 for p in ps)},
+            "era": {
+                "window": 2 * ERA + 1,
+                "combos": era,
+                "detail": era_rows(control_detail, "setup", ex),
+            },
             "best": {
-                k: {"combo": r["combo"], "value": r[k], "n": r["n"], "avg": avg[k]}
-                for k, r in best.items()
+                k: {"combo": e["name"], "value": e[k], "n": e["n"], "p": e[k + "_p"]}
+                for k, e in best.items()
             },
             "min_years": MIN_YEARS,
         },

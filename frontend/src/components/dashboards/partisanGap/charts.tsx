@@ -183,7 +183,7 @@ export function RowBars({ rows, series, refs, fmt, label }: {
   const h = useHover(rows.map((r) => r.tip));
   const all = rows.flatMap((r) => r.values).filter(ok);
   const lo = Math.min(0, ...all), hi = Math.max(0, ...all);
-  const L = lo < 0 ? 52 : 4, R = 56, bh = 10, RH = 18 + series.length * (bh + 3) + 8, H = rows.length * RH + 8;
+  const L = lo < 0 ? 62 : 4, R = 62, bh = 10, RH = 18 + series.length * (bh + 3) + 8, H = rows.length * RH + 8;
   const x = (v: number) => L + ((v - lo) / (hi - lo || 1)) * (W - L - R);
   const barsH = series.length * (bh + 3);
   return (

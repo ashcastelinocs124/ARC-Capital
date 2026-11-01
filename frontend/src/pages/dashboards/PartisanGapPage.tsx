@@ -30,6 +30,7 @@ const cell = (o: string, gov: string, bel: string) => D.control_cells.find((r) =
 const ctest = (o: string, test: string) => D.control_tests.find((r) => r.outcome === o && r.test === test);
 const legR = D.leg_tests.find((r) => r.outcome === "vote_gap" && r.spec === "Simple")?.corr;
 const { best, recent_sig, post_sig, min_years } = D.derived;
+const reliable = (p: number) => (p < 0.05 ? `statistically reliable, p ${pval(p)}` : `not statistically reliable, p ${pval(p)}`);
 const ord = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
 
 function Card({ id, eyebrow, title, children }: { id: string; eyebrow: string; title: string; children: ReactNode }) {
@@ -64,7 +65,7 @@ function ShortAnswer() {
     <><b>Recent-decade signals were trend coincidences.</b> Since 1980, <b>{recent_sig.simple}</b> of <b>{recent_sig.total}</b> period tests looked significant; <b>{recent_sig.trend}</b> survive once the long-run trend is removed.</>,
     <><b>Elections don't change the picture.</b> Of <b>{post_sig.total}</b> tests of market moves 1–6 months after elections, <b>{post_sig.sig}</b> were significant.</>,
     <><b>Who holds power matters more.</b> 10-year Treasuries returned <b>{pct(cell("bond_tr", "Divided", "All")?.mean)}</b> a year under split government vs <b>{pct(cell("bond_tr", "Unified", "All")?.mean)}</b> under one-party control (p-value <b>{pval(ctest("bond_tr", "Divided vs unified")?.p)}</b>). Stocks showed no reliable difference.</>,
-    <><b>Which mix has been best?</b> For stocks, <b>{best.sp_tr.combo}</b> ({pct(best.sp_tr.value)} a year over {best.sp_tr.n} years, vs {pct(best.sp_tr.avg)} on average). For bonds, <b>{best.bond_tr.combo}</b> ({pct(best.bond_tr.value)} a year vs {pct(best.bond_tr.avg)}). The stock differences are not statistically reliable; the bond one is.</>,
+    <><b>Which mix has been best?</b> Measured against its own era, stocks did best under <b>{best.sp_tr.combo}</b> ({pp(best.sp_tr.value)} a year over {best.sp_tr.n} years; {reliable(best.sp_tr.p)}) and bonds under <b>{best.bond_tr.combo}</b> ({pp(best.bond_tr.value)} a year over {best.bond_tr.n} years; {reliable(best.bond_tr.p)}).</>,
     <><b>Words and votes diverge.</b> What parties write in platforms has a correlation of <b>{sgn(legR)}</b> with how divided Congress actually votes.</>,
   ];
   return (
@@ -291,37 +292,54 @@ function Power() {
 }
 
 function BestMix() {
-  const all = D.combos.find((r) => r.government === "All")!;
-  const combos = D.combos.filter((r) => r.government !== "All");
+  const { era } = D.derived;
+  const raw = new Map(D.combos.map((r) => [r.combo, r]));
+  const rawDetail = new Map(D.control_detail.map((r) => [r.setup, r]));
+  const avg = raw.get("All years (average)");
+  const lead = era.combos.find((e) => e.name === "Dem president, Rep House, Rep Senate"); // the raw ranking's leader
+  const vs = (v: number | null) => `${pp(v)} a year vs its era`;
   return (
     <Chapter id="best-mix" n="08" tag="BEST MIX" question="Which mix of president and Congress has been best?"
-      sentence={`Stocks: **${best.sp_tr.combo}**, ${pct(best.sp_tr.value)} a year over ${best.sp_tr.n} years vs ${pct(best.sp_tr.avg)} on average (not statistically reliable). Bonds: **${best.bond_tr.combo}**, ${pct(best.bond_tr.value)} vs ${pct(best.bond_tr.avg)}.`}
-      note={<>Average annual returns, 1921–2022, best for stocks first. Dashed lines are the all-years averages. Mixes with fewer than {min_years} years are shown faded and not ranked as "best". Published studies (Edelman, Bespoke, CFRA, Retirement Researcher) also find a Democratic president with a Republican or split Congress among the best mixes for stocks; some start in 1948 and so leave out 1931–32.</>}>
+      sentence={`Measured against its own era, stocks did best under **${best.sp_tr.combo}** (${pp(best.sp_tr.value)} a year over ${best.sp_tr.n} years; ${reliable(best.sp_tr.p)}) and bonds under **${best.bond_tr.combo}** (${pp(best.bond_tr.value)} a year over ${best.bond_tr.n} years; ${reliable(best.bond_tr.p)}).`}
+      note={<>Mixes fell in very different years, from the Depression to the 2010s, so each year's return is measured against the average of the {era.window} years around it (5 either side): 0 = that era's average. Raw averages are in the table. "p vs rest" shuffles whole Congresses 20,000 times. Mixes with fewer than {min_years} years are faded and not ranked as "best". Published studies (Edelman, Bespoke, CFRA, Retirement Researcher) rank raw returns, where a Democratic president with a Republican Congress leads{lead && <> at {pct(raw.get(lead.name)?.sp_tr)} a year; against its era that mix made {pp(lead.sp_tr)}</>}.</>}>
       <div className="grid gap-5">
         <Legend items={PAIR} />
         <Two>
-          <Box title="Every president / House / Senate mix">
-            <RowBars series={PAIR} refs={[all.sp_tr, all.bond_tr]} fmt={(v) => pct(v)}
-              rows={combos.map((r) => ({
-                name: `${r.combo} · ${r.n} yrs`, values: [r.sp_tr, r.bond_tr], faded: r.n < min_years,
-                tip: { title: r.combo, lines: [`S&P 500 ${pct(r.sp_tr)} a year, up in ${pct(r.sp_up, 0)} of years`, `10-yr Treasury ${pct(r.bond_tr)} a year`, `All-years average ${pct(all.sp_tr)} / ${pct(all.bond_tr)}`, `${r.n} years: ${r.years}`] },
-              }))}
-              label={`Average annual returns by party mix: ${combos.map((r) => `${r.combo}, stocks ${pct(r.sp_tr)}, bonds ${pct(r.bond_tr)}`).join("; ")}.`} />
+          <Box title="Every president / House / Senate mix, vs its era">
+            <RowBars series={PAIR} fmt={(v) => pp(v)}
+              rows={era.combos.map((e) => {
+                const r = raw.get(e.name);
+                return {
+                  name: `${e.name} · ${e.n} yrs`, values: [e.sp_tr, e.bond_tr], faded: e.n < min_years,
+                  tip: { title: e.name, lines: [
+                    `S&P 500 ${vs(e.sp_tr)} (raw ${pct(r?.sp_tr)}), p ${pval(e.sp_tr_p)}`,
+                    `10-yr Treasury ${vs(e.bond_tr)} (raw ${pct(r?.bond_tr)}), p ${pval(e.bond_tr_p)}`,
+                    `${e.n} years: ${r?.years}`,
+                  ] },
+                };
+              })}
+              label={`Average annual return against its era by party mix: ${era.combos.map((e) => `${e.name}, stocks ${pp(e.sp_tr)}, bonds ${pp(e.bond_tr)}`).join("; ")}.`} />
           </Box>
-          <Box title="By type of split">
-            <RowBars series={PAIR} refs={[all.sp_tr, all.bond_tr]} fmt={(v) => pct(v)}
-              rows={D.control_detail.map((r) => ({
-                name: `${r.setup} · ${r.n} yrs`, values: [r.sp_tr, r.bond_tr],
-                tip: { title: r.setup, lines: [`S&P 500 ${pct(r.sp_tr)} a year`, `10-yr Treasury ${pct(r.bond_tr)} a year`, `${r.n} years: ${r.years}`] },
-              }))}
-              label={`Average annual returns by who held the White House and Congress: ${D.control_detail.map((r) => `${r.setup}, stocks ${pct(r.sp_tr)}, bonds ${pct(r.bond_tr)}`).join("; ")}.`} />
+          <Box title="By type of split, vs its era">
+            <RowBars series={PAIR} fmt={(v) => pp(v)}
+              rows={era.detail.map((e) => {
+                const r = rawDetail.get(e.name);
+                return {
+                  name: `${e.name} · ${e.n} yrs`, values: [e.sp_tr, e.bond_tr],
+                  tip: { title: e.name, lines: [`S&P 500 ${vs(e.sp_tr)} (raw ${pct(r?.sp_tr)})`, `10-yr Treasury ${vs(e.bond_tr)} (raw ${pct(r?.bond_tr)})`, `${e.n} years: ${r?.years}`] },
+                };
+              })}
+              label={`Average annual return against its era by who held the White House and Congress: ${era.detail.map((e) => `${e.name}, stocks ${pp(e.sp_tr)}, bonds ${pp(e.bond_tr)}`).join("; ")}.`} />
             <Note>Small groups can swing on one crash: the Republican-president, split-Congress row includes 1931–32 and 2001–02.</Note>
           </Box>
         </Two>
         <Box title="The numbers">
-          <Table caption="Returns by party mix" head={["President, House, Senate", "Years", "S&P 500", "Stocks up", "p vs rest", "10-yr Treasury", "p vs rest"]}
-            rows={D.combos.map((r) => [r.combo, r.n, pct(r.sp_tr), pct(r.sp_up, 0), P(r.sp_p), pct(r.bond_tr), P(r.bond_p)])} />
-          <Note>Bold p-values are below 0.05.</Note>
+          <Table caption="Returns by party mix, against their era and raw" head={["President, House, Senate", "Years", "S&P 500 vs era", "p vs rest", "10-yr vs era", "p vs rest", "S&P 500 raw", "10-yr raw"]}
+            rows={era.combos.map((e) => {
+              const r = raw.get(e.name);
+              return [e.name, e.n, { v: pp(e.sp_tr), bold: e.sp_tr_p < 0.05 }, P(e.sp_tr_p), { v: pp(e.bond_tr), bold: e.bond_tr_p < 0.05 }, P(e.bond_tr_p), pct(r?.sp_tr), pct(r?.bond_tr)];
+            })} />
+          <Note>Bold = p &lt; 0.05. Raw average of all {avg?.n} years: {pct(avg?.sp_tr)} for stocks, {pct(avg?.bond_tr)} for 10-yr Treasuries.</Note>
         </Box>
       </div>
     </Chapter>
