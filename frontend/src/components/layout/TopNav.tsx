@@ -22,6 +22,7 @@ const NAV: Entry[] = [
   ] },
   { label: "Dashboards", items: [
     { to: "/dashboards/ai-capex", label: "AI Demand & Capex", desc: "Hyperscaler and neocloud spending, funding, demand and compute" },
+    { to: "/dashboards/partisan-gap", label: "Partisan Policy Gap", desc: "Does the gap between the parties move markets? 1921–2024" },
   ] },
   { label: "Special Topics", to: "/special-topics" },
   { label: "Resources", items: [
