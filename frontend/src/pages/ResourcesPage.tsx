@@ -20,6 +20,8 @@ const BOOK = {
 type Deck = { title: string; date: string; slides: number; blurb: string; pdf: string };
 const GROUPS: { name: string; sub: string; color: string; decks: Deck[] }[] = [
   { name: "AI industry", sub: "who builds, funds and powers frontier AI", color: C.ai, decks: [
+    { title: "Cooling the AI GPU", date: "Oct 26, 2026", slides: 37, pdf: `${SITE}cooling-ai-gpu.pdf`,
+      blurb: "Single-phase vs two-phase liquid cooling: why AI racks need it, OCP's specs, the fluid risk and who profits." },
     { title: "Learning on the job: continual learning for LLMs", date: "Oct 8, 2026", slides: 50, pdf: `${CDN}AI/ai-update/Continual%20Learning%20Labs%20%26%20Neolabs.pdf`,
       blurb: "How LLMs could keep learning after deployment, the labs betting on it, and what it means for chips." },
     { title: "Neoclouds & Neolabs", date: "Oct 6, 2026", slides: 63, pdf: `${CDN}Finance/market-update/Neoclouds%20%26%20Neolabs.pdf`,
