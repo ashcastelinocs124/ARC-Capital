@@ -405,10 +405,17 @@ def test_published_run_is_a_substack_card_and_the_thread_links_its_post(tmp_path
 
     monkeypatch.setattr(substack, "push", push)
     monkeypatch.setattr(substack, "publish", publish)
+    for run_id, rec_ in [
+        ("2026-01-02-am", {"url": "u"}),
+        ("2026-01-05-am", {}),
+        ("2099-01-01-am", {"url": "u"}),
+    ]:
+        themes._marker(run_id).parent.mkdir(parents=True, exist_ok=True)
+        themes._marker(run_id).write_text(json.dumps(rec_))  # only the earlier published one counts
     note = themes.ChartLine(n=1, heading="Supply", sentence="Brent is climbing as talks stall.")
     url = themes.publish_substack(rec, say(note))
     assert url == "https://archresearch.substack.com/p/oils-run"
-    assert got["title"] == f"Daily Chart | {rec.theme}" and got["subtitle"].startswith(
+    assert got["title"] == f"Daily Chart #2 | {rec.theme}" and got["subtitle"].startswith(
         "ARC Theme Charts · Wednesday"
     )
     assert (got["section"], got["send"]) == (themes.SECTION, False)

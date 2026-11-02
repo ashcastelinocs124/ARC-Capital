@@ -680,6 +680,15 @@ def _marker(run_id: str) -> Path:
     return _dir() / "substack" / f"{run_id}.json"
 
 
+def chart_number(run_id: str) -> int:
+    """The run's number in the Daily Chart series: 1 + the runs published on Substack before it.
+    ponytail: counts our markers, so a post deleted on Substack still holds its number."""
+    return 1 + sum(
+        m.stem < run_id and "url" in json.loads(m.read_text())
+        for m in (_dir() / "substack").glob("*.json")
+    )
+
+
 def post_url(run_id: str) -> str | None:
     """The run's Substack post, once published."""
     p = _marker(run_id)
@@ -731,7 +740,7 @@ def publish_substack(rec: ThemeRun, commentator=None) -> str:
     charts = _dir() / "charts" / rec.run_id
     sb.push(
         marker=_marker(rec.run_id),
-        title=sb.series_title("Daily Chart", rec.theme),
+        title=sb.series_title("Daily Chart", rec.theme, chart_number(rec.run_id)),
         subtitle=f"ARC Theme Charts · {datetime.fromisoformat(rec.date):%A, %B %-d, %Y}",
         pngs={e.file: charts / e.file for e in rec.exhibits},
         body=lambda up: substack_doc(rec, up, commentary(rec, commentator)),

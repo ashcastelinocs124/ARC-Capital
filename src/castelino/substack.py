@@ -26,14 +26,15 @@ from castelino.x_post import for_substack
 
 SITE = "https://arcresearch.markets"
 
-# Every post the code makes is titled "<series> | <title>" on Substack (user rule, 2026-10-28);
-# the site's feeds show the plain title, since each card already names its series.
+# Every post the code makes is titled "<series> | <title>" on Substack (user rule, 2026-10-28), and
+# Daily Charts are numbered, "Daily Chart #12 | <title>" (user rule, 2026-11-02); the site's feeds
+# show the plain title, since each card already names its series.
 SERIES = ("Daily Chart", "Daily Update", "Weekly Deep Dive", "Deep Research", "Special Topic")
-_SERIES_HEAD = re.compile(rf"^(?:{'|'.join(SERIES)}) \| ")
+_SERIES_HEAD = re.compile(rf"^(?:{'|'.join(SERIES)})(?: #\d+)? \| ")
 
 
-def series_title(series: str, title: str) -> str:
-    return title if title.startswith(f"{series} | ") else f"{series} | {title}"
+def series_title(series: str, title: str, n: int | None = None) -> str:
+    return f"{series}{f' #{n}' if n else ''} | {plain_title(title)}"
 
 
 def plain_title(title: str) -> str:

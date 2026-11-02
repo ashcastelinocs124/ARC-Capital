@@ -143,12 +143,17 @@ def test_series_title_puts_the_series_name_first_once():
         series_title("Daily Chart", "Daily Chart | Fed hold looms")
         == "Daily Chart | Fed hold looms"
     )
+    assert (
+        series_title("Daily Chart", "Daily Chart | Fed hold looms", 3)
+        == "Daily Chart #3 | Fed hold looms"
+    )
 
 
 def test_plain_title_drops_only_a_series_name():
     from castelino.substack import plain_title
 
     assert plain_title("Daily Update | Oil eased") == "Oil eased"
+    assert plain_title("Daily Chart #12 | Oil eased") == "Oil eased"
     assert plain_title("Special Topic | Brazil 2026: the runoff") == "Brazil 2026: the runoff"
     assert plain_title("Money for Machines") == "Money for Machines"
     assert plain_title("Brazil | a note") == "Brazil | a note"
