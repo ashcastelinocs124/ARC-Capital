@@ -38,6 +38,7 @@ PATHS = [
     "/sector_sentiment",
     "/week_ahead",
     "/dashboards/ai-capex",  # the public AI Demand & Capex dashboard
+    "/dashboards/sector-signals",  # the public Sector Signal Significance dashboard
     "/ai_sentiment",
     "/research",
     "/refresh/status",

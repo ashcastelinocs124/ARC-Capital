@@ -169,6 +169,15 @@ ai_capex:
   enabled: true
   reader_model: gpt-6-luna  # reads earnings releases and cited search lines; code checks every number
 
+sector_signals:
+  # Sector Signal Significance dashboard (dashboards/sector_signals/): /dashboards/sector-signals.
+  # Each sector ETF's technical signals vs a time-shift null on that sector's own history; defaults in config.py.
+  enabled: true
+  horizons: [5, 10, 20]
+  bootstrap: 2000
+  fdr: 0.10
+  vix_stressed: 20.0
+
 cover:
   # Cover art on the Morning Note and Weekly Deep Dive Substack drafts (src/castelino/cover.py).
   model: gpt-image-2

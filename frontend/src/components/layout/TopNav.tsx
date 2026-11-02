@@ -24,6 +24,7 @@ const NAV: Entry[] = [
   ] },
   // newest first: the tab opens the top one (keep App.tsx's /dashboards redirect on it too)
   { label: "Dashboards", latest: true, items: [
+    { to: "/dashboards/sector-signals", label: "Sector Signals", desc: "Is a sector's technical signal real or noise? Tested on its own history" },
     { to: "/dashboards/partisan-gap", label: "Partisan Policy Gap", desc: "Does the gap between the parties move markets? 1921–2024" },
     { to: "/dashboards/ai-capex", label: "AI Demand & Capex", desc: "Hyperscaler and neocloud spending, funding, demand and compute" },
   ] },

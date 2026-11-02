@@ -125,6 +125,29 @@ class AiCapexCfg(BaseModel):
     reader_model: str = "gpt-6-luna"  # reads earnings releases and cited search lines
 
 
+class SectorSignalsCfg(BaseModel):
+    """Sector Signal Significance dashboard (dashboards/sector_signals/): is a technical signal on a
+    sector noise or worth a look, judged by that sector's own history."""
+
+    enabled: bool = True
+    start: str = "1999-01-01"  # the SPDR sector ETFs launched Dec 1998; XLRE (2015) and XLC (2018) start later
+    horizons: list[int] = [5, 10, 20]  # forward trading days measured after each event
+    cooldown: int = 10  # trading days before the same signal can fire again on the same sector
+    bootstrap: int = 2000  # time-shifted event calendars per test
+    bootstrap_regime: int = 1000  # random same-regime draws per regime test
+    min_events: int = 10  # fewer past events than this -> "too few to tell"
+    min_oos_events: int = 3  # events needed in the held-out 30% to judge whether an edge held
+    fdr: float = 0.10  # Benjamini-Hochberg q at or below this -> "signal"
+    p_weak: float = 0.10  # raw p at or below this (but q above fdr) -> "weak"
+    vix_stressed: float = 20.0  # VIX at or above this -> stressed regime
+    oos_split: float = 0.7  # in-sample share of history for the out-of-sample check
+    live_lookback_days: int = 5  # a signal that fired this many sessions back still shows as live
+    path_days: int = 20  # length of the average-path chart after an event
+    vol_window: int = 60  # trailing days of volatility that p-value returns are scaled by
+    recent_days: int = 126  # price chart window (~6 months)
+    recent_events: int = 12  # past events listed in the drilldown
+
+
 class CoverCfg(BaseModel):
     """Cover art for the Morning Note and Weekly Deep Dive drafts (cover.py)."""
 
@@ -329,6 +352,7 @@ class Settings(BaseModel):
     themes: ThemesCfg = ThemesCfg()
     x_scout: XScoutCfg = XScoutCfg()
     ai_capex: AiCapexCfg = AiCapexCfg()
+    sector_signals: SectorSignalsCfg = SectorSignalsCfg()
     cover: CoverCfg = CoverCfg()
     model_refit: ModelRefitCfg = ModelRefitCfg()
     sector_sentiment: SectorSentimentCfg = SectorSentimentCfg()

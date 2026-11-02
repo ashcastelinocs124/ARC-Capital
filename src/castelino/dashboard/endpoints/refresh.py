@@ -114,6 +114,15 @@ def job_ai_capex() -> str:
     return ai_capex.run()
 
 
+def job_sector_signals() -> str:
+    from castelino.dashboards.sector_signals import run as sector_signals
+
+    try:
+        return sector_signals.run()
+    except sector_signals.NothingToDo as exc:
+        raise Skipped(str(exc)) from exc
+
+
 def job_ai_sentiment() -> str:
     from castelino.ai_sentiment import run as ai_sentiment
 
@@ -147,6 +156,7 @@ LABELS = {
     "cross_asset": "Cross-Asset Drivers",
     "week_ahead": "Week Ahead",
     "ai_capex": "AI Demand & Capex",
+    "sector_signals": "Sector Signal Significance",
     "ai_sentiment": "AI Model Sentiment",
     "weekly_deep_dive": "Weekly Deep Dive",
 }
@@ -159,6 +169,7 @@ _RUNNERS: dict[str, Callable[[], str]] = {
     "cross_asset": job_cross_asset,
     "week_ahead": job_week_ahead,
     "ai_capex": job_ai_capex,
+    "sector_signals": job_sector_signals,
     "ai_sentiment": job_ai_sentiment,
     "weekly_deep_dive": job_weekly_deep_dive,
 }
