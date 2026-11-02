@@ -40,6 +40,8 @@ const GROUPS: { name: string; sub: string; color: string; decks: Deck[] }[] = [
       blurb: "How AI, energy, government debt, metals and crypto connect, and where capital may be positioned next." },
   ] },
   { name: "Weekly market updates", sub: "the week in markets, presented live", color: C.jobs, decks: [
+    { title: "Rotation week: tech sinks, small caps hold", date: "Week of Oct 26–30, 2026", slides: 40, pdf: `${SITE}weekly-market-update-2026-10-30.pdf`,
+      blurb: "Money left megacap tech for small caps as Alphabet and Intel sank, the Fed held 10–2 and Anthropic filed its S-1." },
     { title: "Tech blinks, the Dow holds", date: "Week of Oct 12–16, 2026", slides: 38, pdf: `${SITE}weekly-market-update-2026-10-16.pdf`,
       blurb: "Money left AI hardware and AI credit for defensives and energy, as CoreWeave fell and oil topped $100." },
     { title: "Weekly Market Update", date: "Week ending Sep 18, 2026", slides: 28,
