@@ -19,17 +19,19 @@ const BOOK = {
 
 type Deck = { title: string; date: string; slides: number; blurb: string; pdf: string };
 const GROUPS: { name: string; sub: string; color: string; decks: Deck[] }[] = [
-  { name: "AI industry", sub: "who builds, funds and powers frontier AI", color: C.ai, decks: [
-    { title: "Cooling the AI GPU", date: "Oct 26, 2026", slides: 37, pdf: `${SITE}cooling-ai-gpu.pdf`,
-      blurb: "Single-phase vs two-phase liquid cooling: why AI racks need it, OCP's specs, the fluid risk and who profits." },
+  { name: "AI models", sub: "the labs, the models and how AI gets used and paid for", color: C.ai, decks: [
     { title: "Learning on the job: continual learning for LLMs", date: "Oct 8, 2026", slides: 50, pdf: `${CDN}AI/ai-update/Continual%20Learning%20Labs%20%26%20Neolabs.pdf`,
       blurb: "How LLMs could keep learning after deployment, the labs betting on it, and what it means for chips." },
     { title: "Neoclouds & Neolabs", date: "Oct 6, 2026", slides: 63, pdf: `${CDN}Finance/market-update/Neoclouds%20%26%20Neolabs.pdf`,
       blurb: "How GPU-rental neoclouds and well-funded new AI labs work, how they are financed, and what could break." },
-    { title: "AI Data Centers Are Going to Space", date: "Sep 24, 2026", slides: 22, pdf: `${SITE}ai-data-centers-space.pdf`,
-      blurb: "Google's Project Suncatcher, and the five engineering problems between a design paper and an orbital AI cluster." },
     { title: "Money for Machines", date: "Sep 23, 2026", slides: 31, pdf: `${CDN}Finance/market-update/Money%20for%20Machines.pdf`,
       blurb: "Crypto payment rails for AI agents are built and backed by incumbents; real agent demand is still tiny." },
+  ] },
+  { name: "Semis & chips", sub: "the GPUs, data centers and cooling that AI runs on", color: C.earnings, decks: [
+    { title: "Cooling the AI GPU", date: "Oct 26, 2026", slides: 37, pdf: `${SITE}cooling-ai-gpu.pdf`,
+      blurb: "Single-phase vs two-phase liquid cooling: why AI racks need it, OCP's specs, the fluid risk and who profits." },
+    { title: "AI Data Centers Are Going to Space", date: "Sep 24, 2026", slides: 22, pdf: `${SITE}ai-data-centers-space.pdf`,
+      blurb: "Google's Project Suncatcher, and the five engineering problems between a design paper and an orbital AI cluster." },
   ] },
   { name: "Macro", sub: "elections, policy and where capital goes", color: C.inflation, decks: [
     { title: "Brazil 2026: the runoff, the market, the Congress", date: "Oct 8, 2026", slides: 57, pdf: `${SITE}brazil-2026.pdf`,
