@@ -149,11 +149,27 @@ def test_series_title_puts_the_series_name_first_once():
     )
 
 
+def test_next_number_follows_the_highest_published_number(monkeypatch):
+    from castelino import substack
+    from castelino.dashboard.endpoints import videos
+
+    titles = [
+        "Special Topic #2 | B",
+        "Special Topic #4 | D",
+        "Special Topic | old",
+        "AI Update #9 | X",
+    ]
+    monkeypatch.setattr(videos, "archive_json", lambda: [{"title": t} for t in titles])
+    assert substack.next_number("Special Topic") == 5  # a deleted #3 leaves no repeat
+    assert substack.next_number("Weekly Deep Dive") == 1
+
+
 def test_plain_title_drops_only_a_series_name():
     from castelino.substack import plain_title
 
     assert plain_title("Daily Update | Oil eased") == "Oil eased"
     assert plain_title("Daily Chart #12 | Oil eased") == "Oil eased"
+    assert plain_title("AI Update #3 | Neolabs and Neoclouds") == "Neolabs and Neoclouds"
     assert plain_title("Special Topic | Brazil 2026: the runoff") == "Brazil 2026: the runoff"
     assert plain_title("Money for Machines") == "Money for Machines"
     assert plain_title("Brazil | a note") == "Brazil | a note"

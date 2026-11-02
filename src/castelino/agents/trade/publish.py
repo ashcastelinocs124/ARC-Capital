@@ -75,7 +75,7 @@ def push(idea: TradeIdea) -> dict:
     marker = store.idea_dir(idea.id) / "substack.json"
     msg = sb.push(
         marker=marker,
-        title=sb.series_title("Special Topic", idea.report.title),
+        title=sb.series_title("Special Topic", idea.report.title, sb.next_number("Special Topic")),
         subtitle=f"ARC Special Topics · {idea.frame.title} · {date.today():%B %-d, %Y}",
         pngs={o.file: store.charts_dir(idea.id) / o.file for o in chosen},
         body=lambda up: doc(idea, up),

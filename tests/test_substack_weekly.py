@@ -112,7 +112,12 @@ def test_existing_draft_is_not_overwritten_unless_the_record_is_newer(tmp_path, 
             data_dir = "data/deep"
 
     monkeypatch.setattr(sw, "get_settings", lambda: Cfg)
-    monkeypatch.setattr(sw, "push", lambda **kw: "pushed")
+    monkeypatch.setattr(
+        sw,
+        "push",
+        lambda **kw: "pushed" if kw["title"].startswith("Weekly Deep Dive #2 | ") else kw["title"],
+    )
+    monkeypatch.setattr(sw, "next_number", lambda series: 2)
     assert sw.push_weekly_draft("2026-W41").startswith("skipped: draft already up to date")
     os.utime(rec_path, (3_000, 3_000))  # rebuilt after the draft was made
     assert sw.push_weekly_draft("2026-W41") == "pushed"

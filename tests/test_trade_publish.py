@@ -68,11 +68,13 @@ def test_the_draft_uses_the_editors_headings_not_internal_labels(an_idea):
 
 def test_push_returns_the_draft_link(an_idea, monkeypatch):
     def fake_push(*, marker, title, subtitle, pngs, body, label):
+        assert title == f"Special Topic #5 | {an_idea.report.title}"
         assert subtitle.startswith("ARC Special Topics · India ·") and "intro-1-1.png" in pngs
         marker.write_text(json.dumps({"draft_id": 42}))
         return "created draft 42"
 
     monkeypatch.setattr(substack, "push", fake_push)
+    monkeypatch.setattr(substack, "next_number", lambda series: 5)
     assert publish.push(an_idea) == {
         "draft_id": 42,
         "url": "https://pub.example/publish/post/42",
@@ -85,6 +87,7 @@ def test_publish_published_draft_fails_clearly(an_idea, monkeypatch):
         return "skipped: Trade Lab i1 is already published on Substack (draft 42)"
 
     monkeypatch.setattr(substack, "push", published)
+    monkeypatch.setattr(substack, "next_number", lambda series: 5)
     with pytest.raises(StepError, match="already published"):
         publish.push(an_idea)
 

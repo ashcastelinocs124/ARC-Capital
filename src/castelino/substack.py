@@ -27,9 +27,17 @@ from castelino.x_post import for_substack
 SITE = "https://arcresearch.markets"
 
 # Every post the code makes is titled "<series> | <title>" on Substack (user rule, 2026-10-28), and
-# Daily Charts are numbered, "Daily Chart #12 | <title>" (user rule, 2026-11-02); the site's feeds
-# show the plain title, since each card already names its series.
-SERIES = ("Daily Chart", "Daily Update", "Weekly Deep Dive", "Deep Research", "Special Topic")
+# Daily Charts, Weekly Deep Dives, Special Topics and AI Updates are numbered, "Daily Chart #12 |
+# <title>" (user rule, 2026-11-02); the site's feeds show the plain title, since each card already
+# names its series. AI Update posts are written by hand; it is listed so the site strips it too.
+SERIES = (
+    "Daily Chart",
+    "Daily Update",
+    "Weekly Deep Dive",
+    "Deep Research",
+    "Special Topic",
+    "AI Update",
+)
 _SERIES_HEAD = re.compile(rf"^(?:{'|'.join(SERIES)})(?: #\d+)? \| ")
 
 
@@ -39,6 +47,17 @@ def series_title(series: str, title: str, n: int | None = None) -> str:
 
 def plain_title(title: str) -> str:
     return _SERIES_HEAD.sub("", title)
+
+
+def next_number(series: str) -> int:
+    """1 + the highest "<series> #N" published on Substack, for a new draft of the series.
+    ponytail: the archive is cached for an hour, so two posts published within the hour can share N."""
+    from castelino.dashboard.endpoints.videos import archive_json
+
+    head = re.compile(rf"^{re.escape(series)} #(\d+) \| ")
+    return 1 + max(
+        (int(m[1]) for p in archive_json() if (m := head.match(p.get("title") or ""))), default=0
+    )
 
 
 class CookieExpiredError(RuntimeError):
