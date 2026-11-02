@@ -163,7 +163,7 @@ export default function ResourcesPage() {
           Slides <span className="ml-1 text-xs font-normal text-muted">{count} talks</span>
         </h2>
         <a href="https://github.com/ashcastelinocs124/Workshop-Slides" {...out} className="text-[13px] font-semibold text-accent hover:text-accent-hover">
-          All workshop slides on GitHub ↗
+          All presentations on GitHub ↗
         </a>
       </div>
       {GROUPS.map((g) => (
