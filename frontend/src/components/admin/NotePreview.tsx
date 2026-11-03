@@ -185,7 +185,6 @@ export const NotePreview = forwardRef<PreviewHandle, Props>(function NotePreview
           <ul className="mb-4 list-disc pl-6">{calendar.map((c, i) => <li key={i}>{c}</li>)}</ul>
         </>
       )}
-      <p className="text-base text-[rgb(var(--p-muted))]">Interactive charts and every source: arcresearch.markets/updates?date={day}</p>
       <p className="text-base text-[rgb(var(--p-muted))]">Not investment advice.</p>
     </>
   );

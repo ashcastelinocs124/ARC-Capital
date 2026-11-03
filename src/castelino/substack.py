@@ -118,7 +118,7 @@ def _image(up: dict, alt: str) -> dict:
 
 def build_doc(record: dict, uploaded: dict[str, dict]) -> dict:
     """Substack editor doc for a v2 record. `uploaded` maps exhibit file name -> image upload reply."""
-    note, day = record["note"], record["date"]
+    note = record["note"]
     all_ex = record.get("exhibits", [])
     placed = any(e.get("item") is not None for e in all_ex)
     exhibits = {} if placed else {e["finding_id"]: e for e in all_ex}  # older notes
@@ -165,10 +165,7 @@ def build_doc(record: dict, uploaded: dict[str, dict]) -> dict:
                 ],
             }
         )
-    url = f"{SITE}/updates?date={day}"
-    content.append(
-        _p(_text("Interactive charts and every source: "), _text(url.removeprefix("https://"), url))
-    )
+    # no link back to the site: Substack is the only place a note is read (user rule, 2026-11-03)
     content.append(_p(_text("Not investment advice.")))
     return {"type": "doc", "content": content}
 

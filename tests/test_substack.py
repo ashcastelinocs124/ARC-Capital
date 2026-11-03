@@ -17,7 +17,7 @@ REC = {
 }
 
 
-def test_build_doc_orders_items_attaches_charts_and_links_back():
+def test_build_doc_orders_items_attaches_charts_without_a_site_link():
     doc = build_doc(
         REC, {"exhibit_1.png": {"url": "https://substackcdn.com/x.png", "imageWidth": 10}}
     )
@@ -30,13 +30,11 @@ def test_build_doc_orders_items_attaches_charts_and_links_back():
         "heading",
         "paragraph",
         "paragraph",
-        "paragraph",
     ]
     assert len(doc["content"][0]["content"]) == 3
     assert doc["content"][1]["content"][0]["text"] == "1. First"
     assert doc["content"][3]["content"][0]["attrs"]["src"] == "https://substackcdn.com/x.png"
-    link = doc["content"][-2]["content"][1]["marks"][0]["attrs"]["href"]
-    assert link == "https://arcresearch.markets/updates?date=2026-10-07"
+    assert "arcresearch.markets" not in str(doc)  # Substack is the only place a note is read
     assert "investment advice" in doc["content"][-1]["content"][0]["text"]
 
 
