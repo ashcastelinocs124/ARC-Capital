@@ -4,7 +4,7 @@ actuals can lag): economic releases from Trading Economics (user rule 2026-10-22
 
 Two outputs. Every released result becomes a fact and a finding (releases as macro, earnings as news),
 so the Editor can write an item about a big one and the guard can check its numbers. And every entry,
-out or still to come, becomes a code-written line of "On the calendar today" under the five items.
+out or still to come, becomes a code-written line of "Other news on the calendar today" under the five items.
 Data: US releases plus inflation and jobs abroad (the Theme Charts calendar's choice). Earnings: every
 company in data/week_ahead/universe.csv on Nasdaq's day calendar, plus the hand-kept AI names Nasdaq
 doesn't list (SpaceX) by Yahoo's earnings date. Nasdaq's day calendar carries no reported EPS, so the

@@ -96,7 +96,7 @@ class UpdateRunner:
         self.consult_fn = consult_fn
         self.view_max_words, self.view_max_figures = view_max_words, view_max_figures
         self._consulted: NoteConsult | None = None  # this run's consultant input
-        self._calendar: list[str] = []  # the note's "On the calendar today" lines
+        self._calendar: list[str] = []  # the note's "Other news on the calendar today" lines
         self._day = ""
         self._gaps: list[str] = []
 

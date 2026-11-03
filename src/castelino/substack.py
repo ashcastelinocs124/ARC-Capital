@@ -156,7 +156,7 @@ def build_doc(record: dict, uploaded: dict[str, dict]) -> dict:
                 {"type": "blockquote", "content": [_p(*_rich(label)), _p(_text(view["text"]))]}
             )
     if record.get("calendar"):  # code-written: every release and earnings report of the day
-        content.append(_heading("On the calendar today"))
+        content.append(_heading("Other news on the calendar today"))
         content.append(
             {
                 "type": "bullet_list",

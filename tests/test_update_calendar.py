@@ -65,6 +65,8 @@ def test_the_days_calendar_becomes_lines_facts_and_findings_once():
 def test_the_substack_draft_lists_the_calendar_under_the_items():
     note = {"headline": "h", "takeaways": ["a", "b", "c"], "items": []}
     doc = build_doc({"date": "2026-10-20", "note": note, "calendar": ["Netflix (NFLX) reports after the close"]}, {})  # fmt: skip
-    i = next(i for i, c in enumerate(doc["content"]) if c["type"] == "heading" and c["content"][0]["text"] == "On the calendar today")  # fmt: skip
+    i = next(i for i, c in enumerate(doc["content"]) if c["type"] == "heading" and c["content"][0]["text"] == "Other news on the calendar today")  # fmt: skip
     assert doc["content"][i + 1]["content"][0]["content"][0]["content"][0]["text"] == "Netflix (NFLX) reports after the close"  # fmt: skip
-    assert "On the calendar today" not in str(build_doc({"date": "2026-10-20", "note": note}, {}))
+    assert "Other news on the calendar today" not in str(
+        build_doc({"date": "2026-10-20", "note": note}, {})
+    )

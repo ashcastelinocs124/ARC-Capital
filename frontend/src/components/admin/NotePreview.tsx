@@ -181,7 +181,7 @@ export const NotePreview = forwardRef<PreviewHandle, Props>(function NotePreview
     <>
       {calendar.length > 0 && (
         <>
-          <h3 className="mb-2.5 mt-8 text-[23px]">On the calendar today</h3>
+          <h3 className="mb-2.5 mt-8 text-[23px]">Other news on the calendar today</h3>
           <ul className="mb-4 list-disc pl-6">{calendar.map((c, i) => <li key={i}>{c}</li>)}</ul>
         </>
       )}

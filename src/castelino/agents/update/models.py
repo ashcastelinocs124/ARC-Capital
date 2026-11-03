@@ -275,5 +275,5 @@ class DailyRecordV2(BaseModel):
     backfilled: bool = False  # rebuilt later 'as of' this date (scripts/backfill_updates.py)
     calendar: list[
         str
-    ] = []  # "On the calendar today" lines (agents/update/calendar.py), since 2026-10-20
+    ] = []  # "Other news on the calendar today" lines (agents/update/calendar.py), since 2026-10-20
     hand_edited_at: str | None = None  # last hand edit on the admin desk; Rebuild asks first
