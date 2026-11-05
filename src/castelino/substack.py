@@ -28,7 +28,8 @@ SITE = "https://arcresearch.markets"
 
 # Every post the code makes is titled "<series> | <title>" on Substack (user rule, 2026-10-28), and
 # Daily Charts, Weekly Deep Dives, Special Topics and AI Updates are numbered, "Daily Chart #12 |
-# <title>" (user rule, 2026-11-02); the site's feeds show the plain title, since each card already
+# <title>" (user rule, 2026-11-02), and Daily Updates too (2026-11-05, `note_number`); the site's
+# feeds show the plain title, since each card already
 # names its series. AI Update posts are written by hand; it is listed so the site strips it too.
 SERIES = (
     "Daily Chart",
@@ -355,6 +356,36 @@ def set_cover(marker: Path, png: Path) -> str:
     return f"cover set on draft {draft}: {pub}/publish/post/{draft}"
 
 
+def note_number(day: str, markers: Path, http: httpx.Client | None = None) -> int | None:
+    """The day's number in the Daily Update series (user rule, 2026-11-05): 1 + the earlier days' drafts
+    that were published (the user publishes by hand, so code asks Substack). A marker seen published
+    saves `published`, so later pushes skip that call. None without Substack keys.
+    ponytail: counts publication, not order, so a draft published after a later day's still takes its slot."""
+    pub, sid = os.getenv("SUBSTACK_PUBLICATION_URL", "").rstrip("/"), os.getenv("SUBSTACK_SID")
+    if http is None and not (pub and sid):
+        return None
+    own = http is None
+    http = http or httpx.Client(base_url=f"{pub}/api/v1", cookies={"substack.sid": sid}, timeout=60)
+    n = 0
+    try:
+        for m in sorted(markers.glob("*.json")):
+            if (
+                m.name.startswith("._") or m.stem >= day
+            ):  # ._ = macOS metadata copied with the volume
+                continue
+            rec = json.loads(m.read_text())
+            if not rec.get("published"):
+                r = http.get(f"drafts/{rec['draft_id']}")
+                if r.status_code == 404 or not _check(r).json().get("is_published"):
+                    continue
+                atomic_write_text(m, json.dumps(rec | {"published": True}))
+            n += 1
+    finally:
+        if own:
+            http.close()
+    return n + 1
+
+
 def push_draft(day: str) -> str:
     cfg = get_settings()
     updates = cfg.root / cfg.update_agent.updates_dir
@@ -365,9 +396,10 @@ def push_draft(day: str) -> str:
     if record.get("version") != 2:
         return f"skipped: {day} is not a v2 Morning Note"
     charts = updates / "charts" / day
+    n = note_number(day, updates / "substack")
     return push(
         marker=updates / "substack" / f"{day}.json",
-        title=series_title("Daily Update", record["note"]["headline"]),
+        title=series_title("Daily Update", record["note"]["headline"], n),
         subtitle=_subtitle(day),
         pngs={ex["file"]: charts / ex["file"] for ex in record.get("exhibits", [])},
         body=lambda up: build_doc(record, up),

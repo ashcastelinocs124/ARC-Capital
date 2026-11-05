@@ -171,3 +171,26 @@ def test_plain_title_drops_only_a_series_name():
     assert plain_title("Special Topic | Brazil 2026: the runoff") == "Brazil 2026: the runoff"
     assert plain_title("Money for Machines") == "Money for Machines"
     assert plain_title("Brazil | a note") == "Brazil | a note"
+
+
+def test_note_number_counts_earlier_published_drafts(tmp_path):
+    import httpx
+
+    from castelino.substack import note_number
+
+    for day, did in (("2026-10-08", 1), ("2026-10-09", 2), ("2026-10-13", 3), ("2026-11-05", 4)):
+        (tmp_path / f"{day}.json").write_text(json.dumps({"draft_id": did}))
+    (tmp_path / "._2026-10-07.json").write_bytes(b"\xa3 macOS metadata")
+    seen = []
+
+    def handler(req):
+        did = int(req.url.path.rsplit("/", 1)[-1])
+        seen.append(did)
+        return httpx.Response(200, json={"is_published": did != 2})  # draft 2 was never published
+
+    http = httpx.Client(base_url="https://pub.test/api/v1", transport=httpx.MockTransport(handler))
+    assert note_number("2026-11-05", tmp_path, http) == 3  # drafts 1 and 3 published before it
+    assert json.loads((tmp_path / "2026-10-08.json").read_text())["published"] is True
+    seen.clear()
+    assert note_number("2026-11-05", tmp_path, http) == 3
+    assert seen == [2]  # a marker known published isn't asked again
