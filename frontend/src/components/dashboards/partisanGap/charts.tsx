@@ -18,7 +18,7 @@ export const sgn = (v: number | null | undefined, d = 2) => (v == null ? "—" :
 export const pval = (p: number | null | undefined) => (p == null ? "—" : p < 0.001 ? "<0.001" : p < 0.05 && p >= 0.0495 ? p.toFixed(4) : p.toFixed(3));
 const ok = (v: number | null | undefined): v is number => v != null && !Number.isNaN(v);
 
-function useWidth() {
+export function useWidth() {
   const [w, setW] = useState(420);
   const ro = useRef<ResizeObserver | null>(null);
   const ref = useCallback((el: HTMLDivElement | null) => {
@@ -30,7 +30,7 @@ function useWidth() {
   return [ref, w] as const;
 }
 
-function Txt({ x, y, children, anchor = "start", fill = C.muted, size = 11, weight = 400 }: {
+export function Txt({ x, y, children, anchor = "start", fill = C.muted, size = 11, weight = 400 }: {
   x: number; y: number; children: ReactNode; anchor?: "start" | "middle" | "end"; fill?: string; size?: number; weight?: number;
 }) {
   return <text x={x} y={y} textAnchor={anchor} fontSize={size} fill={fill} fontWeight={weight}>{children}</text>;
@@ -227,8 +227,8 @@ export function RowBars({ rows, series, refs, fmt, label }: {
 /** Raw (hollow) to adjusted (filled) value per row, the line showing how far it moved; dashed = `at`. */
 export function Dots({ rows, at, atLabel, fmt, color, label }: {
   rows: { name: string; from: number; to: number; tip: Tip }[];
-  at: number; // the dashed reference, e.g. the overall average
-  atLabel: string;
+  at?: number; // the dashed reference, e.g. the overall average
+  atLabel?: string;
   fmt: (v: number) => string;
   color: string;
   label: string;
@@ -236,13 +236,13 @@ export function Dots({ rows, at, atLabel, fmt, color, label }: {
   const [box, W] = useWidth();
   const h = useHover(rows.map((r) => r.tip));
   const vs = rows.flatMap((r) => [r.from, r.to]);
-  const lo = Math.min(...vs, at), hi = Math.max(...vs, at);
-  const L = 8, R = 56, RH = 36, H = rows.length * RH + 24;
+  const lo = Math.min(...vs, at ?? Infinity), hi = Math.max(...vs, at ?? -Infinity);
+  const L = 8, R = 56, RH = 36, H = rows.length * RH + (at == null ? 4 : 24);
   const x = (v: number) => L + ((v - lo) / (hi - lo || 1)) * (W - L - R);
   return (
     <div ref={box} {...h.chart}>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" className="block overflow-visible" role="img" aria-label={label + hint}>
-        <Txt x={x(at)} y={rows.length * RH + 15} anchor="middle" size={10.5}>{atLabel}</Txt>
+        {at != null && <Txt x={x(at)} y={rows.length * RH + 15} anchor="middle" size={10.5}>{atLabel}</Txt>}
         {rows.map((r, i) => {
           const top = i * RH, cy = top + 25;
           return (
@@ -250,7 +250,7 @@ export function Dots({ rows, at, atLabel, fmt, color, label }: {
               <rect x={0} y={top} width={W} height={RH} fill="transparent" />
               <Txt x={L} y={top + 11} fill={C.text} size={11.5} weight={h.active === i ? 700 : 400}>{r.name}</Txt>
               {/* the reference runs only through the dots, never across the names */}
-              <line x1={x(at)} x2={x(at)} y1={top + 16} y2={top + RH} stroke={C.muted} strokeDasharray="4 3" />
+              {at != null && <line x1={x(at)} x2={x(at)} y1={top + 16} y2={top + RH} stroke={C.muted} strokeDasharray="4 3" />}
               <line x1={x(r.from)} x2={x(r.to)} y1={cy} y2={cy} stroke={C.muted2} strokeWidth={2} />
               <circle cx={x(r.from)} cy={cy} r={4.5} fill={C.surface} stroke={color} strokeWidth={1.5} />
               <circle cx={x(r.to)} cy={cy} r={5} fill={color} />
@@ -344,11 +344,12 @@ export function Scatter({ points, xFmt, yFmt, xTitle, yTitle, color, label }: {
   );
 }
 
-export type Cell = string | number | { v: string; bold?: boolean };
+export type Cell = string | number | { v: string; bold?: boolean; href?: string };
 
-/** A plain table; the first `left` columns are text, the rest right-aligned numbers. Bold cells are p < 0.05. */
-export function Table({ head, rows, left = 1, caption, tall = false }: {
-  head: string[]; rows: Cell[][]; left?: number; caption: string; tall?: boolean;
+/** A plain table; the first `left` columns are text, the rest right-aligned numbers. Bold cells are p < 0.05;
+ * a cell with an `href` is a link. `cols` adds a class per column (e.g. a min width for a long text column). */
+export function Table({ head, rows, left = 1, caption, tall = false, cols }: {
+  head: string[]; rows: Cell[][]; left?: number; caption: string; tall?: boolean; cols?: string[];
 }) {
   return (
     // a scrolling region gets a Tab stop and a name, so keyboard users can scroll it too
@@ -359,7 +360,7 @@ export function Table({ head, rows, left = 1, caption, tall = false }: {
         <thead className="sticky top-0 bg-surface">
           <tr className="text-[11px] uppercase tracking-[0.05em] text-muted">
             {head.map((h, i) => (
-              <th key={h + i} scope="col" className={`font-semibold py-1.5 px-2 first:pl-0 whitespace-nowrap ${i < left ? "text-left" : "text-right"}`}>{h}</th>
+              <th key={h + i} scope="col" className={`font-semibold py-1.5 px-2 first:pl-0 whitespace-nowrap ${i < left ? "text-left" : "text-right"} ${cols?.[i] ?? ""}`}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -368,8 +369,11 @@ export function Table({ head, rows, left = 1, caption, tall = false }: {
             <tr key={ri} className="border-t border-border">
               {r.map((c, i) => {
                 const v = typeof c === "object" ? c.v : String(c), bold = typeof c === "object" && c.bold;
+                const href = typeof c === "object" ? c.href : undefined;
                 return (
-                  <td key={i} className={`py-1.5 px-2 first:pl-0 ${i < left ? "text-left text-text" : "num text-right text-text-2"} ${bold ? "font-bold text-text" : ""}`}>{v}</td>
+                  <td key={i} className={`py-1.5 px-2 first:pl-0 align-top ${i < left ? "text-left text-text" : "num text-right text-text-2"} ${bold ? "font-bold text-text" : ""} ${cols?.[i] ?? ""}`}>
+                    {href ? <a href={href} target="_blank" rel="noopener noreferrer" className="underline decoration-accent/60 underline-offset-2 hover:text-accent">{v}</a> : v}
+                  </td>
                 );
               })}
             </tr>

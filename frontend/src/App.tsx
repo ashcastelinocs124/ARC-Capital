@@ -15,8 +15,9 @@ import ResourcesPage from "./pages/ResourcesPage";
 import SectionPage from "./pages/SectionPage";
 import ThemesPage from "./pages/ThemesPage";
 import AiCapexPage from "./pages/dashboards/AiCapexPage";
-// lazy: it bundles the study's data (~90 KB), so only its visitors download it
+// lazy: they bundle their studies' data (~90-110 KB each), so only their visitors download it
 const PartisanGapPage = lazy(() => import("./pages/dashboards/PartisanGapPage"));
+const DataCentersPage = lazy(() => import("./pages/dashboards/DataCentersPage"));
 
 const HOME = "/";
 
@@ -33,6 +34,7 @@ const PAGES: [string, React.ReactNode][] = [
   ["/special-topics", <SectionPage slugs={["special-topics"]} kicker="Special Topics" title="Deeper dives and presentations" blurb="Every Special Topics post, newest first." />],
   ["/dashboards/ai-capex", <AiCapexPage />],
   ["/dashboards/partisan-gap", <Suspense fallback={<p className="text-sm text-muted">Loading…</p>}><PartisanGapPage /></Suspense>],
+  ["/dashboards/data-centers", <Suspense fallback={<p className="text-sm text-muted">Loading…</p>}><DataCentersPage /></Suspense>],
   ["/agents", <PipelinesPage />],
   ["/docs", <DocsPage />],
   ["/resources", <ResourcesPage />],
@@ -54,7 +56,7 @@ export default function App() {
         {/* the models went admin-only on 2026-10-15; the one public card, Fear & Greed, is on Radar */}
         <Route path="/ai" element={<Navigate to="/ai/models" replace />} />
         {/* /dashboards opens the newest dashboard, the top of the Dashboards menu (TopNav.tsx) */}
-        <Route path="/dashboards" element={<Navigate to="/dashboards/partisan-gap" replace />} />
+        <Route path="/dashboards" element={<Navigate to="/dashboards/data-centers" replace />} />
         <Route path="/models" element={<Navigate to="/macro#sector-sentiment" replace />} />
         <Route path="/sector-sentiment" element={<Navigate to="/macro#sector-sentiment" replace />} />
         <Route path="*" element={<Navigate to={HOME} replace />} />

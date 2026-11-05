@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 import { PageIntro } from "@/components/layout/PageIntro";
 import { C } from "@/lib/theme";
 import { Chapter, SourceLink } from "@/components/dashboards/aiCapex/Chapter";
-import { ChartTitle, Legend } from "@/components/dashboards/aiCapex/charts";
+import { Legend } from "@/components/dashboards/aiCapex/charts";
+import { Box, Card, Note, Tile, Two } from "@/components/dashboards/parts";
 import { Coef, Dots, Lines, P, RowBars, Scatter, Table, VBars, pct, pp, pval, sgn, spct, type Cell } from "@/components/dashboards/partisanGap/charts";
 // a fixed 1921–2024 study, bundled from its outputs by scripts/build_partisan_gap_data.py
 import D from "@/components/dashboards/partisanGap/data.json";
@@ -37,30 +38,6 @@ const party = (o: string) => D.party_compare.find((r) => r.grouping === "Preside
 const recentEra = D.dem_rep_eras.find((r) => r.period === "2013–2025 (price only)")!;
 const bondRepShare = D.dem_rep_rolling.filter((r) => r.bond_tr_diff < 0).length / D.dem_rep_rolling.length;
 const ord = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
-
-function Card({ id, eyebrow, title, children }: { id: string; eyebrow: string; title: string; children: ReactNode }) {
-  return (
-    <section id={id} aria-labelledby={`${id}-h`} className="bg-surface border border-border rounded-xl shadow-card px-4 py-4 md:px-5 scroll-mt-4">
-      <div className="eyebrow">{eyebrow}</div>
-      <h2 id={`${id}-h`} className="font-serif font-bold text-[22px] leading-tight text-text mt-1 mb-3">{title}</h2>
-      {children}
-    </section>
-  );
-}
-
-function Tile({ label, value, sub }: { label: string; value: string; sub: string }) {
-  return (
-    <div className="rounded-lg border border-border bg-surface-2 px-3.5 py-3">
-      <div className="text-xs text-muted">{label}</div>
-      <div className="num font-serif font-bold text-[28px] leading-tight text-text my-1">{value}</div>
-      <div className="text-xs leading-[17px] text-muted">{sub}</div>
-    </div>
-  );
-}
-
-const Note = ({ children }: { children: ReactNode }) => <p className="text-xs leading-[18px] text-muted mt-2">{children}</p>;
-const Two = ({ children }: { children: ReactNode }) => <div className="grid gap-5 lg:grid-cols-2">{children}</div>;
-const Box = ({ title, children }: { title: string; children: ReactNode }) => <div className="min-w-0"><ChartTitle>{title}</ChartTitle>{children}</div>;
 
 function ShortAnswer() {
   const oos = (o: Out) => spct(v4(o)?.oos_r2);
