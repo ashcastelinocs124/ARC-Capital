@@ -3,8 +3,10 @@
 The Cover Artist (fast tier) turns the finished post into a 2-3 word title, one visual idea for the
 main story (a tug of war, a see-saw), 1 or 2 public figures acting in it and a few background
 details; code keeps only people tied to the post and the image model draws it once, in the next of
-four styles (`STYLES`, so no two covers in a row look alike; user ask 2026-10-29: more creative,
-bright not gloomy, people with tension in their faces, no numbers). If the image model refuses a real person, it redraws once with
+six styles (`STYLES`, so no two covers in a row look alike; user ask 2026-10-29: more creative,
+not gloomy, no numbers). Since 2026-11-05 (user ask, after the NVIDIA OpenAgent and Money for Machines
+covers): the face of the story presents the scene, and the scene carries one light gag, often tiny
+robots doing the work; the neon and painterly styles copy those two covers. If the image model refuses a real person, it redraws once with
 generic people. Nobody on the last 3 covers appears again (`RECENT`, logged with each cover's
 style in `data/cover_people.json`), so one face doesn't top every post. The PNG is cached next to the
 post's data, so a rerun never pays twice. substack.push() asks for a cover only when the draft has none, so a cover set by hand in
@@ -57,20 +59,28 @@ From its headline and stories, return:
   oil barrel, Treasury notes caught in the middle"; "a traffic light over Wall Street with red,
   amber and green all lit at once"; "a gleaming cloud-shaped data centre held down by ropes tied
   to a cash register". Name the companies or institutions in it so their logos or nameplates show.
+  Make it a bit funny: one light, good-natured gag a reader smiles at, aimed at the situation and
+  never at a person. The best covers draw the product or idea as a literal object with small cute
+  robots or tiny figures doing the work: "a glass sandbox box sitting on a giant NVIDIA chip,
+  tiny robots typing at little desks inside it while red hacker icons bounce off its walls";
+  "robots paying people in glowing coins along a bridge made of payment cards".
   Avoid people staring at screens and avoid charts, unless a chart is itself the joke. Refer to
   people in it by role ("the Fed chair"), never by name: their names go in people.
-  The mood is bright, clever and upbeat even on bad news: show tension with balance, weight, a
-  race or a tug of war, never with fire, smoke, storms, cracks, ruins or sad faces.
-- people: 1 or 2 public figures acting inside the concept (pulling the rope, steadying the scale,
-  running the race), the most newsworthy first. Always at least one: every post covers a company,
+  The mood is clever and upbeat even on bad news: show tension with balance, weight, a race or a
+  tug of war, never with fire, smoke, storms, cracks, ruins or sad faces.
+- people: 1 or 2 public figures, the face of the story (the person readers tie to it: an NVIDIA
+  product -> Jensen Huang, crypto payments -> Coinbase's CEO), presenting or acting inside the
+  concept (gesturing at it like a keynote host, pulling the rope, steadying the scale), the most
+  newsworthy first. Always at least one: every post covers a company,
   a central bank or a government, so take its leader. Prefer anyone the post names, then the
   leader of a company the stories name (Tesla -> Elon Musk, NVIDIA -> Jensen Huang), never the
   leader of a company the stories don't name. A central banker or minister only when a story is
   about that institution's own decision or that person's own words. Give the role as of the date
   given; if unsure who holds it, give your best guess (code checks it). People only, by full name.
   For each: role, org (the company or institution exactly as the post writes it, e.g. "NVIDIA",
-  "Fed") and look = what they are doing inside the concept, with tension in their face (gritted
-  teeth, furrowed brow, straining), never fear or sadness ("straining at the rope, jaw set").
+  "Fed") and look = what they are doing in the scene, expressive and in on the joke (mid-sentence
+  with an open hand toward the scene, a knowing half-smile, a raised eyebrow, jaw set on the
+  rope), never fear or sadness ("presenting the sandbox with an open hand, mid-sentence").
 - scene: 1 to 3 small background details for the other stories ("an oil tanker on the horizon",
   "a Vertiv cooling unit"). Labels are 1-3 words."""
 
@@ -78,17 +88,21 @@ From its headline and stories, return:
 STYLES = {
     "photo": "Photo-real editorial photograph in bright, clear morning light under a blue sky: crisp, "
     "optimistic, navy and warm amber accents, shallow depth of field.",
+    "neon": "Cinematic tech-keynote render: the scene sits on a giant circuit board or in a server hall, "
+    "glowing in the main company's brand colour, crisp detail, rich depth, the person lit like on stage.",
     "illustration": "Bold editorial magazine-cover illustration: flat colour shapes, clean confident "
     "lines on a light cream background, a cheerful palette of navy, sky blue, amber and teal, subtle "
     "paper grain.",
+    "painterly": "Detailed painterly anime-style illustration at dusk: a skyline of famous cities glowing "
+    "with lights, warm gold and electric-blue accents, clean ink lines, many small lively figures.",
     "poster": "1930s art deco travel-poster lithograph: strong geometry, sunlit sunburst rays, "
     "screen-printed texture, a bright palette of sky blue, gold, cream and navy.",
     "papercut": "Layered paper-cut diorama photographed in a studio: cut card in cream, sky blue, "
     "navy and amber, soft daylight shadows between the layers, shallow depth of field.",
 }
 
-STYLE = """A 16:9 cover image for a financial markets newsletter. {style} The mood is light and
-upbeat: a bright, open background, no fire, smoke, storm clouds or gloom.
+STYLE = """A 16:9 cover image for a financial markets newsletter. {style} The mood is light,
+upbeat and a little funny: no fire, smoke, storm clouds or gloom.
 The idea: {concept}. {scene}
 {people} No other recognisable real person appears: never draw Jerome Powell or anyone who looks
 like him, as he is no longer Fed chair (Kevin Warsh is). Add no other people; if the idea needs a
@@ -96,11 +110,12 @@ crowd, it is small generic figures. Large gold serif capital letters across the 
 "{title}", spelled exactly, with a thin gold rule beneath. No other words except short labels,
 logos and nameplates, and no numbers, prices or percentages anywhere in the image."""
 
-PEOPLE = """In the foreground, large and in sharp focus, {who}: recognisable likenesses in their
-public roles, in business suits, faces tense with effort and focus, dignified, never a caricature."""
+PEOPLE = """In the foreground, large at one side and in sharp focus, {who}: recognisable likenesses
+in their public roles and usual clothes, expressive and confident, in on the joke, dignified, never a
+caricature."""
 
-GENERIC = """Anyone the idea needs is a generic businessperson in a dark suit, face tense with
-effort, who must not resemble any real, recognisable person."""
+GENERIC = """Anyone the idea needs is a generic businessperson in a dark suit, expressive and in
+on the joke, who must not resemble any real, recognisable person."""
 
 
 class CoverArtist(StructuredAgent[CoverBrief]):
@@ -132,9 +147,13 @@ def prompt(brief: CoverBrief, text: str, *, people: bool = True, style: str = "p
     named = [p for p in tied if len(p.name.split()) >= 2][:2] if people else []
     who = "; ".join(f"{p.name} ({p.role}), {p.look}" for p in named)
     title = " ".join(brief.title.upper().split()[:3])[:28]
+    concept = brief.concept.strip().rstrip(".")
+    for p in brief.people:  # the brief names people in the concept despite the prompt (2026-11-05)
+        if len(p.name.split()) >= 2:  # a person, not a company listed as one
+            concept = concept.replace(p.name, f"the {p.role}")
     return STYLE.format(
         style=STYLES[style],
-        concept=brief.concept.strip().rstrip("."),
+        concept=concept,
         scene=f"In the background: {'; '.join(brief.scene[:3])}." if brief.scene else "",
         people=PEOPLE.format(who=who) if named else GENERIC,
         title=title,
@@ -239,7 +258,8 @@ def make(
             for p in brief.people
             if p.name in text or (who := holder(p))
         ]
-        brief.people = [p for p in brief.people if p.name not in avoid]
+        # the image prompt bans Powell; the role search still named him Fed chair on 2026-11-05
+        brief.people = [p for p in brief.people if p.name not in avoid and "Powell" not in p.name]
         style = next_style(path.name)
         try:
             draw(prompt(brief, text, style=style), path)

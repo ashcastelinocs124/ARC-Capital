@@ -43,18 +43,23 @@ def test_prompt_draws_in_the_given_style_with_no_numbers_and_at_most_two_people(
     assert cover.STYLES["poster"] in text and cover.STYLES["photo"] not in text
     assert "no numbers, prices or percentages" in text and "In the background" not in text
     assert "Satya Nadella" in text and "Lisa Su" not in text  # 2 people at most
+    brief.concept = "Lisa Su hands Satya Nadella the baton"
+    text = cover.prompt(brief, "Alphabet, Microsoft and AMD reported.", people=False)
+    assert "the CEO hands the CEO the baton" in text and "Nadella" not in text
 
 
 def test_each_cover_takes_the_next_style_so_no_two_in_a_row_match(tmp_path, monkeypatch):
     monkeypatch.setattr(cover, "_log", lambda: tmp_path / "cover_people.json")
     assert cover.next_style("a.png") == "photo"  # no covers yet
     (tmp_path / "cover_people.json").write_text('[{"key": "old.png", "people": []}]')
-    assert cover.next_style("a.png") == "illustration"  # covers before the rotation were photo
-    for key in ("a.png", "b.png", "c.png"):
+    assert cover.next_style("a.png") == "neon"  # covers before the rotation were photo
+    keys = ("a.png", "b.png", "c.png", "d.png", "e.png")
+    for key in keys:
         cover._remember(key, [], cover.next_style(key))
-    assert [r["style"] for r in cover._rows()[1:]] == ["illustration", "poster", "papercut"]
-    assert cover.next_style("d.png") == "photo"  # wraps around
-    assert cover.next_style("c.png") == "papercut"  # a redraw keeps its own style
+    styles = ["neon", "illustration", "painterly", "poster", "papercut"]
+    assert [r["style"] for r in cover._rows()[1:]] == styles
+    assert cover.next_style("f.png") == "photo"  # wraps around
+    assert cover.next_style("e.png") == "papercut"  # a redraw keeps its own style
 
 
 def test_prompt_never_draws_jerome_powell_as_fed_chair():
