@@ -56,11 +56,15 @@ def test_feed_fetch_asks_for_a_fresh_build(monkeypatch):
     assert "t" in (seen[0].get("params") or {})
 
 
-def test_archive_pages_until_nothing_new(monkeypatch):
-    """Substack sends ~25 posts a call whatever the limit: one call lost the AI posts by 2026-10-27."""
+def test_archive_pages_by_cursor_until_the_end(monkeypatch):
+    """Since 2026-11-05 Substack pages the archive by ?cursor= and refuses offset (400)."""
     from castelino.dashboard.endpoints import videos
 
-    pages = {0: [{"id": 3}, {"id": 2}], 2: [{"id": 2}, {"id": 1}], 3: [{"id": 1}]}
+    pages = {
+        None: {"posts": [{"id": 3}, {"id": 2}], "nextCursor": "a"},
+        "a": {"posts": [{"id": 2}, {"id": 1}], "nextCursor": "b"},
+        "b": {"posts": [{"id": 0}], "nextCursor": None},
+    }
 
     class Reply:
         def __init__(self, body):
@@ -74,6 +78,29 @@ def test_archive_pages_until_nothing_new(monkeypatch):
 
     monkeypatch.setattr(videos, "_archive", (0.0, []))
     monkeypatch.setattr(
-        videos.httpx, "get", lambda url, params, **kw: Reply(pages[params["offset"]])
+        videos.httpx,
+        "get",
+        lambda url, params, **kw: (
+            Reply(pages[params.get("cursor")])
+            if "offset" not in params and params["limit"] <= 25
+            else None
+        ),
     )
-    assert [p["id"] for p in videos.archive_json()] == [3, 2, 1]
+    assert [p["id"] for p in videos.archive_json()] == [3, 2, 1, 0]
+
+
+def test_archive_videos_lists_old_videos_once():
+    from castelino.dashboard.endpoints.videos import archive_videos
+
+    post = "https://archresearch.substack.com/p/"
+    archive = [
+        {"type": "podcast", "videoUpload": {}, "canonical_url": post + "a", "slug": "a",
+         "post_date": "2026-10-07T12:00:00Z", "title": "Neolabs", "podcast_duration": 2170.6},
+        {"type": "newsletter", "canonical_url": post + "b", "slug": "b", "post_date": "2026-10-06"},
+        {"type": "newsletter", "canonical_url": post + "weekly-market-update-1",
+         "slug": "weekly-market-update-1", "post_date": "2026-09-20"},
+        {"type": "podcast", "canonical_url": post + "c", "slug": "c", "post_date": "2026-09-01"},
+    ]  # fmt: skip
+    vids = archive_videos(archive, seen={post + "c"})
+    assert [v["url"].rsplit("/", 1)[-1] for v in vids] == ["a", "weekly-market-update-1"]
+    assert vids[0]["duration"] == 2171 and vids[0]["date"] == "2026-10-07"

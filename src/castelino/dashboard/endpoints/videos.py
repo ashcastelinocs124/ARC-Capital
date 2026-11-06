@@ -14,9 +14,7 @@ router = APIRouter()
 
 FEED = "https://archresearch.substack.com/feed"
 ARCHIVE = "https://archresearch.substack.com/api/v1/archive"  # has video covers and durations
-ARCHIVE_PAGES = (
-    10  # Substack sends ~25 posts a call whatever the limit (75 posts = 3 calls on 2026-10-27)
-)
+ARCHIVE_PAGES = 20  # 25 posts a call (Substack's cap), so up to 500 posts
 POST_PREFIX = "https://archresearch.substack.com/p/"
 _CONTENT = "{http://purl.org/rss/1.0/modules/content/}encoded"
 _TTL_S = 3600
@@ -58,22 +56,26 @@ def feed_xml() -> str:
 
 def archive_json() -> list[dict]:
     """Substack's whole post archive (covers, durations, sections), newest first, cached for an hour.
-    Paged: one call stopped at Oct 9 by Oct 27, so the AI posts fell off their pages. Raises on an error."""
+    Paged: one call stopped at Oct 9 by Oct 27, so the AI posts fell off their pages. Since 2026-11-05
+    Substack answers {"posts", "nextCursor"}, pages with ?cursor= and refuses offset and limit > 25 (400),
+    which had emptied every page fed by it. Raises on an error."""
     global _archive
     if time.time() - _archive[0] >= _TTL_S:
         posts: dict = {}
+        cursor = None
         for _ in range(ARCHIVE_PAGES):
-            params = {"sort": "new", "limit": 50, "offset": len(posts)}
+            params = {"sort": "new", "limit": 25} | ({"cursor": cursor} if cursor else {})
             r = httpx.get(ARCHIVE, params=params, timeout=20)
             r.raise_for_status()
             page = r.json()
-            if not isinstance(page, list):
+            if not isinstance(page, dict) or not isinstance(page.get("posts"), list):
                 raise ValueError("unexpected archive reply")
-            new = {p.get("id") or p.get("slug"): p for p in page}
+            new = {p.get("id") or p.get("slug"): p for p in page["posts"]}
             new = {k: p for k, p in new.items() if k not in posts}
-            if not new:
-                break
             posts.update(new)
+            cursor = page.get("nextCursor")
+            if not new or not cursor:
+                break
         _archive = (time.time(), list(posts.values()))
     return _archive[1]
 
@@ -118,6 +120,36 @@ def parse_videos(xml: str, archive: list[dict] | None = None) -> list[dict]:
     return out
 
 
+# Newsletter posts with a video embedded in the body. The archive list has no body, so once one leaves the
+# RSS feed's newest 20 it is listed only from here.
+EMBED_VIDEOS = {"weekly-market-update-1"}
+
+
+def archive_videos(archive: list[dict], seen: set[str]) -> list[dict]:
+    """The video posts the RSS feed (its newest 20) no longer carries: by 2026-11-05 none was left in it."""
+    out = []
+    for p in archive:
+        url, slug = p.get("canonical_url") or "", p.get("slug") or ""
+        is_video = p.get("videoUpload") or p.get("type") == "podcast" or slug in EMBED_VIDEOS
+        if not is_video or not url.startswith(POST_PREFIX) or url in seen:
+            continue
+        cover = p.get("cover_image") or ""
+        out.append(
+            {
+                "title": (p.get("title") or "").strip(),
+                "url": url,
+                "date": (p.get("post_date") or "")[:10],
+                "summary": (p.get("description") or p.get("subtitle") or "").strip(),
+                "thumbnail": THUMB_OVERRIDES.get(
+                    slug,
+                    cover if cover.startswith("https://substack-video.s3.amazonaws.com/") else None,
+                ),
+                "duration": round(p["podcast_duration"]) if p.get("podcast_duration") else None,
+            }
+        )
+    return out
+
+
 @router.get("/videos")
 def videos():
     global _cache
@@ -129,7 +161,9 @@ def videos():
             archive = archive_json()
         except (httpx.HTTPError, ValueError):
             archive = []  # thumbnails and durations are optional
-        _cache = (time.time(), parse_videos(xml, archive))
+        vids = parse_videos(xml, archive)
+        vids += archive_videos(archive, {v["url"] for v in vids})
+        _cache = (time.time(), sorted(vids, key=lambda v: v["date"], reverse=True))
     except (httpx.HTTPError, ET.ParseError, ValueError):
         return _cache[
             1
