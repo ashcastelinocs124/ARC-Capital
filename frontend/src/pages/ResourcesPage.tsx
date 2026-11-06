@@ -17,7 +17,7 @@ const BOOK = {
   parts: ["How the economy works", "Policy makers", "The asset classes", "The global system", "Doing macro"],
 };
 
-type Deck = { title: string; date: string; slides: number; blurb: string; pdf: string };
+type Deck = { title: string; date: string; slides: number; blurb: string; pdf: string; video?: string }; // video: the talk's Substack post
 const GROUPS: { name: string; sub: string; color: string; decks: Deck[] }[] = [
   { name: "AI models", sub: "the labs, the models and how AI gets used and paid for", color: C.ai, decks: [
     { title: "Learning on the job: continual learning for LLMs", date: "Oct 8, 2026", slides: 50, pdf: `${CDN}AI/ai-update/Continual%20Learning%20Labs%20%26%20Neolabs.pdf`,
@@ -35,6 +35,7 @@ const GROUPS: { name: string; sub: string; color: string; decks: Deck[] }[] = [
   ] },
   { name: "Macro", sub: "elections, policy and where capital goes", color: C.inflation, decks: [
     { title: "Data Centers on the Ballot", date: "Nov 5, 2026", slides: 28, pdf: `${SITE}data-centers-on-the-ballot.pdf`,
+      video: "https://archresearch.substack.com/p/data-center-buildout-should-not-be",
       blurb: "A 50-state rules index, $450B of announced projects, what the 2026 winners said, and voters turning against them." },
     { title: "Brazil 2026: the runoff, the market, the Congress", date: "Oct 8, 2026", slides: 57, pdf: `${SITE}brazil-2026.pdf`,
       blurb: "Brazil's Lula vs Flávio Bolsonaro runoff, how markets reacted, the new Congress and the macro backdrop." },
@@ -194,6 +195,11 @@ export default function ResourcesPage() {
                     View
                   </button>
                   <DownloadButton deck={d} className={SECONDARY} label="Download" />
+                  {d.video && (
+                    <a href={d.video} {...out} className={SECONDARY} aria-label={`Watch the talk: ${d.title} (opens Substack)`}>
+                      Watch <ArrowUpRight className="h-3.5 w-3.5" />
+                    </a>
+                  )}
                 </div>
               </div>
             ))}

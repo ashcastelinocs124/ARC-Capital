@@ -535,7 +535,12 @@ export default function DataCentersPage() {
         kicker="Dashboard · AI Data Centers & the 2026 Vote"
         title="Did the 2026 election turn against AI data centers?"
         steps={["Winners", "By party", "Company exposure", "Regulatory index", "Money vs rules", "Public opinion"]}
-        when={{ label: "As of", value: "Nov 4, 2026", note: <span className="block">Results as projected; a fixed snapshot</span> }}
+        when={{ label: "As of", value: "Nov 4, 2026", note: <>
+          <span className="block">Results as projected; a fixed snapshot</span>
+          <a href="https://archresearch.substack.com/p/data-center-buildout-should-not-be" target="_blank" rel="noopener noreferrer" className="mt-1 inline-block font-semibold text-accent hover:text-accent-hover">
+            Watch the talk ↗
+          </a>
+        </> }}
       >
         Where every 2026 Senate and governor winner stands on data centers and AI, how much announced company money sits in
         their states, a 50-state index of how hard it is to build and run a large AI data center, and what national polls show.
