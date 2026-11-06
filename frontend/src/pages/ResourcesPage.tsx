@@ -35,7 +35,7 @@ const GROUPS: { name: string; sub: string; color: string; decks: Deck[] }[] = [
   ] },
   { name: "Macro", sub: "elections, policy and where capital goes", color: C.inflation, decks: [
     { title: "Data Centers on the Ballot", date: "Nov 5, 2026", slides: 28, pdf: `${SITE}data-centers-on-the-ballot.pdf`,
-      video: "https://archresearch.substack.com/p/data-center-buildout-should-not-be",
+      video: "https://archresearch.substack.com/p/data-center-buildout-not-to-be-worried",
       blurb: "A 50-state rules index, $450B of announced projects, what the 2026 winners said, and voters turning against them." },
     { title: "Brazil 2026: the runoff, the market, the Congress", date: "Oct 8, 2026", slides: 57, pdf: `${SITE}brazil-2026.pdf`,
       blurb: "Brazil's Lula vs Flávio Bolsonaro runoff, how markets reacted, the new Congress and the macro backdrop." },

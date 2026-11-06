@@ -537,7 +537,7 @@ export default function DataCentersPage() {
         steps={["Winners", "By party", "Company exposure", "Regulatory index", "Money vs rules", "Public opinion"]}
         when={{ label: "As of", value: "Nov 4, 2026", note: <>
           <span className="block">Results as projected; a fixed snapshot</span>
-          <a href="https://archresearch.substack.com/p/data-center-buildout-should-not-be" target="_blank" rel="noopener noreferrer" className="mt-1 inline-block font-semibold text-accent hover:text-accent-hover">
+          <a href="https://archresearch.substack.com/p/data-center-buildout-not-to-be-worried" target="_blank" rel="noopener noreferrer" className="mt-1 inline-block font-semibold text-accent hover:text-accent-hover">
             Watch the talk ↗
           </a>
         </> }}
