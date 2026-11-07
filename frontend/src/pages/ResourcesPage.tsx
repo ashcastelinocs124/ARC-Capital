@@ -20,6 +20,8 @@ const BOOK = {
 type Deck = { title: string; date: string; slides: number; blurb: string; pdf: string; video?: string }; // video: the talk's Substack post
 const GROUPS: { name: string; sub: string; color: string; decks: Deck[] }[] = [
   { name: "AI models", sub: "the labs, the models and how AI gets used and paid for", color: C.ai, decks: [
+    { title: "AI models & semis update", date: "Nov 7, 2026", slides: 46, pdf: `${SITE}ai-models-semis-2026-11-07.pdf`,
+      blurb: "How Thinking Machines and Cognition trained their new models, METR on AI R&D speed, TSMC's 3D DRAM and DeepSeek on Ascend." },
     { title: "Learning on the job: continual learning for LLMs", date: "Oct 8, 2026", slides: 50, pdf: `${CDN}AI/ai-update/Continual%20Learning%20Labs%20%26%20Neolabs.pdf`,
       blurb: "How LLMs could keep learning after deployment, the labs betting on it, and what it means for chips." },
     { title: "Neoclouds & Neolabs", date: "Oct 6, 2026", slides: 63, pdf: `${CDN}Finance/market-update/Neoclouds%20%26%20Neolabs.pdf`,
