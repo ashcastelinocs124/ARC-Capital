@@ -45,8 +45,9 @@ const GROUPS: { name: string; sub: string; color: string; decks: Deck[] }[] = [
       blurb: "How AI, energy, government debt, metals and crypto connect, and where capital may be positioned next." },
   ] },
   { name: "Weekly market updates", sub: "the week in markets, presented live", color: C.jobs, decks: [
-    { title: "Weekly Market Update #4 | The AI unwind", date: "Week of Nov 2–6, 2026", slides: 53, pdf: `${SITE}weekly-market-update-2026-11-06.pdf`,
-      blurb: "An election rally, then the Nov 5 AI crash: chips fell 12.1% on the week; the rotation, the fundamentals and Asia." },
+    { title: "Weekly Market Update #4 | The AI unwind", date: "Week of Nov 2–6, 2026", slides: 55, pdf: `${SITE}weekly-market-update-2026-11-06.pdf`,
+      blurb: "An election rally, then the Nov 5 AI crash: chips fell 12.1% on the week; the rotation, the fundamentals and Asia.",
+      video: "https://archresearch.substack.com/p/weekly-market-update" },
     { title: "Weekly Market Update #3 | Rotation week: tech sinks, small caps hold", date: "Week of Oct 26–30, 2026", slides: 40, pdf: `${SITE}weekly-market-update-2026-10-30.pdf`,
       blurb: "Money left megacap tech for small caps as Alphabet and Intel sank, the Fed held 10–2 and Anthropic filed its S-1." },
     { title: "Weekly Market Update #2 | Tech blinks, the Dow holds", date: "Week of Oct 12–16, 2026", slides: 38, pdf: `${SITE}weekly-market-update-2026-10-16.pdf`,

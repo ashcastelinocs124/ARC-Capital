@@ -37,6 +37,7 @@ THUMB_OVERRIDES = {
     "september-inflation-accelerated-as": "/thumbs/inflation-heats-up.jpg",
     "data-center-buildout-not-to-be-worried": "/thumbs/data-center-buildout.jpg",
     "brazil-2026-the-runoff-the-market": "/thumbs/brazil-2026.jpg",
+    "weekly-market-update": "/thumbs/weekly-market-update-4.jpg",
     # Theme Charts posts published before they got a drawn cover (2026-10-20)
     "ai-rout-sends-investors-toward-treasuries": "/thumbs/theme-charts-2026-10-15.jpg",
     "hot-ppi-fails-to-shake-fed-hold-bets": "/thumbs/theme-charts-2026-10-16.jpg",
