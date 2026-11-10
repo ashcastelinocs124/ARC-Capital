@@ -47,6 +47,8 @@ const GROUPS: { name: string; sub: string; color: string; decks: Deck[] }[] = [
       blurb: "How AI, energy, government debt, metals and crypto connect, and where capital may be positioned next." },
   ] },
   { name: "Market updates", sub: "the week in markets, presented live", color: C.jobs, decks: [
+    { title: "Market Update #5 | A broad 2% rebound, minus Nvidia", date: "Nov 9, 2026", slides: 28, pdf: `${SITE}daily-market-update-2026-11-09.pdf`,
+      blurb: "Every major index gained over 2% as oil slid and chips bounced; Nvidia fell 4.2% on a board inquiry, with CPI next." },
     { title: "Market Update #4 | The AI unwind", date: "Week of Nov 2–6, 2026", slides: 55, pdf: `${SITE}weekly-market-update-2026-11-06.pdf`,
       blurb: "An election rally, then the Nov 5 AI crash: chips fell 12.1% on the week; the rotation, the fundamentals and Asia.",
       video: "https://archresearch.substack.com/p/weekly-market-update" },
