@@ -17,10 +17,11 @@ const BOOK = {
   parts: ["How the economy works", "Policy makers", "The asset classes", "The global system", "Doing macro"],
 };
 
-type Deck = { title: string; date: string; slides: number; blurb: string; pdf: string; video?: string }; // video: the talk's Substack post
+type Deck = { title: string; date: string; slides: number; blurb: string; pdf: string; video?: string }; // video: the talk (Substack post or YouTube)
 const GROUPS: { name: string; sub: string; color: string; decks: Deck[] }[] = [
   { name: "AI models", sub: "the labs, the models and how AI gets used and paid for", color: C.ai, decks: [
     { title: "Anthropic's S-1: the IPO teardown", date: "Nov 10, 2026", slides: 86, pdf: `${SITE}anthropic-s1-ipo-teardown.pdf`,
+      video: "https://www.youtube.com/watch?v=Mpze8dW0fSo",
       blurb: "Anthropic's IPO at $70–$78 a share: $33.2B of revenue in nine months, a $104B loss that is mostly accounting, an $895B compute bill and founder control." },
     { title: "AI models & semis update", date: "Nov 7, 2026", slides: 46, pdf: `${SITE}ai-models-semis-2026-11-07.pdf`,
       blurb: "How Thinking Machines and Cognition trained their new models, METR on AI R&D speed, TSMC's 3D DRAM and DeepSeek on Ascend." },
@@ -205,7 +206,7 @@ export default function ResourcesPage() {
                   </button>
                   <DownloadButton deck={d} className={SECONDARY} label="Download" />
                   {d.video && (
-                    <a href={d.video} {...out} className={SECONDARY} aria-label={`Watch the talk: ${d.title} (opens Substack)`}>
+                    <a href={d.video} {...out} className={SECONDARY} aria-label={`Watch the talk: ${d.title} (opens ${d.video.includes("youtube.com") ? "YouTube" : "Substack"})`}>
                       Watch <ArrowUpRight className="h-3.5 w-3.5" />
                     </a>
                   )}
