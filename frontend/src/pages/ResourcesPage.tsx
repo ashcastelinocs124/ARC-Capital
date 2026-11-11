@@ -48,6 +48,8 @@ const GROUPS: { name: string; sub: string; color: string; decks: Deck[] }[] = [
       blurb: "How AI, energy, government debt, metals and crypto connect, and where capital may be positioned next." },
   ] },
   { name: "Market updates", sub: "the week in markets, presented live", color: C.jobs, decks: [
+    { title: "Market Update #6 | Hot CPI, a narrow slip, Nvidia hit", date: "Nov 10, 2026", slides: 35, pdf: `${SITE}daily-market-update-2026-11-10.pdf`,
+      blurb: "Hot October CPI (+0.4%) lifted the 2-year yield ~19bp; the S&P 500 slipped 0.38%, mostly on Nvidia's 5.5% drop, as CoreWeave beat." },
     { title: "Market Update #5 | A broad 2% rebound, minus Nvidia", date: "Nov 9, 2026", slides: 28, pdf: `${SITE}daily-market-update-2026-11-09.pdf`,
       blurb: "Every major index gained over 2% as oil slid and chips bounced; Nvidia fell 4.2% on a board inquiry, with CPI next." },
     { title: "Market Update #4 | The AI unwind", date: "Week of Nov 2–6, 2026", slides: 55, pdf: `${SITE}weekly-market-update-2026-11-06.pdf`,
