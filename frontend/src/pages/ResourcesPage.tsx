@@ -33,6 +33,8 @@ const GROUPS: { name: string; sub: string; color: string; decks: Deck[] }[] = [
       blurb: "Crypto payment rails for AI agents are built and backed by incumbents; real agent demand is still tiny." },
   ] },
   { name: "Semis & chips", sub: "the GPUs, data centers and cooling that AI runs on", color: C.earnings, decks: [
+    { title: "NVIDIA after Jensen", date: "Nov 12, 2026", slides: 69, pdf: `${SITE}nvidia-after-jensen.pdf`,
+      blurb: "Jensen Huang's exit: the probe, interim CEO Colette Kress, a $99.4B balance sheet, the Apple comparison and why this is not a Tim Cook moment." },
     { title: "Cooling the AI GPU", date: "Oct 26, 2026", slides: 37, pdf: `${SITE}cooling-ai-gpu.pdf`,
       blurb: "Single-phase vs two-phase liquid cooling: why AI racks need it, OCP's specs, the fluid risk and who profits." },
     { title: "AI Data Centers Are Going to Space", date: "Sep 24, 2026", slides: 22, pdf: `${SITE}ai-data-centers-space.pdf`,
