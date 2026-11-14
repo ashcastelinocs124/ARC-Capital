@@ -41,6 +41,8 @@ const GROUPS: { name: string; sub: string; color: string; decks: Deck[] }[] = [
       blurb: "Google's Project Suncatcher, and the five engineering problems between a design paper and an orbital AI cluster." },
   ] },
   { name: "Macro", sub: "elections, policy and where capital goes", color: C.inflation, decks: [
+    { title: "How we got to the AI trade", date: "Nov 11, 2026", slides: 95, pdf: `${SITE}how-we-got-to-the-ai-trade.pdf`,
+      blurb: "Eight chapters from ChatGPT in late 2022 to the November 2026 selloff: Nvidia's run, power and TSMC, the memory squeeze, DeepSeek, circular deals and the IPOs." },
     { title: "Data Centers on the Ballot", date: "Nov 5, 2026", slides: 28, pdf: `${SITE}data-centers-on-the-ballot.pdf`,
       video: "https://archresearch.substack.com/p/data-center-buildout-not-to-be-worried",
       blurb: "A 50-state rules index, $450B of announced projects, what the 2026 winners said, and voters turning against them." },
