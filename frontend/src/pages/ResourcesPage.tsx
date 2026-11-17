@@ -53,6 +53,8 @@ const GROUPS: { name: string; sub: string; color: string; decks: Deck[] }[] = [
       blurb: "How AI, energy, government debt, metals and crypto connect, and where capital may be positioned next." },
   ] },
   { name: "Market updates", sub: "the week in markets, presented live", color: C.jobs, decks: [
+    { title: "Market Update #8 | A chip-led slide before Nvidia", date: "Nov 16, 2026", slides: 42, pdf: `${SITE}daily-market-update-2026-11-16.pdf`,
+      blurb: "Chips fell 5.3% and the S&P 500 1.92% before Nvidia's results, leaving the Nasdaq in correction; only 2 of 11 sectors rose, while small caps and India held up." },
     { title: "Market Update #7 | The AI trade is back, but narrow", date: "Nov 11, 2026", slides: 30, pdf: `${SITE}daily-market-update-2026-11-11.pdf`,
       blurb: "CoreWeave's beat lifted chips 5.7% and the S&P 500 1.31%, but the average stock lagged; Nvidia then fell 8% after hours on CEO reports." },
     { title: "Market Update #6 | Hot CPI, a narrow slip, Nvidia hit", date: "Nov 10, 2026", slides: 35, pdf: `${SITE}daily-market-update-2026-11-10.pdf`,
