@@ -92,7 +92,7 @@ def sector_text(s: ss.SectorScore, names: dict[str, str], as_of: str) -> str:
     score = s.fg_score
     if score is None:
         score = fear_greed.sector_score(s.divergence, cfg.euphoric_threshold, cfg.fearful_threshold)
-    head = f"Sector Sentiment, {s.sector} ({s.etf})" + (
+    head = f"Sector Sentiment, {s.sector}" + (  # no ETF ticker: the note never names a fund
         f", within {s.part_of}" if s.part_of else ""
     )
     parts = [f"{head}, {as_of}: {score} of 100, {MOOD.get(s.label, s.label)}"]

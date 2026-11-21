@@ -61,6 +61,7 @@ def test_gather_facts_builds_release_and_market_facts():
     assert rel.series.points[-1].label == "Aug 2026 data"
     dgs2 = next(f for f in facts if f.text.startswith("DGS2"))
     assert "bp" in dgs2.text and dgs2.series.provider == "fred" and dgs2.series.kind == "daily"
+    assert any(f.text.startswith("S&P 500 (equities)") for f in facts)  # SPY by what it holds
 
 
 def test_gather_facts_records_a_gap_when_a_source_fails():

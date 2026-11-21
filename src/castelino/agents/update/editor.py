@@ -74,6 +74,9 @@ Rules:
   importance 1-5 (5 = always relevant).
 - Write about today's findings. Memory is background for comparison only, never a topic on
   its own: don't revive an old theme unless today's findings move it.
+- Never name an ETF or fund or its ticker (XLK, SPY, QQQ, HYG, SMH), in any text or chart label
+  or title: say what it holds ("tech stocks", "the S&P 500", "the Nasdaq 100", "high yield
+  bonds", "chip stocks"). Companies keep "Name (TICKER)".
 - Give a reasoned read (what the move implies, what to watch), never a recommendation: no
   buy/sell, positioning or price targets. No investment advice.
 ARC view (only if a "Consultants" section is present): ARC's topic consultants follow one topic

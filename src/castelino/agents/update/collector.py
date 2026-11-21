@@ -23,6 +23,26 @@ log = logging.getLogger(__name__)
 
 SECTORS = ["XLE", "XLF", "XLI", "XLV", "XLK", "XLY"]
 EQUITY_IDS = ["SPY", "QQQ", *SECTORS]
+# What each fund holds, in words: the note names the market, never the fund or its ticker
+# ("tech stocks", not XLK; user rule 2026-11-20), so the facts the agents read carry these names.
+PLAIN_NAMES = {
+    "SPY": "S&P 500",
+    "QQQ": "Nasdaq 100",
+    "XLE": "Energy stocks",
+    "XLF": "Financial stocks",
+    "XLI": "Industrial stocks",
+    "XLV": "Health care stocks",
+    "XLK": "Tech stocks",
+    "XLY": "Consumer discretionary stocks",
+    "TLT": "20+ year Treasuries",
+    "IEF": "7 to 10 year Treasuries",
+    "SHY": "1 to 3 year Treasuries",
+    "LQD": "Investment grade bonds",
+    "HYG": "High yield bonds",
+    "GLD": "Gold",
+    "USO": "Oil",
+    "UNG": "Natural gas",
+}
 BARS = {"1d": 1, "1w": 5, "1m": 21, "3m": 63, "6m": 126, "12m": 252}
 # (FRED id, display name, transform)
 RELEASES = [

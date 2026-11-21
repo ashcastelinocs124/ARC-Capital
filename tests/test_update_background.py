@@ -73,6 +73,13 @@ def test_stock_fact_horizons_and_range():
     assert f.series.provider == "yahoo" and f.series.id == "CBRS"
 
 
+def test_stock_fact_names_a_fund_by_what_it_holds():
+    f = bg.stock_fact("bg-s1", "XLK", "XLK", closes(), date.fromisoformat(DAY))
+    assert f.text.startswith("Background, Tech stocks price history") and "XLK" not in f.text
+    assert f.series.id == "XLK" and f.series.label == "Tech stocks"
+    assert f.source_title == "Yahoo Finance"  # chart footers print it
+
+
 def test_stock_fact_ignores_closes_after_the_day():
     s = closes(end="2026-10-20")
     f = bg.stock_fact("bg-s1", "X", "X", s, date.fromisoformat(DAY))

@@ -28,6 +28,7 @@ from pathlib import Path
 import pandas as pd
 
 from castelino.agents.update.charts import is_rate
+from castelino.agents.update.collector import PLAIN_NAMES
 from castelino.agents.update.guard import _FIG
 from castelino.agents.update.models import Fact, Finding, Point, SeriesRef
 
@@ -198,13 +199,15 @@ def stock_fact(fid: str, ticker: str, name: str, s: pd.Series, day: date) -> Fac
     parts = [f"last close ${last:,.2f} ({end:%b %-d, %Y})"]
     parts += [f"{label} {v:+.2f}%" for label, v in moves if v is not None]
     parts.append(f"{span} high ${hi:,.2f}, low ${lo:,.2f}, {below:.2f}% below the high")
+    name = PLAIN_NAMES.get(ticker, name)  # a fund is named by what it holds, never its ticker
+    who = name if ticker in PLAIN_NAMES else f"{name} ({ticker})"
     return Fact(
         id=fid,
-        text=f"Background, {name} ({ticker}) price history: " + "; ".join(parts),
+        text=f"Background, {who} price history: " + "; ".join(parts),
         numbers=[round(last, 2), *(v for _, v in moves if v is not None), hi, lo, below],
         provenance="data",
         series=SeriesRef(kind="daily", provider="yahoo", id=ticker, label=name),
-        source_title=f"Yahoo Finance {ticker}",
+        source_title="Yahoo Finance" if ticker in PLAIN_NAMES else f"Yahoo Finance {ticker}",
         source_url=f"https://finance.yahoo.com/quote/{ticker}",
     )
 

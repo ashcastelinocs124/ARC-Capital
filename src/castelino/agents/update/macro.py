@@ -7,7 +7,12 @@ from datetime import date, timedelta
 
 from castelino.agents.base import StructuredAgent
 from castelino.agents.update import bls
-from castelino.agents.update.collector import asset_groups, collect, default_fetch_monthly
+from castelino.agents.update.collector import (
+    PLAIN_NAMES,
+    asset_groups,
+    collect,
+    default_fetch_monthly,
+)
 from castelino.agents.update.facts import PICKER_RULES, drafts_prompt, to_findings
 from castelino.agents.update.models import (
     AgentOutput,
@@ -74,19 +79,23 @@ def market_facts(snap: MarketSnapshot, start: int) -> list[Fact]:
             parts = [f"{k} {v:+.2f}{unit}" for k, v in w.items() if v is not None]
             if not parts:
                 continue
+            name = PLAIN_NAMES.get(iid, iid)
             out.append(
                 Fact(
                     id=f"M{start + len(out)}",
-                    text=f"{iid} ({cls}): " + ", ".join(parts),
+                    text=f"{name} ({cls}): " + ", ".join(parts),
                     numbers=[v for v in w.values() if v is not None],
                     provenance="data",
                     series=SeriesRef(
                         kind="daily",
                         provider="fred" if fred else "yahoo",
                         id=inst.symbol,
-                        label=iid,
+                        label=name,
                     ),
-                    source_title=f"{'FRED' if fred else 'Yahoo Finance'} {inst.symbol}",
+                    # chart footers print this, so a fund's ticker stays out of it too
+                    source_title="Yahoo Finance"
+                    if iid in PLAIN_NAMES
+                    else f"{'FRED' if fred else 'Yahoo Finance'} {inst.symbol}",
                     source_url=(
                         f"https://fred.stlouisfed.org/series/{inst.symbol}"
                         if fred

@@ -170,7 +170,8 @@ def _bars(ex: ExhibitPick, diverging: bool, keep_order: bool = False, signed: bo
                 [lb if len(lb) <= 16 else lb[:15] + "…" for lb in labels], fontsize=8
             )
             ax.axhline(0, color=INK2, lw=1)
-            span = max(vals) - min(min(vals), 0) or 1  # headroom so end labels clear the axes
+            # headroom so end labels clear the axes; the axis always spans 0, so all-negative bars too
+            span = max(max(vals), 0) - min(min(vals), 0) or 1
             ax.set_ylim(min(min(vals), 0) - 0.18 * span, max(max(vals), 0) + 0.18 * span)
             for b, v in zip(bars, vals, strict=True):
                 ax.text(
@@ -188,7 +189,7 @@ def _bars(ex: ExhibitPick, diverging: bool, keep_order: bool = False, signed: bo
             ax.set_yticks(y)
             ax.set_yticklabels(labels, fontsize=8.5)
             ax.axvline(0, color=INK2, lw=1)
-            span = max(vals) - min(min(vals), 0) or 1
+            span = max(max(vals), 0) - min(min(vals), 0) or 1
             for yi, v in zip(y, vals, strict=True):  # label just outside the bar's end
                 ax.text(
                     v + (0.02 if v >= 0 else -0.02) * span,

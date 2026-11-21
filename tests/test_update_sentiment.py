@@ -71,7 +71,7 @@ def test_the_readings_become_explaining_facts_and_one_finding():
     assert {3.16, 45, 17, 41} <= set(x[2].numbers)
     # strongest sector first; its mood, the price-vs-fundamentals split and how broad it is, in words
     assert x[4].text == (
-        "Sector Sentiment, Semiconductors (SMH), within Technology, as of October 14 09:35 ET: 22 of "
+        "Sector Sentiment, Semiconductors, within Technology, as of October 14 09:35 ET: 22 of "
         "100, fearful: prices have fallen further than the earnings outlook; 27 at the previous "
         "reading; price trend weak, fundamentals about average; sector-wide, 7 of its 10 largest "
         "stocks lean the same way."

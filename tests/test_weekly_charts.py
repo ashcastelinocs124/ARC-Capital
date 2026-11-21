@@ -184,3 +184,17 @@ def test_a_form_its_facts_cannot_support_is_dropped(tmp_path):
     bad = pick("compare", ["A1"])  # one series
     out = make_weekly_exhibits(one_section_report([bad], ["A1"]), facts_for_bars(), tmp_path)
     assert out == []
+
+
+def test_all_negative_bars_leave_room_for_the_end_label():
+    """Nov 20 note: three falling markets put "-7.27%" on top of its row's name."""
+    import matplotlib.pyplot as plt
+
+    from castelino.agents.weekly.charts import _bars
+
+    pts = [("M1", "S&P 500", -3.64), ("M2", "Nasdaq 100", -5.67), ("M7", "Tech stocks", -7.27)]
+    draw, _ = _bars(pick("movers", [], pts, unit="%"), diverging=False)
+    fig, ax = plt.subplots()
+    draw(ax)
+    assert ax.get_xlim()[0] <= -7.27 - 0.25 * 7.27  # padded by the whole axis, 0 to the lowest bar
+    plt.close(fig)
